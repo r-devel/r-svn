@@ -185,3 +185,9 @@ SEXP make_altrep_with_bytes(SEXP payload)
 
     return ans;
 }
+
+/* The resizable-vector API in Rinternals.h: R_allocResizableVector()
+   has no way to name a width and a kind, so the type is not one it can
+   make, and R_duplicateAsResizable() must not accept what its sibling
+   cannot produce. */
+SEXP resizable(SEXP x) { return R_duplicateAsResizable(x); }

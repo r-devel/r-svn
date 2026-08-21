@@ -584,11 +584,25 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     /* prod() is a double for every type -- ans_type below is REALSXP
        for it unconditionally -- so a 'bytes' operand converts and takes
        the ordinary path rather than saturating at its own width.  sum()
-       keeps the type, as it does for integer. */
-    if (PRIMVAL(op) == 4)
+       keeps the type, as it does for integer.
+
+       The operands answer to the same rule as every other summary's,
+       and are held to it before any of them is converted: afterwards
+       there is no 'bytes' vector left to refuse a double operand
+       against, and prod() would be the one place in the type that takes
+       one silently. */
+    if (PRIMVAL(op) == 4) {
+	bool anyBytes = false;
 	for (SEXP t = args; t != R_NilValue; t = CDR(t))
-	    if (TYPEOF(CAR(t)) == BYTESXP)
-		SETCAR(t, coerceVector(CAR(t), REALSXP));
+	    if (TYPEOF(CAR(t)) == BYTESXP) { anyBytes = true; break; }
+
+	if (anyBytes) {
+	    R_bytesSummaryType(call, PRIMVAL(op), args, NULL, NULL, NULL);
+	    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+		if (TYPEOF(CAR(t)) == BYTESXP)
+		    SETCAR(t, coerceVector(CAR(t), REALSXP));
+	}
+    }
 
     for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	if (TYPEOF(CAR(t)) == BYTESXP) {

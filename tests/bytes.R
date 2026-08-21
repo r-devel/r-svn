@@ -645,3 +645,43 @@ local({
     x <- 1:3; x[1] <- as.bytes("9", 8L, "unsigned")
     stopifnot(identical(as.character(x), c("9", "2", "3")))
 })
+
+### prod() answers to the same operand rule as every other summary
+
+## Its result is a double for every type, as it is for integer, so the
+## operands convert and take the ordinary path -- but they are held to
+## the rule first.  Converting and then asking would leave no 'bytes'
+## vector to ask against, and prod() would be the one place in the type
+## that takes a double operand silently.
+local({
+    p <- as.bytes(c("2", "3"), 8L, "unsigned")
+    stopifnot(identical(prod(p), 6),
+	      identical(prod(p, 2L), 12),		# integer narrows in
+	      identical(typeof(sum(p)), "uint64"),	# sum keeps the type
+	      identical(prod(1:3), 6))		# every other type unchanged
+    for (bad in list(quote(prod(p, 2.5)), quote(prod(p, "a")),
+		     quote(prod(p, as.bytes("2", 4L, "unsigned"))),
+		     quote(prod(as.bytes(as.raw(1:2), 2L, "opaque")))))
+	if (!inherits(tryCatch(eval(bad), error = identity), "error"))
+	    stop("no error from ", deparse(bad))
+})
+
+### partial sorting, and a size that is not a size
+
+## psort's three-way swap used to hand memcpy() the same address twice
+## when its two scans met on one element, which is the common case.
+local({
+    set.seed(1)
+    v <- as.bytes(sample(100), 8L, "signed")
+    for (k in c(1L, 2L, 50L, 99L, 100L))
+	stopifnot(identical(sort(v, partial = k)[k], sort(v)[k]))
+    stopifnot(identical(as.character(sort(v)), as.character(sort(as.integer(v)))))
+})
+
+## a negative element is an invalid length, not a cast out of range
+local({
+    neg <- as.bytes("-1", 8L, "signed")
+    stopifnot(inherits(tryCatch(vector("numeric", neg), error = identity),
+		       "error"),
+	      length(vector("numeric", as.bytes("3", 8L, "unsigned"))) == 3L)
+})

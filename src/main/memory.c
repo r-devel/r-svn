@@ -5207,6 +5207,12 @@ SEXP R_duplicateAsResizable(SEXP x)
 	error(_("ALTREP objects cannot be made resizable"));
     if (! isVector(x))
 	error(_("cannot make non-vector objects resizable"));
+    /* isVector() covers BYTESXP, which R_allocResizableVector() cannot
+       make: its width and kind are not in an allocVector() call.  Half
+       an API for the type is worse than none. */
+    if (TYPEOF(x) == BYTESXP)
+	error(_("cannot make a resizable vector of type '%s'"),
+	      R_typeToChar(x));
     SEXP val = duplicate(x);
     SET_TRUELENGTH(val, XLENGTH(val));
     SET_GROWABLE_BIT(val);

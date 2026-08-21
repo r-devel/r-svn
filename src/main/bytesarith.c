@@ -1256,8 +1256,20 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
    that machine keeps typed accumulators chosen from a fixed set, and a
    per-vector element width does not fit it.  A self-contained pass is
    both smaller and easier to argue correct. */
+
+/* The rule a summary applies to its operands before it reads any of
+   them: which types may appear at all, and what the 'bytes' ones have
+   to agree on.  It settles the kind, width and NA flag of the result
+   along the way.
+
+   prod() asks this and then goes its own way: its answer is a double
+   for every type, as it is for integer, so summary.c converts the
+   operands and takes the ordinary path.  It has to ask first, though --
+   converting would turn a double operand, which sum(), min() and c()
+   all refuse, into a silent loss of precision. */
 attribute_hidden
-SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
+void R_bytesSummaryType(SEXP call, int iop, SEXP args,
+			int *pkind, int *pw, int *phasNA)
 {
     /* sum and prod accumulate; min and max only ever compare */
     bool arith = (iop == 0 || iop == 4);
@@ -1306,6 +1318,20 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
+    if (pkind)  *pkind  = kind;
+    if (pw)     *pw     = w;
+    if (phasNA) *phasNA = hasNA;
+}
+
+/* sum, min and max.  prod() never arrives: see R_bytesSummaryType(). */
+attribute_hidden
+SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
+{
+    int kind, w, hasNA;
+    bool arith = (iop == 0);	/* sum accumulates; min and max compare */
+
+    R_bytesSummaryType(call, iop, args, &kind, &w, &hasNA);
+
     SEXP ans = PROTECT(R_allocBytesVector(1, w, kind, hasNA ? TRUE : FALSE));
     Rbyte *acc = BYTEVEC_ELT(ans, 0);
     bool seen = false, isNA = false, over = false;
@@ -1314,13 +1340,8 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
        representable turns up */
     bool unrep = false, sawOut = false;
 
-    /* sum starts at 0, prod at 1; min/max take the first element seen */
-    if (iop == 4) {
-	Rbyte one[MAXW];
-	memset(one, 0, (size_t) w);
-	one[w - 1] = 1;
-	fromMSB(acc, one, w);
-    }
+    /* sum starts at 0; min and max take the first element seen */
+
 
     for (SEXP t = args; t != R_NilValue && !isNA; t = CDR(t)) {
 	SEXP a = CAR(t);
@@ -1395,9 +1416,6 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	    switch (iop) {
 	    case 0:
 		if (!eltAdd(acc, acc, p, w, kind, hasNA)) over = true;
-		break;
-	    case 4:
-		if (!eltMul(acc, acc, p, w, kind, hasNA)) over = true;
 		break;
 	    case 2:
 		if (R_bytesEltCmp(p, acc, w, kind) < 0)

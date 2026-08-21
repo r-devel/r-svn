@@ -876,9 +876,15 @@ static void bPsort2(SEXP s, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 	    while (bcmp_(x + i * w, v, w, kind, hasNA, true) < 0) i++;
 	    while (bcmp_(v, x + j * w, w, kind, hasNA, true) < 0) j--;
 	    if (i <= j) {
-		memcpy(t, x + i * w, (size_t) w);
-		memcpy(x + i * w, x + j * w, (size_t) w);
-		memcpy(x + j * w, t, (size_t) w);
+		/* the scans meeting on one element is the common case,
+		   and swapping it with itself would hand memcpy() the
+		   same address twice, which its restrict contract
+		   forbids and valgrind reports */
+		if (i != j) {
+		    memcpy(t, x + i * w, (size_t) w);
+		    memcpy(x + i * w, x + j * w, (size_t) w);
+		    memcpy(x + j * w, t, (size_t) w);
+		}
 		i++; j--;
 	    }
 	}
@@ -1658,17 +1664,23 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 #undef less
 	    break;
 	case BYTESXP:
-	    /* NAs were moved out of [lo, hi] above, so a bare memcmp is
-	       enough here */
+	    /* The pass that moves NAs out of [lo, hi] runs only where rho
+	       is NULL, and do_rank() passes a live environment, so the
+	       comparison consults nalast as it does for every type above.
+	       Where the NAs have gone, bcmp_() finds none and answers as
+	       a bare comparison would.  This is orderVector1()'s
+	       non-radix arm, and has to agree with it. */
 	    if (decreasing)
-#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
-				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      BYTEVEC_HAS_NA(key), nalast),		\
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
-				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      BYTEVEC_HAS_NA(key), nalast),		\
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less

@@ -98,5 +98,14 @@ local({
 chk2(streamVersion(serialize(1:1000, NULL)), 3L,
      "an ALTREP with no 'bytes' vector is still version 3")
 
+## isVector() covers BYTESXP, so R_duplicateAsResizable() would take one
+## although R_allocResizableVector() has no way to name a width and a
+## kind and cannot make one.  Both halves have to say the same thing.
+cat("\nthe resizable-vector API:\n")
+chk2(inherits(tryCatch(.Call("resizable", made), error = identity), "error"),
+     TRUE, "R_duplicateAsResizable() refuses what it cannot allocate")
+chk2(is.integer(.Call("resizable", c(1L, 2L, 3L))), TRUE,
+     "and still takes an ordinary vector")
+
 cat(sprintf("\n%d failure(s)\n", fails))
 if (fails) quit(status = 1L)

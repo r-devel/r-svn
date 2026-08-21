@@ -28,6 +28,16 @@
       \item The Sweave syntax definition objects
       \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
       their own detailed help page.
+
+      \item \code{readBin()} and \code{scan()} take the names of the new
+      \code{bytes} types (\code{"int64"}, \code{"uint16"},
+      \code{"bytes4"}, \dots) for \code{what} and \code{what}/
+      \code{colClasses}.  A length-one string that is none of the modes
+      \code{readBin()} knows was previously taken as an object, giving
+      mode \code{"character"}, so \code{readBin(f, "int32", 4L)} used to
+      read four strings and now reads four 32-bit integers.  Such a call
+      was already reading something other than what it named, but it now
+      returns different data rather than visibly wrong strings.
     }
   }
 

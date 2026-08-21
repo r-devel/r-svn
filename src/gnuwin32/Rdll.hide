@@ -142,7 +142,10 @@
  R_BrowseLevel
  R_BrowseLines
  R_BrowserLastCommand
+ R_BytesVectorSeen
  R_CBoundsCheck
+ R_CheckBytesVector
+ R_CheckSerializeVersion
  R_CheckTimeLimits
  R_ChooseFile
  R_CollectWarnings
@@ -238,6 +241,7 @@
  R_SaveToFile
  R_SaveToFileV
  R_SerializeInfo
+ R_SerializeVersionFor
  R_SessionContext
  R_SetMaxNSize
  R_SetMaxVSize
@@ -274,8 +278,42 @@
  R_XDREncodeDouble
  R_XDREncodeInteger
  R_allocObject
+ R_allocVectorLike
  R_args_enable_refcnt
  R_binary
+ R_bytesAllNA
+ R_bytesArith
+ R_bytesBitwise
+ R_bytesCheckNA
+ R_bytesCheckSameNA
+ R_bytesCheckSameType
+ R_bytesCoerce
+ R_bytesConvert
+ R_bytesCopyWithRecycle
+ R_bytesCum
+ R_bytesEltAsReal
+ R_bytesEltCmp
+ R_bytesEltDecimal
+ R_bytesEltFromString
+ R_bytesEltIsNA
+ R_bytesEltRender
+ R_bytesFillMatrixWithRecycle
+ R_bytesFromBytes
+ R_bytesKindName
+ R_bytesMagFits
+ R_bytesMemcpy
+ R_bytesNarrow
+ R_bytesNarrowCmp
+ R_bytesParallelMinMax
+ R_bytesSetEltNA
+ R_bytesSummary
+ R_bytesSummaryType
+ R_bytesSwapWire
+ R_bytesTypeFromName
+ R_bytesTypeName
+ R_bytesTypeNameOf
+ R_bytesUnary
+ R_bytesWarnReserved
  R_checkConstants
  R_check_constants
  R_check_locale
@@ -752,6 +790,7 @@
  cpuLimitValue
  csroot_
  dblep0_
+ defaultSaveVersion
  deleditordata
  dim2total
  dispatch_length
@@ -1623,43 +1662,6 @@
  process_system_Renviron
  process_user_Renviron
  qbeta_raw
- R_allocVectorLike
- R_bytesAllNA
- R_bytesArith
- R_bytesBitwise
- R_bytesCheckNA
- R_bytesCheckSameNA
- R_bytesCheckSameType
- R_bytesCoerce
- R_bytesConvert
- R_bytesCopyWithRecycle
- R_bytesCum
- R_bytesEltAsReal
- R_bytesEltCmp
- R_bytesEltDecimal
- R_bytesEltFromString
- R_bytesEltIsNA
- R_bytesEltRender
- R_bytesFillMatrixWithRecycle
- R_bytesFromBytes
- R_bytesKindName
- R_bytesMagFits
- R_bytesMemcpy
- R_bytesNarrow
- R_bytesNarrowCmp
- R_bytesParallelMinMax
- R_bytesSetEltNA
- R_bytesSummary
- R_bytesSwapWire
- R_bytesTypeFromName
- R_bytesTypeName
- R_bytesTypeNameOf
- R_bytesUnary
- R_BytesVectorSeen
- R_bytesWarnReserved
- R_CheckBytesVector
- R_CheckSerializeVersion
- R_SerializeVersionFor
  raise
  realp0_
  registerBase
