@@ -167,12 +167,26 @@ ok("match",                      identical(match(x, c(y, x)), c(3L, 4L)))
 ok("match, length-1 needle",     identical(match(x[2], x), 2L))
 ok("match, length-1 no-match",   is.na(match(y[1], x)))
 ok("%in%, length-1",             (x[2] %in% x) && !(y[1] %in% x))
-## match() is the same equality relation as ==, so a width, kind or
-## NA-reservation clash is refused there too: reporting "absent" instead
-## made setdiff() and %in% disagree with union(), intersect() and ==
+## Two 'bytes' vectors are the same equality relation as ==, so a width,
+## kind or NA-reservation clash is refused there too: reporting "absent"
+## instead made setdiff() and %in% disagree with union(), intersect()
+## and ==.  An integer operand is a different matter -- it narrows, as it
+## does for == and c() -- and is tested below.
 ok("match, length-1 width clash", inherits(tryCatch(match(x8[1], x), error = identity), "error"))
 ok("match no-match is NA",       is.na(match(y[1], x)))
 ok("%in%",                       identical(x %in% c(x, y), c(TRUE, TRUE)))
+jn <- as.bytes(c("1", "2", "3"), 8L, "unsigned")
+ok("match against an integer",   identical(match(jn, 2L), c(NA, 1L, NA)))
+ok("%in% an integer",            identical(jn %in% 2L, c(FALSE, TRUE, FALSE)))
+ok("integer %in% bytes",         identical(2L %in% jn, TRUE))
+ok("setdiff with an integer",    identical(as.character(setdiff(jn, 2L)), c("1", "3")))
+## a value the width cannot hold is neither present nor a match: it is
+## dropped rather than given a stand-in, every bit pattern being a value
+j1 <- as.bytes(c("1", "2", "3"), 1L, "unsigned")
+ok("needle out of range",        identical(j1 %in% c(2L, 1000L), c(FALSE, TRUE, FALSE)))
+ok("table entry out of range",   identical(match(j1, c(1000L, 3L, 1L)), c(3L, NA, 2L)))
+ok("and with nomatch a position",identical(match(j1, c(1000L, 3L, 1L), nomatch = 3L),
+                                           c(3L, 3L, 2L)))
 ok("unique",                     identical(unique(c(x, x)), x))
 ok("duplicated",                 identical(duplicated(c(x, x)), c(FALSE, FALSE, TRUE, TRUE)))
 ok("match vs other type errors", inherits(tryCatch(match(x, 1L), error = identity), "error"))
@@ -674,8 +688,32 @@ ok("range of an opaque vector",  identical(as.character(range(x)),
                                            c("0102030405060708090a0b0c0d0e0f10",
                                              "1112131415161718191a1b1c1d1e1f20")))
 ok("min of a non-arith width",   identical(as.character(min(bytes(4L, 3L, "unsigned"))), "0"))
-ok("max promotes mixed widths",  identical(as.character(max(u4, mk("unsigned", 4L, "00000009"))),
-                                           "9"))
+## a width is part of the type, so min() and max() refuse exactly the
+## pairs c() refuses -- which is what keeps range(), whose answer goes
+## through c(), from failing on arguments they accept
+ok("max refuses mixed widths",   inherits(tryCatch(max(u4, mk("unsigned", 4L, "00000009")),
+                                                   error = identity), "error"))
+ok("and so does c()",            inherits(tryCatch(c(u4, mk("unsigned", 4L, "00000009")),
+                                                   error = identity), "error"))
+ok("range agrees with min/max",  identical(as.character(range(u4, u4[1])),
+                                           as.character(c(min(u4), max(u4)))))
+## an integer bound the width cannot hold is not missing: it lies below
+## or above every element, so the comparison still has an answer
+u1 <- as.bytes(c("1", "2", "3"), 1L, "unsigned")
+ok("compare below the range",    identical(u1 > -1L, rep(TRUE, 3)))
+ok("compare above the range",    identical(u1 < 1000L, rep(TRUE, 3)))
+ok("min ignores a high bound",   identical(as.character(min(u1, 1000L)), "1"))
+ok("pmin ignores a high bound",  identical(as.character(pmin(u1, 1000L)), c("1","2","3")))
+ok("max of one is NA + warning", { w <- NULL
+                                   r <- withCallingHandlers(max(u1, 1000L),
+                                       warning = function(z) { w <<- conditionMessage(z)
+                                                               invokeRestart("muffleWarning") })
+                                   is.na(r) && grepl("outside the range", w) })
+ok("a leading NA does not warn", { w <- NULL
+                                   r <- withCallingHandlers(max(as.bytes(c(NA, "1"), 8L, "unsigned")),
+                                       warning = function(z) { w <<- conditionMessage(z)
+                                                               invokeRestart("muffleWarning") })
+                                   is.na(r) && is.null(w) })
 ok("sum still refuses opaque",   inherits(tryCatch(sum(x), error = identity), "error"))
 ok("as.numeric past 32 bytes",   identical(as.numeric(mk("unsigned", 33L,
                                                          paste0(strrep("0", 64), "01"))), 1))

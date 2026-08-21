@@ -470,6 +470,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1519:  /* complex    <- vector     */
     case 1619:  /* character  <- vector     */
     case 2419:  /* raw        <- vector     */
+    case 2619:  /* bytes      <- vector     */
 	*x = coerceVector(*x, VECSXP);
 	break;
 
@@ -479,6 +480,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1520:  /* complex    <- expression */
     case 1620:  /* character  <- expression */
     case 2420:  /* raw        <- expression */
+    case 2620:  /* bytes      <- expression */
 	*x = coerceVector(*x, EXPRSXP);
 	break;
 
@@ -528,8 +530,20 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	   ifelse() assigns in, its answer starting life as the logical
 	   test.  A double destination has no meeting type with this
 	   one and falls to the error below, as arithmetic does. */
-	*x = R_bytesNarrow(*x, BYTEVEC_WIDTH(*y), BYTEVEC_KIND(*y),
-			   BYTEVEC_HAS_NA(*y), call);
+	{
+	    /* R_bytesNarrow() builds a bare vector, where every other arm
+	       of this switch goes through coerceVector(), which carries
+	       the attributes over.  Without this the destination silently
+	       loses its dim, names and class -- and SET_OBJECT() below
+	       would then stamp the object bit onto a result that has no
+	       class attribute left. */
+	    SEXP xnew = PROTECT(R_bytesNarrow(*x, BYTEVEC_WIDTH(*y),
+					      BYTEVEC_KIND(*y),
+					      BYTEVEC_HAS_NA(*y), call));
+	    SHALLOW_DUPLICATE_ATTRIB(xnew, *x);	/* *x is the caller's */
+	    UNPROTECT(1);
+	    *x = xnew;
+	}
 	break;
 
     case 1626:	/* character  <- bytes      */
@@ -1742,7 +1756,13 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	else {
 	    /* bug PR#2590 coerce only if null */
-	    if(isNull(x)) x = coerceVector(x, TYPEOF(y));
+	    if(isNull(x))
+		/* a 'bytes' vector's width and kind are per-vector, so
+		   the SEXPTYPE alone cannot size one: allocVector() --
+		   which is what coerceVector() reaches for -- refuses
+		   the type outright, and its message is internal */
+		x = (TYPEOF(y) == BYTESXP) ? R_allocVectorLike(y, 0)
+					   : coerceVector(x, TYPEOF(y));
 	}
     }
     PROTECT(x);

@@ -50,6 +50,9 @@ struct BindData {
  int  ans_width; /* BYTESXP element width; 0 until one is seen */
  int  ans_kind;  /* BYTESXP element kind */
  int  ans_nona;  /* BYTESXP: does it decline to reserve an NA? */
+ int  ans_clash; /* a second BYTESXP type that does not agree with the
+		    first: 0 none, 1 width, 2 kind, 3 NA reservation */
+ int  ans_clashwidth;	/* its width, for the message */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -83,18 +86,28 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	data->ans_length += XLENGTH(x);
 	break;
     case BYTESXP:
-	if (data->ans_width && data->ans_width != BYTEVEC_WIDTH(x))
-	    errorcall(call,
-		      _("cannot combine 'bytes' vectors of widths %d and %d"),
-		      data->ans_width, BYTEVEC_WIDTH(x));
-	if (data->ans_width && data->ans_kind != BYTEVEC_KIND(x))
-	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
-	if (data->ans_width && data->ans_nona != !BYTEVEC_HAS_NA(x))
-	    errorcall(call,
-		      _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
-	data->ans_nona = !BYTEVEC_HAS_NA(x);
-	data->ans_width = BYTEVEC_WIDTH(x);
-	data->ans_kind = BYTEVEC_KIND(x);
+	/* Two 'bytes' types that do not agree are only a mistake if the
+	   answer is one of them: a list holds its elements by reference
+	   and takes both without losing anything.  So the clash is
+	   recorded here and reported by BindAnswerMode(), which is where
+	   the answer type is settled. */
+	if (data->ans_width) {
+	    if (data->ans_clash)
+		;			/* the first one reported wins */
+	    else if (data->ans_width != BYTEVEC_WIDTH(x)) {
+		data->ans_clash = 1;
+		data->ans_clashwidth = BYTEVEC_WIDTH(x);
+	    }
+	    else if (data->ans_kind != BYTEVEC_KIND(x))
+		data->ans_clash = 2;
+	    else if (data->ans_nona != !BYTEVEC_HAS_NA(x))
+		data->ans_clash = 3;
+	}
+	else {
+	    data->ans_nona = !BYTEVEC_HAS_NA(x);
+	    data->ans_width = BYTEVEC_WIDTH(x);
+	    data->ans_kind = BYTEVEC_KIND(x);
+	}
 	data->ans_flags |= 1024;
 	data->ans_length += XLENGTH(x);
 	break;
@@ -197,9 +210,21 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
     if (data->ans_flags & 1024) {
 	if      (data->ans_flags & 512) return EXPRSXP;
 	else if (data->ans_flags & 256) return VECSXP;
+	/* the answer is a 'bytes' vector, so now the arguments do have
+	   to agree on which one; see AnswerType() */
+	switch (data->ans_clash) {
+	case 1:
+	    errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+		      data->ans_width, data->ans_clashwidth);
+	case 2:
+	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	case 3:
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+	}
 	/* logical (2) and integer (16) narrow into 'bytes'; a double
 	   operand is deliberately refused rather than guessed at */
-	else if (data->ans_flags & ~(1024 | 16 | 2))
+	if (data->ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
 	else return BYTESXP;

@@ -306,3 +306,199 @@ for (e in list(quote({x <- c("01","02"); mode(x) <- "bytes"}),
 ### memory.profile() must have a slot for the type
 
 stopifnot("bytes" %in% names(memory.profile()))
+
+### storage.mode<- is the one mode that changes the element count
+
+## raw bytes regroup into width-byte elements, so names and dim would
+## then describe more elements than the result has -- and printing or
+## m[i, j] would read past the payload.  No other route reaches that
+## state: dim<-, attr(, "dim")<- and structure() all reject it.
+m <- matrix(as.raw(1:64), 8, 8)
+storage.mode(m) <- "uint64"
+stopifnot(length(m) == 8L, is.null(dim(m)), is.null(dimnames(m)))
+nx <- as.raw(1:16); names(nx) <- letters[1:16]
+storage.mode(nx) <- "uint64"
+stopifnot(length(nx) == 2L, is.null(names(nx)))
+## but a conversion that keeps the count keeps them
+ny <- as.raw(1:4); names(ny) <- letters[1:4]
+storage.mode(ny) <- "bytes1"
+stopifnot(identical(names(ny), letters[1:4]))
+
+### a 'bytes' right-hand side keeps the destination's attributes
+
+## every other arm of SubassignTypeFix() coerces through coerceVector(),
+## which carries them over; this one narrows into a fresh vector
+b <- as.bytes(9L, 4L, "signed")
+m <- matrix(1:4, 2, 2); m[1, 1] <- b
+stopifnot(identical(dim(m), c(2L, 2L)))
+v <- c(a = 1L, b = 2L); v[1] <- b
+stopifnot(identical(names(v), c("a", "b")))
+o <- structure(1:3, class = "myclass"); o[1] <- b
+stopifnot(is.object(o), identical(class(o), "myclass"))
+
+## a list right-hand side promotes the destination, as for every other
+## atomic type, and a NULL one takes the width and kind from the value
+z <- as.bytes(1:3, 8L, "unsigned"); z[1] <- list(1)
+stopifnot(is.list(z), length(z) == 3L)
+z <- NULL; z[1] <- as.bytes("7", 8L, "unsigned")
+stopifnot(is.bytes(z), length(z) == 1L, as.character(z) == "7")
+
+### raising the serialization version must not leave a truncated file
+
+## the raise is announced with a message, which an exiting handler can
+## unwind out of; settling it before anything is written is what keeps
+## that from happening with a header already on the file
+f <- tempfile()
+r <- tryCatch(save(list = "b", file = f, compress = FALSE, envir = environment()),
+	      message = function(m) "handled")
+stopifnot(identical(r, "handled"), file.size(f) == 0L)
+save(list = "b", file = f, envir = environment())
+e <- new.env(); load(f, envir = e)
+stopifnot(identical(e$b, b))
+unlink(f)
+
+## save.to.file() is reached from compiler::cmpfile() and from the
+## embedding API, and was the one entry point that never raised it
+f <- tempfile()
+invisible(.Internal(save.to.file(list(b), f, FALSE, NULL)))
+stopifnot(identical(.Internal(load.from.file(f))[[1L]], b))
+unlink(f)
+
+### comparison against a bound the type cannot hold
+
+## it is not missing: it lies below or above every element, so the
+## answer is determined and the filter idioms must not go quiet
+u8 <- as.bytes(c("1", "2", "3"), 1L, "unsigned")
+stopifnot(identical(u8 > -1L, rep(TRUE, 3)), identical(u8 < 1000L, rep(TRUE, 3)),
+	  identical(-1L < u8, rep(TRUE, 3)),
+	  identical(u8[u8 > -1L], u8), identical(which(u8 > -1L), 1:3),
+	  ## the reserved NA value counts as out of range, in its direction
+	  identical(as.bytes(c("1", "254"), 1L, "unsigned") < 255L, c(TRUE, TRUE)),
+	  ## and a vector that reserves nothing no longer errors
+	  identical(as.bytes(c("1", "2"), 1L, "unsigned", na = FALSE) < 1000L,
+		    c(TRUE, TRUE)),
+	  ## an element that really is missing still answers NA
+	  identical(as.bytes(c("1", NA), 1L, "unsigned") > -1L, c(TRUE, NA)))
+
+## min and max only compare, so a bound they cannot hold is ignored
+## unless it wins outright, when the answer itself is out of range
+stopifnot(as.character(min(u8, 1000L)) == "1", as.character(max(u8, -1L)) == "3",
+	  identical(as.character(pmin(u8, 1000L)), c("1", "2", "3")),
+	  is.na(suppressWarnings(max(u8, 1000L))),
+	  all(is.na(suppressWarnings(pmax(u8, 1000L)))))
+
+## a width is part of the type, so min() and max() refuse the pairs c()
+## refuses -- range() goes through c() and must not fail where they work
+a8 <- as.bytes("10", 8L, "unsigned"); s4 <- as.bytes("5", 4L, "unsigned")
+for (e in list(quote(max(a8, s4)), quote(min(a8, s4)), quote(sum(a8, s4)),
+	       quote(pmin(a8, s4)), quote(c(a8, s4))))
+    stopifnot(inherits(tryCatch(eval(e), error = identity), "error"))
+stopifnot(identical(as.character(range(a8, as.bytes("3", 8L, "unsigned"))),
+		    c("3", "10")))
+
+## max() saw two non-missing arguments here, whatever order they came in
+stopifnot(is.na(max(as.bytes(c(NA, "1", "2"), 8L, "unsigned"))),
+	  as.character(max(as.bytes(c(NA, "1", "2"), 8L, "unsigned"),
+			   na.rm = TRUE)) == "2")
+op <- options(warn = 2)
+stopifnot(is.na(max(as.bytes(c(NA, "1"), 8L, "unsigned"))))
+options(op)
+
+### as.numeric() must give the nearest double
+
+## accumulating byte by byte rounds at every step once the running total
+## passes 2^53, and the errors compound to as much as a whole ulp
+stopifnot(suppressWarnings(
+	      as.numeric(as.bytes("3119042104763040036", 8L, "unsigned"))) ==
+	  3119042104763040256,
+	  as.numeric(as.bytes("12345", 8L, "unsigned")) == 12345,
+	  as.numeric(as.bytes("0", 8L, "unsigned")) == 0,
+	  as.numeric(as.bytes("-12345", 8L, "signed")) == -12345,
+	  mean(as.bytes(c("1", "2", "3"), 8L, "unsigned")) == 2)
+
+### all.equal() describes a difference, and never stops
+
+## mode() is "bytes" for every width and kind, so data.class() cannot
+## see the difference the comparison itself refuses to make
+a <- as.bytes(1:3, 8L, "signed")
+stopifnot(isTRUE(all.equal(a, a)),
+	  is.character(all.equal(a, as.bytes(1:3, 4L, "signed"))),
+	  is.character(all.equal(a, as.bytes(1:3, 8L, "unsigned"))),
+	  is.character(all.equal(a, as.bytes(1:3, 8L, "signed", na = FALSE))),
+	  is.character(all.equal(a, 1:3)),
+	  is.character(all.equal(a, as.bytes(c(1L, 2L, 4L), 8L, "signed"))),
+	  is.character(all.equal(list(k = a), list(k = as.bytes(1:3, 4L, "signed")))))
+
+### match() narrows an integer operand, as == and c() do
+
+x <- as.bytes(1:3, 8L, "signed")
+stopifnot(identical(x %in% 1L, c(TRUE, FALSE, FALSE)), identical(1L %in% x, TRUE),
+	  identical(match(x, 1L), c(1L, NA, NA)),
+	  length(union(x, 1L)) == 3L, length(setdiff(x, 1L)) == 2L,
+	  ## a value the width cannot hold matches nothing and is matched
+	  ## by nothing; it is dropped rather than given a stand-in, every
+	  ## bit pattern of the width being a value in its own right
+	  identical(u8 %in% c(1L, 1000L), c(TRUE, FALSE, FALSE)),
+	  identical(match(u8, c(1000L, 2L, 1L)), c(3L, 2L, NA)),
+	  identical(match(u8, c(1000L, 2L, 1L), nomatch = 3L), c(3L, 2L, 3L)),
+	  ## two 'bytes' vectors are still refused on a clash
+	  inherits(tryCatch(as.bytes(1:2, 4L, "unsigned") %in%
+			    as.bytes(1:2, 8L, "unsigned"),
+			    error = identity), "error"))
+
+### the constructors take scalars
+
+for (e in list(quote(bytes(2, width = c(4L, 8L))), quote(bytes(c(2, 3))),
+	       quote(bytes(2, 4L, "signed", na = c(FALSE, TRUE))),
+	       quote(as.bytes("1", c(4L, 8L), "signed"))))
+    stopifnot(inherits(tryCatch(eval(e), error = identity), "error"))
+
+### mode(x) <- mode(x) and class(x) <- class(x) are identities
+
+x <- as.bytes(1:3, 8L, "unsigned")
+y <- x; mode(y) <- mode(y)
+stopifnot(identical(x, y))
+y <- x; class(y) <- class(y)
+stopifnot(identical(x, y), !is.object(y), is.null(attributes(y)))
+y <- matrix(x[1:4 %% 3 + 1], 2, 2); z <- y; class(z) <- class(z)
+stopifnot(identical(y, z))
+## and mode<- still converts away from the type by the ordinary route
+y <- x; mode(y) <- "character"
+stopifnot(identical(y, c("1", "2", "3")))
+
+### rbind() with an argument that contributes no rows
+
+z <- matrix(as.bytes(character(0), 8L, "signed"), nrow = 0, ncol = 2)
+stopifnot(identical(dim(rbind(z, as.bytes(1:2, 8L, "signed"))), c(1L, 2L)))
+
+### the opaque kind sorts by the same radix as the numeric ones
+
+set.seed(1)
+oo <- as.bytes(as.raw(sample(0:255, 600, replace = TRUE)), 8L, "opaque")
+stopifnot(identical(as.character(sort(oo)), sort(as.character(oo))),
+	  identical(order(oo), order(as.character(oo))),
+	  identical(order(oo, decreasing = TRUE),
+		    order(as.character(oo), decreasing = TRUE)))
+
+### psort() places NA as it does for every other type
+
+stopifnot(identical(as.character(.Internal(psort(
+	      as.bytes(c("3", NA, "1"), 8L, "signed"), 2L))), c("1", "3", NA)))
+
+### format() honours 'width' whatever 'trim' says
+
+stopifnot(identical(format(x, trim = TRUE, width = 6), c("     1", "     2", "     3")),
+	  identical(format(as.bytes(c("1", "22"), 8L, "unsigned"), trim = TRUE),
+		    c("1", "22")))
+
+### a list absorbs 'bytes' vectors that cannot be combined with each other
+
+b4 <- as.bytes(1:2, 4L, "unsigned"); b8 <- as.bytes(1:2, 8L, "unsigned")
+stopifnot(length(c(list(1), b4, b8)) == 5L,
+	  inherits(tryCatch(c(b4, b8), error = identity), "error"))
+
+### NA is the one right-hand side an opaque vector takes from a number
+
+opq <- as.bytes(as.raw(1:16), 16L, "opaque")
+stopifnot(all(is.na(bitwAnd(opq, NA))),
+	  inherits(tryCatch(bitwAnd(opq, 1L), error = identity), "error"))

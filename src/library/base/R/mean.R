@@ -18,6 +18,20 @@
 
 mean <- function(x, ...) UseMethod("mean")
 
+mean.bytes <- function(x, ...)
+{
+    ## The numeric kinds are numbers, so a mean of them means something;
+    ## the opaque kind is a byte string and falls through to the default,
+    ## which warns and returns NA as it does for a factor.  is.numeric()
+    ## is FALSE for every kind (the factor precedent), which is what
+    ## sends mean() down that path for all of them without this.
+    ## R's mean is a double whatever it is handed, and as.numeric() is
+    ## correctly rounded, so nothing is given up by going through it --
+    ## beyond the warning a value above 2^53 earns anywhere else.
+    if(bytesKind(x) == "opaque") mean.default(x, ...)
+    else mean.default(as.numeric(x), ...)
+}
+
 mean.default <- function(x, trim = 0, na.rm = FALSE, ...)
 {
     if(!is.numeric(x) && !is.complex(x) && !is.logical(x)) {

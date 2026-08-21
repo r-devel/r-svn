@@ -681,6 +681,11 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     int w = BYTEVEC_WIDTH(b), k = BYTEVEC_KIND(b);
     bool hasNA = BYTEVEC_HAS_NA(b);
 
+    /* which side narrowed, and where its operands fell outside the
+       type; see R_bytesNarrowCmp() */
+    int *dir = NULL, side = 0;
+    const void *vmax = vmaxget();
+
     PROTECT_INDEX p1, p2;
     PROTECT_WITH_INDEX(s1, &p1);
     PROTECT_WITH_INDEX(s2, &p2);
@@ -692,10 +697,16 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 	    errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
 	R_bytesCheckSameNA(s1, s2);
     }
-    else if (TYPEOF(s1) == BYTESXP)
-	REPROTECT(s2 = R_bytesNarrow(s2, w, k, BYTEVEC_HAS_NA(s1), call), p2);
-    else
-	REPROTECT(s1 = R_bytesNarrow(s1, w, k, BYTEVEC_HAS_NA(s2), call), p1);
+    else if (TYPEOF(s1) == BYTESXP) {
+	dir = (int *) R_alloc(XLENGTH(s2) + 1, sizeof(int));
+	REPROTECT(s2 = R_bytesNarrowCmp(s2, w, k, BYTEVEC_HAS_NA(s1), dir, call), p2);
+	side = 2;
+    }
+    else {
+	dir = (int *) R_alloc(XLENGTH(s1) + 1, sizeof(int));
+	REPROTECT(s1 = R_bytesNarrowCmp(s1, w, k, BYTEVEC_HAS_NA(s2), dir, call), p1);
+	side = 1;
+    }
 
     n1 = XLENGTH(s1);
     n2 = XLENGTH(s2);
@@ -713,7 +724,11 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 	    pa[i] = NA_LOGICAL;
 	    continue;
 	}
-	int c = R_bytesEltCmp(p1, p2, w, k);
+	/* an operand the type cannot hold is not missing: it lies below
+	   or above every element, so the comparison is settled by which
+	   side it was on and which way it fell */
+	int d = dir ? dir[(side == 1) ? i1 : i2] : 0;
+	int c = d ? ((side == 1) ? d : -d) : R_bytesEltCmp(p1, p2, w, k);
 	switch (code) {
 	case EQOP: pa[i] = (c == 0); break;
 	case NEOP: pa[i] = (c != 0); break;
@@ -725,6 +740,7 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     });
 
     UNPROTECT(2);
+    vmaxset(vmax);
 
     return ans;
 }

@@ -1866,7 +1866,7 @@ static int defaultSaveVersion(void)
 	int val = -1;
 	if (valstr != NULL)
 	    val = atoi(valstr);
-	if (val == 2 || val == 3)
+	if (val == 2 || val == 3 || val == 4)
 	    dflt = val;
 	else
 	    dflt = 3; /* the default */
@@ -1896,6 +1896,18 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 
 	/* version == 0 means default version */
 	int v = (version == 0) ? defaultSaveVersion() : version;
+
+	/* Raised before the magic goes out, as do_saveToConn() settles
+	   it before writing and for the same reason: announcing the
+	   raise signals a condition, and unwinding out of it with the
+	   header already on the file leaves a truncated one behind.  A
+	   version the caller named is theirs -- R_Serialize() errors if
+	   it cannot hold the object rather than quietly writing another.
+	   The V3 magic covers version 4 too; the stream's own header
+	   carries the version. */
+	if (version == 0)
+	    v = R_SerializeVersionFor(obj, v, TRUE);
+
 	if (ascii) {
 	    magic = (v == 2) ? R_MAGIC_ASCII_V2 : R_MAGIC_ASCII_V3;
 	    type = R_pstream_ascii_format;
@@ -1905,16 +1917,16 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 	    type = R_pstream_xdr_format;
 	}
 	R_WriteMagic(fp, magic);
-	/* version == 0 means defaultSerializeVersion()
-	   unsupported version will result in error  */
-	R_InitFileOutPStream(&out, fp, type, version, NULL, NULL);
+	R_InitFileOutPStream(&out, fp, type, v, NULL, NULL);
 	R_Serialize(obj, &out);
     }
 }
 
 attribute_hidden void R_SaveToFile(SEXP obj, FILE *fp, int ascii)
 {
-    R_SaveToFileV(obj, fp, ascii, defaultSaveVersion());
+    /* 0 rather than defaultSaveVersion(): it says the version was not
+       chosen here, which is what lets R_SaveToFileV() raise it */
+    R_SaveToFileV(obj, fp, ascii, 0);
 }
 
     /* different handling of errors */
@@ -1993,10 +2005,17 @@ attribute_hidden SEXP do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
     return s;
 }
 
+static void saveload_cleanup(void *data)
+{
+    FILE *fp = (FILE *) data;
+    fclose(fp);
+}
+
 attribute_hidden SEXP do_savefile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     FILE *fp;
     int version;
+    RCNTXT cntxt;
 
     checkArity(op, args);
 
@@ -2004,27 +2023,31 @@ attribute_hidden SEXP do_savefile(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("'file' must be non-empty string"));
     if (TYPEOF(CADDR(args)) != LGLSXP)
 	error(_("'ascii' must be logical"));
+    /* 0 means "not chosen here", which is what lets R_SaveToFileV()
+       raise the version for an object the default cannot hold */
     if (CADDDR(args) == R_NilValue)
-	version = defaultSaveVersion();
-    else
+	version = 0;
+    else {
 	version = asInteger(CADDDR(args));
-    if (version == NA_INTEGER || version <= 0)
-	error(_("invalid '%s' argument"), "version");
+	if (version == NA_INTEGER || version <= 0)
+	    error(_("invalid '%s' argument"), "version");
+    }
 
     fp = RC_fopen(STRING_ELT(CADR(args), 0), "wb", TRUE);
     if (!fp)
 	error(_("unable to open 'file'"));
 
+    /* set up a context which will close the file if there is an error */
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &saveload_cleanup;
+    cntxt.cenddata = fp;
+
     R_SaveToFileV(CAR(args), fp, INTEGER(CADDR(args))[0], version);
 
+    endcontext(&cntxt);
     fclose(fp);
     return R_NilValue;
-}
-
-static void saveload_cleanup(void *data)
-{
-    FILE *fp = (FILE *) data;
-    fclose(fp);
 }
 
 /* Only used for version 1 saves */
@@ -2364,6 +2387,33 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     if (ep == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "eval.promises");
 
+    /* The objects are gathered, and the version they need settled,
+       before anything goes out on the connection.  Everything here can
+       fail -- an object may not be found, a promise may error, and
+       announcing a raised version signals a condition an exiting
+       handler can unwind out of -- and failing once the magic has been
+       written leaves a file with a header and no object in it. */
+    len = length(list);
+    PROTECT(s = allocList(len));
+
+    t = s;
+    for (j = 0; j < len; j++, t = CDR(t)) {
+	SET_TAG(t, installTrChar(STRING_ELT(list, j)));
+	SETCAR(t, R_findVar(TAG(t), source));
+	tmp = R_findVar(TAG(t), source);
+	if (tmp == R_UnboundValue)
+	    R_ObjectNotFoundError(TAG(t), R_CurrentExpression, NULL);
+	if(ep && TYPEOF(tmp) == PROMSXP) {
+	    PROTECT(tmp);
+	    tmp = eval(tmp, source);
+	    UNPROTECT(1);
+	}
+	SETCAR(t, tmp);
+    }
+
+    if (defaulted)
+	version = R_SerializeVersionFor(s, version, TRUE);
+
     wasopen = con->isopen;
     if(!wasopen) {
 	char mode[5];
@@ -2407,30 +2457,6 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     R_InitConnOutPStream(&out, con, type, version, NULL, NULL);
-
-    len = length(list);
-    PROTECT(s = allocList(len));
-
-    t = s;
-    for (j = 0; j < len; j++, t = CDR(t)) {
-	SET_TAG(t, installTrChar(STRING_ELT(list, j)));
-	SETCAR(t, R_findVar(TAG(t), source));
-	tmp = R_findVar(TAG(t), source);
-	if (tmp == R_UnboundValue)
-	    R_ObjectNotFoundError(TAG(t), R_CurrentExpression, NULL);
-	if(ep && TYPEOF(tmp) == PROMSXP) {
-	    PROTECT(tmp);
-	    tmp = eval(tmp, source);
-	    UNPROTECT(1);
-	}
-	SETCAR(t, tmp);
-    }
-
-    /* Settled here and not with the rest of the version: the objects
-       are only gathered now, and the magic written above does not
-       distinguish version 3 from version 4. */
-    if (defaulted)
-	out.version = R_SerializeVersionFor(s, out.version);
 
     R_Serialize(s, &out);
     if (!wasopen) con->close(con);

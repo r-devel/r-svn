@@ -537,19 +537,25 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	case BYTESXP:
 	    /* hex elements are all the same width; decimal ones are not,
-	       so the common width has to be measured */
+	       so the common width has to be measured.  Rendered into the
+	       answer as they are measured rather than a second time, and
+	       padded only if there is padding to do -- rendering a
+	       128-bit decimal element is repeated division. */
 	    {
 		PROTECT(y = allocVector(STRSXP, n));
 		w = 0;
 		for (i = 0; i < n; i++) {
-		    int wi = (int) strlen(R_bytesEltRender(x, i));
+		    SET_STRING_ELT(y, i, mkChar(R_bytesEltRender(x, i)));
+		    int wi = (int) strlen(CHAR(STRING_ELT(y, i)));
 		    if (wi > w) w = wi;
 		}
-		if (trim) w = 0; else w = imax2(w, wd);
-		for (i = 0; i < n; i++)
-		    SET_STRING_ELT(y, i,
-				   mkChar(EncodeString(mkChar(R_bytesEltRender(x, i)),
-						       w, 0, Rprt_adj_right)));
+		if (trim) w = 0;
+		w = imax2(w, wd);	/* 'width' applies whatever trim says */
+		if (w > 0)
+		    for (i = 0; i < n; i++)
+			SET_STRING_ELT(y, i,
+				       mkChar(EncodeString(STRING_ELT(y, i), w,
+							   0, Rprt_adj_right)));
 	    }
 	    break;
 

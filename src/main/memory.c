@@ -3026,6 +3026,13 @@ SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
     if (length > R_XLEN_T_MAX / width)
 	error(_("cannot allocate vector of length %lld"), (long long) length);
 
+    /* Read by R_SerializeVersionFor(): with no 'bytes' vector ever made
+       in this session no object can contain one, and every serialize()
+       and saveRDS() in R can skip the scan that looks for one.  This is
+       the only way to make one, unserializing included, so the flag
+       cannot be missed. */
+    R_BytesVectorSeen = TRUE;
+
     SEXP val = PROTECT(allocVector(RAWSXP, length * width));
     SET_TYPEOF(val, BYTESXP);
     SET_BYTEVEC_WIDTH(val, width);

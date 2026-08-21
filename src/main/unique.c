@@ -1395,10 +1395,53 @@ static SEXP asUTF8(SEXP x)
 	return x;
 }
 
+/* An integer or logical operand narrows into the 'bytes' type here for
+   the same reason it does for ==, c() and arithmetic; refusing it would
+   leave `x %in% 1L` an error where `x == 1L` gives an answer.
+
+   A value the width cannot hold is neither missing nor present: it
+   matches nothing and nothing matches it.  There is no bit pattern that
+   could stand in for it either, since every pattern of the width is a
+   value the vector might legitimately hold -- so on the table side
+   those entries are dropped here, keep[] mapping what is left back to
+   the caller's own 1-based positions, and on the needle side they stay
+   in place and are struck out of the answer once it is built. */
+static SEXP bytesMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
+{
+    int w = BYTEVEC_WIDTH(b), k = BYTEVEC_KIND(b), na = BYTEVEC_HAS_NA(b);
+    R_xlen_t n = XLENGTH(o), nOut = 0, m = 0;
+    int *dir = (int *) R_alloc(n + 1, sizeof(int));
+
+    SEXP nar = PROTECT(R_bytesNarrowCmp(o, w, k, na, dir, call));
+    for (R_xlen_t i = 0; i < n; i++) if (dir[i]) nOut++;
+    if (nOut == 0) {
+	*keep = NULL;
+	UNPROTECT(1);
+	return nar;
+    }
+
+    SEXP ans = PROTECT(R_allocBytesVector(n - nOut, w, k, na ? TRUE : FALSE));
+    int *kp = (int *) R_alloc(n - nOut + 1, sizeof(int));
+    for (R_xlen_t i = 0; i < n; i++)
+	if (!dir[i]) {
+	    memcpy(BYTEVEC_ELT(ans, m), BYTEVEC_ELT_RO(nar, i), (size_t) w);
+	    kp[m++] = (int) i + 1;
+	}
+    *keep = kp;
+    UNPROTECT(2);
+
+    return ans;
+}
+
 // workhorse of R's match() and hence also  " ix %in% itable "
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
+    /* an integer or logical operand narrowed into a 'bytes' type:
+       xdrop marks needles the type cannot hold, tkeep maps table
+       positions past the entries it could not hold.  See
+       bytesMatchTable(). */
+    int *xdrop = NULL, *tkeep = NULL;
     R_xlen_t n = xlength(ix);
     /* handle zero length arguments */
     if (n == 0) return allocVector(INTSXP, 0);
@@ -1451,21 +1494,36 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     if(TYPEOF(x) == BYTESXP || TYPEOF(table) == BYTESXP) {
 	/* opaque data has no common type with anything else, and the
 	   numeric SEXPTYPE order would otherwise send it to STRSXP */
-	if(TYPEOF(x) != TYPEOF(table))
-	    error(_("cannot match 'bytes' against type '%s'"),
-		  R_typeToChar(TYPEOF(x) == BYTESXP ? table : x));
-	/* match() is the same equality relation as ==, so it is refused
-	   on the same terms: a width, kind or NA-reservation clash is a
-	   mistake to report, not a set of values to report absent.
-	   Answering "no match" instead would make setdiff() and %in%
-	   quietly disagree with union(), intersect() and == on the very
-	   same pair of vectors. */
-	if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
-	    error(_("cannot match 'bytes' vectors of widths %d and %d"),
-		  BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
-	if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
-	    error(_("cannot match 'bytes' vectors of different kinds"));
-	R_bytesCheckSameNA(x, table);
+	if(TYPEOF(x) != TYPEOF(table)) {
+	    /* the other side narrows, as it does for == and c(); an
+	       opaque vector, or a type that does not narrow at all, is
+	       refused there.  See bytesMatchTable(). */
+	    SEXP b = (TYPEOF(x) == BYTESXP) ? x : table;
+	    if(TYPEOF(x) == BYTESXP)
+		REPROTECT(table = bytesMatchTable(table, b, &tkeep, R_NilValue),
+			  tbpi);
+	    else {
+		R_xlen_t nx = XLENGTH(x);
+		xdrop = (int *) R_alloc(nx + 1, sizeof(int));
+		REPROTECT(x = R_bytesNarrowCmp(x, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
+					       BYTEVEC_HAS_NA(b), xdrop, R_NilValue),
+			  xpi);
+	    }
+	}
+	else {
+	    /* two 'bytes' vectors are the same equality relation as ==, so
+	       they are refused on the same terms: a width, kind or
+	       NA-reservation clash is a mistake to report, not a set of
+	       values to report absent.  Answering "no match" instead would
+	       make setdiff() and %in% quietly disagree with union(),
+	       intersect() and == on the very same pair of vectors. */
+	    if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
+		error(_("cannot match 'bytes' vectors of widths %d and %d"),
+		      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
+	    if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
+		error(_("cannot match 'bytes' vectors of different kinds"));
+	    R_bytesCheckSameNA(x, table);
+	}
 	type = BYTESXP;
     }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
@@ -1473,9 +1531,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);
 
+    /* While table positions are being mapped back through tkeep, "no
+       match" has to be a value no position can take, and the caller's
+       nomatch can itself be one (match(x, t, nomatch = 3)). */
+    int nomatch = tkeep ? 0 : nmatch;
+
     // special case scalar x -- for speed only :
     if(XLENGTH(x) == 1 && !incomp) {
-      int val = nmatch;
+      int val = nomatch;
       int ntable = LENGTH(table);
       switch (type) {
       case STRSXP: {
@@ -1545,7 +1608,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     else { // regular case
 	HashData data = { 0 };
 	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
-	data.nomatch = nmatch;
+	data.nomatch = nomatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
 	if(type == STRSXP) {
@@ -1594,6 +1657,21 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
 	ans = HashLookup(table, x, &data);
+    }
+    /* the narrowing above left one of these to settle: a needle the
+       type could not hold matches nothing, and a table it could not
+       hold entries of was matched against with those taken out */
+    if (xdrop) {
+	int *pa = INTEGER(ans);
+	R_xlen_t nans = XLENGTH(ans);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    if (xdrop[i]) pa[i] = nmatch;
+    }
+    else if (tkeep) {
+	int *pa = INTEGER(ans);
+	R_xlen_t nans = XLENGTH(ans);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    pa[i] = pa[i] ? tkeep[pa[i] - 1] : nmatch;
     }
     UNPROTECT(nprot);
     return ans;

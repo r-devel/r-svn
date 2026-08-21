@@ -27,6 +27,15 @@ mode <- function(x) {
     switch(tx <- typeof(x),
 	   double =, integer = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
+	   ## These are their own mode, and naming them is not redundant
+	   ## with the default below: a 'bytes' vector is the only type
+	   ## whose typeof() is not a fixed string -- it names the width and
+	   ## the kind -- so this is what keeps every other type off a test
+	   ## that has to look at the object.  A name left out of the list
+	   ## only pays for that test; it is not answered wrongly.
+	   logical =, character =, complex =, raw =, list =, pairlist =,
+	   environment =, externalptr =, promise =, weakref =, bytecode =,
+	   S4 =, `NULL` = tx,
 	   ## otherwise
 	   ## every kind is "bytes", the opaque one included: is.numeric()
 	   ## is FALSE for all of them, and a mode of "numeric" sends code
@@ -39,15 +48,20 @@ mode <- function(x) {
 {
     if (storage.mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
+    ## mode() is "bytes" for every width and kind, so for a vector that
+    ## already is one this is the identity mode(x) <- mode(x) -- which
+    ## storage.mode(x) == value above cannot see, storage.mode() being
+    ## the finer name.  From any other vector "bytes" names no type at
+    ## all and is refused below.
+    if(is.bytes(x) && value == "bytes") return(x)
     ## A 'bytes' type is named by its width and kind (see
     ## R_bytesTypeFromName in src/main/bytes.c), and there is no
-    ## as.uint64() for get() below to find.  "bytes" on its own names no
-    ## type at all, so as.bytes()'s defaults must not be allowed to pick
-    ## one silently.  Both go to storage.mode<-, which knows the names
-    ## and rejects the rest; it is also the only way out of a 'bytes'
-    ## vector, mode() being too coarse to name what x currently is.
-    if(is.bytes(x) || value == "bytes" ||
-       grepl("^(u?int[0-9]+|bytes[0-9]+)$", value)) {
+    ## as.uint64() for get() below to find.  Plain "bytes" goes the same
+    ## way to be refused there, so that as.bytes()'s defaults cannot
+    ## pick a width silently.  Only the value is tested: converting a
+    ## 'bytes' vector to some other mode is as.numeric()'s business,
+    ## like any other.
+    if(value == "bytes" || grepl("^(u?int[0-9]+|bytes[0-9]+)$", value)) {
 	storage.mode(x) <- value
 	return(x)
     }

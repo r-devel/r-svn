@@ -113,12 +113,30 @@ bytesRaw(x)
 
   Comparison, \code{\link{sort}}, \code{\link{order}},
   \code{\link{match}}, \code{\link{unique}}, \code{\link{table}} and
-  \code{\link{factor}} work for all kinds and widths.
+  \code{\link{factor}} work for all kinds and widths.  An integer or
+  logical operand narrows in here as it does in arithmetic, but a value
+  the width cannot hold is not treated as missing: for a comparison it
+  lies below or above every element, so \code{x > -1L} is \code{TRUE}
+  for an unsigned vector rather than \code{NA}, and for \code{match}
+  it is neither present nor a match.  Two \code{bytes} vectors must
+  agree on the width, the kind and the sentinel, and \code{\link{min}},
+  \code{\link{max}} and \code{\link{pmin}} refuse exactly the pairs
+  \code{\link{c}} refuses -- so that \code{\link{range}}, whose answer
+  goes through \code{c}, cannot fail on arguments they accept.
 
   \code{\link{as.integer}}, \code{\link{as.numeric}} and
   \code{\link{as.raw}} convert the numeric kinds and refuse the opaque
   one, each behaving as it does for an integer vector when the value
-  will not fit.
+  will not fit.  \code{\link{mean}} goes through \code{as.numeric},
+  and so is a double like every other mean in \R.
+
+  \code{\link{class}} is the two-element implicit class
+  \code{c("uint64", "bytes")}, the shape \code{class} has for a matrix,
+  so an S3 method can be written once for a kind and width or once for
+  the type as a whole.  S4 dispatch needs the pair registered first,
+  with \code{\link[methods]{setOldClass}(c("uint64", "bytes"))}: a type
+  name is derived from the vector rather than fixed, so \pkg{methods}
+  cannot know them all in advance.
 }
 \value{
   \code{bytes} returns a zero-filled vector of \code{length} elements.

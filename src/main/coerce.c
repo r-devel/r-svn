@@ -3206,6 +3206,20 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	}
     }
 
+    /* A 'bytes' vector's implicit class is c("uint64", "bytes"), the
+       same two-element shape as c("matrix", "array") above, so setting
+       it back has to be the same no-op -- without this the length > 1
+       branch below installs a class attribute and sets the object bit,
+       and class(x) <- class(x) turns a bare vector into an S3 one. */
+    if(length(value) == 2 && TYPEOF(obj) == BYTESXP &&
+       !strcmp("bytes", CHAR(STRING_ELT(value, 1))) &&
+       !strcmp(R_bytesTypeName(obj), valueString)) {
+	setAttrib(obj, R_ClassSymbol, R_NilValue);
+	if(IS_S4_OBJECT(obj))
+	    do_unsetS4(obj, value);
+	goto done_set_class;
+    }
+
     if(length(value) > 1) { // multiple strings ==> S3
         setAttrib(obj, R_ClassSymbol, value);
 	if(IS_S4_OBJECT(obj)) /*  multiple strings only valid for S3 objects */
@@ -3291,7 +3305,19 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("invalid to change the storage mode of a factor"));
 	int bna = R_isBytes(obj) ? R_bytesHasNA(obj) : TRUE;	/* see do_asvector */
 	SEXP ans = PROTECT(R_bytesConvert(obj, bwidth, bkind, bna, call));
-	if(ans != obj) SHALLOW_DUPLICATE_ATTRIB(ans, obj);
+	if(ans != obj) {
+	    SHALLOW_DUPLICATE_ATTRIB(ans, obj);
+	    /* Raw bytes regroup into width-byte elements, so this is the
+	       one storage mode that changes the element count -- and the
+	       attributes that are tied to it would then describe more
+	       elements than the result has.  No other route reaches that
+	       state: dim<-, attr(,"dim")<- and structure() all reject a
+	       length that does not match. */
+	    if(XLENGTH(ans) != XLENGTH(obj)) {
+		setAttrib(ans, R_DimSymbol, R_NilValue); /* takes dimnames */
+		setAttrib(ans, R_NamesSymbol, R_NilValue);
+	    }
+	}
 	UNPROTECT(1);
 	return ans;
     }

@@ -786,6 +786,7 @@
  do_asPOSIXlt
  do_as_environment
  do_asatomic
+ do_asbytes
  do_ascall
  do_asfunction
  do_assign
@@ -816,6 +817,12 @@
  do_break
  do_browser
  do_builtins
+ do_bytes
+ do_byteshasna
+ do_bytesis
+ do_byteskind
+ do_bytesraw
+ do_byteswidth
  do_c
  do_c_dflt
  do_call
@@ -1607,6 +1614,41 @@
  process_system_Renviron
  process_user_Renviron
  qbeta_raw
+ R_allocVectorLike
+ R_bytesAllNA
+ R_bytesArith
+ R_bytesBitwise
+ R_bytesCheckNA
+ R_bytesCheckSameNA
+ R_bytesCheckSameType
+ R_bytesCoerce
+ R_bytesConvert
+ R_bytesCopyWithRecycle
+ R_bytesCum
+ R_bytesEltAsReal
+ R_bytesEltCmp
+ R_bytesEltDecimal
+ R_bytesEltFromString
+ R_bytesEltIsNA
+ R_bytesEltRender
+ R_bytesFillMatrixWithRecycle
+ R_bytesFromBytes
+ R_bytesKindName
+ R_bytesMagFits
+ R_bytesMemcpy
+ R_bytesNarrow
+ R_bytesNarrowCmp
+ R_bytesParallelMinMax
+ R_bytesSetEltNA
+ R_bytesSummary
+ R_bytesSwapWire
+ R_bytesTypeFromName
+ R_bytesTypeName
+ R_bytesTypeNameOf
+ R_bytesUnary
+ R_bytesWarnReserved
+ R_CheckBytesVector
+ R_SerializeVersionFor
  raise
  realp0_
  registerBase

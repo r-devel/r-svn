@@ -36,7 +36,9 @@ DISTFILES = Makefile.in Makefile.win Makefile.install Makefile.install.win Makef
 	reg-large.R utf8.R
 
 SUBDIRS = Embedding Examples
-SUBDIRS_WITH_NO_BUILD = Pkgs C++Standards
+## bytes-ffi holds the sources test-BytesFFI copies out and builds, so
+## it has to reach the tarball for `make check-devel` to run there
+SUBDIRS_WITH_NO_BUILD = Pkgs C++Standards bytes-ffi
 
 ## SRCDIR is used by reg-tests-1a.R, reg-IO2.R and reg-packages.R
 ## NB: SRCDIR is not available on windows so make any new tests robust to this

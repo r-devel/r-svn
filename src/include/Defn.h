@@ -1727,6 +1727,7 @@ extern0 int	R_BrowseLines	INI_as(0);	/* lines/per call in browser :
 						 * options(deparse.max.lines) */
 extern0 int	R_Expressions	INI_as(5000);	/* options(expressions) */
 extern0 int	R_Expressions_keep INI_as(5000);/* options(expressions) */
+extern0 Rboolean R_BytesVectorSeen INI_as(FALSE); /* see R_allocBytesVector() */
 extern0 Rboolean R_KeepSource	INI_as(FALSE);	/* options(keep.source) */
 extern0 Rboolean R_CBoundsCheck	INI_as(FALSE);	/* options(CBoundsCheck) */
 extern0 MATPROD_TYPE R_Matprod	INI_as(MATPROD_DEFAULT);  /* options(matprod) */
@@ -1976,6 +1977,8 @@ attribute_hidden SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args,
 					    bool narm);
 attribute_hidden SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA,
 				    SEXP call);
+attribute_hidden SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA,
+				       int *dir, SEXP call);
 attribute_hidden bool R_bytesAllNA(SEXP x);
 attribute_hidden SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA,
 				     SEXP call);
@@ -2600,7 +2603,8 @@ void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
 
 /* main/serialize.c */
-attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
+					   Rboolean announce);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);

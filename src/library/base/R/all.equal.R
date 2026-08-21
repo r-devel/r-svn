@@ -67,8 +67,8 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
                    numeric   = all.equal.numeric  (target, current, check.class=check.class, ...),
                    character = all.equal.character(target, current, check.class=check.class, ...),
                    logical   = ,
-                   bytes     = ,
                    raw       = all.equal.raw      (target, current, check.class=check.class, ...),
+                   bytes     = all.equal.bytes    (target, current, check.class=check.class, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),
                    ## otherwise :
@@ -448,6 +448,30 @@ all.equal.raw <-
     else if(sum(ne) == 1L) c(msg, paste("1 element mismatch"))
     else if(sum(ne) > 1L) c(msg, paste(sum(ne), "element mismatches"))
     else msg
+}
+
+all.equal.bytes <-
+    function(target, current, ..., check.attributes = TRUE, check.class = TRUE)
+{
+    ## The width, the kind and whether NA is reserved are all part of a
+    ## 'bytes' type, and comparing across them errors rather than
+    ## answering -- so the difference has to be reported here, before
+    ## anything reaches `!=` in all.equal.raw().  data.class() cannot
+    ## see it: mode() is "bytes" for every width and kind.  Reported
+    ## whatever check.class says, since these are not comparable at all
+    ## and all.equal() must describe a difference rather than stop().
+    tt <- typeof(target)
+    ct <- if(is.bytes(current)) typeof(current) else data.class(current)
+    if(tt != ct)
+	return(paste0("target is ", tt, ", current is ", ct))
+    if(bytesHasNA(target) != bytesHasNA(current))
+	return(paste0("target ",
+		      if(bytesHasNA(target)) "reserves" else "does not reserve",
+		      " a value for NA, current ",
+		      if(bytesHasNA(current)) "does" else "does not"))
+
+    all.equal.raw(target, current, ..., check.attributes = check.attributes,
+		  check.class = check.class)
 }
 
 

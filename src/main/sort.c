@@ -689,8 +689,13 @@ static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
     R_xlen_t count[256];
 
     for (int pass = 0; pass < w; pass++) {
-	/* pass 0 is the least significant byte */
-	int at = BYTEVEC_MSB(w - 1 - pass, w);
+	/* Pass 0 is the least significant byte: of the value for the
+	   numeric kinds, whose storage is native, and of the stored byte
+	   string for the opaque kind, which orders lexicographically as
+	   stored on every platform -- so the last stored byte is the one
+	   that matters least there, whatever the machine does. */
+	int at = (kind == BYTEVEC_OPAQUE) ? w - 1 - pass
+					  : BYTEVEC_MSB(w - 1 - pass, w);
 	bool top = (pass == w - 1) && (kind == BYTEVEC_INT);
 
 	memset(count, 0, sizeof count);
@@ -769,9 +774,7 @@ void sortVector(SEXP s, bool decreasing)
 	    ssort2(STRING_PTR(s), n, decreasing); /* STRING_PTR is safe here */
 	    break;
 	case BYTESXP:
-	    if (n <= INT_MAX && BYTEVEC_KIND(s) != BYTEVEC_OPAQUE) {
-		/* opaque elements keep the shell sort: their order is
-		   lexicographic, which memcmp already gives directly */
+	    if (n <= INT_MAX) {
 		const void *vmax = vmaxget();
 		int w = BYTEVEC_WIDTH(s);
 		int *ord = (int *) R_alloc((size_t) n, sizeof(int));
@@ -855,11 +858,13 @@ static void sPsort2(SEXP *x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 /* psort_body over fixed-width blocks.  Elements move by memcpy for the
    reason bsort2() does -- their size is only known at run time -- so the
    pivot has to be a copy rather than a pointer into the array being
-   permuted.  NA is ordered by its bit pattern here too. */
+   permuted.  NA goes last, as psort_body hard-codes it for every other
+   type -- the bit pattern would put it first for the signed kind. */
 static void bPsort2(SEXP s, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 {
     const void *vmax = vmaxget();
     int w = BYTEVEC_WIDTH(s), kind = BYTEVEC_KIND(s);
+    bool hasNA = BYTEVEC_HAS_NA(s);
     Rbyte *x = BYTEVEC_DATA(s);
     Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
     Rbyte *t = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
@@ -868,8 +873,8 @@ static void bPsort2(SEXP s, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
     for (L = lo, R = hi; L < R; ) {
 	memcpy(v, x + k * w, (size_t) w);
 	for (i = L, j = R; i <= j;) {
-	    while (R_bytesEltCmp(x + i * w, v, w, kind) < 0) i++;
-	    while (R_bytesEltCmp(v, x + j * w, w, kind) < 0) j--;
+	    while (bcmp_(x + i * w, v, w, kind, hasNA, true) < 0) i++;
+	    while (bcmp_(v, x + j * w, w, kind, hasNA, true) < 0) j--;
 	    if (i <= j) {
 		memcpy(t, x + i * w, (size_t) w);
 		memcpy(x + i * w, x + j * w, (size_t) w);
@@ -1213,6 +1218,11 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case BYTESXP:
+	    c = bcmp_(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(x, j),
+		      BYTEVEC_WIDTH(x), BYTEVEC_KIND(x),
+		      BYTEVEC_HAS_NA(x), nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
 	}
@@ -1476,19 +1486,23 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 #undef less
 	    break;
 	case BYTESXP:
-	    /* NAs were moved out of [lo, hi] above, so neither the radix
-	       nor the memcmp below ever sees one */
-	    if (bk != BYTEVEC_OPAQUE)
+	    /* The radix has no way to place an NA, so it takes over only
+	       where the pass above has moved them out of [lo, hi] --
+	       which is wherever rho is NULL.  Otherwise the comparison
+	       consults nalast, as it does for the types above. */
+	    if (isNull(rho))
 		bytesRadixOrder(indx, lo, hi, key, decreasing);
 	    else if (decreasing)
-#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
-				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      BYTEVEC_HAS_NA(key), nalast),		\
 		    c < 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    else
-#define less(a, b) (c = R_bytesEltCmp(bx + (R_xlen_t) (a) * bw,		\
-				      bx + (R_xlen_t) (b) * bw, bw, bk),	\
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      BYTEVEC_HAS_NA(key), nalast),		\
 		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less

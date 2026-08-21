@@ -18,6 +18,7 @@
 \alias{all.equal.language}
 \alias{all.equal.POSIXt}
 \alias{all.equal.raw}
+\alias{all.equal.bytes}
 \alias{attr.all.equal}
 \concept{numerical equality}
 \concept{approximately equal}
@@ -46,6 +47,9 @@ all.equal(target, current, \dots)
 
 \method{all.equal}{POSIXt}(target, current, \dots, tolerance = 1e-3, scale,
           check.tzone = TRUE)
+
+\method{all.equal}{bytes}(target, current, \dots,
+          check.attributes = TRUE, check.class = TRUE)
 
 
 attr.all.equal(target, current, \dots,

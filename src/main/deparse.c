@@ -1695,7 +1695,12 @@ static void bytes2buff(SEXP v, LocalParseData *d)
 	    }
 
 	    if (i < n - 1) print2buff(", ", d);
-	    if (d->len > d->cutoff) writeline(d);
+	    /* n > 1 as in vector2buff(): breaking the line for a single
+	       element gains nothing -- there is nothing after it to move
+	       down -- and costs deparse(x)[1L] its whole answer.  A
+	       width-32 element is long enough to reach the cutoff on
+	       its own. */
+	    if (n > 1 && d->len > d->cutoff) writeline(d);
 	    if (!d->active) break;
 	}
 

@@ -430,9 +430,10 @@ str.default <-
 		##-- atomic:   numeric{dbl|int} complex character logical raw
 		mod <- substr(mode(object), 1, 4)
 		## a 'bytes' vector's mode() is deliberately coarse
-		## ("numeric" for every width and both signs), and reporting
-		## a 64-bit column as "num" is exactly the confusion the type
-		## exists to prevent; typeof() carries the width and kind
+		## ("bytes" for every width and kind), and reporting a
+		## 64-bit column by anything but its own name is exactly
+		## the confusion the type exists to prevent; typeof()
+		## carries the width and the kind
 		if     (is.bytes(object)) mod <- typeof(object)
 		else if(mod == "nume")
 		    mod <- if(is.integer(object)) "int" else "num"

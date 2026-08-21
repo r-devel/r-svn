@@ -809,6 +809,58 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
     return ans;
 }
 
+/* Narrow a logical or integer vector for COMPARISON rather than for
+   value.  R_bytesNarrow() turns an operand the type cannot hold into
+   NA, which is the right answer where the result has to be an element
+   of the type -- x + 1000L on a uint8 has none.  A comparison always
+   has one: an operand outside the range lies below or above every
+   element, whatever the elements are.  So out-of-range operands are
+   reported in dir[] instead, as -1 (below) or +1 (above), no NA is
+   introduced and no warning given; the element left in the vector for
+   them is zero bytes, which is never the reserved NA pattern and is
+   never read.  NA operands are treated exactly as R_bytesNarrow()
+   treats them, dir[] being 0 there.
+
+   The reserved pattern counts as out of range, and in the direction it
+   sits: a vector that reserves it holds no element equal to it, so
+   every element is below UINT_MAX and above INT_MIN. */
+attribute_hidden
+SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
+{
+    SEXPTYPE t = TYPEOF(x);
+
+    if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
+	errorcall(call,
+		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
+		  R_typeToChar(x));
+    if (t != INTSXP && t != LGLSXP)
+	errorcall(call,
+		  _("'%s' and '%s' cannot be combined; use an integer operand (1L), or as.numeric() for double arithmetic"),
+		  "bytes", R_typeToChar(x));
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
+	Rbyte *p = BYTEVEC_ELT(ans, i);
+
+	dir[i] = 0;
+	if (v == NA_INTEGER) {
+	    R_bytesCheckNA(ans);
+	    R_bytesSetEltNA(p, w, kind);
+	}
+	else if (!eltFromLong(p, (long long) v, w, kind, hasNA != 0)) {
+	    dir[i] = (v < 0) ? -1 : 1;
+	    memset(p, 0, (size_t) w);
+	}
+    }
+
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* Settle the operands of a binary operation: at least one is a 'bytes'
    vector, and the other must be one too (same kind) or must narrow. */
 static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
@@ -1015,11 +1067,18 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 
 /* ---- numeric coercion ---- */
 
-/* Exact for widths with a native type behind them; wider values are
-   accumulated, which is why the precision warning below is not
-   conditional on the width.  Defined for every width the type allows,
-   since a value too large for a double is a precision question rather
-   than an arithmetic one -- hence the full-width scratch buffer. */
+/* The nearest double to the element's value, for every width the type
+   allows -- a value too large for a double is a precision question
+   rather than an arithmetic one, hence the full-width scratch buffer.
+
+   Accumulating byte by byte (d = d * 256 + byte) would not do: once the
+   running total passes 2^53 every further step rounds again, and the
+   errors compound to as much as a whole ulp.  Instead the top eight
+   significant bytes go into a uint64_t -- at least 57 significant bits,
+   four more than a double keeps -- everything below them is folded into
+   a sticky bit, and the single conversion the hardware then does is
+   correctly rounded.  Scaling back up by a power of 256 is exact, and
+   overflows to Inf, which is what the caller warns about. */
 attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
 {
     Rbyte A[BYTEVEC_MAX_WIDTH];
@@ -1031,8 +1090,20 @@ attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
 	magNegate(A, w);
     }
 
-    double d = 0.0;
-    for (int i = 0; i < w; i++) d = d * 256.0 + (double) A[i];
+    int s = 0;			/* the first byte that carries a bit */
+    while (s < w && A[s] == 0) s++;
+    if (s == w) return 0.0;
+
+    int nb = w - s, take = (nb < 8) ? nb : 8;
+    uint64_t hi = 0;
+    for (int i = 0; i < take; i++) hi = (hi << 8) | A[s + i];
+
+    if (nb > 8) {
+	for (int i = s + 8; i < w; i++)
+	    if (A[i]) { hi |= 1; break; }	/* sticky */
+    }
+
+    double d = (nb > 8) ? ldexp((double) hi, 8 * (nb - 8)) : (double) hi;
 
     return neg ? -d : d;
 }
@@ -1155,7 +1226,7 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 {
     /* sum and prod accumulate; min and max only ever compare */
     bool arith = (iop == 0 || iop == 4);
-    int kind = -1, w = 0, wmin = 0, hasNA = -1;
+    int kind = -1, w = 0, hasNA = -1;
 
     /* one pass to settle the result kind, width and NA flag */
     for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
@@ -1177,33 +1248,36 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	if (kind == -1) {
 	    kind = BYTEVEC_KIND(a);
 	    hasNA = BYTEVEC_HAS_NA(a);
-	    wmin = BYTEVEC_WIDTH(a);
+	    w = BYTEVEC_WIDTH(a);
 	}
 	else {
+	    /* the rule c() and == already use: a width is part of the
+	       type, so these refuse exactly the pairs c() refuses.  That
+	       is what keeps range() -- whose answer goes through c() --
+	       from failing on arguments min() and max() accept. */
+	    if (BYTEVEC_WIDTH(a) != w)
+		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+			  w, BYTEVEC_WIDTH(a));
 	    if (kind != BYTEVEC_KIND(a))
 		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
 	    if (hasNA != BYTEVEC_HAS_NA(a))
 		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
-	    if (BYTEVEC_WIDTH(a) < wmin) wmin = BYTEVEC_WIDTH(a);
 	}
-	if (BYTEVEC_WIDTH(a) > w) w = BYTEVEC_WIDTH(a);
     }
 
-    /* Only promoting a narrower operand to the result width needs the
-       arithmetic machinery; an element comparison is defined for every
-       width and every kind, so min and max over equal widths are not
-       restricted the way sum and prod are. */
-    bool promote = (w != wmin);
-    if ((arith || promote) && !arithWidthOK(w))
+    /* An element comparison is defined for every width and every kind,
+       so min and max are not restricted the way sum and prod are. */
+    if (arith && !arithWidthOK(w))
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
-    if (promote && kind == BYTEVEC_OPAQUE)
-	errorcall(call, _("cannot combine opaque 'bytes' vectors of widths %d and %d"),
-		  wmin, w);
 
     SEXP ans = PROTECT(R_allocBytesVector(1, w, kind, hasNA ? TRUE : FALSE));
     Rbyte *acc = BYTEVEC_ELT(ans, 0);
     bool seen = false, isNA = false, over = false;
+    /* an operand outside the range of the type: unrep once it is known
+       to be the answer, sawOut while it is only the answer if nothing
+       representable turns up */
+    bool unrep = false, sawOut = false;
 
     /* sum starts at 0, prod at 1; min/max take the first element seen */
     if (iop == 4) {
@@ -1217,37 +1291,47 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	SEXP a = CAR(t);
 	if (TAG(t) == R_NaRmSymbol || TYPEOF(a) == NILSXP) continue;
 
-	/* narrowed here rather than in the pass above, which settles the
-	   type this needs */
-	PROTECT(a = (TYPEOF(a) == BYTESXP) ? a
-		: R_bytesNarrow(a, w, kind, hasNA, call));
+	/* Narrowed here rather than in the pass above, which settles the
+	   type this needs.  min and max narrow for comparison: a bound
+	   the type cannot hold still settles every comparison against it,
+	   and only the answer itself can be out of range.  sum and prod
+	   narrow for value, where an operand outside the range overflows
+	   like any other. */
+	int *dir = NULL;
+	const void *vmax = vmaxget();
+	if (TYPEOF(a) != BYTESXP) {
+	    if (arith)
+		a = R_bytesNarrow(a, w, kind, hasNA, call);
+	    else {
+		dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
+		a = R_bytesNarrowCmp(a, w, kind, hasNA, dir, call);
+	    }
+	}
+	PROTECT(a);
 
-	int aw = BYTEVEC_WIDTH(a);
 	const Rbyte *ba = BYTEVEC_DATA_RO(a);	/* hoisted; see R_bytesArith */
 	R_xlen_t na = XLENGTH(a);
 
 	for (R_xlen_t i = 0; i < na; i++) {
-	    const Rbyte *p = ba + i * aw;
+	    const Rbyte *p = ba + i * w;
 
-	    if (hasNA && eltIsNA(p, aw, kind)) {
+	    if (dir && dir[i]) {
+		/* below (-1) or above (+1) every element of the type: for
+		   min a low bound is the answer straight away, and a high
+		   one is the answer only if nothing else turns up */
+		if (dir[i] == (iop == 2 ? -1 : 1)) unrep = true;
+		else sawOut = true;
+		continue;
+	    }
+
+	    if (hasNA && eltIsNA(p, w, kind)) {
 		if (narm) continue;
 		isNA = true;
 		break;
 	    }
 
-	    /* widening buffers are MAXW, so this must stay behind the
-	       arithWidthOK() check above; at equal widths there is
-	       nothing to widen and any width is fine */
-	    Rbyte wide[MAXW], buf[MAXW];
-	    const Rbyte *cur = p;
-	    if (aw != w) {
-		widenMSB(wide, w, p, aw, kind);
-		fromMSB(buf, wide, w);
-		cur = buf;
-	    }
-
 	    if (!seen && (iop == 2 || iop == 3)) {
-		memcpy(acc, cur, (size_t) w);
+		memcpy(acc, p, (size_t) w);
 		seen = true;
 		continue;
 	    }
@@ -1255,18 +1339,18 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 
 	    switch (iop) {
 	    case 0:
-		if (!eltAdd(acc, acc, cur, w, kind, hasNA)) over = true;
+		if (!eltAdd(acc, acc, p, w, kind, hasNA)) over = true;
 		break;
 	    case 4:
-		if (!eltMul(acc, acc, cur, w, kind, hasNA)) over = true;
+		if (!eltMul(acc, acc, p, w, kind, hasNA)) over = true;
 		break;
 	    case 2:
-		if (R_bytesEltCmp(cur, acc, w, kind) < 0)
-		    memcpy(acc, cur, (size_t) w);
+		if (R_bytesEltCmp(p, acc, w, kind) < 0)
+		    memcpy(acc, p, (size_t) w);
 		break;
 	    case 3:
-		if (R_bytesEltCmp(cur, acc, w, kind) > 0)
-		    memcpy(acc, cur, (size_t) w);
+		if (R_bytesEltCmp(p, acc, w, kind) > 0)
+		    memcpy(acc, p, (size_t) w);
 		break;
 	    default:
 		UNPROTECT(2);	/* a, ans */
@@ -1276,9 +1360,19 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	}
 
 	UNPROTECT(1); /* a */
+	vmaxset(vmax);
     }
 
-    if ((iop == 2 || iop == 3) && !seen) {
+    /* a bound that lost to nothing at all is still the answer */
+    if (!seen && sawOut) unrep = true;
+    if (unrep && !isNA) {
+	warningcall(call,
+		    _("NA produced: the %s of these arguments is outside the range of '%s'"),
+		    iop == 2 ? "minimum" : "maximum", R_bytesTypeName(ans));
+	isNA = true;
+    }
+
+    if ((iop == 2 || iop == 3) && !seen && !isNA) {
 	/* Every other type warns here and returns +/-Inf.  A fixed-width
 	   type has no Inf, so NA stands in -- and when the type does not
 	   reserve an NA either there is nothing to return, which is the
@@ -1394,12 +1488,11 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
 
 /* iop is do_pmin()'s PRIMVAL: 0 pmin, 1 pmax.  Result kind, width and
    NA flag are settled as in R_bytesSummary(); elements are only ever
-   compared, so any width is allowed unless a narrower operand has to be
-   promoted to the result width. */
+   compared, so any width is allowed. */
 attribute_hidden
 SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 {
-    int kind = -1, w = 0, wmin = 0, hasNA = -1;
+    int kind = -1, w = 0, hasNA = -1;
     R_xlen_t len = 0;
     bool anyEmpty = false;
 
@@ -1423,29 +1516,24 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 	if (kind == -1) {
 	    kind = BYTEVEC_KIND(a);
 	    hasNA = BYTEVEC_HAS_NA(a);
-	    wmin = BYTEVEC_WIDTH(a);
+	    w = BYTEVEC_WIDTH(a);
 	}
 	else {
+	    /* refused on the same terms as c() and min(); see
+	       R_bytesSummary() */
+	    if (BYTEVEC_WIDTH(a) != w)
+		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+			  w, BYTEVEC_WIDTH(a));
 	    if (kind != BYTEVEC_KIND(a))
 		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
 	    if (hasNA != BYTEVEC_HAS_NA(a))
 		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
-	    if (BYTEVEC_WIDTH(a) < wmin) wmin = BYTEVEC_WIDTH(a);
 	}
-	if (BYTEVEC_WIDTH(a) > w) w = BYTEVEC_WIDTH(a);
 
 	R_xlen_t n = XLENGTH(a);
 	if (n == 0) anyEmpty = true;
 	if (n > len) len = n;
     }
-
-    bool promote = (w != wmin);
-    if (promote && !arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
-    if (promote && kind == BYTEVEC_OPAQUE)
-	errorcall(call, _("cannot combine opaque 'bytes' vectors of widths %d and %d"),
-		  wmin, w);
 
     /* as for the other types: one zero-length operand makes the whole
        result zero-length, rather than recycling nothing */
@@ -1461,43 +1549,94 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
     SEXP ans = PROTECT(R_allocBytesVector(len, w, kind, hasNA ? TRUE : FALSE));
     bool first = true;
 
+    /* Per result element: 0 once a representable candidate is in place,
+       -1 or +1 while the best one so far lies below or above the type.
+       A bound the type cannot hold is not missing -- it beats every
+       element or loses to every element -- so it can decide the result
+       without ever being stored, and only has to become NA if it wins
+       outright.  See R_bytesNarrowCmp(). */
+    const void *vmax = vmaxget();
+    signed char *state = (signed char *) R_alloc(len + 1, 1);
+    memset(state, 0, (size_t) len);
+
     for (SEXP t = args; len > 0 && t != R_NilValue; t = CDR(t)) {
 	SEXP a = CAR(t);
 	if (TYPEOF(a) == NILSXP) continue;
 
-	/* widening allocates, so nothing below may hold a data pointer
+	int *dir = NULL;
+	if (TYPEOF(a) != BYTESXP) {
+	    dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
+	    a = R_bytesNarrowCmp(a, w, kind, hasNA, dir, call);
+	}
+	/* narrowing allocates, so nothing below may hold a data pointer
 	   across this call */
-	PROTECT(a = R_bytesConvert(a, w, kind, hasNA, call));
+	PROTECT(a);
 
 	R_xlen_t n = XLENGTH(a);
 	const Rbyte *ba = BYTEVEC_DATA_RO(a);
 	Rbyte *ra = BYTEVEC_DATA(ans);
 
 	if (first) {
-	    for (R_xlen_t i = 0; i < len; i++)
-		memcpy(ra + i * w, ba + (i % n) * w, (size_t) w);
+	    for (R_xlen_t i = 0; i < len; i++) {
+		R_xlen_t j = i % n;
+		state[i] = (signed char) (dir ? dir[j] : 0);
+		if (state[i])
+		    memset(ra + i * w, 0, (size_t) w);
+		else
+		    memcpy(ra + i * w, ba + j * w, (size_t) w);
+	    }
 	    first = false;
 	}
 	else
 	    for (R_xlen_t i = 0; i < len; i++) {
-		const Rbyte *p = ba + (i % n) * w;
+		R_xlen_t j = i % n;
+		const Rbyte *p = ba + j * w;
 		Rbyte *q = ra + i * w;
+		int dp = dir ? dir[j] : 0, dq = state[i];
 		bool pNA = hasNA && eltIsNA(p, w, kind);
 		bool qNA = hasNA && eltIsNA(q, w, kind);
-		int c = (pNA || qNA) ? 0 : R_bytesEltCmp(p, q, w, kind);
+
+		/* an out-of-range candidate orders below or above every
+		   element without being one, so direction settles the
+		   comparison whenever the two differ in it */
+		int c = (pNA || qNA) ? 0
+		    : (dp != dq) ? (dp < dq ? -1 : 1)
+		    : dp ? 0
+		    : R_bytesEltCmp(p, q, w, kind);
 
 		/* the running element loses to a missing one unless
 		   na.rm, and a missing running element is replaced by
 		   anything when na.rm -- as the integer arm does */
 		if ((narm && qNA) || (!narm && pNA) ||
-		    (!pNA && !qNA && (iop == 1 ? c > 0 : c < 0)))
-		    memcpy(q, p, (size_t) w);
+		    (!pNA && !qNA && (iop == 1 ? c > 0 : c < 0))) {
+		    state[i] = (signed char) dp;
+		    if (dp)
+			memset(q, 0, (size_t) w);
+		    else
+			memcpy(q, p, (size_t) w);
+		}
 	    }
 
 	UNPROTECT(1); /* a */
     }
 
+    /* whatever is still out of range won outright, and the type has no
+       element for it */
+    bool unrep = false;
+    Rbyte *ra = BYTEVEC_DATA(ans);
+    for (R_xlen_t i = 0; i < len; i++)
+	if (state[i]) {
+	    R_bytesCheckNA(ans);
+	    R_bytesSetEltNA(ra + i * w, w, kind);
+	    unrep = true;
+	}
+    if (unrep)
+	warningcall(call,
+		    _("NAs produced: the %s is outside the range of '%s'"),
+		    iop == 1 ? "maximum" : "minimum", R_bytesTypeName(ans));
+
     UNPROTECT(1); /* ans */
+    vmaxset(vmax);
 
     return ans;
 }

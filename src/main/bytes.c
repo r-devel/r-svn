@@ -334,15 +334,12 @@ SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
 	if (!isInteger(b)) b = coerceVector(b, INTSXP);
     }
     else if (!unary) {
-	if (TYPEOF(b) != BYTESXP) {
-	    /* an opaque element is a byte string; there is no number to
-	       read into it, here or anywhere else */
-	    if (k == BYTEVEC_OPAQUE)
-		errorcall(call,
-			  _("cannot combine an opaque 'bytes' vector with type '%s'"),
-			  R_typeToChar(b));
+	if (TYPEOF(b) != BYTESXP)
+	    /* an opaque element is a byte string, so there is no number
+	       to read into one -- except NA, which is the absence of a
+	       value rather than a value.  R_bytesNarrow() draws that
+	       line, here as it does for c(), == and [<-. */
 	    b = R_bytesNarrow(b, w, k, hasNA, call);
-	}
 	else {
 	    /* widths are not promoted the way arithmetic promotes them:
 	       a mask that is not the width of what it masks is a
@@ -582,6 +579,9 @@ void R_bytesSetNA(SEXP x, R_xlen_t i)
 
 static int checkKind(SEXP skind)
 {
+    if (length(skind) != 1)
+	error(_("invalid '%s' argument"), "kind");
+
     const char *k = CHAR(asChar(skind));
 
     if (!strcmp(k, "opaque"))   return BYTEVEC_OPAQUE;
@@ -594,6 +594,12 @@ static int checkKind(SEXP skind)
 /* shared argument checking for the .Internal()s below */
 static int checkWidth(SEXP swidth)
 {
+    /* as do_makevector() checks 'length': asInteger() would take the
+       first element of a longer vector, so bytes(2, c(4L, 8L)) would
+       quietly build a type the caller did not ask for */
+    if (length(swidth) != 1)
+	error(_("invalid '%s' argument"), "width");
+
     int width = asInteger(swidth);
 
     if (width == NA_INTEGER || width < 1 || width > BYTEVEC_MAX_WIDTH)
@@ -607,6 +613,9 @@ static int checkWidth(SEXP swidth)
    restrictive of the two vectors without being asked. */
 static int checkNA(SEXP sna)
 {
+    if (length(sna) != 1)
+	error(_("invalid '%s' argument"), "na");
+
     int hasNA = asLogical(sna);
 
     if (hasNA == NA_LOGICAL)
@@ -623,6 +632,8 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
     /* asVecSize() rather than a cast: a double outside the R_xlen_t range
        is undefined behaviour to convert, and this is where do_makevector
        and the rest already get that check */
+    if (length(CAR(args)) != 1)
+	error(_("invalid '%s' argument"), "length");
     R_xlen_t len = asVecSize(CAR(args));
     if (len < 0)
 	error(_("invalid '%s' argument"), "length");
@@ -872,7 +883,10 @@ void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 				  R_xlen_t cols, R_xlen_t nsrc)
 {
     R_bytesCheckSameType(dst, src, "copyMatrix");
-    checkRecycleSource(drows * cols, nsrc, "copyMatrix");
+    /* srows, not drows: FILL_MATRIX_ITERATE() writes srows rows per
+       column, so a source contributing no rows at all -- rbind() of a
+       zero-row matrix -- reads and writes nothing and needs no source */
+    checkRecycleSource(srows * cols, nsrc, "copyMatrix");
 
     size_t w = (size_t) BYTEVEC_WIDTH(dst);
     Rbyte *d = BYTEVEC_DATA(dst);

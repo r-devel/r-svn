@@ -1581,10 +1581,23 @@ static void announceVersion(int from, int to)
 /* The version to write in when the caller did not name one: the
    default, raised to one that can hold what the object contains.  A
    version the caller did name is theirs, and R_Serialize() errors if it
-   cannot hold the object rather than quietly writing something else. */
-attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
+   cannot hold the object rather than quietly writing something else.
+
+   announce = FALSE is for a lazy-load database, which is written one
+   object at a time: the line would repeat once per binding, and the
+   version of a package's own database is not something its caller can
+   act on. */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
+					   Rboolean announce)
 {
     if (version >= 4)
+	return version;
+
+    /* Nothing in this session has ever made a 'bytes' vector, so no
+       object can contain one and there is nothing to look for.  Without
+       this every serialize() and saveRDS() in R would pay for a walk of
+       the object it is about to write. */
+    if (!R_BytesVectorSeen)
 	return version;
 
     SEXP seen = PROTECT(MakeCircleHashTable());
@@ -1594,7 +1607,7 @@ attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
     if (!needs4)
 	return version;
 
-    announceVersion(version, 4);
+    if (announce) announceVersion(version, 4);
 
     return 4;
 }
@@ -2858,7 +2871,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else type = R_pstream_xdr_format;
 
     if (CADDDR(args) == R_NilValue)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion());
+	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else
 	version = asInteger(CADDDR(args));
     if (version == NA_INTEGER || version <= 0)
@@ -3023,7 +3036,7 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion());
+	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
@@ -3175,7 +3188,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     int version;
 
     if (Sversion == R_NilValue)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion());
+	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
@@ -3588,7 +3601,12 @@ R_lazyLoadDBinsertValue(SEXP value, SEXP file, SEXP ascii,
     int compress = asInteger(compsxp);
     SEXP key;
 
-    value = R_serialize(value, R_NilValue, ascii, R_NilValue, hook);
+    /* Settled here, and quietly, rather than left to R_serialize()'s
+       own default: see R_SerializeVersionFor(). */
+    SEXP sver = PROTECT(ScalarInteger(
+	R_SerializeVersionFor(value, defaultSerializeVersion(), FALSE)));
+    value = R_serialize(value, R_NilValue, ascii, sver, hook);
+    UNPROTECT(1); /* sver */
     PROTECT_WITH_INDEX(value, &vpi);
     if (compress == 3)
 	REPROTECT(value = R_compress3(value), vpi);
