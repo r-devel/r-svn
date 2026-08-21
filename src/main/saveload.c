@@ -1857,7 +1857,7 @@ static int R_ReadMagic(FILE *fp)
     return d1 + 10 * d2 + 100 * d3 + 1000 * d4;
 }
 
-static int defaultSaveVersion(void)
+attribute_hidden int defaultSaveVersion(void)
 {
     static int dflt = -1;
 
@@ -1913,7 +1913,7 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 	   covers version 4 too; the stream's own header carries the
 	   version. */
 	if (version == 0)
-	    v = R_SerializeVersionFor(obj, v, TRUE);
+	    v = R_SerializeVersionFor(obj, v);
 
 	if (ascii) {
 	    magic = (v == 2) ? R_MAGIC_ASCII_V2 : R_MAGIC_ASCII_V3;
@@ -2419,7 +2419,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if (defaulted)
-	version = R_SerializeVersionFor(s, version, TRUE);
+	version = R_SerializeVersionFor(s, version);
     else
 	R_CheckSerializeVersion(s, version);
 

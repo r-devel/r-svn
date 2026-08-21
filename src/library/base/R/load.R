@@ -88,14 +88,21 @@ save <- function(..., list = character(),
                              paste(sQuote(list[!ok]), collapse = ", ")
                              ), domain = NA)
             }
-            ## and for a version that cannot hold what is being saved,
-            ## for the same reason.  Only when the promises may be
-            ## forced -- saveToConn() forces them anyway, but not
-            ## before the connection below has truncated the file.
-            if (!is.null(version) && eval.promises)
-                .Internal(checkSerializeVersion(
-                    mget(list, envir = envir, inherits = TRUE), version))
         }
+        ## Settle the version before the connection below truncates the
+        ## file.  Both the refusal of one that cannot hold what is being
+        ## saved and the message announcing one raised past the default
+        ## can be unwound out of, and by then there is nothing left of
+        ## what the file held -- which save.image(), passing precheck =
+        ## FALSE, would have paid for with the previous .RData.
+        ## ifnotfound leaves a name that is not there to saveToConn() to
+        ## report, as it did before.  mget() forces, so with
+        ## eval.promises FALSE this is left to saveToConn(): it keeps
+        ## the promises unforced and settles the version itself.
+        if (eval.promises)
+            version <- .Internal(saveVersion(
+                mget(list, envir = envir, inherits = TRUE,
+                     ifnotfound = list(NULL)), version))
         if (is.character(file)) {
 	    if(!nzchar(file))
                 stop(gettextf("'%s' must be a non-empty character string", "file"), domain = NA)
@@ -165,7 +172,10 @@ save.image <- function (file = ".RData", version = NULL, ascii = FALSE,
     }
     else outfile <- file
 
-    on.exit(file.remove(outfile))
+    ## file.exists(): save() can now fail before it opens anything --
+    ## a version too low for what is being saved is settled first --
+    ## and removing a file that was never created only warns.
+    on.exit(if (file.exists(outfile)) file.remove(outfile))
     save(list = names(.GlobalEnv), file = outfile,
          version = version, ascii = ascii, compress = compress,
          envir = .GlobalEnv, precheck = FALSE)

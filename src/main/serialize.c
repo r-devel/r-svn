@@ -1474,22 +1474,53 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
    written before the first item and a connection cannot be rewound, so
    the writer has to settle this up front.
 
-   The walk mirrors WriteItem()'s reachability, and a gap in it fails in
-   the safe direction: WriteItem() still refuses to put the type into a
-   stream that cannot hold it, so anything missed here becomes that
-   error rather than a file whose header claims a reader that cannot
-   read it.  Erring the other way -- looking inside an object that a
-   refhook would have replaced -- costs a version 4 file where a
-   version 3 one would have done, which is merely stricter.
+   The walk mirrors WriteItem()'s reachability at the version about to
+   be written, and it has to: a gap is not safe in either direction.
+   One that misses a vector leaves WriteItem() to refuse it mid-stream,
+   with the header already written and whatever the file used to hold
+   already gone -- the very thing settling the version up front is meant
+   to prevent.  One that finds a vector the write would not have reached
+   costs a version 4 file where a version 3 one would have done, which
+   is merely stricter.
+
+   The one gap left is a refhook.  Whether it replaces a reference
+   object -- and so whether the write descends into that object at all
+   -- is known only by calling it, and calling it here would call it
+   twice for every object it is offered, which a hook that records what
+   it is asked about would notice.  So the walk descends, and an object
+   whose only 'bytes' vector a refhook would have externalised is
+   written in version 4 rather than 3.  Stricter, never truncated.
 
    Environments are the only edge that can cycle, so a table of the ones
    already visited is enough to terminate. */
-static bool containsBytesVector(SEXP s, SEXP seen)
+static bool containsBytesVector(SEXP s, SEXP seen, int version)
 {
     R_CheckStack();
 
     if (TYPEOF(s) == BYTESXP)
 	return true;
+
+    /* An ALTREP object is written as its serialized state and never as
+       its own elements, so the state is what has to be searched.
+       WriteItem() takes this branch under the same condition, and asks
+       for the state again when it does; the repeat is confined to
+       sessions that have made a 'bytes' vector at all, which is what
+       R_BytesVectorSeen gates. */
+    if (ALTREP(s) && version >= 3) {
+	SEXP info = ALTREP_SERIALIZED_CLASS(s);
+	SEXP state = ALTREP_SERIALIZED_STATE(s);
+	if (info != NULL && state != NULL) {
+	    PROTECT(state);
+	    PROTECT(info);
+	    bool found = containsBytesVector(info, seen, version) ||
+		containsBytesVector(state, seen, version) ||
+		containsBytesVector(ATTRIB(s), seen, version);
+	    UNPROTECT(2); /* info, state */
+	    return found;
+	}
+	/* else fall through to the standard walk, as WriteItem() does */
+    }
+
 
     /* An environment is the only edge that can cycle, and the cycle can
        run through its attributes as readily as through its frame, so the
@@ -1511,14 +1542,14 @@ static bool containsBytesVector(SEXP s, SEXP seen)
     /* CHARSXP keeps its cache chain in ATTRIB and is not serialized
        with one, exactly as WriteItem() has it */
     if (TYPEOF(s) != CHARSXP && ATTRIB(s) != R_NilValue &&
-	containsBytesVector(ATTRIB(s), seen))
+	containsBytesVector(ATTRIB(s), seen, version))
 	return true;
 
     switch (TYPEOF(s)) {
     case VECSXP:
     case EXPRSXP:
 	for (R_xlen_t i = 0; i < XLENGTH(s); i++)
-	    if (containsBytesVector(VECTOR_ELT(s, i), seen))
+	    if (containsBytesVector(VECTOR_ELT(s, i), seen, version))
 		return true;
 	break;
     case LISTSXP:
@@ -1527,43 +1558,43 @@ static bool containsBytesVector(SEXP s, SEXP seen)
 	/* the tags are symbols, which hold nothing; the attributes of
 	   the head cell were taken above */
 	for (SEXP t = s; t != R_NilValue && TYPEOF(t) != NILSXP; t = CDR(t)) {
-	    if (containsBytesVector(CAR(t), seen))
+	    if (containsBytesVector(CAR(t), seen, version))
 		return true;
 	    if (t != s && ATTRIB(t) != R_NilValue &&
-		containsBytesVector(ATTRIB(t), seen))
+		containsBytesVector(ATTRIB(t), seen, version))
 		return true;
 	}
 	break;
     case CLOSXP:
-	if (containsBytesVector(FORMALS(s), seen) ||
-	    containsBytesVector(BODY(s), seen) ||
-	    containsBytesVector(CLOENV(s), seen))
+	if (containsBytesVector(FORMALS(s), seen, version) ||
+	    containsBytesVector(BODY(s), seen, version) ||
+	    containsBytesVector(CLOENV(s), seen, version))
 	    return true;
 	break;
     case PROMSXP:
-	if (containsBytesVector(PRVALUE(s), seen) ||
-	    containsBytesVector(PRCODE(s), seen) ||
-	    containsBytesVector(PRENV(s), seen))
+	if (containsBytesVector(PRVALUE(s), seen, version) ||
+	    containsBytesVector(PRCODE(s), seen, version) ||
+	    containsBytesVector(PRENV(s), seen, version))
 	    return true;
 	break;
     case ENVSXP:
 	/* the marker-or-name cases and the cycle guard were taken above */
-	if (containsBytesVector(ENCLOS(s), seen) ||
-	    containsBytesVector(FRAME(s), seen) ||
-	    containsBytesVector(HASHTAB(s), seen))
+	if (containsBytesVector(ENCLOS(s), seen, version) ||
+	    containsBytesVector(FRAME(s), seen, version) ||
+	    containsBytesVector(HASHTAB(s), seen, version))
 	    return true;
 	break;
     case BCODESXP:
 	{
 	    SEXP consts = BCODE_CONSTS(s);
 	    for (R_xlen_t i = 0; i < XLENGTH(consts); i++)
-		if (containsBytesVector(VECTOR_ELT(consts, i), seen))
+		if (containsBytesVector(VECTOR_ELT(consts, i), seen, version))
 		    return true;
 	}
 	break;
     case EXTPTRSXP:
-	if (containsBytesVector(EXTPTR_PROT(s), seen) ||
-	    containsBytesVector(EXTPTR_TAG(s), seen))
+	if (containsBytesVector(EXTPTR_PROT(s), seen, version) ||
+	    containsBytesVector(EXTPTR_TAG(s), seen, version))
 	    return true;
 	break;
     default:
@@ -1576,7 +1607,14 @@ static bool containsBytesVector(SEXP s, SEXP seen)
 /* message() rather than warning(): the writer choosing a version that
    can hold the object is not a fault, but it does change which R can
    read the result, so it is said out loud -- and suppressMessages()
-   can turn it off, which a warning would make harder. */
+   can turn it off, which a warning would make harder.
+
+   Only do_serializeVersion() says it, and that runs from saveRDS() and
+   save() before either has opened anything.  Saying it from a writer
+   instead would mean evaluating R code with the destination already
+   open and truncated, where a handler that unwinds takes the file's
+   previous contents with it; and serialize(), which is how parallel
+   sends every object to a worker, would say it once per send. */
 static void announceVersion(int from, int to)
 {
     char buf[256];
@@ -1594,12 +1632,8 @@ static void announceVersion(int from, int to)
    version the caller did name is theirs, and R_Serialize() errors if it
    cannot hold the object rather than quietly writing something else.
 
-   announce = FALSE is for a lazy-load database, which is written one
-   object at a time: the line would repeat once per binding, and the
-   version of a package's own database is not something its caller can
-   act on. */
-attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
-					   Rboolean announce)
+   Silent, whoever calls it: see announceVersion(). */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
 {
     if (version >= 4)
 	return version;
@@ -1612,15 +1646,10 @@ attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
 	return version;
 
     SEXP seen = PROTECT(MakeCircleHashTable());
-    bool needs4 = containsBytesVector(object, seen);
+    bool needs4 = containsBytesVector(object, seen, version);
     UNPROTECT(1);
 
-    if (!needs4)
-	return version;
-
-    if (announce) announceVersion(version, 4);
-
-    return 4;
+    return needs4 ? 4 : version;
 }
 
 /* Refuse a version the caller named that cannot hold the object.
@@ -1637,7 +1666,7 @@ attribute_hidden void R_CheckSerializeVersion(SEXP object, int version)
 	return;
 
     SEXP seen = PROTECT(MakeCircleHashTable());
-    bool needs4 = containsBytesVector(object, seen);
+    bool needs4 = containsBytesVector(object, seen, version);
     UNPROTECT(1);
 
     if (needs4)
@@ -2905,7 +2934,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     bool defaulted = (CADDDR(args) == R_NilValue);
     if (defaulted)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else
 	version = asInteger(CADDDR(args));
     if (version == NA_INTEGER || version <= 0)
@@ -2947,29 +2976,47 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     return R_NilValue;
 }
 
-/* checkSerializeVersion(object, version)
+/* serializeVersion(object, version) -- and saveVersion(), which is the
+   same thing against save()'s default rather than serialize()'s.
 
-   For the R-level writers that open a file before they get here:
-   opening for writing truncates it, so a refusal from inside
-   serializeToConn() -- correct as it is -- still costs the caller
-   whatever the file used to hold.  Calling this first keeps the file
-   shut. */
-attribute_hidden SEXP do_checkSerializeVersion(SEXP call, SEXP op, SEXP args,
-					      SEXP env)
+   The R-level writers open their destination before they reach any
+   writer here, and opening for writing truncates it.  So everything
+   about the version that can signal has to happen before that, or the
+   caller pays for it with whatever the file used to hold: the refusal
+   of a version too low for the object, and the message announcing one
+   raised past the default.  saveRDS() and save() settle it here, first
+   thing, and pass back what comes out.
+
+   NULL back means the writer's own default still fits and it should go
+   on choosing for itself -- which keeps the choice with the code that
+   knows which default is its own, and keeps this from walking an object
+   that has no 'bytes' vector in it only to say so. */
+attribute_hidden SEXP do_serializeVersion(SEXP call, SEXP op, SEXP args,
+					  SEXP env)
 {
     checkArity(op, args);
 
-    SEXP sversion = CADR(args);
-    if (sversion == R_NilValue)
-	return R_NilValue;	/* the writer picks, and picks one that fits */
+    SEXP object = CAR(args), sversion = CADR(args);
 
-    int version = asInteger(sversion);
-    if (version != NA_INTEGER && version > 0)
-	R_CheckSerializeVersion(CAR(args), version);
+    if (sversion != R_NilValue) {
+	int version = asInteger(sversion);
 
-    /* an out-of-range version is the writer's to report, in its own
-       words and against its own limits */
-    return R_NilValue;
+	/* an out-of-range version is the writer's to report, in its own
+	   words and against its own limits */
+	if (version != NA_INTEGER && version > 0)
+	    R_CheckSerializeVersion(object, version);
+
+	return sversion;
+    }
+
+    int dflt = PRIMVAL(op) ? defaultSaveVersion() : defaultSerializeVersion();
+    int version = R_SerializeVersionFor(object, dflt);
+    if (version == dflt)
+	return R_NilValue;
+
+    announceVersion(dflt, version);
+
+    return ScalarInteger(version);
 }
 
 static SEXP checkNotPromise(SEXP val)
@@ -3098,7 +3145,7 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
 
     bool defaulted = (Sversion == R_NilValue);
     if (defaulted)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
@@ -3253,7 +3300,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 
     bool defaulted = (Sversion == R_NilValue);
     if (defaulted)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
@@ -3671,7 +3718,7 @@ R_lazyLoadDBinsertValue(SEXP value, SEXP file, SEXP ascii,
     /* Settled here, and quietly, rather than left to R_serialize()'s
        own default: see R_SerializeVersionFor(). */
     SEXP sver = PROTECT(ScalarInteger(
-	R_SerializeVersionFor(value, defaultSerializeVersion(), FALSE)));
+	R_SerializeVersionFor(value, defaultSerializeVersion())));
     value = R_serialize(value, R_NilValue, ascii, sver, hook);
     UNPROTECT(1); /* sver */
     PROTECT_WITH_INDEX(value, &vpi);

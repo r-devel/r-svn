@@ -71,5 +71,32 @@ chk("width_of_anything", 42L,  "error", "R_bytesWidth() refuses an integer vecto
 chk("bytes_of_anything", 42L,  "error", "BYTES_RO() refuses an integer vector")
 chk("width_of_anything", made, 8L, "and works on the real thing")
 
+## An ALTREP object is written as its serialized state and never as its
+## own elements, so a 'bytes' vector reachable only through that state
+## has to be found there.  The header goes out before the first item
+## and a connection cannot be rewound, so a writer that missed it would
+## discover the type mid-stream, with the file already truncated.
+cat("\nan ALTREP class whose serialized state holds a 'bytes' vector:\n")
+invisible(.Call("init_altrep"))
+alt <- .Call("make_altrep_with_bytes", 1:3)
+streamVersion <- function(r) readBin(r[3:6], "integer", 1L, endian = "big")
+chk2(typeof(alt), "integer", "its own type says nothing about its state")
+chk2(streamVersion(serialize(alt, NULL)), 4L,
+     "the version is raised for what the state carries")
+chk2(unserialize(serialize(alt, NULL))[1:3], 1:3, "and the object round trips")
+chk2(inherits(tryCatch(serialize(alt, NULL, version = 3), error = identity),
+	      "error"), TRUE,
+     "a version too low is refused, not discovered mid-stream")
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    writeLines("previous contents", f)
+    prior <- file.size(f)
+    tryCatch(saveRDS(alt, f, version = 3), error = function(e) NULL)
+    chk2(file.size(f), prior, "so the file it refuses to write is left alone")
+})
+chk2(streamVersion(serialize(1:1000, NULL)), 3L,
+     "an ALTREP with no 'bytes' vector is still version 3")
+
 cat(sprintf("\n%d failure(s)\n", fails))
 if (fails) quit(status = 1L)

@@ -222,17 +222,20 @@ stopifnot(identical(capture.output(cat(wide)), as.character(wide)))
 
 ## serialization version 4: no older R can read this type, and the
 ## header of a version 2 or 3 stream promises one that can.  A version
-## the caller did not name is raised to 4, with a message; one they did
-## name is an error if it cannot hold the vector.
+## the caller did not name is raised to 4; one they did name is an
+## error if it cannot hold the vector.  serialize() raises silently --
+## saveRDS() and save() are the ones that say so, and they say it
+## before they open anything -- so the stream's own header is what the
+## raise is read from here.
+streamVersion <- function(r) readBin(r[3:6], "integer", 1L, endian = "big")
 for (v in list(u, s, op, un, nn, bytes(0L, 8L, "unsigned"))) {
-    stopifnot(identical(suppressMessages(unserialize(serialize(v, NULL))), v),
+    stopifnot(identical(unserialize(serialize(v, NULL)), v),
 	      identical(unserialize(serialize(v, NULL, version = 4)), v),
 	      identical(eval(parse(text = paste(deparse(v), collapse = ""))), v),
 	      identical(v[seq_along(v)], v),
 	      inherits(tryCatch(serialize(v, NULL, version = 3),
 				error = identity), "error"),
-	      inherits(tryCatch(serialize(v, NULL), message = identity),
-		       "message"))
+	      streamVersion(serialize(v, NULL)) == 4L)
     f <- tempfile()
     suppressMessages(saveRDS(v, f))
     stopifnot(identical(readRDS(f), v),
@@ -246,7 +249,19 @@ local({
     f <- tempfile()
     saveRDS(list(1:3, "a"), f)
     on.exit(unlink(f))
-    stopifnot(infoRDS(f)$version == 3L)
+    stopifnot(infoRDS(f)$version == 3L,
+	      streamVersion(serialize(list(1:3, "a"), NULL)) == 3L)
+})
+
+## checkRdaFiles() reads the version from the stream, not from the
+## magic: "RDX3" is as high as the magic goes.
+local({
+    f <- tempfile(); g <- tempfile()
+    on.exit(unlink(c(f, g)))
+    suppressMessages(save(list = "u", file = f, envir = environment()))
+    save(list = "nn2", file = g, envir = list2env(list(nn2 = 1:3)))
+    stopifnot(tools::checkRdaFiles(f)$version == 4L,
+	      tools::checkRdaFiles(g)$version == 3L)
 })
 
 ## the vector is found wherever serialization would reach it
@@ -257,8 +272,11 @@ local({
 		  closure = local({ hidden <- u; function() hidden }),
 		  promise = (function(a = u) function() a)())
     for (nm in names(reach)) {
-	got <- tryCatch(serialize(reach[[nm]], NULL), message = identity)
-	if (!inherits(got, "message"))
+	got <- tryCatch(serialize(reach[[nm]], NULL, version = 3),
+			error = identity)
+	if (!inherits(got, "error"))
+	    stop("a 'bytes' vector was not found in a ", nm)
+	if (streamVersion(serialize(reach[[nm]], NULL)) != 4L)
 	    stop("the version was not raised for a 'bytes' vector in a ", nm)
     }
 })
@@ -343,19 +361,70 @@ stopifnot(is.list(z), length(z) == 3L)
 z <- NULL; z[1] <- as.bytes("7", 8L, "unsigned")
 stopifnot(is.bytes(z), length(z) == 1L, as.character(z) == "7")
 
-### raising the serialization version must not leave a truncated file
+### raising the serialization version must not cost the file
 
-## the raise is announced with a message, which an exiting handler can
-## unwind out of; settling it before anything is written is what keeps
-## that from happening with a header already on the file
+## The raise is announced with a message and a version too low for the
+## object is refused with an error; an exiting handler unwinds out of
+## either.  Both are settled before the writer opens anything, so a
+## file already at the path keeps what it held -- opening for writing
+## would have truncated it first.
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    for (write in list(
+	     function() save(list = "b", file = f, compress = FALSE,
+			     envir = globalenv()),
+	     function() save(list = "b", file = f, precheck = FALSE,
+			     envir = globalenv()),
+	     function() saveRDS(b, f),
+	     function() saveRDS(b, f, compress = FALSE))) {
+	writeLines("previous contents", f)
+	prior <- file.size(f)
+	r <- tryCatch(write(), message = function(m) "handled")
+	stopifnot(identical(r, "handled"), file.size(f) == prior)
+	r <- tryCatch(suppressMessages(write()), error = identity)
+	stopifnot(!inherits(r, "error"))
+    }
+
+    ## and the same for a version the caller named that cannot hold it
+    for (write in list(function() save(list = "b", file = f, version = 2,
+				       envir = globalenv()),
+		       function() save(list = "b", file = f, version = 2,
+				       precheck = FALSE,
+				       envir = globalenv()),
+		       function() saveRDS(b, f, version = 2))) {
+	writeLines("previous contents", f)
+	prior <- file.size(f)
+	stopifnot(inherits(tryCatch(write(), error = identity), "error"),
+		  file.size(f) == prior)
+    }
+})
+
+## save.image() passes precheck = FALSE, and used to reach the writer
+## with the workspace file already truncated
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    writeLines("previous .RData", f)
+    prior <- file.size(f)
+    stopifnot(inherits(tryCatch(save.image(file = f, version = 2),
+				error = identity), "error"),
+	      file.size(f) == prior,
+	      !file.exists(paste0(f, "Tmp")))
+})
+
 f <- tempfile()
-r <- tryCatch(save(list = "b", file = f, compress = FALSE, envir = environment()),
-	      message = function(m) "handled")
-stopifnot(identical(r, "handled"), file.size(f) == 0L)
-save(list = "b", file = f, envir = environment())
+suppressMessages(save(list = "b", file = f, envir = environment()))
 e <- new.env(); load(f, envir = e)
 stopifnot(identical(e$b, b))
 unlink(f)
+
+## serialize() is the low-level entry point and says nothing: parallel
+## sends every object to every worker through it, and a raw vector has
+## no reader whose version could matter
+stopifnot(identical(withCallingHandlers(
+    {serialize(b, NULL); "silent"},
+    message = function(m) stop("serialize() announced the version")), "silent"))
 
 ## save.to.file() is reached from compiler::cmpfile() and from the
 ## embedding API, and was the one entry point that never raised it

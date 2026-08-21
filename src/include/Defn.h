@@ -2608,9 +2608,11 @@ void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
 
 /* main/serialize.c */
-attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
-					   Rboolean announce);
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
 attribute_hidden void R_CheckSerializeVersion(SEXP object, int version);
+
+/* main/saveload.c */
+attribute_hidden int defaultSaveVersion(void);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);

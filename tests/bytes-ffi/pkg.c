@@ -114,3 +114,74 @@ SEXP first_byte_of_each(SEXP x)
    rather than a misreading */
 SEXP width_of_anything(SEXP x) { return ScalarInteger(R_bytesWidth(x)); }
 SEXP bytes_of_anything(SEXP x) { return ScalarInteger(BYTES_RO(x)[0]); }
+
+/* ------------------------------------------------------------------
+   An ALTREP class whose serialized state carries a 'bytes' vector.
+   Serialization writes that state and never the object's own elements,
+   so its own SEXPTYPE says nothing about what will reach the stream --
+   which is what the writer has to know before it picks a version.
+   ------------------------------------------------------------------ */
+
+#include <R_ext/Altrep.h>
+
+static R_altrep_class_t bytes_state_class;
+
+static SEXP bsc_Serialized_state(SEXP x)
+{
+    SEXP state = PROTECT(allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(state, 0, R_altrep_data1(x));
+    SET_VECTOR_ELT(state, 1, R_altrep_data2(x));
+    UNPROTECT(1);
+
+    return state;
+}
+
+static SEXP bsc_Unserialize(SEXP class_, SEXP state)
+{
+    return R_new_altrep(bytes_state_class, VECTOR_ELT(state, 0),
+			VECTOR_ELT(state, 1));
+}
+
+static R_xlen_t bsc_Length(SEXP x) { return XLENGTH(R_altrep_data1(x)); }
+
+static void *bsc_Dataptr(SEXP x, Rboolean writeable)
+{
+    return (void *) INTEGER(R_altrep_data1(x));
+}
+
+static const void *bsc_Dataptr_or_null(SEXP x)
+{
+    return (const void *) INTEGER_RO(R_altrep_data1(x));
+}
+
+static int bsc_Elt(SEXP x, R_xlen_t i)
+{
+    return INTEGER_RO(R_altrep_data1(x))[i];
+}
+
+SEXP init_altrep(void)
+{
+    bytes_state_class = R_make_altinteger_class("bytes_state", "pkg", NULL);
+
+    R_set_altrep_Serialized_state_method(bytes_state_class,
+					 bsc_Serialized_state);
+    R_set_altrep_Unserialize_method(bytes_state_class, bsc_Unserialize);
+    R_set_altrep_Length_method(bytes_state_class, bsc_Length);
+    R_set_altvec_Dataptr_method(bytes_state_class, bsc_Dataptr);
+    R_set_altvec_Dataptr_or_null_method(bytes_state_class,
+					bsc_Dataptr_or_null);
+    R_set_altinteger_Elt_method(bytes_state_class, bsc_Elt);
+
+    return R_NilValue;
+}
+
+/* an integer vector to all appearances, with a uint64 vector hidden in
+   the state it will be written as */
+SEXP make_altrep_with_bytes(SEXP payload)
+{
+    SEXP hidden = PROTECT(make_uint64(ScalarInteger(2)));
+    SEXP ans = R_new_altrep(bytes_state_class, payload, hidden);
+    UNPROTECT(1);
+
+    return ans;
+}
