@@ -391,21 +391,6 @@ static bool magFromElt(Rbyte *out, const Rbyte *p, int w, int kind)
     return false;
 }
 
-/* Widen an element into a w-byte MSB-first buffer, zero- or
-   sign-extending.  NA is never passed here -- callers handle it -- so
-   the reserved patterns need no special case. */
-static void widenMSB(Rbyte *out, int w, const Rbyte *p, int pw, int kind)
-{
-    Rbyte src[MAXW];
-    toMSB(src, p, pw);
-
-    Rbyte fill = (kind == BYTEVEC_INT && (src[0] & 0x80)) ? 0xFF : 0x00;
-    int pad = w - pw;
-
-    for (int i = 0; i < pad; i++) out[i] = fill;
-    for (int i = 0; i < pw; i++) out[pad + i] = src[i];
-}
-
 /* Does an MSB-first value fit back into a w-byte element of this kind,
    without landing on the reserved NA pattern?  A result that is
    exactly the reserved value is reported as overflow: it is not
@@ -597,6 +582,17 @@ static bool eltDivMod(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kin
 	return storeResult(out, Q, w, kind, negq, hasNA);
 
     return storeResult(out, R, w, kind, negb, hasNA);
+}
+
+/* A zero divisor.  Zero is all zero bytes for both numeric kinds, and
+   is never the reserved NA pattern (all ones, or the most negative
+   value), so the bytes alone settle it. */
+static bool eltIsZero(const Rbyte *p, int w)
+{
+    for (int i = 0; i < w; i++)
+	if (p[i]) return false;
+
+    return true;
 }
 
 /* Unary minus, which R_bytesUnary() used to do inline.  A kernel of
@@ -818,8 +814,15 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
    reported in dir[] instead, as -1 (below) or +1 (above), no NA is
    introduced and no warning given; the element left in the vector for
    them is zero bytes, which is never the reserved NA pattern and is
-   never read.  NA operands are treated exactly as R_bytesNarrow()
-   treats them, dir[] being 0 there.
+   never read.
+
+   An NA operand is the same story.  The result of a comparison or a
+   match is never an element of the type, so an NA on the way in needs
+   somewhere to be recorded, not a value to become: where the type
+   reserves a pattern it is used and dir[] stays 0, and where it does
+   not, dir[] carries BYTES_CMP_NA.  Refusing instead would make
+   `x == NA` and `NA %in% x` errors on a vector created with na = FALSE,
+   where every other type answers NA or FALSE.
 
    The reserved pattern counts as out of range, and in the direction it
    sits: a vector that reserves it holds no element equal to it, so
@@ -847,8 +850,12 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 
 	dir[i] = 0;
 	if (v == NA_INTEGER) {
-	    R_bytesCheckNA(ans);
-	    R_bytesSetEltNA(p, w, kind);
+	    if (hasNA)
+		R_bytesSetEltNA(p, w, kind);
+	    else {
+		dir[i] = BYTES_CMP_NA;
+		memset(p, 0, (size_t) w);
+	    }
 	}
 	else if (!eltFromLong(p, (long long) v, w, kind, hasNA != 0)) {
 	    dir[i] = (v < 0) ? -1 : 1;
@@ -856,6 +863,37 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 	}
     }
 
+    UNPROTECT(1);
+
+    return ans;
+}
+
+/* Drop the NA elements of an integer or logical operand.
+
+   R_bytesNarrow() has to give every element a value in the target type,
+   and where that type reserves no NA pattern an NA element has none.
+   Under na.rm = TRUE it is not going to be read, so taking it out first
+   gives the same answer without the refusal. */
+static SEXP dropNAs(SEXP x)
+{
+    SEXPTYPE t = TYPEOF(x);
+    if (t != INTSXP && t != LGLSXP)
+	return x;
+
+    R_xlen_t n = XLENGTH(x), m = 0;
+    for (R_xlen_t i = 0; i < n; i++)
+	if (((t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i)) != NA_INTEGER)
+	    m++;
+    if (m == n)
+	return x;
+
+    SEXP ans = PROTECT(allocVector(t, m));
+    int *pa = (t == INTSXP) ? INTEGER(ans) : LOGICAL(ans);
+    m = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
+	if (v != NA_INTEGER) pa[m++] = v;
+    }
     UNPROTECT(1);
 
     return ans;
@@ -870,11 +908,17 @@ static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
     int kind = BYTEVEC_KIND(b), w = BYTEVEC_WIDTH(b);
 
     if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP) {
+	/* The rule c(), ==, match(), pmin() and subassignment hold to:
+	   the width is part of the type, so a pair that disagrees is a
+	   mistake to report.  Promoting to max(width) here instead would
+	   make arithmetic the one operation that accepts a pair every
+	   other one refuses, which is not what bytes.Rd describes. */
+	if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y))
+	    errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+		      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(y));
 	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
 	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
 	R_bytesCheckSameNA(x, y);
-	w = BYTEVEC_WIDTH(x) > BYTEVEC_WIDTH(y)
-	    ? BYTEVEC_WIDTH(x) : BYTEVEC_WIDTH(y);
     }
     else if (TYPEOF(x) == BYTESXP)
 	*py = R_bytesNarrow(y, w, kind, BYTEVEC_HAS_NA(x), call);
@@ -916,7 +960,6 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     bytesBinaryOperands(call, &x, &y, &w, &kx);
     REPROTECT(x, xi);
     REPROTECT(y, yi);
-    int ky = kx, wx = BYTEVEC_WIDTH(x), wy = BYTEVEC_WIDTH(y);
     if (!arithWidthOK(w))
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
@@ -952,32 +995,13 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     MOD_ITERATE2(n, nx, ny, i, ix, iy, {
 	/* one declaration per statement: this is a macro argument, and
 	   braces do not shield a comma from the preprocessor */
-	const Rbyte *px = bx + ix * wx;
-	const Rbyte *py = by + iy * wy;
+	const Rbyte *px = bx + ix * w;
+	const Rbyte *py = by + iy * w;
 	Rbyte *pa = ba + i * w;
 
-	if (hasNA && (eltIsNA(px, wx, kx) || eltIsNA(py, wy, ky))) {
+	if (hasNA && (eltIsNA(px, w, kx) || eltIsNA(py, w, kx))) {
 	    R_bytesSetEltNA(pa, w, kx);
 	    continue;
-	}
-
-	/* Promote a narrower operand to the result width.  Promotion is
-	   by max(width), so at least one operand is already there and
-	   usually both are; doing this unconditionally cost four byte
-	   loops per element to copy values that were already correct. */
-	Rbyte sx[MAXW];
-	Rbyte sy[MAXW];
-	if (wx != w) {
-	    Rbyte t[MAXW];
-	    widenMSB(t, w, px, wx, kx);
-	    fromMSB(sx, t, w);
-	    px = sx;
-	}
-	if (wy != w) {
-	    Rbyte t[MAXW];
-	    widenMSB(t, w, py, wy, ky);
-	    fromMSB(sy, t, w);
-	    py = sy;
 	}
 
 	bool ok;
@@ -985,8 +1009,21 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	case PLUSOP:  ok = eltAdd(pa, px, py, w, kx, hasNA); break;
 	case MINUSOP: ok = eltSub(pa, px, py, w, kx, hasNA); break;
 	case TIMESOP: ok = eltMul(pa, px, py, w, kx, hasNA); break;
-	case IDIVOP:  ok = eltDivMod(pa, px, py, w, kx, true, hasNA); break;
-	case MODOP:   ok = eltDivMod(pa, px, py, w, kx, false, hasNA); break;
+	case IDIVOP:
+	case MODOP:
+	    /* Division by zero is a silent NA for integer -- arithmetic.c
+	       folds x2 == 0 into the NA test with no warning -- so it is
+	       one here too.  Warning instead turns the same expression
+	       into an error under options(warn = 2), which is a common
+	       setting in package tests. */
+	    if (eltIsZero(py, w)) {
+		R_bytesCheckNA(ans);
+		R_bytesSetEltNA(pa, w, kx);
+		ok = true;
+		break;
+	    }
+	    ok = eltDivMod(pa, px, py, w, kx, oper == IDIVOP, hasNA);
+	    break;
 	default:
 	    UNPROTECT(5); /* ans, y, x, oy, ox */
 	    errorcall(call,
@@ -1001,9 +1038,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     });
 
     if (nOver)
-	warningcall(call, (oper == IDIVOP || oper == MODOP)
-		    ? _("NAs produced by division by zero or overflow")
-		    : _("NAs produced by integer overflow"));
+	warningcall(call, _("NAs produced by integer overflow"));
 
     bytesCopyMostAttrib(ans, ox, oy, n);
     UNPROTECT(5); /* ans, y, x, oy, ox */
@@ -1300,8 +1335,18 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	int *dir = NULL;
 	const void *vmax = vmaxget();
 	if (TYPEOF(a) != BYTESXP) {
-	    if (arith)
+	    if (arith) {
+		/* sum and prod narrow for value, so an NA operand the type
+		   reserves nothing for cannot come through at all -- but
+		   na.rm = TRUE means never reading it.  min and max narrow
+		   for comparison, where dir[] carries it instead. */
+		if (narm && !hasNA)
+		    a = dropNAs(a);
+
+		PROTECT(a);
 		a = R_bytesNarrow(a, w, kind, hasNA, call);
+		UNPROTECT(1);
+	    }
 	    else {
 		dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
 		a = R_bytesNarrowCmp(a, w, kind, hasNA, dir, call);
@@ -1314,6 +1359,16 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 
 	for (R_xlen_t i = 0; i < na; i++) {
 	    const Rbyte *p = ba + i * w;
+
+	    if (dir && dir[i] == BYTES_CMP_NA) {
+		/* missing, with no pattern in this type to stand for it:
+		   na.rm drops it, and without na.rm the answer is an NA
+		   the type cannot hold, which R_bytesCheckNA() reports
+		   below */
+		if (narm) continue;
+		isNA = true;
+		break;
+	    }
 
 	    if (dir && dir[i]) {
 		/* below (-1) or above (+1) every element of the type: for
@@ -1593,8 +1648,11 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 		const Rbyte *p = ba + j * w;
 		Rbyte *q = ra + i * w;
 		int dp = dir ? dir[j] : 0, dq = state[i];
-		bool pNA = hasNA && eltIsNA(p, w, kind);
-		bool qNA = hasNA && eltIsNA(q, w, kind);
+		/* BYTES_CMP_NA is missing rather than a direction; it only
+		   arises where the type reserves no NA pattern, so the
+		   final pass errors if it ends up winning */
+		bool pNA = (dp == BYTES_CMP_NA) || (hasNA && eltIsNA(p, w, kind));
+		bool qNA = (dq == BYTES_CMP_NA) || (hasNA && eltIsNA(q, w, kind));
 
 		/* an out-of-range candidate orders below or above every
 		   element without being one, so direction settles the

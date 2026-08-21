@@ -1977,6 +1977,11 @@ attribute_hidden SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args,
 					    bool narm);
 attribute_hidden SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA,
 				    SEXP call);
+/* dir[] entry for an operand that is NA where the target type reserves
+   no pattern for one: nonzero like an out-of-range operand, since both
+   are absent from a vector that cannot hold them, but not a direction.
+   Small enough to keep in R_bytesParallelMinMax()'s state[]. */
+#define BYTES_CMP_NA 2
 attribute_hidden SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA,
 				       int *dir, SEXP call);
 attribute_hidden bool R_bytesAllNA(SEXP x);
@@ -2605,6 +2610,7 @@ void orderVector1(int *indx, int n, SEXP key, bool nalast,
 /* main/serialize.c */
 attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
 					   Rboolean announce);
+attribute_hidden void R_CheckSerializeVersion(SEXP object, int version);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);

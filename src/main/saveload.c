@@ -1880,6 +1880,13 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 {
     SaveLoadData data = {{NULL, 0, MAXELTSIZE}};
 
+    /* Before any magic goes out: the file is already truncated, so an
+       error raised partway through the stream would take the caller's
+       previous contents with it.  version == 0 is "not chosen here" and
+       is settled below instead. */
+    if (version != 0)
+	R_CheckSerializeVersion(obj, version);
+
     if (version == 1) {
 	if (ascii) {
 	    R_WriteMagic(fp, R_MAGIC_ASCII_V1);
@@ -1901,10 +1908,10 @@ attribute_hidden void R_SaveToFileV(SEXP obj, FILE *fp, int ascii, int version)
 	   it before writing and for the same reason: announcing the
 	   raise signals a condition, and unwinding out of it with the
 	   header already on the file leaves a truncated one behind.  A
-	   version the caller named is theirs -- R_Serialize() errors if
-	   it cannot hold the object rather than quietly writing another.
-	   The V3 magic covers version 4 too; the stream's own header
-	   carries the version. */
+	   version the caller named is theirs and is not raised, only
+	   refused above if it cannot hold the object.  The V3 magic
+	   covers version 4 too; the stream's own header carries the
+	   version. */
 	if (version == 0)
 	    v = R_SerializeVersionFor(obj, v, TRUE);
 
@@ -2413,6 +2420,8 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if (defaulted)
 	version = R_SerializeVersionFor(s, version, TRUE);
+    else
+	R_CheckSerializeVersion(s, version);
 
     wasopen = con->isopen;
     if(!wasopen) {

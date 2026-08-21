@@ -24,6 +24,9 @@ saveRDS <-
         if(length(file) != 1 || file == "")
             stop(gettextf("'%s' must be a non-empty character string", "file"), domain = NA)
 	object <- object # do not create corrupt file if object does not exist
+	# likewise for a version that cannot hold it: the connection
+	# below truncates 'file' as soon as it is opened
+	.Internal(checkSerializeVersion(object, version))
 	mode <- if(ascii %in% FALSE) "wb" else "w"
 	con <- if (is.logical(compress))
 		   if(compress) gzfile(file, mode) else file(file, mode)

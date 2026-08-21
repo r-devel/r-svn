@@ -37,6 +37,7 @@ static SEXP complex_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 static SEXP string_relop (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP raw_relop    (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP bytes_relop  (RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
+static void bytesCompareCheck(SEXP s1, SEXP s2, SEXP call);
 
 #define DO_SCALAR_RELOP(oper, x, y) do {		\
 	switch (oper) {					\
@@ -398,6 +399,8 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	x = raw_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     } else errorcall(call, _("comparison of these types is not implemented"));
   } else { // nx == 0 || ny == 0
+	if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP)
+	    bytesCompareCheck(x, y, call);
 	x = allocVector(LGLSXP, 0);
   }
 
@@ -668,6 +671,22 @@ static SEXP string_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     return ans;
 }
 
+/* Two 'bytes' vectors must agree in width, kind and NA reservation to
+   be compared.  Its own function so that do_relop()'s zero-length path
+   can reach it: an empty operand still has a type, and answering
+   logical(0) for a pair that c(), min() and union() refuse is the same
+   silent divergence the check exists to prevent. */
+static void bytesCompareCheck(SEXP s1, SEXP s2, SEXP call)
+{
+    if (BYTEVEC_WIDTH(s1) != BYTEVEC_WIDTH(s2))
+	errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
+		  BYTEVEC_WIDTH(s1), BYTEVEC_WIDTH(s2));
+    if (BYTEVEC_KIND(s1) != BYTEVEC_KIND(s2))
+	errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
+
+    R_bytesCheckSameNA(s1, s2);
+}
+
 /* Comparison is memcmp over the element's bytes: unsigned lexicographic
    in storage order.  That is the right order for the values this type
    exists to hold (hashes, UUIDs, IPv6 addresses are big-endian byte
@@ -689,14 +708,8 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     PROTECT_INDEX p1, p2;
     PROTECT_WITH_INDEX(s1, &p1);
     PROTECT_WITH_INDEX(s2, &p2);
-    if (TYPEOF(s1) == BYTESXP && TYPEOF(s2) == BYTESXP) {
-	if (BYTEVEC_WIDTH(s2) != w)
-	    errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
-		      w, BYTEVEC_WIDTH(s2));
-	if (BYTEVEC_KIND(s2) != k)
-	    errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
-	R_bytesCheckSameNA(s1, s2);
-    }
+    if (TYPEOF(s1) == BYTESXP && TYPEOF(s2) == BYTESXP)
+	bytesCompareCheck(s1, s2, call);
     else if (TYPEOF(s1) == BYTESXP) {
 	dir = (int *) R_alloc(XLENGTH(s2) + 1, sizeof(int));
 	REPROTECT(s2 = R_bytesNarrowCmp(s2, w, k, BYTEVEC_HAS_NA(s1), dir, call), p2);
@@ -720,14 +733,17 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     MOD_ITERATE2(n, n1, n2, i, i1, i2, {
 	const Rbyte *p1 = px1 + i1 * w;
 	const Rbyte *p2 = px2 + i2 * w;
-	if (hasNA && (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k))) {
+	int d = dir ? dir[(side == 1) ? i1 : i2] : 0;
+	/* missing either as the type's own reserved pattern or, where it
+	   reserves none, as a mark from the narrowing */
+	if (d == BYTES_CMP_NA ||
+	    (hasNA && (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k)))) {
 	    pa[i] = NA_LOGICAL;
 	    continue;
 	}
 	/* an operand the type cannot hold is not missing: it lies below
 	   or above every element, so the comparison is settled by which
 	   side it was on and which way it fell */
-	int d = dir ? dir[(side == 1) ? i1 : i2] : 0;
 	int c = d ? ((side == 1) ? d : -d) : R_bytesEltCmp(p1, p2, w, k);
 	switch (code) {
 	case EQOP: pa[i] = (c == 0); break;

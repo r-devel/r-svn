@@ -36,6 +36,11 @@
  BNDCELL_IVAL
  BNDCELL_LVAL
  BNDCELL_TAG
+ BYTEVEC_DATA
+ BYTEVEC_DATA_RO
+ BYTEVEC_HAS_NA
+ BYTEVEC_KIND
+ BYTEVEC_WIDTH
  BZ2_blockSort
  BZ2_bsInitWrite
  BZ2_bzBuffToBuffCompress@28
@@ -412,6 +417,7 @@
  Rf_DispatchAnyOrEval
  Rf_DispatchGroup
  Rf_DispatchOrEval
+ Rf_EncodeBytes
  Rf_EncodeEnvironment
  Rf_EncodeRaw
  Rf_EncodeReal2
@@ -598,6 +604,9 @@
  SET_BNDCELL_TAG
  SET_BODY
  SET_BYTES
+ SET_BYTEVEC_KIND
+ SET_BYTEVEC_NONA
+ SET_BYTEVEC_WIDTH
  SET_CACHED
  SET_CLOENV
  SET_CXTAIL
@@ -1646,8 +1655,10 @@
  R_bytesTypeName
  R_bytesTypeNameOf
  R_bytesUnary
+ R_BytesVectorSeen
  R_bytesWarnReserved
  R_CheckBytesVector
+ R_CheckSerializeVersion
  R_SerializeVersionFor
  raise
  realp0_

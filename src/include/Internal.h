@@ -394,6 +394,7 @@ SEXP do_seq_len(SEXP, SEXP, SEXP, SEXP);
 SEXP do_sequence(SEXP, SEXP, SEXP, SEXP);
 SEXP do_serialize(SEXP, SEXP, SEXP, SEXP);
 SEXP do_serializeToConn(SEXP, SEXP, SEXP, SEXP);
+SEXP do_checkSerializeVersion(SEXP, SEXP, SEXP, SEXP);
 SEXP do_serializeInfoFromConn(SEXP, SEXP, SEXP, SEXP);
 SEXP do_set(SEXP, SEXP, SEXP, SEXP);
 SEXP do_setS4Object(SEXP, SEXP, SEXP, SEXP);

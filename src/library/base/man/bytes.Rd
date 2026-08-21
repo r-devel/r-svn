@@ -94,8 +94,11 @@ bytesRaw(x)
   are, so vectors that disagree about it cannot be combined or compared.
   \code{\link{typeof}} names the width and the kind but not the
   sentinel, so a type name is not quite the whole type: interfaces that
-  need all three, such as \code{\link{readBin}} and \code{\link{scan}},
-  accept an existing vector in place of a name.
+  need all three, such as \code{\link{readBin}}, \code{\link{scan}}
+  and \code{\link{vector}}, accept an existing vector in place of a
+  name.  That is what lets the \code{vector(typeof(x), n)} idiom behind
+  \code{\link{tapply}}, \code{\link{apply}} and \code{\link{diag}}
+  reproduce a vector created with \code{na = FALSE}.
 
   There is no literal for a missing \code{bytes} value, since the
   sentinel's bit pattern depends on the width and the kind:
@@ -104,9 +107,13 @@ bytesRaw(x)
 
   Arithmetic (\code{+}, \code{-}, \code{*}, \code{\%/\%}, \code{\%\%} and
   unary minus) is defined for the numeric kinds at widths 1, 2, 4, 8 and
-  16; wider elements are storage only.  Integer and logical operands
+  16; wider elements are storage only.  Two \code{bytes} operands must
+  agree on the width, the kind and the sentinel, exactly as they must
+  for \code{\link{c}} and comparison: nothing is promoted to the wider
+  of the two.  Integer and logical operands
   narrow in, with a value that does not fit becoming \code{NA} with a
-  warning, as integer overflow does.  A double operand is an error
+  warning, as integer overflow does.  Division by zero is \code{NA}
+  without a warning, as it is for integer.  A double operand is an error
   rather than a silent loss of precision.  The bitwise operations
   (\code{\link{bitwAnd}} and friends) apply to every kind and every
   width, and are what the opaque kind is for.

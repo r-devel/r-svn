@@ -23,7 +23,14 @@ is.vector(x, mode = "any")
     \code{"any"}.  For a \code{\link{bytes}} vector the mode names the
     width and the kind, as \code{\link{typeof}} reports them --
     \code{"int64"}, \code{"uint128"}, \code{"bytes16"} -- since neither
-    is implied by the type alone.  Currently, \code{is.vector()} allows any type (see
+    is implied by the type alone; plain \code{"bytes"}, as
+    \code{\link{mode}} reports it, gives the default width and kind of
+    \code{\link{bytes}} itself, the way \code{"numeric"} gives a
+    double.  No name states whether \code{NA} is representable, so
+    \code{vector} also accepts an existing \code{bytes} vector in place
+    of a name and builds one of the same type throughout, as
+    \code{\link{readBin}} and \code{\link{scan}} do.
+    Currently, \code{is.vector()} allows any type (see
     \code{\link{typeof}}) for \code{mode}, and when mode is not
     \code{"any"}, \code{is.vector(x, mode)} is almost the same as
     \code{typeof(x) == mode}.}% differences: for mode = NA, or mode = "numeric"

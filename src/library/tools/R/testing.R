@@ -695,7 +695,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
                 "reg-tests-1e", "reg-tests-2",
                 "reg-examples1", "reg-examples2", "reg-packages",
                 "reg-S4-examples",
-                "classes-methods",
+                "bytes", "classes-methods",
                 ## reg-translation, reg-ex*3 ... see "devel" below
                 "datetime3",
                 "p-qbeta-strict-tst", "r-strict-tst",

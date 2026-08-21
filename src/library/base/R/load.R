@@ -88,6 +88,13 @@ save <- function(..., list = character(),
                              paste(sQuote(list[!ok]), collapse = ", ")
                              ), domain = NA)
             }
+            ## and for a version that cannot hold what is being saved,
+            ## for the same reason.  Only when the promises may be
+            ## forced -- saveToConn() forces them anyway, but not
+            ## before the connection below has truncated the file.
+            if (!is.null(version) && eval.promises)
+                .Internal(checkSerializeVersion(
+                    mget(list, envir = envir, inherits = TRUE), version))
         }
         if (is.character(file)) {
 	    if(!nzchar(file))

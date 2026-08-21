@@ -1491,6 +1491,23 @@ static bool containsBytesVector(SEXP s, SEXP seen)
     if (TYPEOF(s) == BYTESXP)
 	return true;
 
+    /* An environment is the only edge that can cycle, and the cycle can
+       run through its attributes as readily as through its frame, so the
+       visit is recorded before anything below it is walked.  WriteItem()
+       adds to its reference table in the same place, for the same
+       reason. */
+    if (TYPEOF(s) == ENVSXP) {
+	/* the environments written by marker or by name take nothing with
+	   them, attributes included; see SaveSpecialHook() and
+	   WriteItem() */
+	if (SaveSpecialHook(s) != 0 || R_IsPackageEnv(s) ||
+	    R_IsNamespaceEnv(s))
+	    return false;
+
+	if (AddCircleHash(s, seen))	/* visited already */
+	    return false;
+    }
+
     /* CHARSXP keeps its cache chain in ATTRIB and is not serialized
        with one, exactly as WriteItem() has it */
     if (TYPEOF(s) != CHARSXP && ATTRIB(s) != R_NilValue &&
@@ -1530,13 +1547,7 @@ static bool containsBytesVector(SEXP s, SEXP seen)
 	    return true;
 	break;
     case ENVSXP:
-	/* the environments written by marker or by name take nothing
-	   with them; see SaveSpecialHook() and WriteItem() */
-	if (SaveSpecialHook(s) != 0 || R_IsPackageEnv(s) ||
-	    R_IsNamespaceEnv(s))
-	    break;
-	if (AddCircleHash(s, seen))	/* visited already */
-	    break;
+	/* the marker-or-name cases and the cycle guard were taken above */
 	if (containsBytesVector(ENCLOS(s), seen) ||
 	    containsBytesVector(FRAME(s), seen) ||
 	    containsBytesVector(HASHTAB(s), seen))
@@ -1610,6 +1621,28 @@ attribute_hidden int R_SerializeVersionFor(SEXP object, int version,
     if (announce) announceVersion(version, 4);
 
     return 4;
+}
+
+/* Refuse a version the caller named that cannot hold the object.
+
+   The version is theirs to choose, but the refusal has to come before
+   any of the stream is written: the header goes out ahead of the first
+   item, and by then a file connection has already truncated whatever
+   used to be at the path.  Left to WriteItem(), the same error arrives
+   with a header and a partial object on the file and the caller's
+   previous contents gone. */
+attribute_hidden void R_CheckSerializeVersion(SEXP object, int version)
+{
+    if (version >= 4 || !R_BytesVectorSeen)
+	return;
+
+    SEXP seen = PROTECT(MakeCircleHashTable());
+    bool needs4 = containsBytesVector(object, seen);
+    UNPROTECT(1);
+
+    if (needs4)
+	error(_("a '%s' vector needs serialization version 4; version %d was requested"),
+	      "bytes", version);
 }
 
 void R_Serialize(SEXP s, R_outpstream_t stream)
@@ -2870,7 +2903,8 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (ascii) type = R_pstream_ascii_format;
     else type = R_pstream_xdr_format;
 
-    if (CADDDR(args) == R_NilValue)
+    bool defaulted = (CADDDR(args) == R_NilValue);
+    if (defaulted)
 	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else
 	version = asInteger(CADDDR(args));
@@ -2878,6 +2912,8 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	error(_("bad version value"));
     if (version < 2)
 	error(_("cannot save to connections in version %d format"), version);
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     fun = CAD4R(args);
     hook = fun != R_NilValue ? CallHook : NULL;
@@ -2908,6 +2944,31 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     R_Serialize(object, &out);
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
 
+    return R_NilValue;
+}
+
+/* checkSerializeVersion(object, version)
+
+   For the R-level writers that open a file before they get here:
+   opening for writing truncates it, so a refusal from inside
+   serializeToConn() -- correct as it is -- still costs the caller
+   whatever the file used to hold.  Calling this first keeps the file
+   shut. */
+attribute_hidden SEXP do_checkSerializeVersion(SEXP call, SEXP op, SEXP args,
+					      SEXP env)
+{
+    checkArity(op, args);
+
+    SEXP sversion = CADR(args);
+    if (sversion == R_NilValue)
+	return R_NilValue;	/* the writer picks, and picks one that fits */
+
+    int version = asInteger(sversion);
+    if (version != NA_INTEGER && version > 0)
+	R_CheckSerializeVersion(CAR(args), version);
+
+    /* an out-of-range version is the writer's to report, in its own
+       words and against its own limits */
     return R_NilValue;
 }
 
@@ -3035,11 +3096,14 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
     Rconnection con = getConnection(asInteger(icon));
     int version;
 
-    if (Sversion == R_NilValue)
+    bool defaulted = (Sversion == R_NilValue);
+    if (defaulted)
 	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     hook = fun != R_NilValue ? CallHook : NULL;
 
@@ -3187,11 +3251,14 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     SEXP (*hook)(SEXP, SEXP);
     int version;
 
-    if (Sversion == R_NilValue)
+    bool defaulted = (Sversion == R_NilValue);
+    if (defaulted)
 	version = R_SerializeVersionFor(object, defaultSerializeVersion(), TRUE);
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     hook = fun != R_NilValue ? CallHook : NULL;
 

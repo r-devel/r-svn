@@ -3206,14 +3206,20 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	}
     }
 
-    /* A 'bytes' vector's implicit class is c("uint64", "bytes"), the
-       same two-element shape as c("matrix", "array") above, so setting
-       it back has to be the same no-op -- without this the length > 1
-       branch below installs a class attribute and sets the object bit,
-       and class(x) <- class(x) turns a bare vector into an S3 one. */
-    if(length(value) == 2 && TYPEOF(obj) == BYTESXP &&
-       !strcmp("bytes", CHAR(STRING_ELT(value, 1))) &&
-       !strcmp(R_bytesTypeName(obj), valueString)) {
+    /* A 'bytes' vector's implicit class is c("uint64", "bytes") -- the
+       same two-element shape as c("matrix", "array") above -- or the
+       width alone as a single string, so setting either back has to be
+       the same no-op.  Without this the branches below install a class
+       attribute and set the object bit, and class(x) <- class(x) or
+       class(x) <- typeof(x) turns a bare vector into an S3 one.
+
+       Only when there is no dim, though: R_data_class() gives a bytes
+       matrix c("matrix", "array") like any other, which leaves
+       c("uint64", "bytes") a class the caller means to keep. */
+    if(TYPEOF(obj) == BYTESXP && length(getAttrib(obj, R_DimSymbol)) == 0 &&
+       !strcmp(R_bytesTypeName(obj), valueString) &&
+       (length(value) == 1 ||
+	(length(value) == 2 && !strcmp("bytes", CHAR(STRING_ELT(value, 1)))))) {
 	setAttrib(obj, R_ClassSymbol, R_NilValue);
 	if(IS_S4_OBJECT(obj))
 	    do_unsetS4(obj, value);

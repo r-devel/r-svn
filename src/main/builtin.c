@@ -810,6 +810,14 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(CADR(args)) != 1) error(_("invalid '%s' argument"), "length");
     len = asVecSize(CADR(args));
     if (len < 0) error(_("invalid '%s' argument"), "length");
+    /* A type name carries the width and the kind but not the sentinel,
+       so no name spells a whole 'bytes' type.  An existing vector does,
+       the way readBin() and scan() take one in place of a name, and it
+       is what lets the vector(typeof(x), n) idiom reproduce a vector
+       created with na = FALSE. */
+    if (TYPEOF(CAR(args)) == BYTESXP)
+	return R_allocVectorLike(CAR(args), len);
+
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
     const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
@@ -826,7 +834,12 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
     if (mode == BYTESXP)
-	error(_("vector: a 'bytes' mode must give the width, as in \"int64\" or \"bytes16\""));
+	/* mode() coarsens every width and kind to "bytes", as it
+	   coarsens integer and double to "numeric"; vector() answers it
+	   the way it answers "numeric", with the family's default --
+	   here bytes()'s own width 1, opaque, na = TRUE.  A specific
+	   type is named by typeof(), or given as a vector above. */
+	return R_allocBytesVector(len, 1, BYTEVEC_OPAQUE, TRUE);
     switch (mode) {
     case LGLSXP:
     case INTSXP:

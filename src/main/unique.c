@@ -338,12 +338,13 @@ static int bytesequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 
     int w = BYTEVEC_WIDTH(x);
     /* A backstop.  match5() rejects a width, kind or NA-reservation
-       clash before hashing, and every other caller compares a vector
-       with itself, so these should not fire; a mismatch that reached
-       here would otherwise memcmp() across two different element
-       widths.  Whether a value is reserved for NA counts as part of the
-       type in the same way: without it a genuine all-0xFF datum would
-       equal an NA. */
+       clash before hashing, bytesIncomparables() holds an
+       'incomparables' operand to the same rule, and every other caller
+       compares a vector with itself, so these should not fire; a
+       mismatch that reached here would otherwise memcmp() across two
+       different element widths.  Whether a value is reserved for NA
+       counts as part of the type in the same way: without it a genuine
+       all-0xFF datum would equal an NA. */
     if (BYTEVEC_WIDTH(y) != w) return 0;
     if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x)) return 0;
     if (BYTEVEC_HAS_NA(y) != BYTEVEC_HAS_NA(x)) return 0;
@@ -1060,6 +1061,8 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 
 #undef DUP_KNOWN_SORTED
 
+static SEXP bytesIncomparables(SEXP incomp, SEXP b);
+
 static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 {
     SEXP ans;
@@ -1086,7 +1089,10 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	if(TYPEOF(x) == BYTESXP)
+	    PROTECT(incomp = bytesIncomparables(incomp, x));
+	else
+	    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1111,7 +1117,10 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    if(TYPEOF(x) == BYTESXP)
+	PROTECT(incomp = bytesIncomparables(incomp, x));
+    else
+	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
     m = length(incomp);
 
     if(from_last)
@@ -1433,6 +1442,45 @@ static SEXP bytesMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
     return ans;
 }
 
+/* An 'incomparables' operand, held to the rule x and table are held to:
+   a 'bytes' vector must be the same type, and an integer or logical one
+   narrows into it.
+
+   coerceVector() can do neither.  It has no arm for a target that
+   carries a width, so it refuses the integer outright, and it hands a
+   clashing 'bytes' vector straight through to bytesequal(), whose width
+   backstop then reports every comparison unequal -- dropping the
+   incomparable silently, which is a wrong answer rather than a
+   refusal. */
+static SEXP bytesIncomparables(SEXP incomp, SEXP b)
+{
+    if (TYPEOF(incomp) == BYTESXP) {
+	R_bytesCheckSameType(incomp, b, "incomparables");
+	return incomp;
+    }
+
+    /* a value the type cannot hold is equal to nothing in it, so it is
+       no more incomparable than it is present; bytesMatchTable() drops
+       those, and the positions it maps back are not wanted here */
+    int *drop = NULL;
+    return bytesMatchTable(incomp, b, &drop, R_NilValue);
+}
+
+/* Two 'bytes' vectors must agree in width, kind and NA reservation to
+   be matched at all.  Hoisted out of match5()'s body so that the
+   zero-length short circuits above it are held to it too: answering
+   "no match" for a pair that c(), ==, min() and union() all refuse is
+   exactly the divergence the check exists to prevent. */
+static void bytesMatchCheck(SEXP x, SEXP table)
+{
+    if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
+	error(_("cannot match 'bytes' vectors of widths %d and %d"),
+	      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
+    if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
+	error(_("cannot match 'bytes' vectors of different kinds"));
+    R_bytesCheckSameNA(x, table);
+}
+
 // workhorse of R's match() and hence also  " ix %in% itable "
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
@@ -1443,6 +1491,12 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
        bytesMatchTable(). */
     int *xdrop = NULL, *tkeep = NULL;
     R_xlen_t n = xlength(ix);
+
+    /* before the zero-length short circuits, which would otherwise
+       report no match for a pair that is a mistake at any length */
+    if (TYPEOF(ix) == BYTESXP && TYPEOF(itable) == BYTESXP)
+	bytesMatchCheck(ix, itable);
+
     /* handle zero length arguments */
     if (n == 0) return allocVector(INTSXP, 0);
 
@@ -1510,20 +1564,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 			  xpi);
 	    }
 	}
-	else {
+	else
 	    /* two 'bytes' vectors are the same equality relation as ==, so
 	       they are refused on the same terms: a width, kind or
 	       NA-reservation clash is a mistake to report, not a set of
 	       values to report absent.  Answering "no match" instead would
 	       make setdiff() and %in% quietly disagree with union(),
 	       intersect() and == on the very same pair of vectors. */
-	    if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
-		error(_("cannot match 'bytes' vectors of widths %d and %d"),
-		      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
-	    if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
-		error(_("cannot match 'bytes' vectors of different kinds"));
-	    R_bytesCheckSameNA(x, table);
-	}
+	    bytesMatchCheck(x, table);
 	type = BYTESXP;
     }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
@@ -1607,7 +1655,13 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
+	if (incomp) {
+	    if (type == BYTESXP)
+		PROTECT(incomp = bytesIncomparables(incomp, x));
+	    else
+		PROTECT(incomp = coerceVector(incomp, type));
+	    nprot++;
+	}
 	data.nomatch = nomatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
