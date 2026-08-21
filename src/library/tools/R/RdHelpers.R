@@ -40,16 +40,18 @@ function()
     if(nzchar(dir <- Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_", "")))
         return(dir)
     rdfile <- processRdChunk_data_store()$Rdfile
-    if(is.character(rdfile) && length(rdfile) == 1L && nzchar(rdfile)) {
-        p <- dirname(normalizePath(rdfile, mustWork = FALSE))
-        while(nzchar(p) && p != dirname(p)) {
-            if(basename(p) %in% c("man", "inst") &&
-               file_test("-f", file.path(dirname(p), "DESCRIPTION")))
-                return(dirname(p))
-            p <- dirname(p)
-        }
+    if (!is.character(rdfile) || length(rdfile) != 1L || !nzchar(rdfile))
+      return(".")
+    cur <- dirname(normalizePath(rdfile, mustWork = FALSE))
+    repeat {
+        p <- dirname(cur)
+        if (p == cur) return(".")
+        if (basename(cur) %notin% c("man", "inst"))
+          {cur <- p; next}
+        if (file_test("-f", file.path(p, "DESCRIPTION")))
+          return(p)
+        cur <- p
     }
-    "."
 }
 
 Rd_package_title <-

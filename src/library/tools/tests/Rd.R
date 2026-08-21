@@ -120,3 +120,100 @@ rd0 <- parse_Rd(con0 <- textConnection(txt0)); close(con0)
 ## In parse_Rd(con0) : <connection>:8: unexpected section header '\keyword'
 checkRd(rd0)
 Rd2ex(rd0) # shows extra "}" and "{misc}"
+
+
+## PR#18960: Rd macros \packageTitle, \packageDescription, \packageAuthor, \packageMaintainer
+pkg <- tempfile("testpkg")
+dir.create(pkg)
+dir.create(file.path(pkg, "man", "unix"), recursive = TRUE)
+dir.create(file.path(pkg, "inst", "sub"), recursive = TRUE)
+
+write.dcf(file = file.path(pkg, "DESCRIPTION"),
+  list(Package = "testpkg",
+       Title = "Test Package Title",
+       Version = "1.0",
+       Description = "Test package description.",
+       Author = "Test Author",
+       Maintainer = "Test Maintainer <tm@example.com>",
+       License = "GPL-2"))
+
+f_man <- file.path(pkg, "man", "foo.Rd")
+cat(file = f_man, r"(
+\name{foo}
+\title{\packageTitle{testpkg}}
+\description{\packageDescription{testpkg}}
+\author{\packageAuthor{testpkg}}
+\section{Maintainer}{\packageMaintainer{testpkg}}
+)")
+
+f_man_sub <- file.path(pkg, "man", "unix", "bar.Rd")
+cat(file = f_man_sub, r"(
+\name{bar}
+\title{\packageTitle{testpkg}}
+\description{\packageDescription{testpkg}}
+\author{\packageAuthor{testpkg}}
+)")
+
+f_inst <- file.path(pkg, "inst", "NEWS.Rd")
+cat(file = f_inst, r"(
+\name{NEWS}
+\title{NEWS for \packageTitle{testpkg}}
+\description{\packageDescription{testpkg}}
+)")
+
+f_inst_sub <- file.path(pkg, "inst", "sub", "baz.Rd")
+cat(file = f_inst_sub, r"(
+\name{baz}
+\title{\packageTitle{testpkg}}
+\description{\packageDescription{testpkg}}
+)")
+
+## checkRd() on individual Rd files from outside the package directory
+stopifnot(exprs = {
+    length(checkRd(f_man, stages = "build")) == 0L
+    length(checkRd(f_man_sub, stages = "build")) == 0L
+    length(checkRd(f_inst, stages = "build")) == 0L
+    length(checkRd(f_inst_sub, stages = "build")) == 0L
+})
+
+## Rd2txt() expands package macros
+out <- capture.output(Rd2txt(f_man, stages = "build", options = list(underline_titles = FALSE)))
+stopifnot(exprs = {
+    any(grepl("Test Package Title", out, fixed = TRUE))
+    any(grepl("Test package description.", out, fixed = TRUE))
+    any(grepl("Test Author", out, fixed = TRUE))
+    any(grepl("Test Maintainer", out, fixed = TRUE))
+})
+
+## Rd_macros_package_dir() fallbacks and override
+f_other <- file.path(tempdir(), "other.Rd")
+file.create(f_other)
+d_fake_man <- file.path(tempdir(), "fake_man_dir", "man")
+dir.create(d_fake_man, recursive = TRUE, showWarnings = FALSE)
+f_fake_man <- file.path(d_fake_man, "dummy.Rd")
+file.create(f_fake_man)
+
+Rd_macros_package_dir <- tools:::Rd_macros_package_dir
+processRdChunk_data_store <- tools:::processRdChunk_data_store
+stopifnot(exprs = {
+    identical(Rd_macros_package_dir(), ".")
+    local({
+        processRdChunk_data_store(list(Rdfile = f_other))
+        on.exit(processRdChunk_data_store(NULL))
+        identical(Rd_macros_package_dir(), ".")
+    })
+    local({
+        processRdChunk_data_store(list(Rdfile = f_fake_man))
+        on.exit(processRdChunk_data_store(NULL))
+        identical(Rd_macros_package_dir(), ".")
+    })
+    local({
+        Sys.setenv("_R_RD_MACROS_PACKAGE_DIR_" = pkg)
+        on.exit(Sys.unsetenv("_R_RD_MACROS_PACKAGE_DIR_"))
+        identical(Rd_macros_package_dir(), pkg)
+    })
+})
+
+unlink(pkg, recursive = TRUE)
+unlink(f_other)
+unlink(dirname(d_fake_man), recursive = TRUE)
