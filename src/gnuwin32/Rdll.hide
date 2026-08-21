@@ -131,6 +131,7 @@
  RExitContext
  RSTEP
  RTRACE
+ R_AnnounceSerializeVersion
  R_BCIntActive
  R_BCNodeStackBase
  R_BCProtReset
@@ -1215,6 +1216,7 @@
  do_sequence
  do_serialize
  do_serializeToConn
+ do_serializeVersion
  do_serversocket
  do_set
  do_setFileTime

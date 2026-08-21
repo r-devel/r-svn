@@ -49,9 +49,10 @@ R_xlen_t asVecSize(SEXP x)
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
-	    /* a value below the range casts no better than one above it,
-	       and the caller reports a negative size as an invalid one */
-	    if(d < 0) return -999;
+	    /* a negative size is the caller's to interpret -- readLines()
+	       reads to the end on n = -1 -- so it is only clamped into
+	       the range the cast below can represent */
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
@@ -64,7 +65,7 @@ R_xlen_t asVecSize(SEXP x)
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
-	    if(d < 0) return -999;	/* as above: the signed kind reaches here */
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;	/* as above */
 	    return (R_xlen_t) d;
 	}
 	default:

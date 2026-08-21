@@ -366,6 +366,18 @@ static void magSub(Rbyte *a, const Rbyte *b, int w)
     }
 }
 
+/* a += b, MSB-first; the caller guarantees no carry out of a[0] */
+static void magAdd(Rbyte *a, const Rbyte *b, int w)
+{
+    unsigned int carry = 0;
+
+    for (int i = w - 1; i >= 0; i--) {
+	unsigned int v = (unsigned int) a[i] + b[i] + carry;
+	a[i] = (Rbyte) (v & 0xFF);
+	carry = v >> 8;
+    }
+}
+
 static void magShiftLeft1(Rbyte *a, int w)
 {
     int carry = 0;
@@ -1323,6 +1335,54 @@ void R_bytesSummaryType(SEXP call, int iop, SEXP args,
     if (phasNA) *phasNA = hasNA;
 }
 
+/* sum() keeps its running total 8 bytes wider than the element type,
+   in sign-magnitude form.  Accumulating in the type itself would make
+   the answer depend on the order of the elements -- a prefix of the
+   sum can pass the type's range and come back into it -- where R's
+   integer sum overflows only when the total does.  No element count
+   can carry past 8 extra bytes, so the total is exact and its one
+   range check comes at the end, against the type. */
+
+/* fold one element's sign and magnitude into the running total */
+static void wideSumAdd(Rbyte *acc, bool *accNeg, const Rbyte *m, bool neg, int w)
+{
+    int W = w + 8;
+    Rbyte wide[MAXW + 8];
+
+    memset(wide, 0, 8);
+    memcpy(wide + 8, m, (size_t) w);
+
+    if (*accNeg == neg) {
+	magAdd(acc, wide, W);
+	return;
+    }
+
+    if (magCmp(acc, wide, W) >= 0)
+	magSub(acc, wide, W);
+    else {
+	magSub(wide, acc, W);
+	memcpy(acc, wide, (size_t) W);
+	*accNeg = neg;
+    }
+    if (magIsZero(acc, W))
+	*accNeg = false;
+}
+
+/* the total back into a w-byte element; false when it does not fit */
+static bool wideSumStore(Rbyte *out, Rbyte *acc, bool accNeg,
+			 int w, int kind, bool hasNA)
+{
+    /* a magnitude that reaches the extra bytes is past any element */
+    for (int i = 0; i < 8; i++)
+	if (acc[i]) return false;
+    /* nothing unsigned to store a negative total in; R_bytesMagFits()
+       does not ask about the sign for this kind */
+    if (accNeg && kind == BYTEVEC_UINT && !magIsZero(acc + 8, w))
+	return false;
+
+    return storeResult(out, acc + 8, w, kind, accNeg, hasNA);
+}
+
 /* sum, min and max.  prod() never arrives: see R_bytesSummaryType(). */
 attribute_hidden
 SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
@@ -1339,6 +1399,9 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
        to be the answer, sawOut while it is only the answer if nothing
        representable turns up */
     bool unrep = false, sawOut = false;
+    /* sum's running total, wider than the type; see wideSumAdd() */
+    Rbyte sumMag[MAXW + 8] = {0};
+    bool sumNeg = false;
 
     /* sum starts at 0; min and max take the first element seen */
 
@@ -1415,8 +1478,12 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 
 	    switch (iop) {
 	    case 0:
-		if (!eltAdd(acc, acc, p, w, kind, hasNA)) over = true;
+	    {
+		Rbyte m[MAXW];
+		bool neg = magFromElt(m, p, w, kind);
+		wideSumAdd(sumMag, &sumNeg, m, neg, w);
 		break;
+	    }
 	    case 2:
 		if (R_bytesEltCmp(p, acc, w, kind) < 0)
 		    memcpy(acc, p, (size_t) w);
@@ -1429,11 +1496,19 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 		UNPROTECT(2);	/* a, ans */
 		errorcall(call, _("this summary is not defined for 'bytes' vectors"));
 	    }
-	    if (over) { isNA = true; break; }
 	}
 
 	UNPROTECT(1); /* a */
 	vmaxset(vmax);
+    }
+
+    /* the total, checked against the type only now that it is final:
+       an intermediate value outside the range is not an overflow when
+       later elements bring it back */
+    if (iop == 0 && !isNA &&
+	!wideSumStore(acc, sumMag, sumNeg, w, kind, hasNA != 0)) {
+	over = true;
+	isNA = true;
     }
 
     /* a bound that lost to nothing at all is still the answer */
@@ -1473,7 +1548,9 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 }
 /* ---- cumsum / cumprod / cummax / cummin ---- */
 
-/* iop is do_cum()'s PRIMVAL: 1 cumsum, 2 cumprod, 3 cummax, 4 cummin.
+/* iop is do_cum()'s PRIMVAL: 1 cumsum, 3 cummax, 4 cummin.  cumprod()
+   and cumvar() never arrive: do_cum() converts to double for them, as
+   prod() does and as base cumprod() does for its integer operands.
    The running value is kept in the answer itself, so each step reads
    the element before it.  As in cum.c's integer versions, an NA or an
    overflow ends the run and everything from there on is NA. */
@@ -1483,18 +1560,18 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
     int w = BYTEVEC_WIDTH(x), kind = BYTEVEC_KIND(x);
     bool hasNA = BYTEVEC_HAS_NA(x);
     R_xlen_t n = XLENGTH(x);
-    bool arith = (iop == 1 || iop == 2);
-    const char *nm = (iop == 1 ? "cumsum" : iop == 2 ? "cumprod"
-		      : (iop == 3 ? "cummax" : "cummin"));
+    bool arith = (iop == 1);
 
-    if (iop < 1 || iop > 4)
-	errorcall(call, _("'%s' is not defined for 'bytes' vectors"), "cumvar");
+    if (iop != 1 && iop != 3 && iop != 4)
+	errorcall(call, _("'%s' is not defined for 'bytes' vectors"),
+		  iop == 2 ? "cumprod" : "cumvar");
 
     /* min and max only ever compare, which is defined for every kind
-       and every width; a running sum or product is arithmetic and is
-       restricted exactly as sum() and prod() are */
+       and every width; a running sum is arithmetic and is restricted
+       exactly as sum() is */
     if (arith && kind == BYTEVEC_OPAQUE)
-	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"), nm);
+	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"),
+		  "cumsum");
     if (arith && !arithWidthOK(w))
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
@@ -1527,9 +1604,6 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
 	switch (iop) {
 	case 1:
 	    if (!eltAdd(acc, prev, p, w, kind, hasNA)) over = true;
-	    break;
-	case 2:
-	    if (!eltMul(acc, prev, p, w, kind, hasNA)) over = true;
 	    break;
 	case 3:
 	    memcpy(acc, R_bytesEltCmp(p, prev, w, kind) > 0 ? p : prev,

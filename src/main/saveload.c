@@ -2418,8 +2418,12 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	SETCAR(t, tmp);
     }
 
-    if (defaulted)
-	version = R_SerializeVersionFor(s, version);
+    if (defaulted) {
+	int settled = R_SerializeVersionFor(s, version);
+	if (settled != version)
+	    R_AnnounceSerializeVersion(version, settled);
+	version = settled;
+    }
     else
 	R_CheckSerializeVersion(s, version);
 

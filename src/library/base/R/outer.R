@@ -37,7 +37,10 @@ outer <- function (X, Y, FUN = "*", ...)
         if(!no.ny) ny <- list(names(Y))
     }
     robj <-
-        if (is.character(FUN) && FUN=="*") {
+        if (is.character(FUN) && FUN=="*" && !is.bytes(X) && !is.bytes(Y)) {
+            ## tcrossprod() takes numeric vectors only, so 'bytes'
+            ## operands go through the general branch below, which
+            ## multiplies them the way outer(X, Y, `*`) does
             if(!missing(...)) stop('using ... with FUN = "*" is an error')
             ## this is for numeric vectors, so dropping attributes is OK
             tcrossprod(as.vector(X), as.vector(Y))# faster than  as.vector(X) %*% t(as.vector(Y))

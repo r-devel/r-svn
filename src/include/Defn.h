@@ -2612,6 +2612,7 @@ void orderVector1(int *indx, int n, SEXP key, bool nalast,
 /* main/serialize.c */
 attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
 attribute_hidden void R_CheckSerializeVersion(SEXP object, int version);
+attribute_hidden void R_AnnounceSerializeVersion(int from, int to);
 
 /* main/saveload.c */
 attribute_hidden int defaultSaveVersion(void);

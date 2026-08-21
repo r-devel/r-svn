@@ -89,20 +89,16 @@ save <- function(..., list = character(),
                              ), domain = NA)
             }
         }
-        ## Settle the version before the connection below truncates the
-        ## file.  Both the refusal of one that cannot hold what is being
-        ## saved and the message announcing one raised past the default
-        ## can be unwound out of, and by then there is nothing left of
-        ## what the file held -- which save.image(), passing precheck =
-        ## FALSE, would have paid for with the previous .RData.
-        ## ifnotfound leaves a name that is not there to saveToConn() to
-        ## report, as it did before.  mget() forces, so with
-        ## eval.promises FALSE this is left to saveToConn(): it keeps
-        ## the promises unforced and settles the version itself.
-        if (eval.promises)
-            version <- .Internal(saveVersion(
-                mget(list, envir = envir, inherits = TRUE,
-                     ifnotfound = list(NULL)), version))
+        ## The connection is created but not opened: saveToConn()
+        ## gathers the objects, settles the version they need --
+        ## announcing one raised past the default, refusing one that
+        ## cannot hold what is being saved -- and only then opens the
+        ## connection.  Everything before the open can fail or be
+        ## unwound out of, and opening here instead would truncate the
+        ## file first -- which save.image(), passing precheck = FALSE,
+        ## would have paid for with the previous .RData.  This also
+        ## reads each object exactly once, where settling the version
+        ## here would read them a second time.
         if (is.character(file)) {
 	    if(!nzchar(file))
                 stop(gettextf("'%s' must be a non-empty character string", "file"), domain = NA)
@@ -114,22 +110,22 @@ save <- function(..., list = character(),
 	    con <- switch(compress,
 			  "bzip2" = {
 			      if (!missing(compression_level))
-				  bzfile(file, "wb", compression = compression_level)
-			      else bzfile(file, "wb")
+				  bzfile(file, compression = compression_level)
+			      else bzfile(file)
 			  }, "xz" = {
 			      if (!missing(compression_level))
-				  xzfile(file, "wb", compression = compression_level)
-			      else xzfile(file, "wb", compression = 9)
+				  xzfile(file, compression = compression_level)
+			      else xzfile(file, compression = 9)
 			  }, "gzip" = {
 			      if (!missing(compression_level))
-				  gzfile(file, "wb", compression = compression_level)
-			      else gzfile(file, "wb")
+				  gzfile(file, compression = compression_level)
+			      else gzfile(file)
 			  }, "zstd" = {
 			      if (!missing(compression_level))
-				  zstdfile(file, "wb", compression = compression_level)
-			      else zstdfile(file, "wb")
+				  zstdfile(file, compression = compression_level)
+			      else zstdfile(file)
 			  },
-			  "no compression" = file(file, "wb"),
+			  "no compression" = file(file),
 
 			  ## otherwise:
 			  stop(gettextf("'compress = \"%s\"' is invalid", compress)))

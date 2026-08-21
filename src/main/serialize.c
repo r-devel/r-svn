@@ -1491,14 +1491,23 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
    whose only 'bytes' vector a refhook would have externalised is
    written in version 4 rather than 3.  Stricter, never truncated.
 
-   Environments are the only edge that can cycle, so a table of the ones
-   already visited is enough to terminate. */
+   The reference types are the edges that can cycle -- an environment
+   through its frame or its attributes, an external pointer through its
+   prot field, a weak reference through its attributes -- so a table of
+   the ones already visited is enough to terminate.  WriteItem() adds
+   each of them to its reference table in the same place, for the same
+   reason. */
 static bool containsBytesVector(SEXP s, SEXP seen, int version)
 {
     R_CheckStack();
 
     if (TYPEOF(s) == BYTESXP)
 	return true;
+
+    /* a symbol is written as its name alone; nothing else of it, its
+       attribute slot included, goes into the stream */
+    if (TYPEOF(s) == SYMSXP)
+	return false;
 
     /* An ALTREP object is written as its serialized state and never as
        its own elements, so the state is what has to be searched.
@@ -1522,21 +1531,26 @@ static bool containsBytesVector(SEXP s, SEXP seen, int version)
     }
 
 
-    /* An environment is the only edge that can cycle, and the cycle can
-       run through its attributes as readily as through its frame, so the
-       visit is recorded before anything below it is walked.  WriteItem()
-       adds to its reference table in the same place, for the same
-       reason. */
-    if (TYPEOF(s) == ENVSXP) {
+    /* A cycle can run through a reference object's attributes as
+       readily as through its frame or prot field, so the visit is
+       recorded before anything below it is walked, attributes
+       included. */
+    switch (TYPEOF(s)) {
+    case ENVSXP:
 	/* the environments written by marker or by name take nothing with
 	   them, attributes included; see SaveSpecialHook() and
 	   WriteItem() */
 	if (SaveSpecialHook(s) != 0 || R_IsPackageEnv(s) ||
 	    R_IsNamespaceEnv(s))
 	    return false;
-
+	/* fall through */
+    case EXTPTRSXP:
+    case WEAKREFSXP:
 	if (AddCircleHash(s, seen))	/* visited already */
 	    return false;
+	break;
+    default:
+	break;
     }
 
     /* CHARSXP keeps its cache chain in ATTRIB and is not serialized
@@ -1555,13 +1569,33 @@ static bool containsBytesVector(SEXP s, SEXP seen, int version)
     case LISTSXP:
     case LANGSXP:
     case DOTSXP:
-	/* the tags are symbols, which hold nothing; the attributes of
-	   the head cell were taken above */
-	for (SEXP t = s; t != R_NilValue && TYPEOF(t) != NILSXP; t = CDR(t)) {
-	    if (containsBytesVector(CAR(t), seen, version))
-		return true;
+	/* WriteItem() walks the CDR chain by tail call and re-dispatches
+	   on whatever node it finds there, so the chain can end in any
+	   object, not only R_NilValue -- an ALTREP serialized state is
+	   CONS(data, metadata), for one.  A tag is usually a symbol, but
+	   nothing enforces that and WriteItem() writes whatever is
+	   there.  And a frame's binding cell can hold an immediate
+	   scalar, which CAR() refuses to read; it can hold no 'bytes'
+	   vector, so it is skipped rather than expanded the way
+	   WriteItem() has to expand it.  The attributes of the head
+	   cell were taken above. */
+	for (SEXP t = s; t != R_NilValue; t = CDR(t)) {
+	    switch (TYPEOF(t)) {
+	    case LISTSXP:
+	    case LANGSXP:
+	    case DOTSXP:
+		break;
+	    default:
+		return containsBytesVector(t, seen, version);
+	    }
 	    if (t != s && ATTRIB(t) != R_NilValue &&
 		containsBytesVector(ATTRIB(t), seen, version))
+		return true;
+	    if (TAG(t) != R_NilValue &&
+		containsBytesVector(TAG(t), seen, version))
+		return true;
+	    if (!BNDCELL_TAG(t) &&
+		containsBytesVector(CAR(t), seen, version))
 		return true;
 	}
 	break;
@@ -1609,13 +1643,14 @@ static bool containsBytesVector(SEXP s, SEXP seen, int version)
    read the result, so it is said out loud -- and suppressMessages()
    can turn it off, which a warning would make harder.
 
-   Only do_serializeVersion() says it, and that runs from saveRDS() and
-   save() before either has opened anything.  Saying it from a writer
-   instead would mean evaluating R code with the destination already
-   open and truncated, where a handler that unwinds takes the file's
-   previous contents with it; and serialize(), which is how parallel
-   sends every object to a worker, would say it once per send. */
-static void announceVersion(int from, int to)
+   Only saveRDS() -- through do_serializeVersion() -- and save() --
+   through do_saveToConn() -- say it, and both say it before their
+   destination has been opened.  Saying it later would mean evaluating
+   R code with the destination already open and truncated, where a
+   handler that unwinds takes the file's previous contents with it; and
+   serialize(), which is how parallel sends every object to a worker,
+   stays silent so as not to say it once per send. */
+attribute_hidden void R_AnnounceSerializeVersion(int from, int to)
 {
     char buf[256];
     snprintf(buf, sizeof buf,
@@ -3014,7 +3049,7 @@ attribute_hidden SEXP do_serializeVersion(SEXP call, SEXP op, SEXP args,
     if (version == dflt)
 	return R_NilValue;
 
-    announceVersion(dflt, version);
+    R_AnnounceSerializeVersion(dflt, version);
 
     return ScalarInteger(version);
 }

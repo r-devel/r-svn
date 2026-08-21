@@ -401,6 +401,19 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
   } else { // nx == 0 || ny == 0
 	if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP)
 	    bytesCompareCheck(x, y, call);
+	else if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
+	    /* the same rule at length zero as at any other: a pairing
+	       the narrowing refuses -- double, character -- is refused
+	       here too, rather than quietly answering logical(0); the
+	       marks it produces are not needed */
+	    SEXP b = (TYPEOF(x) == BYTESXP) ? x : y;
+	    SEXP o = (TYPEOF(x) == BYTESXP) ? y : x;
+	    const void *vmax = vmaxget();
+	    int *dir = (int *) R_alloc(XLENGTH(o) + 1, sizeof(int));
+	    R_bytesNarrowCmp(o, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
+			     BYTEVEC_HAS_NA(b), dir, call);
+	    vmaxset(vmax);
+	}
 	x = allocVector(LGLSXP, 0);
   }
 

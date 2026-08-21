@@ -144,9 +144,11 @@ static SEXP EnlargeNames(SEXP, R_xlen_t, R_xlen_t);
    about whether any of it survives to be coerced.
 
    'assigned' is the subscript the assignment will write, as
-   makeSubscript() produced it and so 1-based, or R_NilValue when the
+   makeSubscript() produced it and so 1-based; R_NilValue when the
    assignment writes only the last position -- which is what
-   x[[i]] <- value does. */
+   x[[i]] <- value does; or R_MissingArg when the caller cannot say
+   which positions it will reach -- which is what the matrix and array
+   assignments pass, their coverage being spread over the dimensions. */
 static bool assignLeavesGap(SEXP assigned, R_xlen_t lo, R_xlen_t hi,
 			    R_xlen_t newlen)
 {
@@ -154,6 +156,8 @@ static bool assignLeavesGap(SEXP assigned, R_xlen_t lo, R_xlen_t hi,
 
     if (ngap <= 0)
 	return false;
+    if (assigned == R_MissingArg)	/* coverage unknown: assume gaps */
+	return true;
     if (assigned == R_NilValue)
 	return ngap > 1 || lo != newlen - 1;
 
@@ -580,9 +584,18 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 2610:
     case 2613:
 	/* logical and integer narrow into 'bytes'; a double right-hand
-	   side falls to the default below rather than being guessed at */
-	*y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
-			   BYTEVEC_HAS_NA(*x), call);
+	   side falls to the default below rather than being guessed at.
+	   A subscript that reaches no position reads nothing from the
+	   right-hand side, so there is nothing to narrow -- and
+	   x[FALSE] <- NA on a vector with na = FALSE, which order()
+	   relies on, must not fail over an NA it never stores. */
+	if (!stretch && assigned != R_NilValue && assigned != R_MissingArg &&
+	    xlength(assigned) == 0)
+	    *y = R_allocBytesVector(0, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
+				    BYTEVEC_HAS_NA(*x) ? TRUE : FALSE);
+	else
+	    *y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
+			       BYTEVEC_HAS_NA(*x), call);
 	break;
 
     case 1026:	/* logical    <- bytes      */
@@ -653,6 +666,19 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	error(_("incompatible types (from %s to %s) in subassignment type fix"),
 	      R_typeToChar(*x), R_typeToChar(*y));
     } //--- end switch(which)
+
+    /* An error the assignment is going to raise has to come before the
+       stretch below: EnlargeVector() can grow a growable destination in
+       place, and failing after that leaves it longer, with slack the
+       assignment never wrote -- which a 'bytes' vector with na = FALSE
+       reads back as values it promises the user stored.  So the checks
+       the 'bytes' assignment makes later are made here first. */
+    if (stretch && TYPEOF(*x) == BYTESXP) {
+	if (TYPEOF(*y) == BYTESXP)
+	    BytesAssignWidth(*x, *y, call);
+	if (XLENGTH(*y) == 0)
+	    error(_("replacement has length zero"));
+    }
 
     if (stretch) {
 	PROTECT(*y);
@@ -1158,7 +1184,10 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    which = SubassignTypeFix(&x, &y, 0, R_NilValue, 1, call, rho);
+    /* R_MissingArg: which positions the assignment reaches is spread
+       over the two subscripts, so SubassignTypeFix() must not assume
+       anything is covered; see assignLeavesGap() */
+    which = SubassignTypeFix(&x, &y, 0, R_MissingArg, 1, call, rho);
     if (n == 0) return x;
 
     PROTECT(x);
@@ -1408,7 +1437,9 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
 
-    int which = SubassignTypeFix(&x, &y, 0, R_NilValue, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
+    /* R_MissingArg as in MatrixAssign(): coverage is spread over the
+       dimension subscripts */
+    int which = SubassignTypeFix(&x, &y, 0, R_MissingArg, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
 
     if (n == 0) {
 	UNPROTECT(1);
