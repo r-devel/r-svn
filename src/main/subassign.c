@@ -137,7 +137,57 @@ static R_INLINE SEXP getNames(SEXP x)
 */
 static SEXP EnlargeNames(SEXP, R_xlen_t, R_xlen_t);
 
-static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
+/* Whether the assignment about to happen leaves any position in
+   [lo, hi) unwritten -- 0-based, and against the length 'newlen' the
+   destination will have.  Two things ask: the enlargement, about the
+   positions it would have to fill, and the coercion of a destination,
+   about whether any of it survives to be coerced.
+
+   'assigned' is the subscript the assignment will write, as
+   makeSubscript() produced it and so 1-based, or R_NilValue when the
+   assignment writes only the last position -- which is what
+   x[[i]] <- value does. */
+static bool assignLeavesGap(SEXP assigned, R_xlen_t lo, R_xlen_t hi,
+			    R_xlen_t newlen)
+{
+    R_xlen_t ngap = hi - lo;
+
+    if (ngap <= 0)
+	return false;
+    if (assigned == R_NilValue)
+	return ngap > 1 || lo != newlen - 1;
+
+    R_xlen_t n = xlength(assigned);
+    if (n < ngap)		/* too few subscripts to cover them all */
+	return true;
+
+    /* at most n of them, n being a subscript vector that already exists */
+    const void *vmax = vmaxget();
+    char *seen = R_alloc((size_t) ngap, sizeof(char));
+    memset(seen, 0, (size_t) ngap);
+
+    R_xlen_t covered = 0;
+    for (R_xlen_t i = 0; i < n && covered < ngap; i++) {
+	double d = (TYPEOF(assigned) == REALSXP) ? REAL_ELT(assigned, i)
+	    : (double) INTEGER_ELT(assigned, i);
+	if (!R_FINITE(d))	/* NA_REAL; NA_INTEGER falls out below */
+	    continue;
+
+	R_xlen_t ii = (R_xlen_t) d - 1;		/* to 0-based */
+	if (ii < lo || ii >= hi)
+	    continue;
+
+	if (!seen[ii - lo]) {
+	    seen[ii - lo] = 1;
+	    covered++;
+	}
+    }
+    vmaxset(vmax);
+
+    return covered < ngap;
+}
+
+static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
 {
     R_xlen_t len, newtruelen;
     SEXP newx, names;
@@ -161,6 +211,12 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     if (! MAYBE_SHARED(x) &&
 	IS_GROWABLE(x) &&
 	XTRUELENGTH(x) >= newlen) {
+	/* the slack an earlier enlargement left was filled with NA, and
+	   exposing it here is the same promise the copy below makes */
+	if (TYPEOF(x) == BYTESXP && !BYTEVEC_HAS_NA(x) &&
+	    assignLeavesGap(assigned, len, newlen, newlen))
+	    R_bytesCheckNA(x);
+
 	SET_STDVEC_LENGTH(x, newlen);
 	if (ATTRIB(x) != R_NilValue) {
 	    names = getNames(x);
@@ -262,7 +318,13 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	    if (len > 0)
 		R_bytesMemcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
 			      (size_t) len * w);
-	    if (newtruelen > len) R_bytesCheckNA(newx);
+	    /* Only the positions the assignment will not reach matter:
+	       one it does reach is overwritten before anyone sees it,
+	       and the slack past newlen is not visible at all until a
+	       later enlargement exposes it, which asks again. */
+	    if (!BYTEVEC_HAS_NA(newx) &&
+		assignLeavesGap(assigned, len, newlen, newlen))
+		R_bytesCheckNA(newx);
 	    for (R_xlen_t i = len; i < newtruelen; i++)
 		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w, k);
 	}
@@ -289,7 +351,7 @@ static SEXP EnlargeNames(SEXP names, R_xlen_t len, R_xlen_t newlen)
 {
     if (TYPEOF(names) != STRSXP || XLENGTH(names) != len)
 	error(_("bad names attribute"));
-    SEXP newnames = PROTECT(EnlargeVector(names, newlen));
+    SEXP newnames = PROTECT(EnlargeVector(names, newlen, R_NilValue));
     for (R_xlen_t i = len; i < newlen; i++)
 	SET_STRING_ELT(newnames, i, R_BlankString);
     UNPROTECT(1);
@@ -352,7 +414,7 @@ static int BytesAssignWidth(SEXP x, SEXP y, SEXP call)
 }
 
 static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
-			    int level,
+			    SEXP assigned, int level,
 			    SEXP call, SEXP rho)
 {
     /* A rather pointless optimization, but level 2 used to be handled
@@ -531,15 +593,35 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	   test.  A double destination has no meeting type with this
 	   one and falls to the error below, as arithmetic does. */
 	{
-	    /* R_bytesNarrow() builds a bare vector, where every other arm
-	       of this switch goes through coerceVector(), which carries
-	       the attributes over.  Without this the destination silently
+	    R_xlen_t nx = XLENGTH(*x);
+	    SEXP xnew;
+
+	    /* An assignment that writes every position of the
+	       destination has nothing to convert: none of the old values
+	       is there to read afterwards.  That matters most for the
+	       opaque kind, which R_bytesNarrow() refuses outright -- a
+	       byte string is not a number, so there is no opaque value
+	       for 2L -- and would refuse for values about to be thrown
+	       away.  It also keeps the legality of x[i] <- value from
+	       depending on what x happened to hold. */
+	    if (!assignLeavesGap(assigned, 0, nx, stretch ? stretch : nx))
+		xnew = PROTECT(R_allocBytesVector(nx, BYTEVEC_WIDTH(*y),
+						  BYTEVEC_KIND(*y),
+						  BYTEVEC_HAS_NA(*y)
+						  ? TRUE : FALSE));
+	    else
+		/* the rest survive the assignment and have to become
+		   elements of the destination's new type */
+		xnew = PROTECT(R_bytesNarrow(*x, BYTEVEC_WIDTH(*y),
+					     BYTEVEC_KIND(*y),
+					     BYTEVEC_HAS_NA(*y), call));
+
+	    /* Both build a bare vector, where every other arm of this
+	       switch goes through coerceVector(), which carries the
+	       attributes over.  Without this the destination silently
 	       loses its dim, names and class -- and SET_OBJECT() below
 	       would then stamp the object bit onto a result that has no
 	       class attribute left. */
-	    SEXP xnew = PROTECT(R_bytesNarrow(*x, BYTEVEC_WIDTH(*y),
-					      BYTEVEC_KIND(*y),
-					      BYTEVEC_HAS_NA(*y), call));
 	    SHALLOW_DUPLICATE_ATTRIB(xnew, *x);	/* *x is the caller's */
 	    UNPROTECT(1);
 	    *x = xnew;
@@ -561,7 +643,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	    /*^^^^^^^^^^^^^^^ creates an unprotected *y; call below may allocate (coerceVector),
 	      so the new value has to be protected: */
             PROTECT(*y);
-            which = SubassignTypeFix(x, y, stretch, level, call, rho);
+            which = SubassignTypeFix(x, y, stretch, assigned, level, call, rho);
             UNPROTECT(1);
             return which;
         }
@@ -574,7 +656,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 
     if (stretch) {
 	PROTECT(*y);
-	*x = EnlargeVector(*x, stretch); // FIXME: 1d-array w/ {dim,dimnames} |--> vector w/ names
+	*x = EnlargeVector(*x, stretch, assigned); // FIXME: 1d-array w/ {dim,dimnames} |--> vector w/ names
 	UNPROTECT(1);
     }
     SET_OBJECT(*x, x_is_object);
@@ -749,7 +831,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* been coerced into a form which can */
     /* accept elements from the RHS. */
     SEXP old_x = x;
-    int which = SubassignTypeFix(&x, &y, stretch, 1, call, rho);
+    int which = SubassignTypeFix(&x, &y, stretch, indx, 1, call, rho);
     /* = 100 * TYPEOF(x) + TYPEOF(y);*/
     if (n == 0) {
 	UNPROTECT(2);
@@ -1076,7 +1158,7 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    which = SubassignTypeFix(&x, &y, 0, 1, call, rho);
+    which = SubassignTypeFix(&x, &y, 0, R_NilValue, 1, call, rho);
     if (n == 0) return x;
 
     PROTECT(x);
@@ -1326,7 +1408,7 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
 
-    int which = SubassignTypeFix(&x, &y, 0, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
+    int which = SubassignTypeFix(&x, &y, 0, R_NilValue, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
 
     if (n == 0) {
 	UNPROTECT(1);
@@ -2022,7 +2104,8 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 
 	SEXP old_x = x;
-	which = SubassignTypeFix(&x, &y, stretch, 2, call, rho);
+	/* x[[i]] <- value writes the last new position, and no other */
+	which = SubassignTypeFix(&x, &y, stretch, R_NilValue, 2, call, rho);
 
 	PROTECT(x);
 	PROTECT(y);

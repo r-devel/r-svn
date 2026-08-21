@@ -571,3 +571,77 @@ stopifnot(length(c(list(1), b4, b8)) == 5L,
 opq <- as.bytes(as.raw(1:16), 16L, "opaque")
 stopifnot(all(is.na(bitwAnd(opq, NA))),
 	  inherits(tryCatch(bitwAnd(opq, 1L), error = identity), "error"))
+
+### growing a vector that reserves no missing value
+
+## Only the positions the assignment does not reach need a value to be
+## left in them, and only those have none to leave: an append or a
+## subscript that covers every new position produces no missing value
+## and must go through.
+local({
+    v <- as.bytes("7", 8L, "unsigned", na = FALSE)
+    six <- as.bytes(1:6, 8L, "unsigned", na = FALSE)
+    mk <- function() as.bytes(1:3, 8L, "unsigned", na = FALSE)
+
+    x <- mk(); x[4L] <- v
+    stopifnot(identical(as.character(x), c("1", "2", "3", "7")))
+    x <- mk(); x[[4L]] <- v
+    stopifnot(identical(as.character(x), c("1", "2", "3", "7")))
+    x <- mk(); x[length(x) + 1L] <- v
+    stopifnot(length(x) == 4L)
+    x <- mk(); x[1:6] <- six
+    stopifnot(identical(as.character(x), as.character(six)))
+    x <- mk(); x[4:6] <- six[1:3]
+    stopifnot(identical(as.character(x), c("1", "2", "3", "1", "2", "3")))
+
+    ## a position left over is still refused, and so is an explicit NA
+    for (bad in list(quote(x[6L] <- v), quote(x[[6L]] <- v),
+		     quote(x[c(4L, 6L)] <- six[1:2]), quote(x[2L] <- NA))) {
+	x <- mk()
+	if (!inherits(tryCatch(eval(bad), error = identity), "error"))
+	    stop("no error from ", deparse(bad))
+    }
+
+    ## repeated appends run through the growable path, which exposes
+    ## slack an earlier enlargement filled
+    x <- as.bytes(1L, 8L, "unsigned", na = FALSE)
+    for (i in 2:50) x[i] <- v
+    stopifnot(length(x) == 50L, all(as.character(x)[-1L] == "7"))
+    x <- as.bytes(1L, 8L, "unsigned", na = FALSE)
+    x[2L] <- v
+    stopifnot(inherits(tryCatch(x[10L] <- v, error = identity), "error"))
+
+    ## a vector that does reserve one is unchanged
+    y <- as.bytes(1:3, 8L, "unsigned"); y[6L] <- as.bytes("7", 8L, "unsigned")
+    stopifnot(is.na(y[5L]), !is.na(y[6L]))
+})
+
+### a destination the assignment overwrites entirely is not converted
+
+## Narrowing the destination is for the values that survive.  When none
+## does, there is nothing to convert -- and the opaque kind, which has
+## no value for 2L and refuses one, must not refuse over values that
+## are about to be thrown away.
+local({
+    o <- as.bytes(c("0102", "0304", "0506"), 2L, "opaque")
+
+    x <- 1:3; x[1:3] <- o
+    stopifnot(identical(as.character(x), as.character(o)))
+    x <- c(TRUE, FALSE, TRUE); x[1:3] <- o
+    stopifnot(identical(typeof(x), "bytes2"))
+    x <- 1:3; x[3:1] <- o
+    stopifnot(identical(as.character(x), rev(as.character(o))))
+
+    ## the attributes still come across
+    m <- matrix(1:4, 2, 2); m[1:4] <- as.bytes(1:4, 8L, "unsigned")
+    stopifnot(identical(dim(m), c(2L, 2L)))
+
+    ## a value that does survive still has to become one of the new
+    ## type, and for the opaque kind there is none
+    stopifnot(inherits(tryCatch({x <- 1:3; x[1] <- o[1]}, error = identity),
+		       "error"))
+    x <- rep(NA_integer_, 3); x[1] <- o[1]
+    stopifnot(is.na(x[2]), !is.na(x[1]))
+    x <- 1:3; x[1] <- as.bytes("9", 8L, "unsigned")
+    stopifnot(identical(as.character(x), c("9", "2", "3")))
+})
