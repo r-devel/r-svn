@@ -383,6 +383,110 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define SET_GROWABLE_BIT(x) (((x)->sxpinfo.gp) |= GROWABLE_MASK)
 #define IS_GROWABLE(x) (GROWABLE_BIT_SET(x) && XLENGTH(x) < XTRUELENGTH(x))
 
+/* Wide (64-bit) integer vector prototype.  A standard (non-ALTREP)
+   INTSXP with this bit set stores R_wideint_t (currently long long)
+   elements in its payload; gp bit 7 is unused on vectors.  The 32-bit
+   accessors must not touch such vectors, so the INTEGER()/INTEGER_RO()
+   macros below go through checked functions.  NA is INT64_MIN,
+   mirroring NA_INTEGER. */
+#define WIDEINT_MASK ((unsigned short)(1<<7))
+#define IS_WIDEINT(x) (((x)->sxpinfo.alt) == 0 && \
+		       ((x)->sxpinfo.gp & WIDEINT_MASK))
+#define SET_WIDEINT(x) (((x)->sxpinfo.gp) |= WIDEINT_MASK)
+#define UNSET_WIDEINT(x) (((x)->sxpinfo.gp) &= ~WIDEINT_MASK)
+#define WIDEINT_PTR(x) ((R_wideint_t *) STDVEC_DATAPTR(x))
+
+#ifndef R_WIDEINT_T_DEFINED
+# define R_WIDEINT_T_DEFINED
+typedef long long R_wideint_t;
+#endif
+#ifndef NA_INTEGER64
+# define NA_INTEGER64 ((R_wideint_t)(-9223372036854775807LL - 1))
+#endif
+#define R_WIDEINT_MAX ((R_wideint_t) 9223372036854775807LL)
+#define R_WIDEINT_MIN ((R_wideint_t)(-9223372036854775807LL - 1))
+
+/* 2^63 as a double.  INT64_MAX (2^63 - 1) is not exactly representable as
+   a double, so 2^63 is the exclusive bound when testing whether a double
+   fits in a wide integer: |v| >= this does not fit. */
+#define R_WIDEINT_DBL_MAX 9223372036854775808.0
+
+/* 2^53, the largest magnitude for which every integer is exactly
+   representable as a double; a wide integer beyond +/- this loses
+   precision when coerced to double. */
+#define R_WIDEINT_DBL_EXACT ((R_wideint_t) 9007199254740992LL)
+
+/* Checked wide-integer arithmetic.  GCC/Clang expose __builtin_*_overflow;
+   on other toolchains fall back to portable checks (SEI CERT INT32-C).
+   R_ovf_{add,sub,mul}(a, b, r) store a op b into *r and return nonzero on
+   signed 64-bit overflow.  Result pointers must be R_wideint_t *. */
+#if defined(__has_builtin)
+# if __has_builtin(__builtin_add_overflow)
+#  define R_HAVE_BUILTIN_OVERFLOW 1
+# endif
+#endif
+#if !defined(R_HAVE_BUILTIN_OVERFLOW) && \
+    defined(__GNUC__) && !defined(__INTEL_COMPILER) && (__GNUC__ >= 5)
+# define R_HAVE_BUILTIN_OVERFLOW 1
+#endif
+
+#ifdef R_HAVE_BUILTIN_OVERFLOW
+# define R_ovf_add(a, b, r) __builtin_add_overflow((a), (b), (r))
+# define R_ovf_sub(a, b, r) __builtin_sub_overflow((a), (b), (r))
+# define R_ovf_mul(a, b, r) __builtin_mul_overflow((a), (b), (r))
+#else
+static R_INLINE int R_wideint_add_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if ((b > 0 && a > R_WIDEINT_MAX - b) || (b < 0 && a < R_WIDEINT_MIN - b))
+	return 1;
+    *r = a + b;
+    return 0;
+}
+static R_INLINE int R_wideint_sub_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if ((b < 0 && a > R_WIDEINT_MAX + b) || (b > 0 && a < R_WIDEINT_MIN + b))
+	return 1;
+    *r = a - b;
+    return 0;
+}
+static R_INLINE int R_wideint_mul_ovf(R_wideint_t a, R_wideint_t b,
+				      R_wideint_t *r)
+{
+    if (a > 0) {
+	if (b > 0) {
+	    if (a > R_WIDEINT_MAX / b) return 1;
+	} else {
+	    if (b < R_WIDEINT_MIN / a) return 1;
+	}
+    } else {
+	if (b > 0) {
+	    if (a < R_WIDEINT_MIN / b) return 1;
+	} else {
+	    if (a != 0 && b < R_WIDEINT_MAX / a) return 1;
+	}
+    }
+    *r = a * b;
+    return 0;
+}
+# define R_ovf_add(a, b, r) R_wideint_add_ovf((a), (b), (r))
+# define R_ovf_sub(a, b, r) R_wideint_sub_ovf((a), (b), (r))
+# define R_ovf_mul(a, b, r) R_wideint_mul_ovf((a), (b), (r))
+#endif
+/* R_isWideInteger, INTEGER64_ELT, SET_INTEGER64_ELT and the
+   narrowing helpers are inlinable and so must only be declared via
+   Rinlinedfuns.h (or its fallback block below): an unguarded
+   declaration here would demote the C99 inline definitions to
+   external ones in every translation unit */
+SEXP R_allocWideIntVector(R_xlen_t length);
+SEXP ScalarWideInt(R_wideint_t v);
+SEXP R_wideIntCoerce(SEXP v, SEXPTYPE type);
+SEXP R_formatWideInt(SEXP x);
+const char *EncodeWideInt(R_wideint_t x, int w);
+SEXP R_widenInteger(SEXP x);
+SEXP R_asWideInteger(SEXP x);
+
 /* Vector Access Macros */
 #ifdef LONG_VECTOR_SUPPORT
 # define IS_LONG_VEC(x) (XLENGTH(x) > R_SHORT_LEN_MAX)
@@ -407,11 +511,14 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #define XLENGTH(x) XLENGTH_EX(x)
 
 /* THIS ABSOLUTELY MUST NOT BE USED IN PACKAGES !!! */
+/* A wide integer vector must never carry the scalar bit: the
+   IS_SCALAR fast paths read the payload as a 4-byte int. */
 #define SET_STDVEC_LENGTH(x,v) do {		\
 	SEXP __x__ = (x);			\
 	R_xlen_t __v__ = (v);			\
 	STDVEC_LENGTH(__x__) = __v__;		\
-	SETSCALAR(__x__, __v__ == 1 ? 1 : 0);	\
+	SETSCALAR(__x__, (__v__ == 1 &&		\
+			  ! R_isWideInteger(__x__)) ? 1 : 0);	\
     } while (0)
 
 /* Under the generational allocator the data for vector nodes comes
@@ -421,13 +528,15 @@ typedef union { VECTOR_SEXPREC s; double align; } SEXPREC_ALIGN;
 #undef CHAR
 #define CHAR(x)		((const char *) STDVEC_DATAPTR(x))
 #define LOGICAL(x)	((int *) DATAPTR(x))
-#define INTEGER(x)	((int *) DATAPTR(x))
+/* wide-int prototype: error on 32-bit pointer access to wide vectors;
+   R_INTEGER32chk is declared via Rinlinedfuns.h (see above) */
+#define INTEGER(x)	(R_INTEGER32chk(x))
 #define RAW(x)		((Rbyte *) DATAPTR(x))
 #define COMPLEX(x)	((Rcomplex *) DATAPTR(x))
 #define REAL(x)		((double *) DATAPTR(x))
 #define STRING_PTR(x)	((SEXP *) DATAPTR(x))
 #define LOGICAL_RO(x)	((const int *) DATAPTR_RO(x))
-#define INTEGER_RO(x)	((const int *) DATAPTR_RO(x))
+#define INTEGER_RO(x)	(R_INTEGER32chk_ro(x))
 #define RAW_RO(x)	((const Rbyte *) DATAPTR_RO(x))
 #define COMPLEX_RO(x)	((const Rcomplex *) DATAPTR_RO(x))
 #define REAL_RO(x)	((const double *) DATAPTR_RO(x))
@@ -842,6 +951,15 @@ int *INTEGER0(SEXP x);
 double *REAL0(SEXP x);
 Rcomplex *COMPLEX0(SEXP x);
 Rbyte *RAW0(SEXP x);
+
+int R_isWideInteger(SEXP x);
+R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i);
+void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v);
+int R_wideIntegerElt32(SEXP x, R_xlen_t i);
+void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v);
+int *R_INTEGER32chk(SEXP x);
+const int *R_INTEGER32chk_ro(SEXP x);
+int *R_INTEGER32chk0(SEXP x);
 
 Rboolean Rf_conformable(SEXP, SEXP);
 Rboolean Rf_isUserBinop(SEXP);

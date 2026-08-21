@@ -172,7 +172,14 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
-    PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
+    if (R_isWideInteger(vals)) {
+	PROTECT(ans = R_allocWideIntVector((R_xlen_t) nr * nc));
+	SEXP dim = allocVector(INTSXP, 2);
+	INTEGER(dim)[0] = nr; INTEGER(dim)[1] = nc;
+	setAttrib(ans, R_DimSymbol, dim);
+    }
+    else
+	PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
     else { /* fill with NAs */
@@ -187,6 +194,11 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 		LOGICAL(ans)[i] = NA_LOGICAL;
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(ans)) {
+		for (i = 0; i < N; i++)
+		    WIDEINT_PTR(ans)[i] = NA_INTEGER64;
+		break;
+	    }
 	    for (i = 0; i < N; i++)
 		INTEGER(ans)[i] = NA_INTEGER;
 	    break;

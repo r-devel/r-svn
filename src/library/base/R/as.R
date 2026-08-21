@@ -56,6 +56,10 @@ as.list.environment <- function(x, all.names=FALSE, sorted=FALSE, ...)
 ## as.vector dispatches internally so no need for a generic
 as.vector <- function(x, mode = "any") .Internal(as.vector(x, mode))
 
+## wide (64-bit) integer vector prototype
+as.wideint <- function(x) .Internal(as.wideint(x))
+is.wideint <- function(x) .Internal(is.wideint(x))
+
 as.matrix <- function(x, ...) UseMethod("as.matrix")
 as.matrix.default <- function(x, ...) {
     if (is.matrix(x)) x

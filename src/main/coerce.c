@@ -1175,6 +1175,10 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     if (TYPEOF(v) == type)
 	return v;
 
+    /* wide integer vectors need 64-bit element access */
+    if (R_isWideInteger(v))
+	return R_wideIntCoerce(v, type);
+
     SEXP ans = R_NilValue;	/* -Wall */
     if (ALTREP(v)) {
 	PROTECT(v); /* the methods should protect, but ... */
@@ -1790,6 +1794,10 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	case LGLSXP:
 	    return LOGICAL_ELT(x, 0);
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		return (v == NA_INTEGER64) ? NA_LOGICAL : (v != 0);
+	    }
 	    return LogicalFromInteger(INTEGER_ELT(x, 0), &warn);
 	case REALSXP:
 	    return LogicalFromReal(REAL_ELT(x, 0), &warn);
@@ -1859,6 +1867,15 @@ int asInteger(SEXP x)
 	case LGLSXP:
 	    return IntegerFromLogical(LOGICAL_ELT(x, 0), &warn);
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		if (v == NA_INTEGER64)
+		    return NA_INTEGER;
+		if (v > INT_MIN && v <= INT_MAX)
+		    return (int) v;
+		CoercionWarning(WARN_INT_NA); /* out of 32-bit range */
+		return NA_INTEGER;
+	    }
 	    return INTEGER_ELT(x, 0);
 	case REALSXP:
 	    res = IntegerFromReal(REAL_ELT(x, 0), &warn);
@@ -1892,6 +1909,12 @@ R_xlen_t asXLength(SEXP x)
 	switch (TYPEOF(x)) {
 	case INTSXP:
 	{
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		if (v == NA_INTEGER64 || v < 0 || v > R_XLEN_T_MAX)
+		    return na;
+		return (R_xlen_t) v;
+	    }
 	    int res = INTEGER_ELT(x, 0);
 	    if (res == NA_INTEGER)
 		return na;
@@ -1928,6 +1951,15 @@ double asReal(SEXP x)
 	    CoercionWarning(warn);
 	    return res;
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		R_wideint_t v = INTEGER64_ELT(x, 0);
+		if (v == NA_INTEGER64)
+		    return NA_REAL;
+		/* keep scalar coercion consistent with R_wideIntCoerce */
+		if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+		    warning(_("coercing wide integers above 2^53 loses precision"));
+		return (double) v;
+	    }
 	    res = RealFromInteger(INTEGER_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
@@ -2290,6 +2322,11 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   pa[i] = (LOGICAL_ELT(x, i) == NA_LOGICAL);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		pa[i] = (INTEGER64_ELT(x, i) == NA_INTEGER64);
+	    break;
+	}
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) == NA_INTEGER);
 	break;
@@ -2405,6 +2442,12 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     case INTSXP:
     {
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		if (INTEGER64_ELT(x, i) == NA_INTEGER64)
+		    return true;
+	    break;
+	}
 	if(INTEGER_NO_NA(x))
 	    return false;
 	ITERATE_BY_REGION(x, xI, i, nbatch, int, INTEGER, {

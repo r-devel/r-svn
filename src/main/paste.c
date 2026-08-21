@@ -546,6 +546,22 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		PROTECT(y = allocVector(STRSXP, n));
+		w = 0;
+		if (!trim)
+		    for (i = 0; i < n; i++) {
+			int len =
+			    (int) strlen(EncodeWideInt(INTEGER64_ELT(x, i), 0));
+			if (len > w) w = len;
+		    }
+		w = imax2(w, wd);
+		for (i = 0; i < n; i++) {
+		    strp = EncodeWideInt(INTEGER64_ELT(x, i), w);
+		    SET_STRING_ELT(y, i, mkChar(strp));
+		}
+		break;
+	    }
 	    PROTECT(y = allocVector(STRSXP, n));
 	    if (trim) w = 0;
 	    else formatInteger(INTEGER(x), n, &w);

@@ -592,6 +592,9 @@ static void RestoreSEXP(SEXP s, FILE *fp, InputRoutines *m, NodeInfo *node, int 
 
     SET_OBJECT(s, m->InInteger(fp, d));
     SETLEVELS(s, m->InInteger(fp, d));
+    /* the wide-int bit must never arrive via serialized flags: this
+       legacy format stores a 32-bit payload */
+    if (TYPEOF(s) == INTSXP || TYPEOF(s) == LGLSXP) UNSET_WIDEINT(s);
     SET_ATTRIB(s, OffsetToNode(m->InInteger(fp, d), node));
     switch (TYPEOF(s)) {
     case LISTSXP:
@@ -1301,6 +1304,9 @@ static SEXP NewReadItem (SEXP sym_table, SEXP env_table, FILE *fp,
 	error(_("NewReadItem: unknown type %i"), type);
     }
     SETLEVELS(s, (unsigned short) levs);
+    /* the wide-int bit must never arrive via serialized flags: this
+       legacy format stores a 32-bit payload */
+    if (TYPEOF(s) == INTSXP || TYPEOF(s) == LGLSXP) UNSET_WIDEINT(s);
     SET_OBJECT(s, objf);
     SET_ATTRIB(s, NewReadItem(sym_table, env_table, fp, m, d));
     UNPROTECT(1); /* s */

@@ -2018,6 +2018,11 @@ static SEXP wrap_meta(SEXP x, int srt, int no_na)
     default: return x;
     }
 
+    /* an ALTREP wrapper would hide the wide bit and present the
+       payload as 32-bit ints */
+    if (R_isWideInteger(x))
+	return x;
+
     /* avoid wrappers of wrappers, at least in some cases */
     if (is_wrapper(x) && srt == UNKNOWN_SORTEDNESS && no_na == FALSE)
 	return shallow_duplicate(x);

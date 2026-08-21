@@ -460,6 +460,63 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
     }                                                                   \
 } while(0)
 
+/* comparison support for wide (64-bit) integer vectors */
+
+static R_INLINE R_wideint_t wide_relop_elt64(SEXP x, R_xlen_t i)
+{
+    if (TYPEOF(x) == LGLSXP) {
+	int v = LOGICAL_ELT(x, i);
+	return v == NA_LOGICAL ? NA_INTEGER64 : (R_wideint_t) v;
+    }
+    return INTEGER64_ELT(x, i);
+}
+
+/* exact comparison of a wide integer with a double */
+static int wide_cmp_ll_d(R_wideint_t x, double y)
+{
+    if (y >= R_WIDEINT_DBL_MAX)
+	return -1;
+    if (y < -R_WIDEINT_DBL_MAX)
+	return 1;
+
+    double fy = floor(y);
+    R_wideint_t ly = (R_wideint_t) fy;
+    if (x < ly) return -1;
+    if (x > ly) return 1;
+    return (y > fy) ? -1 : 0;
+}
+
+/* returns -1/0/1, or sets *na */
+static int wide_relop_cmp(SEXP x, R_xlen_t ix, SEXP y, R_xlen_t iy, int *na)
+{
+    if (TYPEOF(x) == REALSXP) {
+	double dx = REAL_ELT(x, ix);
+	R_wideint_t ly = wide_relop_elt64(y, iy);
+	if (ISNAN(dx) || ly == NA_INTEGER64) {
+	    *na = 1;
+	    return 0;
+	}
+	return -wide_cmp_ll_d(ly, dx);
+    }
+    if (TYPEOF(y) == REALSXP) {
+	R_wideint_t lx = wide_relop_elt64(x, ix);
+	double dy = REAL_ELT(y, iy);
+	if (lx == NA_INTEGER64 || ISNAN(dy)) {
+	    *na = 1;
+	    return 0;
+	}
+	return wide_cmp_ll_d(lx, dy);
+    }
+
+    R_wideint_t lx = wide_relop_elt64(x, ix);
+    R_wideint_t ly = wide_relop_elt64(y, iy);
+    if (lx == NA_INTEGER64 || ly == NA_INTEGER64) {
+	*na = 1;
+	return 0;
+    }
+    return (lx < ly) ? -1 : (lx > ly) ? 1 : 0;
+}
+
 static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 {
     R_xlen_t i, i1, i2, n, n1, n2;
@@ -470,7 +527,29 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     n = (n1 > n2) ? n1 : n2;
     PROTECT(s1);
     PROTECT(s2);
-    ans = allocVector(LGLSXP, n);
+    /* protect ans: the wide loop below dispatches ALTREP Elt methods,
+       which may allocate */
+    PROTECT(ans = allocVector(LGLSXP, n));
+
+    if (R_isWideInteger(s1) || R_isWideInteger(s2)) {
+	int *pa = LOGICAL(ans);
+	MOD_ITERATE2(n, n1, n2, i, i1, i2, {
+	    int na = 0;
+	    int c = wide_relop_cmp(s1, i1, s2, i2, &na);
+	    if (na)
+		pa[i] = NA_LOGICAL;
+	    else switch (code) {
+	    case EQOP: pa[i] = (c == 0); break;
+	    case NEOP: pa[i] = (c != 0); break;
+	    case LTOP: pa[i] = (c < 0); break;
+	    case GTOP: pa[i] = (c > 0); break;
+	    case LEOP: pa[i] = (c <= 0); break;
+	    case GEOP: pa[i] = (c >= 0); break;
+	    }
+	});
+	UNPROTECT(3);
+	return ans;
+    }
 
     if (isInteger(s1) || isLogical(s1)) {
         if (isInteger(s2) || isLogical(s2)) {
@@ -484,7 +563,7 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
         NUMERIC_RELOP(double, REAL, ISNAN, double, REAL, ISNAN);
     }
 
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -744,6 +823,15 @@ static SEXP bitwiseNot(SEXP a)
 
     switch(TYPEOF(a)) {
     case INTSXP:
+	if (R_isWideInteger(a)) {
+	    R_xlen_t m = XLENGTH(a);
+	    ans = R_allocWideIntVector(m);
+	    for(R_xlen_t i = 0; i < m; i++) {
+		R_wideint_t aa = INTEGER64_ELT(a, i);
+		WIDEINT_PTR(ans)[i] = (aa == NA_INTEGER64) ? aa : ~aa;
+	    }
+	    break;
+	}
 	{
 	    R_xlen_t m = XLENGTH(a);
 	    ans = allocVector(INTSXP, m);
@@ -773,6 +861,23 @@ static SEXP bitwiseNot(SEXP a)
 	error(_("'a' and 'b' must have the same type"));		\
     switch(TYPEOF(a)) {							\
     case INTSXP:							\
+	if (R_isWideInteger(a) || R_isWideInteger(b)) {			\
+	    R_xlen_t i, ia, ib;						\
+	    R_xlen_t m = XLENGTH(a), n = XLENGTH(b),			\
+		mn = (m && n) ? mymax(m, n) : 0;			\
+	    /* protect ans: INTEGER64_ELT dispatches ALTREP Elt		\
+	       methods for a narrow operand, which may allocate */	\
+	    ans = R_allocWideIntVector(mn);				\
+	    PROTECT(ans); np++;						\
+	    MOD_ITERATE2(mn, m, n, i, ia, ib, {				\
+		    R_wideint_t aa = INTEGER64_ELT(a, ia);		\
+		    R_wideint_t bb = INTEGER64_ELT(b, ib);		\
+		    WIDEINT_PTR(ans)[i] =				\
+			(aa == NA_INTEGER64 || bb == NA_INTEGER64) ?	\
+			NA_INTEGER64 : aa op bb;			\
+		});							\
+	    break;							\
+	}								\
 	{								\
 	    R_xlen_t i, ia, ib;						\
 	    R_xlen_t m = XLENGTH(a), n = XLENGTH(b),			\

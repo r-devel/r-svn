@@ -212,12 +212,22 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     if (newtruelen > R_LEN_T_MAX) newtruelen = newlen;
 */
     PROTECT(x);
-    PROTECT(newx = allocVector(TYPEOF(x), newtruelen));
+    if (R_isWideInteger(x))
+	PROTECT(newx = R_allocWideIntVector(newtruelen));
+    else
+	PROTECT(newx = allocVector(TYPEOF(x), newtruelen));
 
     /* Copy the elements into place. */
     switch(TYPEOF(x)) {
     case LGLSXP:
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (R_xlen_t i = 0; i < len; i++)
+		WIDEINT_PTR(newx)[i] = INTEGER64_ELT(x, i);
+	    for (R_xlen_t i = len; i < newtruelen; i++)
+		WIDEINT_PTR(newx)[i] = NA_INTEGER64;
+	    break;
+	}
 	for (R_xlen_t i = 0; i < len; i++)
 	    INTEGER0(newx)[i] = INTEGER_ELT(x, i);
 	for (R_xlen_t i = len; i < newtruelen; i++)
@@ -326,6 +336,19 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 			    int level,
 			    SEXP call, SEXP rho)
 {
+    /* A wide integer value forces a wide integer target: a narrow
+       target cannot represent it, and width is not part of the type
+       lattice below. */
+    if (R_isWideInteger(*y)) {
+	if (TYPEOF(*x) == LGLSXP) {
+	    PROTECT(*x = coerceVector(*x, INTSXP));
+	    *x = R_widenInteger(*x);
+	    UNPROTECT(1);
+	}
+	else if (TYPEOF(*x) == INTSXP && !R_isWideInteger(*x))
+	    *x = R_widenInteger(*x);
+    }
+
     /* A rather pointless optimization, but level 2 used to be handled
        differently */
     bool redo_which = true;
@@ -723,6 +746,20 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* case 1013:  logical   <- integer	  */
     case 1313:	/* integer   <- integer	  */
 
+	if (R_isWideInteger(x)) {
+	    if (TYPEOF(y) == INTSXP) {
+		VECTOR_ASSIGN_LOOP(
+		    WIDEINT_PTR(x)[ii] = INTEGER64_ELT(y, iny););
+	    }
+	    else { /* logical y */
+		VECTOR_ASSIGN_LOOP({
+			int iy = LOGICAL_ELT(y, iny);
+			WIDEINT_PTR(x)[ii] = (iy == NA_LOGICAL)
+			    ? NA_INTEGER64 : (R_wideint_t) iy;
+		    });
+	    }
+	    break;
+	}
 	{
 	    int *px = INTEGER(x);
 	    VECTOR_ASSIGN_LOOP(px[ii] = INTEGER_ELT(y, iny););
@@ -732,6 +769,14 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     case 1410:	/* real	     <- logical	  */
     case 1413:	/* real	     <- integer	  */
 
+	if (R_isWideInteger(y)) {
+	    double *px = REAL(x);
+	    VECTOR_ASSIGN_LOOP({
+		    R_wideint_t iy = INTEGER64_ELT(y, iny);
+		    px[ii] = (iy == NA_INTEGER64) ? NA_REAL : (double) iy;
+		});
+	    break;
+	}
 	{
 	    double *px = REAL(x);
 	    VECTOR_ASSIGN_LOOP({
@@ -1024,6 +1069,18 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* case 1013: logical   <- integer	  */
     case 1313:	/* integer   <- integer	  */
 
+	if (R_isWideInteger(x)) {
+	    if (TYPEOF(y) == INTSXP)
+		MATRIX_ASSIGN_LOOP(
+		    WIDEINT_PTR(x)[ij] = INTEGER64_ELT(y, k););
+	    else
+		MATRIX_ASSIGN_LOOP({
+			int iy = LOGICAL_ELT(y, k);
+			WIDEINT_PTR(x)[ij] = (iy == NA_LOGICAL)
+			    ? NA_INTEGER64 : (R_wideint_t) iy;
+		    });
+	    break;
+	}
 	{
 	    int *px = INTEGER(x);
 	    if (ALTREP(y))
@@ -1038,6 +1095,14 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     case 1410:	/* real	     <- logical	  */
     case 1413:	/* real	     <- integer	  */
 
+	if (R_isWideInteger(y)) {
+	    double *px = REAL(x);
+	    MATRIX_ASSIGN_LOOP({
+		    R_wideint_t iy = INTEGER64_ELT(y, k);
+		    px[ij] = (iy == NA_INTEGER64) ? NA_REAL : (double) iy;
+		});
+	    break;
+	}
 	{
 	    double *px = REAL(x);
 	    MATRIX_ASSIGN_LOOP({
@@ -1267,6 +1332,18 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 		/* case 1013:	   logical   <- integer	  */
     case 1313:	/* integer   <- integer	  */
 
+	if (R_isWideInteger(x)) {
+	    if (TYPEOF(y) == INTSXP)
+		ARRAY_ASSIGN_LOOP(
+		    WIDEINT_PTR(x)[ii] = INTEGER64_ELT(y, iny););
+	    else
+		ARRAY_ASSIGN_LOOP({
+			int iy = LOGICAL_ELT(y, iny);
+			WIDEINT_PTR(x)[ii] = (iy == NA_LOGICAL)
+			    ? NA_INTEGER64 : (R_wideint_t) iy;
+		    });
+	    break;
+	}
 	{
 	    int *px = INTEGER(x);
 	    ARRAY_ASSIGN_LOOP(px[ii] = INTEGER_ELT(y, iny););
@@ -1930,12 +2007,27 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	/* case 1013:	   logical   <- integer	  */
 	case 1313:	/* integer   <- integer	  */
 
+	    if (R_isWideInteger(x)) {
+		if (TYPEOF(y) == INTSXP)
+		    WIDEINT_PTR(x)[offset] = INTEGER64_ELT(y, 0);
+		else {
+		    int iy = LOGICAL_ELT(y, 0);
+		    WIDEINT_PTR(x)[offset] = (iy == NA_LOGICAL)
+			? NA_INTEGER64 : (R_wideint_t) iy;
+		}
+		break;
+	    }
 	    INTEGER(x)[offset] = INTEGER_ELT(y, 0);
 	    break;
 
 	case 1410:	/* real	     <- logical	  */
 	case 1413:	/* real	     <- integer	  */
 
+	    if (R_isWideInteger(y)) {
+		R_wideint_t iy = INTEGER64_ELT(y, 0);
+		REAL(x)[offset] = (iy == NA_INTEGER64) ? NA_REAL : (double) iy;
+		break;
+	    }
 	    if (INTEGER_ELT(y, 0) == NA_INTEGER)
 		REAL(x)[offset] = NA_REAL;
 	    else

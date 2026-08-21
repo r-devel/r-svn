@@ -1203,6 +1203,8 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    break;
 	case LGLSXP:
 	case INTSXP:
+	    if (R_isWideInteger(s))
+		error("serialization of wide integer vectors is not supported in this prototype");
 	    len = XLENGTH(s);
 	    WriteLENGTH(stream, s);
 	    OutIntegerVec(stream, s, len);
@@ -2107,6 +2109,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    error(_("ReadItem: unknown type %i, perhaps written by later version of R"), type);
 	}
 	if (type != CHARSXP) SETLEVELS(s, levs);
+	/* the wide-int bit must never arrive via serialized flags: the
+	   payload read above is 32-bit */
+	if (type == INTSXP || type == LGLSXP) UNSET_WIDEINT(s);
 	SET_OBJECT(s, objf);
 	if (TYPEOF(s) == CHARSXP) {
 	    /* With the CHARSXP cache maintained through the ATTRIB

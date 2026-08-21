@@ -234,6 +234,15 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 		      xlength(x) * sizeof(int)) == 0 ? TRUE : FALSE;
     case INTSXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
+	if (R_isWideInteger(x) || R_isWideInteger(y)) {
+	    /* wide-ness is a storage property, not a value property:
+	       compare element values */
+	    R_xlen_t n = XLENGTH(x);
+	    for (R_xlen_t i = 0; i < n; i++)
+		if (INTEGER64_ELT(x, i) != INTEGER64_ELT(y, i))
+		    return FALSE;
+	    return TRUE;
+	}
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
 	return memcmp((const void *)INTEGER_RO(x), (const void *)INTEGER_RO(y),
 		      xlength(x) * sizeof(int)) == 0 ? TRUE : FALSE;

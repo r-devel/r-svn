@@ -1118,7 +1118,10 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
 	break;
     case LGLSXP:
     case INTSXP:
-	size = XLENGTH(s) * sizeof(int);
+	if (IS_WIDEINT(s))
+	    size = XLENGTH(s) * sizeof(R_wideint_t);
+	else
+	    size = XLENGTH(s) * sizeof(int);
 	break;
     case REALSXP:
 	size = XLENGTH(s) * sizeof(double);
@@ -4184,6 +4187,30 @@ void *(STDVEC_DATAPTR)(SEXP x)
 
 /* nedded for implementing Dataptr ALTREP methods */
 void *DATAPTR_RW(SEXP x) { return DATAPTR(x); }
+
+/* --- wide (64-bit) integer vector prototype support --- */
+/* the hot-path accessors are INLINE_FUNs in Rinlinedfuns.h */
+
+NORET void R_wideIntPtrError(void)
+{
+    error("32-bit integer accessor applied to a wide (64-bit) integer vector");
+}
+
+/* R_allocWideIntVector borrows the REALSXP payload for its 8-byte
+   elements */
+_Static_assert(sizeof(R_wideint_t) == sizeof(double),
+	       "wide integer elements must have the same size as double");
+
+SEXP R_allocWideIntVector(R_xlen_t length)
+{
+    /* allocate with an 8-byte payload, then relabel; the node class
+       and heap accounting are those of the REALSXP-sized payload */
+    SEXP s = allocVector(REALSXP, length);
+    SET_TYPEOF(s, INTSXP);
+    SET_WIDEINT(s);
+    SETSCALAR(s, 0); /* keep wide vectors out of scalar fast paths */
+    return s;
+}
 
 int *(LOGICAL)(SEXP x) {
     if(TYPEOF(x) != LGLSXP)

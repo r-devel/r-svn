@@ -403,6 +403,15 @@ attribute_hidden int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
 
 R_xlen_t INTEGER_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 {
+    if (R_isWideInteger(sx)) {
+	/* narrow element-wise; errors on values outside 32-bit range */
+	R_xlen_t size = XLENGTH(sx);
+	R_xlen_t ncopy = size - i > n ? n : size - i;
+	for (R_xlen_t k = 0; k < ncopy; k++)
+	    buf[k] = R_wideIntegerElt32(sx, k + i);
+	return ncopy;
+    }
+
     const int *x = INTEGER_OR_NULL(sx);
     if (x != NULL) {
 	R_xlen_t size = XLENGTH(sx);
@@ -682,6 +691,10 @@ static SEXP altrep_UnserializeEX_default(SEXP class, SEXP state, SEXP attr,
     SET_ATTRIB(val, attr);
     SET_OBJECT(val, objf);
     SETLEVELS(val, levs);
+    /* levs is stream-controlled: never let it stamp the wide bit onto
+       a materialized 32-bit payload (matches ReadItem in serialize.c) */
+    if (TYPEOF(val) == INTSXP || TYPEOF(val) == LGLSXP)
+	UNSET_WIDEINT(val);
     return val;
 }
 

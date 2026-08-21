@@ -359,6 +359,15 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    /* format wide values as fixed-width strings and reuse the
+	       string matrix layout */
+	    SEXP xs = PROTECT(R_formatWideInt(x));
+	    printStringMatrix(xs, offset, r_pr, r, c_pr, 0, 1,
+			      rl, cl, rn, cn, true);
+	    UNPROTECT(1);
+	    break;
+	}
 	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     case REALSXP:
@@ -453,6 +462,13 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    nc_last = nc;
 	    nr_last = nr;
 	}
+	/* wide integers print via the string layout, as in printMatrix;
+	   format once, not per slice */
+	SEXP xw = NULL;
+	if (TYPEOF(x) == INTSXP && R_isWideInteger(x)) {
+	    PROTECT(xw = R_formatWideInt(x));
+	    nprotect++;
+	}
 	for (i = 0; i < nb_pr; i++) {
 	    bool do_ij = nb > 0,
 		i_last = (i == nb_pr - 1); /* for the last slice */
@@ -486,7 +502,11 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 		printLogicalMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case INTSXP:
-		printIntegerMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
+		if (xw != NULL)
+		    printStringMatrix (xw, i * b, use_nr, nr, use_nc,
+				       0, 1, dn0, dn1, rn, cn, do_ij);
+		else
+		    printIntegerMatrix(x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    case REALSXP:
 		printRealMatrix   (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);

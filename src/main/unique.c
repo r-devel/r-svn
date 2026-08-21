@@ -115,11 +115,41 @@ static hlen lhash(SEXP x, R_xlen_t indx, HashData *d)
     return (hlen) xi;
 }
 
-static R_INLINE hlen ihash(SEXP x, R_xlen_t indx, HashData *d)
+/* Two integer hash schemes: ihash32 is the narrow fast path, ihash64
+   is width-agnostic (INTEGER64_ELT reads narrow and wide vectors, so
+   a mixed narrow/wide x-vs-table hashes consistently).  They disagree
+   for negative values (sign extension changes u ^ (u >> 32)), so a
+   table must keep one scheme for its whole lifetime: HashTableSetup
+   picks per vector and intHashWiden() upgrades for two-vector uses. */
+/* Raw 32-bit read for the narrow scheme: skips INTEGER_ELT's wideness
+   checks, which scheme selection has already established cannot fire.
+   HashLookup guards the lookup path once per call; the STRICT_TYPECHECK
+   assert below catches the other way in: a direct data.equal()/hash on a
+   wide vector without a preceding intHashWiden().  Reading a wide payload
+   as int32 here would silently corrupt, so make the invariant violation
+   loud in checked builds (it is compiled out otherwise). */
+static R_INLINE int IELT32(SEXP x, R_xlen_t i)
 {
-    int xi = INTEGER_ELT(x, indx);
+#ifdef STRICT_TYPECHECK
+    if (R_isWideInteger(x))
+	error("narrow integer hash scheme applied to a wide integer vector");
+#endif
+    return ALTREP(x) ? ALTINTEGER_ELT(x, i) : ((int *) STDVEC_DATAPTR(x))[i];
+}
+
+static R_INLINE hlen ihash32(SEXP x, R_xlen_t indx, HashData *d)
+{
+    int xi = IELT32(x, indx);
     if (xi == NA_INTEGER) return 0;
     return scatter((unsigned int) xi, d);
+}
+
+static R_INLINE hlen ihash64(SEXP x, R_xlen_t indx, HashData *d)
+{
+    R_wideint_t xi = INTEGER64_ELT(x, indx);
+    if (xi == NA_INTEGER64) return 0;
+    unsigned long long u = (unsigned long long) xi;
+    return scatter((unsigned int)(u ^ (u >> 32)), d);
 }
 
 /* We use unions here because Solaris gcc -O2 has trouble with
@@ -243,10 +273,17 @@ static int lequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 }
 
 
-static R_INLINE int iequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+static R_INLINE int iequal32(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (i < 0 || j < 0) return 0;
-    return (INTEGER_ELT(x, i) == INTEGER_ELT(y, j));
+    return (IELT32(x, i) == IELT32(y, j));
+}
+
+static R_INLINE int iequal64(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+    /* width-agnostic, as for ihash64 */
+    return (INTEGER64_ELT(x, i) == INTEGER64_ELT(y, j));
 }
 
 /* BDR 2002-1-17  We don't want NA and other NaNs to be equal */
@@ -342,7 +379,8 @@ static hlen vhash_one(SEXP _this, HashData *d)
 	break;
     case INTSXP:
 	for(i = 0; i < LENGTH(_this); i++) {
-	    key ^= ihash(_this, i, d);
+	    /* always width-agnostic: list elements may be wide */
+	    key ^= ihash64(_this, i, d);
 	    key *= 97;
 	}
 	break;
@@ -473,8 +511,14 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	break;
     case INTSXP:
     {
-	d->hash = ihash;
-	d->equal = iequal;
+	if (R_isWideInteger(x) || d->inHashtab) {
+	    d->hash = ihash64;
+	    d->equal = iequal64;
+	}
+	else {
+	    d->hash = ihash32;
+	    d->equal = iequal32;
+	}
 #ifdef LONG_VECTOR_SUPPORT
 	R_xlen_t nn = XLENGTH(x);
 	if (nn > IMAX) nn = IMAX;
@@ -524,6 +568,27 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
     {
 	d->HashTable = allocVector(INTSXP, (R_xlen_t) d->M);
 	for (R_xlen_t i = 0; i < d->M; i++) HTDATA_INT(d)[i] = NIL;
+    }
+}
+
+/* Upgrade an integer hash table to the width-agnostic scheme.  Call
+   before any hashing, for every vector that will be hashed into or
+   compared against a table set up on another vector. */
+/* Coerce 'incomparables' to the type of the data.  When the data is
+   wide, a double incomparable must widen rather than narrow so a
+   wide-range value (e.g. 5e9) is not silently turned into NA. */
+static SEXP coerceIncomparables(SEXP incomp, SEXPTYPE type, bool wide)
+{
+    if (wide && TYPEOF(incomp) == REALSXP)
+	return R_asWideInteger(incomp);
+    return coerceVector(incomp, type);
+}
+
+static R_INLINE void intHashWiden(HashData *d, SEXP x)
+{
+    if (d->hash == ihash32 && R_isWideInteger(x)) {
+	d->hash = ihash64;
+	d->equal = iequal64;
     }
 }
 
@@ -1035,7 +1100,11 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	PROTECT(incomp = coerceIncomparables(incomp, TYPEOF(x),
+					     R_isWideInteger(x)));
+	/* incomp may be wide even when x is narrow: use the
+	   width-agnostic comparator so data.equal reads it correctly */
+	intHashWiden(&data, incomp);
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1060,7 +1129,11 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    PROTECT(incomp = coerceIncomparables(incomp, TYPEOF(x),
+					 R_isWideInteger(x)));
+    /* widen the scheme before any hashing so both the table lookups and
+       the direct incomp comparisons read a wide incomp correctly */
+    intHashWiden(&data, incomp);
     m = length(incomp);
 
     if(from_last)
@@ -1162,7 +1235,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
-    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
+    SEXP ans = PROTECT(R_isWideInteger(x) ? R_allocWideIntVector(k)
+					  : allocVector(TYPEOF(x), k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1172,6 +1246,12 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		LOGICAL0(ans)[k++] = LOGICAL_ELT(x, i);
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    for (i = 0; i < n; i++)
+		if (LOGICAL_ELT(dup, i) == 0)
+		    WIDEINT_PTR(ans)[k++] = INTEGER64_ELT(x, i);
+	    break;
+	}
 	ITERATE_BY_REGION(dup, duptr, idx, nb, int, LOGICAL, {
 		for(R_xlen_t j = 0; j < nb; j++) {
 		    if(duptr[j] == 0)
@@ -1246,7 +1326,8 @@ static void UndoHashing(SEXP x, SEXP table, HashData *d)
     }
 
 /* definitions to help the C compiler to inline of most important cases */
-DEFLOOKUP(iLookup, ihash, iequal)
+DEFLOOKUP(iLookup32, ihash32, iequal32)
+DEFLOOKUP(iLookup64, ihash64, iequal64)
 DEFLOOKUP(rLookup, rhash, requal)
 DEFLOOKUP(sLookup, shash, sequal)
 
@@ -1265,8 +1346,19 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
 
     switch (TYPEOF(x)) {
     case INTSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = iLookup(table, x, i, d);
+	/* branch on the scheme the table was built with, so lookups
+	   always agree with insertions */
+	if (d->hash == ihash64)
+	    for (i = 0; i < n; i++)
+		pa[i] = iLookup64(table, x, i, d);
+	else {
+	    /* the narrow scheme reads raw 32-bit payloads: a wide
+	       vector here means a call site failed to intHashWiden() */
+	    if (R_isWideInteger(x) || R_isWideInteger(table))
+		error("internal error: narrow hash scheme applied to a wide integer vector");
+	    for (i = 0; i < n; i++)
+		pa[i] = iLookup32(table, x, i, d);
+	}
 	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
@@ -1406,6 +1498,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	  break; }
       case LGLSXP:
       case INTSXP: {
+	  if (type == INTSXP &&
+	      (R_isWideInteger(x) || R_isWideInteger(table))) {
+	      R_wideint_t x_val = INTEGER64_ELT(x, 0);
+	      for (int i=0; i < ntable; i++)
+		  if (INTEGER64_ELT(table, i) == x_val) {
+		      val = i + 1; break;
+		  }
+	      break;
+	  }
 	  int x_val = INTEGER_ELT(x, 0),
 	      *table_p = INTEGER(table);
 	  for (int i=0; i < ntable; i++) if (table_p[i] == x_val) {
@@ -1454,10 +1555,17 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
+	if (incomp) {
+	    PROTECT(incomp = coerceIncomparables(incomp, type,
+						 R_isWideInteger(x) ||
+						 R_isWideInteger(table)));
+	    nprot++;
+	}
 	data.nomatch = nmatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
+	intHashWiden(&data, x);
+	if (incomp) intHashWiden(&data, incomp);
 	if(type == STRSXP) {
 	    Rboolean useBytes = FALSE;
 	    Rboolean useUTF8 = FALSE;
@@ -1998,6 +2106,7 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
+    intHashWiden(&data, g);
     DoHashing(uniqueg, &data);
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
@@ -2072,6 +2181,7 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
+    intHashWiden(&data, g);
     DoHashing(uniqueg, &data);
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);

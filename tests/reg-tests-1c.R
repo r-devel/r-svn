@@ -381,14 +381,16 @@ stopifnot(is.numeric(rr), identical(rr, r.), all.equal(rr, 1.234567890e18),
 
 
 ## PR#15764: integer overflow could happen without a warning or giving NA
-tools::assertWarning(ii <- 1980000020L + 222000000L)
-stopifnot(is.na(ii))
-tools::assertWarning(ii <- (-1980000020L) + (-222000000L))
-stopifnot(is.na(ii))
-tools::assertWarning(ii <- (-1980000020L) - 222000000L)
-stopifnot(is.na(ii))
-tools::assertWarning(ii <- 1980000020L - (-222000000L))
-stopifnot(is.na(ii))
+## (with wide integers, overflow in + and - promotes to a wide result
+##  instead of warning and returning NA)
+ii <- 1980000020L + 222000000L
+stopifnot(is.integer(ii), .Internal(is.wideint(ii)), ii == 2202000020)
+ii <- (-1980000020L) + (-222000000L)
+stopifnot(is.integer(ii), .Internal(is.wideint(ii)), ii == -2202000020)
+ii <- (-1980000020L) - 222000000L
+stopifnot(is.integer(ii), .Internal(is.wideint(ii)), ii == -2202000020)
+ii <- 1980000020L - (-222000000L)
+stopifnot(is.integer(ii), .Internal(is.wideint(ii)), ii == 2202000020)
 ## first two failed for some version of clang in R < 3.1.1
 
 
