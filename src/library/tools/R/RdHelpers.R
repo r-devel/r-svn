@@ -36,7 +36,8 @@ function(x)
 
 Rd_macros_package_dir <-
 function()
-    Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_", ".")
+    Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_",
+               processRdChunk_data_store()$dir %||% ".")
 
 Rd_package_title <-
 function(pkg, dir = Rd_macros_package_dir())
