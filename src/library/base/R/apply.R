@@ -61,7 +61,7 @@ apply <- function(X, MARGIN, FUN, ..., simplify = TRUE)
         ## to use proper mode and dimension:
         ## The following is still a bit `hackish': use non-empty X
         ## a bytes vector stands in for its own type name; see vector()
-        newX <- array(vector(if(is.bytes(X)) X else typeof(X), 1L),
+        newX <- array(vector(if(is.fixedwidth(X)) X else typeof(X), 1L),
                       dim = c(prod(d.call), 1L))
         ans <- forceAndCall(1, FUN, if(length(d.call) < 2L) newX[,1] else
                    array(newX[, 1L], d.call, dn.call), ...)

@@ -125,15 +125,28 @@ SEXP bytes_of_anything(SEXP x) { return ScalarInteger(BYTES_RO(x)[0]); }
 #include <R_ext/Altrep.h>
 
 static R_altrep_class_t bytes_state_class;
+static int serialized_state_calls;
 
 static SEXP bsc_Serialized_state(SEXP x)
 {
+    serialized_state_calls++;
     SEXP state = PROTECT(allocVector(VECSXP, 2));
     SET_VECTOR_ELT(state, 0, R_altrep_data1(x));
     SET_VECTOR_ELT(state, 1, R_altrep_data2(x));
     UNPROTECT(1);
 
     return state;
+}
+
+SEXP reset_serialized_state_calls(void)
+{
+    serialized_state_calls = 0;
+    return R_NilValue;
+}
+
+SEXP get_serialized_state_calls(void)
+{
+    return ScalarInteger(serialized_state_calls);
 }
 
 static SEXP bsc_Unserialize(SEXP class_, SEXP state)

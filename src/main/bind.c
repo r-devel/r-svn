@@ -50,6 +50,7 @@ struct BindData {
  int  ans_width; /* BYTESXP element width; 0 until one is seen */
  int  ans_kind;  /* BYTESXP element kind */
  int  ans_nona;  /* BYTESXP: does it decline to reserve an NA? */
+ int  ans_opaque; /* at least one BYTESXP argument is opaque */
  int  ans_clash; /* a second BYTESXP type that does not agree with the
 		    first: 0 none, 1 width, 2 kind, 3 NA reservation */
  int  ans_clashwidth;	/* its width, for the message */
@@ -86,6 +87,7 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	data->ans_length += XLENGTH(x);
 	break;
     case BYTESXP:
+	if (BYTEVEC_KIND(x) == BYTEVEC_OPAQUE) data->ans_opaque = 1;
 	/* Two 'bytes' types that do not agree are only a mistake if the
 	   answer is one of them: a list holds its elements by reference
 	   and takes both without losing anything.  So the clash is
@@ -210,6 +212,16 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
     if (data->ans_flags & 1024) {
 	if      (data->ans_flags & 512) return EXPRSXP;
 	else if (data->ans_flags & 256) return VECSXP;
+	else if (data->ans_flags & 64) {
+	    if (data->ans_opaque)
+		errorcall(call, _("cannot combine an opaque 'bytes' vector with a complex vector"));
+	    return CPLXSXP;
+	}
+	else if (data->ans_flags & 32) {
+	    if (data->ans_opaque)
+		errorcall(call, _("cannot combine an opaque 'bytes' vector with a double vector"));
+	    return REALSXP;
+	}
 	/* the answer is a 'bytes' vector, so now the arguments do have
 	   to agree on which one; see AnswerType() */
 	switch (data->ans_clash) {
@@ -455,6 +467,14 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = REAL(x)[i];
 	break;
+    case BYTESXP:
+	{
+	    SEXP y = PROTECT(coerceVector(x, REALSXP));
+	    for (i = 0; i < XLENGTH(y); i++)
+		REAL(data->ans_ptr)[data->ans_length++] = REAL(y)[i];
+	    UNPROTECT(1);
+	}
+	break;
     case LGLSXP:
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = LOGICAL(x)[i];
@@ -553,6 +573,15 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    COMPLEX(data->ans_ptr)[data->ans_length].r = (int)RAW(x)[i];
 	    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
 	    data->ans_length++;
+	}
+	break;
+
+    case BYTESXP:
+	{
+	    SEXP y = PROTECT(coerceVector(x, CPLXSXP));
+	    for (i = 0; i < XLENGTH(y); i++)
+		COMPLEX(data->ans_ptr)[data->ans_length++] = COMPLEX(y)[i];
+	    UNPROTECT(1);
 	}
 	break;
 

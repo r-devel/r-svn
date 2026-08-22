@@ -356,6 +356,21 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	}
     }
 
+    /* A numeric BYTESXP compared with a double or complex vector joins
+       that ordinary numeric domain.  The checked conversion rejects
+       opaque payloads and warns only for values that really lose
+       precision. */
+    if ((TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) &&
+	(TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	 TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)) {
+	SEXPTYPE target = (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
+	    ? CPLXSXP : REALSXP;
+	if (TYPEOF(x) == BYTESXP)
+	    REPROTECT(x = coerceVector(x, target), xpi);
+	if (TYPEOF(y) == BYTESXP)
+	    REPROTECT(y = coerceVector(y, target), ypi);
+    }
+
   if (nx > 0 && ny > 0) {
 	if(((nx > ny) ? nx % ny : ny % nx) != 0) // mismatch
             warningcall(call, _(

@@ -534,13 +534,10 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
 
-    /* 'bytes' vectors never coerce to or from anything else, so this
-       precedes the numeric fixup rather than joining it.  '/' and '^'
-       are the exception: as for integers, they yield a double, so
-       those two fall through to the ordinary path.  The operation
-       itself is deferred to the dispatch below so that dim, dimnames,
-       names and tsp are carried over as they are for every other
-       type. */
+    /* BYTESXP needs its own initial type handling because integer and
+       logical operands narrow into it, while double and complex operands
+       promote its numeric kinds.  The operation itself is deferred to
+       the dispatch below so that attributes follow the ordinary rules. */
     bool bytes = (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP);
 
     /* FIXUP_NULL_AND_CHECK_TYPES applies whole to an operand that is
@@ -555,14 +552,20 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
     if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
 
-    if (bytes && (oper == DIVOP || oper == POWOP)) {
-	/* these two are explicitly double-producing, as they are for
-	   integer, so the 'bytes' operand coerces and the ordinary path
-	   takes it from there */
+    if (bytes && (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+		  TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP ||
+		  oper == DIVOP || oper == POWOP)) {
+	/* Numeric BYTESXP follows the ordinary coercion hierarchy.  An
+	   explicit double/complex operand, and the two always-double
+	   operators, therefore promote it through its checked conversion;
+	   that conversion warns only when an actual value loses precision.
+	   Opaque vectors are rejected by the same conversion. */
+	SEXPTYPE target = (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
+	    ? CPLXSXP : REALSXP;
 	if (TYPEOF(x) == BYTESXP)
-	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
+	    REPROTECT(x = coerceVector(x, target), xpi);
 	if (TYPEOF(y) == BYTESXP)
-	    REPROTECT(y = coerceVector(y, REALSXP), ypi);
+	    REPROTECT(y = coerceVector(y, target), ypi);
 	bytes = false;
     }
 

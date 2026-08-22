@@ -288,7 +288,7 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
          (what %in% c("numeric", "double", "integer", "int", "logical",
                       "complex", "character", "raw") ||
           .isBytesTypeName(what)))) {
-        if(!is.bytes(what))
+        if(!is.fixedwidth(what))
             what <- typeof(what)
     }
     .Internal(readBin(con, what, n, size, signed, swap))

@@ -1547,26 +1547,14 @@ static bool containsBytesVector(SEXP s, SEXP seen, int version)
     if (TYPEOF(s) == SYMSXP)
 	return false;
 
-    /* An ALTREP object is written as its serialized state and never as
-       its own elements, so the state is what has to be searched.
-       WriteItem() takes this branch under the same condition, and asks
-       for the state again when it does; the repeat is confined to
-       sessions that have made a 'bytes' vector at all, which is what
-       R_BytesVectorSeen gates. */
-    if (ALTREP(s) && version >= 3) {
-	SEXP info = ALTREP_SERIALIZED_CLASS(s);
-	SEXP state = ALTREP_SERIALIZED_STATE(s);
-	if (info != NULL && state != NULL) {
-	    PROTECT(state);
-	    PROTECT(info);
-	    bool found = containsBytesVector(info, seen, version) ||
-		containsBytesVector(state, seen, version) ||
-		containsBytesVector(ATTRIB(s), seen, version);
-	    UNPROTECT(2); /* info, state */
-	    return found;
-	}
-	/* else fall through to the standard walk, as WriteItem() does */
-    }
+    /* Serialized_state is package code and need not be pure.  Calling
+       it during this preflight and again in WriteItem() would make an
+       ordinary serialization observe it twice, possibly obtaining two
+       different states.  Conservatively choose version 4 for ALTREP
+       after BYTESXP has appeared in the session; WriteItem() remains
+       the sole caller of the serialization method. */
+    if (ALTREP(s) && version >= 3)
+	return true;
 
 
     /* A cycle can run through a reference object's attributes as

@@ -693,7 +693,7 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
    pattern.  Only the opaque kind can reach this: the numeric parsers
    and eltFromLong() report that value as out of range instead, since
    for them it is a number the width cannot hold. */
-static void warnReserved(R_xlen_t nNA)
+void R_bytesWarnReservedCount(R_xlen_t nNA)
 {
     if (nNA)
 	/* the selector is only singular-or-not, and R_xlen_t overflows
@@ -720,7 +720,7 @@ void R_bytesWarnReserved(SEXP val)
     for (R_xlen_t i = 0; i < XLENGTH(val); i++)
 	if (R_bytesEltIsNA(BYTEVEC_ELT_RO(val, i), w, k)) nNA++;
 
-    warnReserved(nNA);
+    R_bytesWarnReservedCount(nNA);
 }
 
 /* as.bytes(x, width, kind, na) on a character vector: the inverse of
@@ -766,7 +766,7 @@ static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
     if (nOver)
 	warning(_("NAs introduced by values outside the range of '%s'"),
 		R_bytesTypeName(val));
-    warnReserved(nReserved);
+    R_bytesWarnReservedCount(nReserved);
 
     UNPROTECT(1);
 
@@ -884,12 +884,25 @@ void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w, int kind)
     }
 }
 
-/* is.bytes(x): typeof() now reports the derived name, so this has to
-   ask about the storage type directly */
+Rboolean R_bytesIsNumeric(SEXP x)
+{
+    return TYPEOF(x) == BYTESXP && BYTEVEC_KIND(x) != BYTEVEC_OPAQUE;
+}
+
+/* is.bytes() is a semantic predicate: numeric fixed-width vectors are
+   integers at the R interface, while only opaque payloads are bytes. */
 attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
+    SEXP x = CAR(args);
+    return ScalarLogical(TYPEOF(x) == BYTESXP &&
+			 BYTEVEC_KIND(x) == BYTEVEC_OPAQUE);
+}
+
+attribute_hidden SEXP do_bytesisfixed(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
     return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
 }
 

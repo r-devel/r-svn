@@ -54,7 +54,7 @@ tapply <- function (X, INDEX, FUN = NULL, ..., default = NA, simplify = TRUE)
 	    if(is.na(default) && is.atomic(ans))
 		## a bytes vector stands in for its own type name, which
 		## does not spell whether NA is representable
-		vector(if(is.bytes(ans)) ans else typeof(ans))
+		vector(if(is.fixedwidth(ans)) ans else typeof(ans))
 	    else default
 	} else vector("list", prod(extent)),
 	dim = extent, dimnames = namelist)

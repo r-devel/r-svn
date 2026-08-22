@@ -37,7 +37,7 @@ outer <- function (X, Y, FUN = "*", ...)
         if(!no.ny) ny <- list(names(Y))
     }
     robj <-
-        if (is.character(FUN) && FUN=="*" && !is.bytes(X) && !is.bytes(Y)) {
+        if (is.character(FUN) && FUN=="*" && !is.fixedwidth(X) && !is.fixedwidth(Y)) {
             ## tcrossprod() takes numeric vectors only, so 'bytes'
             ## operands go through the general branch below, which
             ## multiplies them the way outer(X, Y, `*`) does

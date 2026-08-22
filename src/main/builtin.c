@@ -840,11 +840,9 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
     if (mode == BYTESXP)
-	/* mode() coarsens every width and kind to "bytes", as it
-	   coarsens integer and double to "numeric"; vector() answers it
-	   the way it answers "numeric", with the family's default --
-	   here bytes()'s own width 1, opaque, na = TRUE.  A specific
-	   type is named by typeof(), or given as a vector above. */
+	/* "bytes" denotes the opaque family's default -- width 1 with
+	   an NA reservation.  A specific fixed-width type is named by
+	   typeof(), or given as a vector above. */
 	return R_allocBytesVector(len, 1, BYTEVEC_OPAQUE, TRUE);
     switch (mode) {
     case LGLSXP:

@@ -34,7 +34,7 @@ cat("== A. type identity ==\n")
 ## OBJSXP reports "S4" vs "object" from a gp bit
 ok("typeof names kind + width",  typeof(x) == "bytes16")
 ok("class follows typeof",       identical(class(x), c("bytes16", "bytes")))
-ok("is.bytes",                   is.bytes(x) && !is.bytes(raw(4)))
+ok("is.fixedwidth",              is.fixedwidth(x) && !is.fixedwidth(raw(4)))
 ok("is.atomic",                  is.atomic(x))
 ok("is.vector",                  is.vector(x))
 ok("not is.raw",                 !is.raw(x))
@@ -61,7 +61,7 @@ ok("non-multiple length rejected",
 ## width -- but the "bytes" *mode* name is answered with the family's
 ## default, as "numeric" is; see vector() below and ?vector
 ok("mode \"bytes\" gets the default", { v <- .Internal(vector("bytes", 3L))
-                                   is.bytes(v) && bytesWidth(v) == 1L &&
+                                   is.fixedwidth(v) && bytesWidth(v) == 1L &&
                                    bytesKind(v) == "opaque" })
 
 cat("\n== D. duplication, attributes, identity ==\n")
@@ -285,9 +285,9 @@ ok("typeof encodes width",       identical(
      c(typeof(mk("signed", 16L, "01")), typeof(mk("unsigned", 4L, "01")),
        typeof(mk("signed", 1L, "01")),  typeof(bytes(1L, 3L))),
      c("int128", "uint32", "int8", "bytes3")))
-ok("mode is the same for every kind",
+ok("mode follows numeric semantics",
                                  identical(c(mode(u), mode(sg), mode(x)),
-                                           c("bytes", "bytes", "bytes")))
+                                           c("numeric", "numeric", "bytes")))
 ok("storage.mode follows",       identical(storage.mode(u), "uint64"))
 ok("is.integer stays honest",    !is.integer(u) && !is.integer(sg))
 ok("switch(typeof(x)) dispatches",
@@ -391,8 +391,8 @@ ok("empty sum / prod",           identical(c(as.character(sum(bytes(0L,8L,"unsig
 ok("sum on opaque errors",       inherits(tryCatch(sum(x), error = identity), "error"))
 ok("sum mixed with integer narrows",
                                  identical(as.character(sum(a, 1L)), "7"))
-ok("and mixed with a double errors",
-                                 inherits(tryCatch(sum(a, 1.5), error = identity), "error"))
+ok("and mixed with a double promotes",
+                                 identical(sum(a, 1.5), 7.5))
 ok("as.integer in range",        identical(as.integer(a), c(1L, 2L, 3L)))
 ok("as.numeric",                 identical(as.numeric(a), c(1, 2, 3)))
 ok("as.integer out of range",    is.na(suppressWarnings(
@@ -449,7 +449,7 @@ ok("an explicit older version errors",
                                                  error = identity)
                                    unlink(f); inherits(e, "error") })
 ok("and an ordinary object is left alone",
-                                 { f <- tempfile(); saveRDS(list(1:3), f)
+                                 { f <- tempfile(); saveRDS(list(as.integer(c(1, 2, 3))), f)
                                    v <- infoRDS(f)$version; unlink(f); v == 3L })
 ok("empty vector",               identical(rt(bytes(0L, 8L, "unsigned")),
                                            bytes(0L, 8L, "unsigned")))
@@ -529,9 +529,8 @@ ok("matrix round-trips",         identical(rt(m), m))
 
 cat("\n== U. the partial coercion lattice ==\n")
 ## logical and integer narrow into bytes -- lossless, and the one
-## promotion every system agrees on.  double is deliberately refused:
-## R's lattice is otherwise value-preserving, and neither double nor a
-## 64-bit integer subsumes the other.
+## exact promotion.  Mixing with double promotes the result to double,
+## with a warning only when a stored value loses precision.
 ok("x + 1L",                     identical(as.character(u64[2] + 1L), "5120000001"))
 ok("1L + x (symmetric)",         identical(u64[2] + 1L, 1L + u64[2]))
 ok("x * 2L",                     identical(as.character(u64[1] * 2L), "2"))
@@ -550,24 +549,28 @@ ok("out of range -> NA + warning",
                                                                  invokeRestart("muffleWarning") })
                                    is.na(r) && w })
 
-for (e in list(quote(u64[1] + 1), quote(u64[1] * 1.5), quote(u64[1] > 0),
-               quote(c(u64, 1)), quote({ z <- c(u64, u64); z[1] <- 1; z })))
-    ok(paste("double refused:", deparse(e)[1]),
-       inherits(tryCatch(eval(e), error = identity), "error"))
-
-ok("the refusal names both fixes", grepl("1L", tryCatch(u64[1] + 1,
-                                                        error = conditionMessage)) &&
-                                   grepl("as.numeric", tryCatch(u64[1] + 1,
-                                                                error = conditionMessage)))
+ok("double arithmetic promotes", identical(u64[1] + 1, 2) &&
+                                 identical(u64[1] * 1.5, 1.5))
+ok("double comparison promotes", isTRUE(u64[1] > 0))
+ok("c() with double promotes",  identical(c(u64[1:2], 1), c(1, 5120000000, 1)))
+ok("double assignment promotes",{ z <- u64[1:2]; z[1] <- 1
+                                   identical(z, c(1, 5120000000)) })
+ok("lossy promotion warns",     { w <- FALSE
+                                   withCallingHandlers(u64[3] + 0,
+                                       warning = function(cnd) { w <<- TRUE
+                                                                 invokeRestart("muffleWarning") })
+                                   w })
 ok("/ still yields double",      identical(u64[1] / 2, 0.5))
 ok("^ still yields double",      identical(u64[1] ^ 2L, 1))
 ok("opaque still refuses all",   inherits(tryCatch(x + 1L, error = identity), "error"))
 
 cat("\n== V. implicit class vector ==\n")
-ok("class is name + bytes",      identical(class(u64), c("uint64", "bytes")))
+ok("numeric class is the type", identical(class(u64), "uint64"))
 ok("opaque too",                 identical(class(x), c("bytes16", "bytes")))
-ok("inherits both ways",         inherits(u64, "bytes") && inherits(u64, "uint64"))
-ok("one S3 method serves all",   { mean.bytes <- function(x, ...) sum(x) / length(x)
+ok("numeric does not inherit bytes",
+                                 !inherits(u64, "bytes") && inherits(u64, "uint64"))
+ok("S3 methods see numeric kinds", { mean.uint64 <- function(x, ...) sum(x) / length(x)
+                                   mean.int128 <- function(x, ...) sum(x) / length(x)
                                    m8 <- mean(as.bytes(as.raw(c(rev(c(0,0,0,0,0,0,0,2)),
                                                                 rev(c(0,0,0,0,0,0,0,4)))),
                                                        8L, "unsigned"))
@@ -647,7 +650,9 @@ ok("cbind narrows an integer",   identical(as.character(cbind(b2, 3:4)),
                                            c("1","2","3","4")))
 ok("rbind narrows an integer",   identical(as.character(rbind(b2, 3:4)),
                                            c("1","3","2","4")))
-ok("cbind still refuses double", inherits(tryCatch(cbind(b2, 1.5), error = identity), "error"))
+ok("cbind with double promotes", { z <- cbind(b2, 1.5)
+                                   is.double(z) && identical(dim(z), c(2L, 2L)) &&
+                                       identical(as.vector(z), c(1, 2, 1.5, 1.5)) })
 ok("cbind keeps the NA flag",    !bytesHasNA(cbind(w1, w1)) &&
                                  identical(cbind(w1, w1)[, 1], w1))
 
@@ -711,6 +716,8 @@ ok("compare below the range",    identical(u1 > -1L, rep(TRUE, 3)))
 ok("compare above the range",    identical(u1 < 1000L, rep(TRUE, 3)))
 ok("min ignores a high bound",   identical(as.character(min(u1, 1000L)), "1"))
 ok("pmin ignores a high bound",  identical(as.character(pmin(u1, 1000L)), c("1","2","3")))
+ok("pmin with double promotes", identical(pmin(u1, 1.5), c(1, 1.5, 1.5)))
+ok("pmax with double promotes", identical(pmax(u1, 1.5), c(1.5, 2, 3)))
 ok("max of one is NA + warning", { w <- NULL
                                    r <- withCallingHandlers(max(u1, 1000L),
                                        warning = function(z) { w <<- conditionMessage(z)
@@ -728,7 +735,7 @@ ok("as.numeric past 32 bytes",   identical(as.numeric(mk("unsigned", 33L,
 cat("\n== Z2. the implicit class drives dispatch ==\n")
 ok(".class2 matches class()",    identical(.class2(u4), class(u4)))
 ok(".class2 of a matrix",        identical(.class2(matrix(u4, 2, 2)),
-                                           c("matrix", "array", "uint64", "bytes")))
+                                           c("matrix", "array", "uint64")))
 ok("UseMethod sees the kind",    { mean.uint64 <- function(x, ...) "by kind"
                                    identical(mean(u4), "by kind") })
 ok("c() into a list is lossless",
@@ -1059,6 +1066,13 @@ ok("hex for the opaque kind",     { th <- tempfile()
                                     identical(as.character(scan(th, what = bytes(0L, 8L),
                                                                 quiet = TRUE)),
                                               c("0102030405060708", "ffffffffffffff00")) })
+ok("opaque reserved value warns", { w <- NULL
+                                    v <- withCallingHandlers(
+                                        scan(textConnection("ff"), what = bytes(0L, 1L),
+                                             quiet = TRUE),
+                                        warning = function(z) { w <<- conditionMessage(z)
+                                                                invokeRestart("muffleWarning") })
+                                    is.na(v) && grepl("reserved NA value", w, fixed = TRUE) })
 probe("scan: a value out of range", scan(textConnection("99999999999999999999999"),
                                          what = bytes(0L, 8L, "signed"), quiet = TRUE))
 probe("scan: not a number",       scan(textConnection("abc"),
@@ -1106,7 +1120,7 @@ ok("an unknown class still errs",inherits(tryCatch(utils::read.csv(tc, colClasse
 ok("vector() takes a bytes mode",identical(typeof(vector("uint128", 3L)), "uint128"))
 ok("and zero-fills",             identical(as.character(vector("int64", 2L)), c("0", "0")))
 ok("vector(\"bytes\") takes the default", { v <- vector("bytes", 1L)
-                                   is.bytes(v) && bytesWidth(v) == 1L })
+                                   is.fixedwidth(v) && bytesWidth(v) == 1L })
 probe("vector(\"int65\")",         vector("int65", 1L))
 ok("as.vector() parses text",    identical(as.character(as.vector("9223372036854775807", "int64")),
                                            "9223372036854775807"))

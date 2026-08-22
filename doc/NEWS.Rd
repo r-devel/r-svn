@@ -49,8 +49,12 @@
       \code{"signed"} or \code{"opaque"}) properties of the vector rather
       than of the type.  \code{typeof()} reports the derived name, so a
       64-bit unsigned vector is \code{"uint64"} and sixteen opaque bytes
-      are \code{"bytes16"}.  Created by \code{bytes()} and
-      \code{as.bytes()}, and by \code{vector()}, \code{as.vector()},
+      are \code{"bytes16"}.  Numeric kinds satisfy \code{is.numeric()},
+      have mode \code{"numeric"}, and promote to double when an operation
+      requires it, warning on actual precision loss; opaque values remain
+      nonnumeric bytes.  Created by \code{bytes()}, \code{as.bytes()} and
+      semantic constructors such as \code{as.int64()} and
+      \code{as.uint64()}, and by \code{vector()}, \code{as.vector()},
       \code{storage.mode<-}, \code{readBin()}, \code{scan()} and
       \code{read.table()} through the type names; see \code{?bytes}.
       Arithmetic, comparison, bitwise operations, sorting, matching and

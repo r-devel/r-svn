@@ -573,6 +573,7 @@ FUNTAB R_FunTab[] =
 {"bytesKind",	do_byteskind,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"bytesHasNA",	do_byteshasna,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"is.bytes",	do_bytesis,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"is.fixedwidth", do_bytesisfixed, 1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"bytesWidth",	do_byteswidth,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"intToBits",	do_intToBits,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"numToBits",	do_numToBits,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},

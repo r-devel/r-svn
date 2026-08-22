@@ -31,7 +31,9 @@ storage.mode(x) <- value
   Both \code{mode} and \code{storage.mode} return a character string
   giving the (storage) mode of the object --- often the same --- both
   relying on the output of \code{\link{typeof}(x)}, see the example
-  below.
+  below.  Numeric fixed-width integer vectors have mode
+  \code{"numeric"}; only opaque fixed-width vectors have mode
+  \code{"bytes"}.
 
   \code{mode(x) <- "newmode"} changes the \code{mode} of object \code{x} to
   \code{newmode}.  This is only supported if there is an appropriate

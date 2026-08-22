@@ -589,6 +589,14 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 			       BYTEVEC_HAS_NA(*x), call);
 	break;
 
+    case 2614:	/* bytes      <- real       */
+	*x = coerceVector(*x, REALSXP);
+	break;
+
+    case 2615:	/* bytes      <- complex    */
+	*x = coerceVector(*x, CPLXSXP);
+	break;
+
     case 1026:	/* logical    <- bytes      */
     case 1326:	/* integer    <- bytes      */
 	/* the mirror of the two above: the same two types narrow, so
@@ -630,6 +638,14 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	    UNPROTECT(1);
 	    *x = xnew;
 	}
+	break;
+
+    case 1426:	/* real       <- bytes      */
+	*y = coerceVector(*y, REALSXP);
+	break;
+
+    case 1526:	/* complex    <- bytes      */
+	*y = coerceVector(*y, CPLXSXP);
 	break;
 
     case 1626:	/* character  <- bytes      */

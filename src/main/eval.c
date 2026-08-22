@@ -6266,7 +6266,8 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
   R_Visible = TRUE; \
   NEXT(); \
 } while (0)
-#define isNumericOnly(x) (isNumeric(x) && ! isLogical(x))
+#define isNumericOnly(x) (R_bytesIsNumeric(x) || \
+			  (isNumeric(x) && ! isLogical(x)))
 
 #ifdef BC_PROFILING
 #define NO_CURRENT_OPCODE -1

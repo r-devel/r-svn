@@ -195,7 +195,7 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
     for (i in which(!known & !is.na(colClasses) &
                     !(colClasses %in% c("NULL", "factor", "Date", "POSIXct")))) {
         proto <- tryCatch(vector(colClasses[i], 0L), error = function(e) NULL)
-        if (is.bytes(proto)) {
+        if (is.fixedwidth(proto)) {
             what[[i]] <- proto
             known[i] <- TRUE
         }
@@ -335,4 +335,3 @@ function (file, header = TRUE, sep = "\t", quote = "\"", dec = ",",
     read.table(file = file, header = header, sep = sep,
                quote = quote, dec = dec, fill = fill,
                comment.char = comment.char, ...)
-

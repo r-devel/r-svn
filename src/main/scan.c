@@ -81,6 +81,7 @@ typedef struct {
     bool atStart;
     bool embedWarn;
     bool skipNul;
+    R_xlen_t bytesReserved;
     char convbuf[100];
 } LocalData;
 
@@ -564,12 +565,17 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 	       well as for one that is not a number, so an integer column
 	       errors on both.  This follows that rather than the
 	       NA-with-a-warning that as.bytes() gives. */
-	    else if (R_bytesEltFromString(p, buffer, w, k,
-					  BYTEVEC_HAS_NA(ans))
-		     != BYTES_PARSE_OK) {
+	    else {
+		R_bytes_parse_t st = R_bytesEltFromString(p, buffer, w, k,
+						       BYTEVEC_HAS_NA(ans));
+		if (st == BYTES_PARSE_OK && BYTEVEC_HAS_NA(ans) &&
+		    R_bytesEltIsNA(p, w, k))
+		    d->bytesReserved++;
+		else if (st != BYTES_PARSE_OK) {
 		char what[32];
 		snprintf(what, sizeof what, "%s", R_bytesTypeName(ans));
 		expected(what, buffer, d);
+		}
 	    }
 	}
 	break;
@@ -893,7 +899,7 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     const char *p, *encoding;
     RCNTXT cntxt;
     LocalData data = {NULL, 0, 0, '.', NULL, NO_COMCHAR, 0, NULL, false,
-		      false, 0, false, false, false, false, false, {false}};
+		      false, 0, false, false, false, false, false, 0, {false}};
     data.NAstrings = R_NilValue;
 
     checkArity(op, args);
@@ -1047,6 +1053,8 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     default:
 	error(_("invalid '%s' argument"), "what");
     }
+
+    R_bytesWarnReservedCount(data.bytesReserved);
     PROTECT(ans);
     endcontext(&cntxt);
 

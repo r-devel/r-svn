@@ -1972,6 +1972,7 @@ attribute_hidden R_bytes_parse_t R_bytesEltFromString(Rbyte *out,
 						      int kind, bool hasNA);
 attribute_hidden const char *R_bytesEltRender(SEXP x, R_xlen_t i);
 attribute_hidden const char *R_bytesTypeName(SEXP x);
+attribute_hidden Rboolean R_bytesIsNumeric(SEXP x);
 /* longest derived name is width 255 unsigned: "uint2040", 8 chars */
 #define BYTEVEC_TYPE_NAME_MAX 16
 attribute_hidden const char *R_bytesTypeNameOf(int width, int kind);
@@ -1979,6 +1980,7 @@ attribute_hidden Rboolean R_bytesTypeFromName(const char *s, int *width,
 					      int *kind);
 attribute_hidden const char *R_bytesKindName(SEXP x);
 attribute_hidden void R_bytesWarnReserved(SEXP x);
+attribute_hidden void R_bytesWarnReservedCount(R_xlen_t n);
 attribute_hidden void R_bytesCopyWithRecycle(SEXP dst, SEXP src,
 					     R_xlen_t dstart, R_xlen_t n,
 					     R_xlen_t nsrc);

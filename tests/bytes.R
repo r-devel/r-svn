@@ -11,14 +11,41 @@ nn  <- as.bytes(c("1", "2"), 8L, "unsigned", na = FALSE)
 
 ### type identity
 
-stopifnot(is.bytes(u), !is.bytes(1:3), !is.raw(u),
+stopifnot(is.fixedwidth(u), !is.bytes(u), is.bytes(op),
+	  !is.fixedwidth(1:3), !is.bytes(1:3), !is.raw(u),
 	  typeof(u) == "uint64", typeof(s) == "int64", typeof(op) == "bytes2",
-	  identical(class(u), c("uint64", "bytes")),
-	  is.atomic(u), is.vector(u), !is.numeric(u),
+	  identical(class(u), "uint64"), identical(class(op), c("bytes2", "bytes")),
+	  is.atomic(u), is.vector(u), is.numeric(u), !is.numeric(op),
+	  mode(u) == "numeric", mode(op) == "bytes",
 	  bytesWidth(u) == 8L, bytesKind(u) == "unsigned", bytesHasNA(u),
 	  !bytesHasNA(nn),
 	  length(u) == 3L,			# elements, not bytes
 	  length(bytesRaw(u)) == 24L)
+
+## Public constructors describe the values; BYTESXP remains an internal
+## storage detail shared with opaque payloads.
+stopifnot(identical(as.int64(c("1", "2", "3")), as.bytes(1:3, 8L, "signed")),
+	  typeof(as.uint128("1")) == "uint128",
+	  typeof(as.int8(-1L)) == "int8")
+
+## Compiled is.numeric() must agree with the primitive path.
+isnum <- compiler::cmpfun(function(x) is.numeric(x))
+stopifnot(isnum(u), !isnum(op))
+
+## A double operand promotes numeric fixed-width integers, warning only
+## when their actual values cannot be represented exactly.
+stopifnot(identical(u + 1, c(2, 3, 4)),
+	  identical(1 + u, c(2, 3, 4)),
+	  identical(c(u, 4), c(1, 2, 3, 4)),
+	  identical(u < 2.5, c(TRUE, TRUE, FALSE)),
+	  identical(sum(u, 1), 7), identical(max(u, 2.5), 3),
+	  identical(pmin(u, 1.5), c(1, 1.5, 1.5)),
+	  identical(pmax(u, 1.5), c(1.5, 2, 3)),
+	  identical(quantile(u, names = FALSE), c(1, 1.5, 2, 2.5, 3)))
+lost <- as.uint64("9007199254740993")
+stopifnot(grepl("lose precision", conditionMessage(tryCatch(
+	  { withCallingHandlers(lost + 0, warning = function(w) stop(w)); NULL },
+	  warning = identity, error = identity))))
 
 ## the accessors are about 'bytes' vectors, and say so in R's terms
 ## rather than naming the C entry point
@@ -52,7 +79,7 @@ mi <- c(1L, 1L, 2L, 2L); dim(mi) <- c(2L, 2L)
 stopifnot(nrow(unique(m)) == nrow(unique(mi)),
 	  identical(duplicated(m), duplicated(mi)),
 	  anyDuplicated(m) == anyDuplicated(mi),
-	  length(asplit(m, 1L)) == 2L, is.bytes(asplit(m, 1L)[[1L]]))
+	  length(asplit(m, 1L)) == 2L, is.fixedwidth(asplit(m, 1L)[[1L]]))
 d <- u[c(1, 2, 1, 2)]; dim(d) <- c(2L, 2L)
 stopifnot(nrow(unique(d)) == 2L)
 
@@ -78,7 +105,7 @@ stopifnot(inherits(tryCatch(c(u, as.bytes("1", 4L, "unsigned")),
 
 for (e in list(bytes(0L, 8L, "unsigned"), bytes(0L, 4L, "opaque"),
 	       bytes(0L, 8L, "signed", na = FALSE))) {
-    stopifnot(is.bytes(e), length(e) == 0L,
+    stopifnot(is.fixedwidth(e), length(e) == 0L,
 	      identical(unique(e), e), length(duplicated(e)) == 0L,
 	      ## print() names the type it printed, as dput() does; "bytes(0)"
 	      ## would be a valid call producing a different object
@@ -98,9 +125,9 @@ stopifnot(identical(as.integer(u), 1:3),
 	  ## as.logical is "any bit set", which needs no reading of the
 	  ## bytes as a number and so works for the opaque kind too
 	  identical(as.logical(op), c(TRUE, TRUE)),
-	  length(as.expression(u)) == 3L, is.bytes(as.expression(u)[[1L]]),
-	  length(as.list(u)) == 3L, is.bytes(as.list(u)[[1L]]),
-	  length(as.pairlist(u)) == 3L, is.bytes(as.pairlist(u)[[1L]]))
+	  length(as.expression(u)) == 3L, is.fixedwidth(as.expression(u)[[1L]]),
+	  length(as.list(u)) == 3L, is.fixedwidth(as.list(u)[[1L]]),
+	  length(as.pairlist(u)) == 3L, is.fixedwidth(as.pairlist(u)[[1L]]))
 
 ## the opaque kind has no numeric reading, and says so rather than
 ## inventing one
@@ -243,14 +270,17 @@ for (v in list(u, s, op, un, nn, bytes(0L, 8L, "unsigned"))) {
     unlink(f)
 }
 
-## and only when the object needs it: everything else keeps writing the
-## version it wrote before
+## Ordinary objects keep writing the version they wrote before.  ALTREP
+## is conservatively version 4 once BYTESXP has appeared in the session:
+## preflight must not call a package's Serialized_state method and then
+## make serialization call that potentially impure method a second time.
 local({
     f <- tempfile()
-    saveRDS(list(1:3, "a"), f)
+    saveRDS(list(as.integer(c(1, 2, 3)), "a"), f)
     on.exit(unlink(f))
     stopifnot(infoRDS(f)$version == 3L,
-	      streamVersion(serialize(list(1:3, "a"), NULL)) == 3L)
+	      streamVersion(serialize(list(as.integer(c(1, 2, 3)), "a"), NULL)) == 3L,
+	      streamVersion(serialize(1:3, NULL)) == 4L)
 })
 
 ## checkRdaFiles() reads the version from the stream, not from the
@@ -259,7 +289,8 @@ local({
     f <- tempfile(); g <- tempfile()
     on.exit(unlink(c(f, g)))
     suppressMessages(save(list = "u", file = f, envir = environment()))
-    save(list = "nn2", file = g, envir = list2env(list(nn2 = 1:3)))
+    save(list = "nn2", file = g,
+	 envir = list2env(list(nn2 = as.integer(c(1, 2, 3)))))
     stopifnot(tools::checkRdaFiles(f)$version == 4L,
 	      tools::checkRdaFiles(g)$version == 3L)
 })
@@ -306,11 +337,11 @@ stopifnot(identical(vector("uint64", 2L), bytes(2L, 8L, "unsigned")),
 
 x <- 1:3
 storage.mode(x) <- "uint64"
-stopifnot(is.bytes(x), typeof(x) == "uint64")
+stopifnot(is.fixedwidth(x), typeof(x) == "uint64")
 
 x <- 1:3
 mode(x) <- "uint64"			# no as.uint64(): goes to storage.mode<-
-stopifnot(is.bytes(x), typeof(x) == "uint64")
+stopifnot(is.fixedwidth(x), typeof(x) == "uint64")
 
 x <- u
 mode(x) <- storage.mode(x)		# must be a no-op, not a conversion
@@ -359,7 +390,7 @@ stopifnot(is.object(o), identical(class(o), "myclass"))
 z <- as.bytes(1:3, 8L, "unsigned"); z[1] <- list(1)
 stopifnot(is.list(z), length(z) == 3L)
 z <- NULL; z[1] <- as.bytes("7", 8L, "unsigned")
-stopifnot(is.bytes(z), length(z) == 1L, as.character(z) == "7")
+stopifnot(is.fixedwidth(z), length(z) == 1L, as.character(z) == "7")
 
 ### raising the serialization version must not cost the file
 
@@ -487,8 +518,7 @@ stopifnot(suppressWarnings(
 
 ### all.equal() describes a difference, and never stops
 
-## mode() is "bytes" for every width and kind, so data.class() cannot
-## see the difference the comparison itself refuses to make
+## Fixed-width types that cannot compare still need a descriptive result.
 a <- as.bytes(1:3, 8L, "signed")
 stopifnot(isTRUE(all.equal(a, a)),
 	  is.character(all.equal(a, as.bytes(1:3, 4L, "signed"))),
@@ -646,20 +676,19 @@ local({
     stopifnot(identical(as.character(x), c("9", "2", "3")))
 })
 
-### prod() answers to the same operand rule as every other summary
+### prod() follows the numeric coercion rule
 
 ## Its result is a double for every type, as it is for integer, so the
-## operands convert and take the ordinary path -- but they are held to
-## the rule first.  Converting and then asking would leave no 'bytes'
-## vector to ask against, and prod() would be the one place in the type
-## that takes a double operand silently.
+## operands convert and take the ordinary path.  A double promotes the
+## fixed-width operand just as it does in the other numeric summaries.
 local({
     p <- as.bytes(c("2", "3"), 8L, "unsigned")
     stopifnot(identical(prod(p), 6),
 	      identical(prod(p, 2L), 12),		# integer narrows in
+	      identical(prod(p, 2.5), 15),		# double promotes
 	      identical(typeof(sum(p)), "uint64"),	# sum keeps the type
 	      identical(prod(1:3), 6))		# every other type unchanged
-    for (bad in list(quote(prod(p, 2.5)), quote(prod(p, "a")),
+    for (bad in list(quote(prod(p, "a")),
 		     quote(prod(p, as.bytes("2", 4L, "unsigned"))),
 		     quote(prod(as.bytes(as.raw(1:2), 2L, "opaque")))))
 	if (!inherits(tryCatch(eval(bad), error = identity), "error"))

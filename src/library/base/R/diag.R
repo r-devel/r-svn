@@ -25,7 +25,7 @@ diag <- function(x = 1, nrow, ncol, names = TRUE)
 
         ## a bytes vector stands in for its own type name; see vector()
         if((m <- min(dim(x))) == 0L)
-            return(vector(if(is.bytes(x)) x else typeof(x), 0L))
+            return(vector(if(is.fixedwidth(x)) x else typeof(x), 0L))
         ## NB: need double index to avoid overflows.
         y <- x[1 + 0L:(m - 1L) * (dim(x)[1L] + 1)]
 	if(names) {

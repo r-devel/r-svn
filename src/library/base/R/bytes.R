@@ -16,9 +16,8 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## Vectors of fixed-width opaque data.  length() counts elements; each
-## element is `width` bytes and is only ever compared or hashed as a
-## block of bytes, never interpreted as a number.
+## Vectors of fixed-width data.  BYTESXP describes the shared storage;
+## the R interface distinguishes integer values from opaque byte strings.
 
 ## kind = "opaque"   : byte strings; lexicographic order, hex display
 ## kind = "unsigned"  : unsigned integers of 8*width bits
@@ -53,6 +52,18 @@ bytesKind <- function(x) .Internal(bytesKind(x))
 bytesWidth <- function(x) .Internal(bytesWidth(x))
 
 is.bytes <- function(x) .Internal(is.bytes(x))
+is.fixedwidth <- function(x) .Internal(is.fixedwidth(x))
+
+as.int8   <- function(x, na = TRUE) as.bytes(x,  1L, "signed",   na)
+as.uint8  <- function(x, na = TRUE) as.bytes(x,  1L, "unsigned", na)
+as.int16  <- function(x, na = TRUE) as.bytes(x,  2L, "signed",   na)
+as.uint16 <- function(x, na = TRUE) as.bytes(x,  2L, "unsigned", na)
+as.int32  <- function(x, na = TRUE) as.bytes(x,  4L, "signed",   na)
+as.uint32 <- function(x, na = TRUE) as.bytes(x,  4L, "unsigned", na)
+as.int64  <- function(x, na = TRUE) as.bytes(x,  8L, "signed",   na)
+as.uint64 <- function(x, na = TRUE) as.bytes(x,  8L, "unsigned", na)
+as.int128 <- function(x, na = TRUE) as.bytes(x, 16L, "signed",   na)
+as.uint128 <- function(x, na = TRUE) as.bytes(x, 16L, "unsigned", na)
 
 ## Does this name spell a 'bytes' type -- "int64", "uint128", "bytes16"?
 ## The grammar itself lives in R_bytesTypeFromName() (src/main/bytes.c),

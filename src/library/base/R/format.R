@@ -42,7 +42,7 @@ format.default <-
 		      decimal.mark = decimal.mark, zero.print = zero.print,
 		      drop0trailing = drop0trailing, ...)
 	vapply(res, paste0, "", collapse = ", ")
-    } else if(is.bytes(x)) {
+    } else if(is.fixedwidth(x)) {
 	## every element renders the same way it prints: hex for opaque
 	## elements, decimal for the numeric kinds
 	r <- .Internal(format(x, trim, digits, nsmall, width, 3L,

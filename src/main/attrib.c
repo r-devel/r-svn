@@ -698,7 +698,7 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	    klass = mkChar("numeric");
 	    break;
 	  case BYTESXP:
-	    if(singleString)
+	    if(singleString || BYTEVEC_KIND(obj) != BYTEVEC_OPAQUE)
 		klass = mkChar(R_bytesTypeName(obj));
 	    else {
 		PROTECT(klass = allocVector(STRSXP, 2));
@@ -903,11 +903,12 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	   offer methods that class(x) never mentions. */
 	if (t == BYTESXP) {
 	    int I_mat = (n == 2) ? 1 : 0, I_arr = (n > 0) ? 1 : 0, i = 0;
-	    defaultClass = PROTECT(allocVector(STRSXP, 2 + I_mat + I_arr));
+	    int I_bytes = BYTEVEC_KIND(obj) == BYTEVEC_OPAQUE ? 1 : 0;
+	    defaultClass = PROTECT(allocVector(STRSXP, 1 + I_bytes + I_mat + I_arr));
 	    if (I_mat) SET_STRING_ELT(defaultClass, i++, mkChar("matrix"));
 	    if (I_arr) SET_STRING_ELT(defaultClass, i++, mkChar("array"));
 	    SET_STRING_ELT(defaultClass, i++, mkChar(R_bytesTypeName(obj)));
-	    SET_STRING_ELT(defaultClass, i, mkChar("bytes"));
+	    if (I_bytes) SET_STRING_ELT(defaultClass, i, mkChar("bytes"));
 	    UNPROTECT(1);
 	    return defaultClass;
 	}

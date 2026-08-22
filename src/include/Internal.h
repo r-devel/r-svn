@@ -244,6 +244,7 @@ SEXP do_bytes(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asbytes(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bytesraw(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bytesis(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bytesisfixed(SEXP, SEXP, SEXP, SEXP);
 SEXP do_byteshasna(SEXP, SEXP, SEXP, SEXP);
 SEXP do_byteskind(SEXP, SEXP, SEXP, SEXP);
 SEXP do_byteswidth(SEXP, SEXP, SEXP, SEXP);

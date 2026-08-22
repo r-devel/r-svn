@@ -61,6 +61,9 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
 	       }
 	       else all.equal.list(target, current, ...))
     }
+    if(is.fixedwidth(target))
+	return(all.equal.bytes(target, current, ...,
+			       check.class = check.class))
     msg <- switch (mode(target),
                    integer   = ,
                    complex   = ,
@@ -456,12 +459,11 @@ all.equal.bytes <-
     ## The width, the kind and whether NA is reserved are all part of a
     ## 'bytes' type, and comparing across them errors rather than
     ## answering -- so the difference has to be reported here, before
-    ## anything reaches `!=` in all.equal.raw().  data.class() cannot
-    ## see it: mode() is "bytes" for every width and kind.  Reported
-    ## whatever check.class says, since these are not comparable at all
-    ## and all.equal() must describe a difference rather than stop().
+    ## anything reaches `!=` in all.equal.raw().  Reported whatever
+    ## check.class says, since these are not comparable at all and
+    ## all.equal() must describe a difference rather than stop().
     tt <- typeof(target)
-    ct <- if(is.bytes(current)) typeof(current) else data.class(current)
+    ct <- if(is.fixedwidth(current)) typeof(current) else data.class(current)
     if(tt != ct)
 	return(paste0("target is ", tt, ", current is ", ct))
     if(bytesHasNA(target) != bytesHasNA(current))

@@ -36,31 +36,20 @@ mode <- function(x) {
 	   logical =, character =, complex =, raw =, list =, pairlist =,
 	   environment =, externalptr =, promise =, weakref =, bytecode =,
 	   S4 =, `NULL` = tx,
-	   ## otherwise
-	   ## every kind is "bytes", the opaque one included: is.numeric()
-	   ## is FALSE for all of them, and a mode of "numeric" sends code
-	   ## that dispatches on mode() -- all.equal.default, for one --
-	   ## into paths that then reject the type
-	   if(is.bytes(x)) "bytes" else tx)
+	   ## otherwise: the public mode follows the interpretation, not
+	   ## BYTESXP's shared storage representation
+	   if(is.numeric(x)) "numeric" else if(is.bytes(x)) "bytes" else tx)
 }
 
 `mode<-` <- function(x, value)
 {
     if (storage.mode(x) == value) return(x)
+    if (is.fixedwidth(x) && mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
-    ## mode() is "bytes" for every width and kind, so for a vector that
-    ## already is one this is the identity mode(x) <- mode(x) -- which
-    ## storage.mode(x) == value above cannot see, storage.mode() being
-    ## the finer name.  From any other vector "bytes" names no type at
-    ## all and is refused below.
-    if(is.bytes(x) && value == "bytes") return(x)
     ## A 'bytes' type is named by its width and kind (see
-    ## R_bytesTypeFromName in src/main/bytes.c), and there is no
-    ## as.uint64() for get() below to find.  Plain "bytes" goes the same
-    ## way to be refused there, so that as.bytes()'s defaults cannot
-    ## pick a width silently.  Only the value is tested: converting a
-    ## 'bytes' vector to some other mode is as.numeric()'s business,
-    ## like any other.
+    ## R_bytesTypeFromName in src/main/bytes.c).  Plain "bytes" is also
+    ## handled here so that as.bytes()'s defaults cannot silently pick
+    ## a width while changing mode.
     if(value == "bytes" || .isBytesTypeName(value)) {
 	storage.mode(x) <- value
 	return(x)

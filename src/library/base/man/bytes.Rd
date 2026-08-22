@@ -11,6 +11,17 @@
 \alias{bytesKind}
 \alias{bytesWidth}
 \alias{is.bytes}
+\alias{is.fixedwidth}
+\alias{as.int8}
+\alias{as.uint8}
+\alias{as.int16}
+\alias{as.uint16}
+\alias{as.int32}
+\alias{as.uint32}
+\alias{as.int64}
+\alias{as.uint64}
+\alias{as.int128}
+\alias{as.uint128}
 \title{Vectors of Fixed-Width Data}
 \description{
   Vectors whose elements are a fixed number of bytes wide, for values
@@ -24,7 +35,19 @@ bytes(length = 0L, width = 1L,
 as.bytes(x, width = 1L,
          kind = c("opaque", "unsigned", "signed"), na = TRUE)
 
+as.int8(x, na = TRUE)
+as.uint8(x, na = TRUE)
+as.int16(x, na = TRUE)
+as.uint16(x, na = TRUE)
+as.int32(x, na = TRUE)
+as.uint32(x, na = TRUE)
+as.int64(x, na = TRUE)
+as.uint64(x, na = TRUE)
+as.int128(x, na = TRUE)
+as.uint128(x, na = TRUE)
+
 is.bytes(x)
+is.fixedwidth(x)
 bytesWidth(x)
 bytesKind(x)
 bytesHasNA(x)
@@ -110,11 +133,13 @@ bytesRaw(x)
   16; wider elements are storage only.  Two \code{bytes} operands must
   agree on the width, the kind and the sentinel, exactly as they must
   for \code{\link{c}} and comparison: nothing is promoted to the wider
-  of the two.  Integer and logical operands
-  narrow in, with a value that does not fit becoming \code{NA} with a
-  warning, as integer overflow does.  Division by zero is \code{NA}
-  without a warning, as it is for integer.  A double operand is an error
-  rather than a silent loss of precision.  The bitwise operations
+  of the two.  Integer and logical operands narrow in, with a value that
+  does not fit becoming \code{NA} with a warning, as integer overflow
+  does.  A double or complex operand instead promotes a numeric
+  fixed-width vector to that ordinary numeric type.  Conversion to
+  double warns only when an actual value loses precision (or is beyond
+  the range of a double).  Division by zero is \code{NA} without a
+  warning, as it is for integer.  The bitwise operations
   (\code{\link{bitwAnd}} and friends) apply to every kind and every
   width, and are what the opaque kind is for.
 
@@ -138,16 +163,17 @@ bytesRaw(x)
   in \R, but is formed from an exact total rather than element by
   element, so it agrees with \code{sum(x)/length(x)}.
 
-  \code{\link{class}} is the two-element implicit class
-  \code{c("uint64", "bytes")}, the shape \code{class} has for a matrix,
-  so an S3 method can be written once for a kind and width or once for
-  the type as a whole.  A package wanting semantics of its own layers a
+  At the R interface, the signed and unsigned kinds are numeric:
+  \code{is.numeric} is true, \code{mode} is \code{"numeric"}, and their
+  implicit \code{\link{class}} is the semantic type name such as
+  \code{"uint64"}.  Opaque vectors remain nonnumeric, have mode
+  \code{"bytes"}, and have implicit class
+  \code{c("bytes16", "bytes")}.  A package wanting semantics of its own layers a
   further class on top -- \code{class(x) <- c("myint", class(x))} --
   which dispatches ahead of the methods for the type and leaves the
-  vector working underneath.  S4 dispatch needs the pair registered first,
-  with \code{\link[methods]{setOldClass}(c("uint64", "bytes"))}: a type
-  name is derived from the vector rather than fixed, so \pkg{methods}
-  cannot know them all in advance.
+  vector working underneath.  S4 dispatch needs the implicit class
+  registered first; a type name is derived from the vector rather than
+  fixed, so \pkg{methods} cannot know them all in advance.
 }
 \value{
   \code{bytes} returns a zero-filled vector of \code{length} elements.
@@ -176,7 +202,10 @@ bytesRaw(x)
   the \code{as.*} family does, including when \code{x} already has the
   requested width and kind; \code{storage.mode<-} keeps them.
 
-  \code{is.bytes} returns \code{TRUE} for a \code{bytes} vector.
+  \code{is.bytes} is semantic and returns \code{TRUE} only for the opaque
+  kind.  \code{is.fixedwidth} tests the shared \code{BYTESXP} storage
+  representation and therefore also returns \code{TRUE} for numeric
+  fixed-width vectors.
   \code{bytesWidth} returns the element size in bytes, \code{bytesKind}
   the kind as a string, and \code{bytesHasNA} whether the vector has an
   \code{NA} sentinel.

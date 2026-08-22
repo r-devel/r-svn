@@ -582,6 +582,26 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
 
+    /* As for ordinary integers, the presence of a double or complex
+       argument selects that result domain.  Numeric BYTESXP operands
+       convert with their precision checks; opaque ones are refused. */
+    bool anyBytes = false, anyReal = false, anyComplex = false;
+    for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
+	if (TAG(t) == R_NaRmSymbol) continue;
+	switch (TYPEOF(CAR(t))) {
+	case BYTESXP: anyBytes = true; break;
+	case REALSXP: anyReal = true; break;
+	case CPLXSXP: anyComplex = true; break;
+	default: break;
+	}
+    }
+    if (anyBytes && (anyReal || anyComplex)) {
+	SEXPTYPE target = anyComplex ? CPLXSXP : REALSXP;
+	for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	    if (TYPEOF(CAR(t)) == BYTESXP)
+		SETCAR(t, coerceVector(CAR(t), target));
+    }
+
     /* prod() is a double for every type -- ans_type below is REALSXP
        for it unconditionally -- so a 'bytes' operand converts and takes
        the ordinary path rather than saturating at its own width.  sum()
@@ -593,7 +613,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
        against, and prod() would be the one place in the type that takes
        one silently. */
     if (PRIMVAL(op) == 4) {
-	bool anyBytes = false;
+	anyBytes = false;
 	for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	    if (TYPEOF(CAR(t)) == BYTESXP) { anyBytes = true; break; }
 
@@ -1263,6 +1283,26 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     args = CDR(args);
     if(args == R_NilValue) error(_("no arguments"));
     SEXP x = CAR(args);
+
+    /* Match ordinary numeric promotion when a numeric fixed-width
+       operand is combined with a double.  Conversion performs the
+       usual precision check and rejects opaque fixed-width values. */
+    bool anyBytes = false, anyReal = false, other = false;
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	switch(TYPEOF(CAR(a))) {
+	case BYTESXP: anyBytes = true; break;
+	case REALSXP: anyReal = true; break;
+	case NILSXP:
+	case LGLSXP:
+	case INTSXP: break;
+	default: other = true; break;
+	}
+    if (anyBytes && anyReal && !other) {
+	for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	    if (TYPEOF(CAR(a)) == BYTESXP)
+		SETCAR(a, coerceVector(CAR(a), REALSXP));
+	x = CAR(args);
+    }
 
     /* 'bytes' vectors reconcile width, kind and the NA reservation
        rather than promoting to a common SEXPTYPE, so they take their

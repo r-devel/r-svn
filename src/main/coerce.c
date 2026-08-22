@@ -2240,8 +2240,9 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 */
 
     case 100:		/* is.numeric */
-	LOGICAL0(ans)[0] = isNumeric(CAR(args)) &&
-	    !isLogical(CAR(args));  /* isNumeric excludes factors */
+	LOGICAL0(ans)[0] = R_bytesIsNumeric(CAR(args)) ||
+	    (isNumeric(CAR(args)) &&
+	     !isLogical(CAR(args)));  /* isNumeric excludes factors */
 	break;
     case 101:		/* is.matrix */
 	LOGICAL0(ans)[0] = isMatrix(CAR(args));
