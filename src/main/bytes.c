@@ -1039,24 +1039,42 @@ const char *R_bytesEltRender(SEXP x, R_xlen_t i)
    actually holding -- switch(typeof(x), uint64 = ...) -- without the
    type number lying to C code, which is the whole reason this is a
    separate SEXPTYPE. */
-/* A small ring of buffers rather than one.  R_typeToChar() reports a
-   'bytes' vector by this name, and several of R's messages print two
-   type names in one call -- "incompatible types (from %s to %s)" and
-   vapply's mismatch report among them.  With a single buffer the
-   second call would overwrite the first and both would print the same
-   name, silently and only for this type. */
+/* One permanent slot per (kind, width).  The name is a pure function of
+   those two, so it is materialized once and then handed out as a stable
+   pointer -- which is what type2char() does for every other type, only
+   its table is keyed by the SEXPTYPE and can hold just one row for this
+   one.  The width and kind live in the object's gp bits, which
+   type2char() never sees, hence a table of its own.
+
+   Keying it this way rather than cycling a few scratch buffers matters
+   because R_typeToChar() returns this, and several of R's messages
+   print two type names in one call -- "incompatible types (from %s to
+   %s)" and vapply's mismatch report among them.  With shared scratch
+   the second call would overwrite the first and both would print the
+   same name, silently and only for this type.  Here every name has its
+   own storage, so any number may be live at once and none can alias.
+
+   3 * 256 * 16 bytes of BSS, filled lazily. */
 const char *R_bytesTypeNameOf(int w, int kind)
 {
-    static char buff[4][16];
-    static int next = 0;
-    char *b = buff[next];
+    static char names[3][BYTEVEC_MAX_WIDTH + 1][BYTEVEC_TYPE_NAME_MAX];
 
-    next = (next + 1) & 3;
+    /* every caller is behind a validated width and kind, but this
+       indexes an array, so it does not take that on trust */
+    if (kind < 0 || kind > 2 || w < 1 || w > BYTEVEC_MAX_WIDTH)
+	return "bytes";
+
+    char *b = names[kind][w];
+    if (*b)
+	return b;			/* built on an earlier call */
 
     switch (kind) {
-    case BYTEVEC_UINT: snprintf(b, sizeof buff[0], "uint%d", 8 * w);  break;
-    case BYTEVEC_INT:  snprintf(b, sizeof buff[0], "int%d", 8 * w);   break;
-    default:           snprintf(b, sizeof buff[0], "bytes%d", w);     break;
+    case BYTEVEC_UINT: snprintf(b, BYTEVEC_TYPE_NAME_MAX, "uint%d", 8 * w);
+	break;
+    case BYTEVEC_INT:  snprintf(b, BYTEVEC_TYPE_NAME_MAX, "int%d", 8 * w);
+	break;
+    default:           snprintf(b, BYTEVEC_TYPE_NAME_MAX, "bytes%d", w);
+	break;
     }
 
     return b;
