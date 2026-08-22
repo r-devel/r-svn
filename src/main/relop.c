@@ -743,6 +743,14 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     const Rbyte *px2 = BYTEVEC_DATA_RO(s2);
     int *pa = LOGICAL(ans);
 
+    /* every operator is a function of the comparison's sign, so the
+       per-element dispatch the sibling kernels hoist into one loop per
+       operator collapses here to a table settled before the loop */
+    int map[3];
+    map[0] = (code == NEOP || code == LTOP || code == LEOP);	/* c < 0 */
+    map[1] = (code == EQOP || code == LEOP || code == GEOP);	/* c == 0 */
+    map[2] = (code == NEOP || code == GTOP || code == GEOP);	/* c > 0 */
+
     MOD_ITERATE2(n, n1, n2, i, i1, i2, {
 	const Rbyte *p1 = px1 + i1 * w;
 	const Rbyte *p2 = px2 + i2 * w;
@@ -750,7 +758,8 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 	/* missing either as the type's own reserved pattern or, where it
 	   reserves none, as a mark from the narrowing */
 	if (d == BYTES_CMP_NA ||
-	    (hasNA && (R_bytesEltIsNA(p1, w, k) || R_bytesEltIsNA(p2, w, k)))) {
+	    (hasNA && (R_bytesEltIsNAFast(p1, w, k) ||
+		       R_bytesEltIsNAFast(p2, w, k)))) {
 	    pa[i] = NA_LOGICAL;
 	    continue;
 	}
@@ -758,14 +767,7 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
 	   or above every element, so the comparison is settled by which
 	   side it was on and which way it fell */
 	int c = d ? ((side == 1) ? d : -d) : R_bytesEltCmp(p1, p2, w, k);
-	switch (code) {
-	case EQOP: pa[i] = (c == 0); break;
-	case NEOP: pa[i] = (c != 0); break;
-	case LTOP: pa[i] = (c <  0); break;
-	case GTOP: pa[i] = (c >  0); break;
-	case LEOP: pa[i] = (c <= 0); break;
-	case GEOP: pa[i] = (c >= 0); break;
-	}
+	pa[i] = map[(c < 0) ? 0 : ((c == 0) ? 1 : 2)];
     });
 
     UNPROTECT(2);

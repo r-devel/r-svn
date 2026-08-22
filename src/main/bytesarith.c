@@ -116,20 +116,6 @@ static bool useNative(void)
 
 #endif	/* BYTES_NATIVE_ARITH */
 
-/* R_bytesEltIsNA() lives in another translation unit, so it is a real
-   call, and at two per element that is now a visible part of an add.
-   The first byte it looks at settles the answer for all but one value
-   in 256, so testing that byte here leaves only the rare case to the
-   call.  Same answer, one branch instead of a call.  The loops below
-   call it too, so it sits outside the native block. */
-static R_INLINE bool eltIsNA(const Rbyte *p, int w, int kind)
-{
-    if (kind == BYTEVEC_INT)
-	return p[BYTEVEC_MSB(0, w)] == 0x80 && R_bytesEltIsNA(p, w, kind);
-
-    return p[0] == BYTEVEC_NA_BYTE && R_bytesEltIsNA(p, w, kind);
-}
-
 #ifdef BYTES_NATIVE_ARITH
 
 /* The last two steps every body shares.  A result landing on the value
@@ -139,7 +125,7 @@ static R_INLINE bool eltIsNA(const Rbyte *p, int w, int kind)
 static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 			bool hasNA)
 {
-    if (hasNA && eltIsNA((const Rbyte *) v, w, kind)) return false;
+    if (hasNA && R_bytesEltIsNAFast((const Rbyte *) v, w, kind)) return false;
     memcpy(out, v, (size_t) w);
 
     return true;
@@ -953,6 +939,22 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
+    /* The operator settles the kernel once, not per element -- the
+       dispatch the sibling kernels hoist into one loop per operator.
+       Division keeps its own arm for the zero-divisor probe. */
+    bool divmod = (oper == IDIVOP || oper == MODOP);
+    bool (*kern)(Rbyte *, const Rbyte *, const Rbyte *, int, int, bool) = NULL;
+    switch (oper) {
+    case PLUSOP:  kern = eltAdd; break;
+    case MINUSOP: kern = eltSub; break;
+    case TIMESOP: kern = eltMul; break;
+    case IDIVOP:
+    case MODOP:   break;
+    default:
+	UNPROTECT(4); /* y, x, oy, ox */
+	errorcall(call, _("this operator is not defined for 'bytes' vectors"));
+    }
+
     R_xlen_t nx = XLENGTH(x), ny = XLENGTH(y);
     if (nx == 0 || ny == 0) {
 	/* x may be a narrowed temporary held only by the index above, so
@@ -988,18 +990,13 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	const Rbyte *py = by + iy * w;
 	Rbyte *pa = ba + i * w;
 
-	if (hasNA && (eltIsNA(px, w, kx) || eltIsNA(py, w, kx))) {
+	if (hasNA && (R_bytesEltIsNAFast(px, w, kx) || R_bytesEltIsNAFast(py, w, kx))) {
 	    R_bytesSetEltNA(pa, w, kx);
 	    continue;
 	}
 
 	bool ok;
-	switch (oper) {
-	case PLUSOP:  ok = eltAdd(pa, px, py, w, kx, hasNA); break;
-	case MINUSOP: ok = eltSub(pa, px, py, w, kx, hasNA); break;
-	case TIMESOP: ok = eltMul(pa, px, py, w, kx, hasNA); break;
-	case IDIVOP:
-	case MODOP:
+	if (divmod) {
 	    /* Division by zero is a silent NA for integer -- arithmetic.c
 	       folds x2 == 0 into the NA test with no warning -- so it is
 	       one here too.  Warning instead turns the same expression
@@ -1008,16 +1005,12 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
 	    if (eltIsZero(py, w)) {
 		R_bytesCheckNA(ans);
 		R_bytesSetEltNA(pa, w, kx);
-		ok = true;
-		break;
+		continue;
 	    }
 	    ok = eltDivMod(pa, px, py, w, kx, oper == IDIVOP, hasNA);
-	    break;
-	default:
-	    UNPROTECT(5); /* ans, y, x, oy, ox */
-	    errorcall(call,
-		      _("this operator is not defined for 'bytes' vectors"));
 	}
+	else
+	    ok = kern(pa, px, py, w, kx, hasNA);
 
 	if (!ok) {
 	    R_bytesCheckNA(ans);	/* nothing to fall back on */
@@ -1071,7 +1064,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 	const Rbyte *px = bx + i * w;
 	Rbyte *pa = ba + i * w;
 
-	if (hasNA && eltIsNA(px, w, k)) {
+	if (hasNA && R_bytesEltIsNAFast(px, w, k)) {
 	    R_bytesSetEltNA(pa, w, k);
 	    continue;
 	}
@@ -1458,7 +1451,7 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 		continue;
 	    }
 
-	    if (hasNA && eltIsNA(p, w, kind)) {
+	    if (hasNA && R_bytesEltIsNAFast(p, w, kind)) {
 		if (narm) continue;
 		isNA = true;
 		break;
@@ -1573,7 +1566,7 @@ attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x)
     for (R_xlen_t i = 0; i < n; i++) {
 	const Rbyte *p = bx + i * w;
 
-	if (hasNA && eltIsNA(p, w, kind))
+	if (hasNA && R_bytesEltIsNAFast(p, w, kind))
 	    return ScalarReal(NA_REAL);
 
 	Rbyte m[MAXW];
@@ -1627,7 +1620,7 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
 	const Rbyte *p = bx + i * w;
 	Rbyte *acc = ba + i * w;
 
-	if (!stop && hasNA && eltIsNA(p, w, kind))
+	if (!stop && hasNA && R_bytesEltIsNAFast(p, w, kind))
 	    stop = true;
 
 	if (stop) {
@@ -1783,8 +1776,8 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 		/* BYTES_CMP_NA is missing rather than a direction; it only
 		   arises where the type reserves no NA pattern, so the
 		   final pass errors if it ends up winning */
-		bool pNA = (dp == BYTES_CMP_NA) || (hasNA && eltIsNA(p, w, kind));
-		bool qNA = (dq == BYTES_CMP_NA) || (hasNA && eltIsNA(q, w, kind));
+		bool pNA = (dp == BYTES_CMP_NA) || (hasNA && R_bytesEltIsNAFast(p, w, kind));
+		bool qNA = (dq == BYTES_CMP_NA) || (hasNA && R_bytesEltIsNAFast(q, w, kind));
 
 		/* an out-of-range candidate orders below or above every
 		   element without being one, so direction settles the

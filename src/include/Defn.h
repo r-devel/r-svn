@@ -1937,6 +1937,21 @@ attribute_hidden SEXP R_allocBytesVectorUninit(R_xlen_t length, int width,
 attribute_hidden SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol);
 attribute_hidden SEXP R_bytesShapeMatrix(SEXP x, int nrow, int ncol);
 attribute_hidden Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
+
+/* First-byte short circuit around R_bytesEltIsNA(): that function is a
+   real call across translation units, and at two per element it is a
+   visible part of an add or a comparison.  The first byte settles the
+   answer for all but one value in 256, so testing it at the call site
+   leaves only the rare case to the call.  Same answer, one predictable
+   branch instead of a call; for the hot loops. */
+static R_INLINE bool R_bytesEltIsNAFast(const Rbyte *p, int w, int kind)
+{
+    if (kind == BYTEVEC_INT)
+	return p[BYTEVEC_MSB(0, w)] == 0x80 && R_bytesEltIsNA(p, w, kind);
+
+    return p[0] == BYTEVEC_NA_BYTE && R_bytesEltIsNA(p, w, kind);
+}
+
 attribute_hidden void R_bytesSetEltNA(Rbyte *p, int width, int kind);
 attribute_hidden int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width,
 				   int kind);
