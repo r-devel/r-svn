@@ -134,13 +134,17 @@ bytesRaw(x)
   \code{\link{as.integer}}, \code{\link{as.numeric}} and
   \code{\link{as.raw}} convert the numeric kinds and refuse the opaque
   one, each behaving as it does for an integer vector when the value
-  will not fit.  \code{\link{mean}} goes through \code{as.numeric},
-  and so is a double like every other mean in \R.
+  will not fit.  \code{\link{mean}} is a double like every other mean
+  in \R, but is formed from an exact total rather than element by
+  element, so it agrees with \code{sum(x)/length(x)}.
 
   \code{\link{class}} is the two-element implicit class
   \code{c("uint64", "bytes")}, the shape \code{class} has for a matrix,
   so an S3 method can be written once for a kind and width or once for
-  the type as a whole.  S4 dispatch needs the pair registered first,
+  the type as a whole.  A package wanting semantics of its own layers a
+  further class on top -- \code{class(x) <- c("myint", class(x))} --
+  which dispatches ahead of the methods for the type and leaves the
+  vector working underneath.  S4 dispatch needs the pair registered first,
   with \code{\link[methods]{setOldClass}(c("uint64", "bytes"))}: a type
   name is derived from the vector rather than fixed, so \pkg{methods}
   cannot know them all in advance.

@@ -10,7 +10,7 @@ mean(x, \dots)
 
 \method{mean}{default}(x, trim = 0, na.rm = FALSE, \dots)
 
-\method{mean}{bytes}(x, \dots)
+\method{mean}{bytes}(x, trim = 0, na.rm = FALSE, \dots)
 }
 \alias{mean}
 \alias{mean.default}
@@ -42,11 +42,15 @@ mean(x, \dots)
   with a fraction of \code{trim} observations deleted from each end
   before the mean is computed.
 
-  The method for \link{bytes} vectors of a numeric kind computes the
-  mean of their values as a double, so a width above 53 bits can lose
-  precision in the usual way.  For the \code{"opaque"} kind, which has
-  no numeric interpretation, it defers to the default method and hence
-  returns \code{NA_real_} with a warning.
+  The method for \link{bytes} vectors of a numeric kind returns a
+  double, as every \code{mean} in \R does, but forms it from an exact
+  total: the values are accumulated at a width wider than the type and
+  converted once, so the answer agrees with \code{sum(x)/length(x)}
+  and is returned even where \code{\link{sum}} itself would overflow.
+  Only that final conversion and the division round, rather than every
+  element in turn.  For the \code{"opaque"} kind, which has no numeric
+  interpretation, it defers to the default method and hence returns
+  \code{NA_real_} with a warning.
 }
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988}

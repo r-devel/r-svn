@@ -1091,20 +1091,37 @@ the payload.
 ## The implicit class vector
 
 `class(x)` returns `c("uint64", "bytes")` -- the shape `class(m)` uses
-for `c("matrix", "array")`.  This is the actual path forward, and the
-cheapest item here: a package can write `mean.bytes` **once** rather
-than one method per width, and prototype the contested semantics in S3
-without the core committing to anything.
+for `c("matrix", "array")`.  So an S3 method can be written once for a
+particular kind and width, or once for the type as a whole, rather than
+one per width:
 
 ```r
-mean.bytes <- function(x, ...) sum(x) / length(x)
-mean(uint64_vector)   # 4
-mean(int128_vector)   # 10   -- same method, different width
+format.bytes <- function(x, ...) paste0("<", as.character(x), ">")
 ```
 
-Someone who wants `x + 1` to give a double can have it in their own
-package today, which is how the lattice question gets answered by
-usage rather than decided upfront.
+**This is no longer the argument for leaving semantics out of base.**
+An early version of this document used `mean.bytes` as the example of
+something a package would supply, from a prototype that was skittish
+about how much belonged in base at all.  Base owns it: `mean()` on a
+numeric kind is exact, accumulating at a width wider than the type and
+converting once (`R_bytesMean`, dispatched from `do_summary`'s mean
+switch), so it agrees with `sum(x)/length(x)` and answers even where
+`sum()` would overflow.  A per-element `as.numeric()` would have
+rounded every element above 2^53 before adding it.
+
+A package wanting different semantics layers its own class on top,
+which dispatches ahead of the type's own methods and leaves the vector
+working underneath:
+
+```r
+class(x) <- c("myint", class(x))   # c("myint", "uint64", "bytes")
+mean.myint <- function(x, ...) ...
+```
+
+That is also how the contested part of the lattice gets prototyped:
+someone who wants `x + 1` to give a double can have it in their own
+package today, and the question gets answered by usage rather than
+decided upfront.
 
 ## Element kinds
 
