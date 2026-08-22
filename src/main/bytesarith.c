@@ -707,7 +707,7 @@ SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call)
 		  R_bytesTypeName(x), R_bytesTypeNameOf(w, kind));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
     R_xlen_t nLost = 0, nReserved = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -796,7 +796,7 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 		  "bytes", R_typeToChar(x));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
     R_xlen_t nLost = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -862,7 +862,7 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 		  "bytes", R_typeToChar(x));
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
 
     for (R_xlen_t i = 0; i < n; i++) {
 	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
@@ -970,7 +970,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     R_xlen_t n = nx > ny ? nx : ny;
 
     bool hasNA = BYTEVEC_HAS_NA(x);
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, kx, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kx, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     /* Hoisted: the element macros re-read the payload pointer and the
@@ -1053,7 +1053,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = BYTEVEC_HAS_NA(x);
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, k, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, k, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     /* R_unary() hands the result straight back to do_arith, so the
@@ -1616,7 +1616,7 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
 	errorcall(call,
 		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 
-    SEXP ans = PROTECT(R_allocBytesVector(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
     setAttrib(ans, R_NamesSymbol, getAttrib(x, R_NamesSymbol));
 
     const Rbyte *bx = BYTEVEC_DATA_RO(x);	/* hoisted; see R_bytesArith */
@@ -1733,7 +1733,7 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 		break;
 	    }
 
-    SEXP ans = PROTECT(R_allocBytesVector(len, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(len, w, kind, hasNA ? TRUE : FALSE));
     bool first = true;
 
     /* Per result element: 0 once a representable candidate is in place,

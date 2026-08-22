@@ -354,7 +354,7 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	   allocVector(TYPEOF(s), n) cannot reproduce it. */
 	n = XLENGTH(s);
 	PROTECT(s);
-	PROTECT(t = R_allocVectorLike(s, n));
+	PROTECT(t = R_allocVectorLikeUninit(s, n));
 	/* R_bytesMemcpy() and not memcpy(): the chunking that the macro
 	   above carries for macOS is the other half of what this arm
 	   declines, and a payload here reaches 2^32 bytes soonest */

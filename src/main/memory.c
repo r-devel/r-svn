@@ -3014,8 +3014,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
    it cannot be called without saying what kind of one you want.  Code
    deriving a new vector from an existing one should still prefer
    R_allocVectorLike(), which copies all three from the original. */
-SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
-			Rboolean hasNA)
+static SEXP allocBytesVector(R_xlen_t length, int width, int kind,
+			     Rboolean hasNA, bool fill)
 {
     if (width < 1 || width > BYTEVEC_MAX_WIDTH)
 	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
@@ -3042,12 +3042,29 @@ SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
 
     /* zero-filled: these bytes are user-visible values, and leaving
        them undefined would make results depend on heap history */
-    if (length > 0)
+    if (fill && length > 0)
 	memset(BYTEVEC_DATA(val), 0, (size_t) length * width);
 
     UNPROTECT(1);
 
     return val;
+}
+
+SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
+			Rboolean hasNA)
+{
+    return allocBytesVector(length, width, kind, hasNA, true);
+}
+
+/* For internal callers about to write every element -- an arithmetic
+   or subset result, a duplicate's target -- where the fill above would
+   be paid only to be overwritten; x+y on 1e8 uint64s should not memset
+   800MB first.  allocVector() leaves atomics unfilled on the same
+   grounds.  The public allocator keeps its documented zero fill. */
+attribute_hidden SEXP R_allocBytesVectorUninit(R_xlen_t length, int width,
+					       int kind, Rboolean hasNA)
+{
+    return allocBytesVector(length, width, kind, hasNA, false);
 }
 
 /* For future hiding of allocVector(CHARSXP) */

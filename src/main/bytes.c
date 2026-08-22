@@ -357,7 +357,7 @@ SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
 
     R_xlen_t m = XLENGTH(a), n = unary ? m : XLENGTH(b);
     R_xlen_t mn = (m && n) ? (m > n ? m : n) : 0;
-    SEXP ans = PROTECT(R_allocBytesVector(mn, w, k, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(mn, w, k, hasNA ? TRUE : FALSE));
     R_xlen_t i, ia, ib, nOver = 0;
 
     MOD_ITERATE2(mn, m, n, i, ia, ib, {
@@ -489,6 +489,18 @@ SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
     if (TYPEOF(s) == BYTESXP)
 	return R_allocBytesVector(length, BYTEVEC_WIDTH(s), BYTEVEC_KIND(s),
 				  BYTEVEC_HAS_NA(s) ? TRUE : FALSE);
+
+    return allocVector(TYPEOF(s), length);
+}
+
+/* the no-fill R_allocVectorLike(), for callers that overwrite every
+   element; see R_allocBytesVectorUninit() */
+SEXP R_allocVectorLikeUninit(SEXP s, R_xlen_t length)
+{
+    if (TYPEOF(s) == BYTESXP)
+	return R_allocBytesVectorUninit(length, BYTEVEC_WIDTH(s),
+					BYTEVEC_KIND(s),
+					BYTEVEC_HAS_NA(s) ? TRUE : FALSE);
 
     return allocVector(TYPEOF(s), length);
 }
@@ -714,8 +726,8 @@ void R_bytesWarnReserved(SEXP val)
 static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
 {
     R_xlen_t n = XLENGTH(x);
-    SEXP val = PROTECT(R_allocBytesVector(n, width, kind,
-					  hasNA ? TRUE : FALSE));
+    SEXP val = PROTECT(R_allocBytesVectorUninit(n, width, kind,
+						hasNA ? TRUE : FALSE));
     R_xlen_t nBad = 0, nOver = 0, nReserved = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -809,8 +821,8 @@ SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 	error(_("length of 'x' (%lld) is not a multiple of 'width' (%d)"),
 	      (long long) nbytes, width);
 
-    SEXP val = PROTECT(R_allocBytesVector(nbytes / width, width, kind,
-					  hasNA ? TRUE : FALSE));
+    SEXP val = PROTECT(R_allocBytesVectorUninit(nbytes / width, width, kind,
+						hasNA ? TRUE : FALSE));
     if (nbytes > 0)
 	R_bytesMemcpy(BYTEVEC_DATA(val), RAW_RO(x), (size_t) nbytes);
 

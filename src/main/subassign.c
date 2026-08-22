@@ -272,7 +272,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
     if (newtruelen > R_LEN_T_MAX) newtruelen = newlen;
 */
     PROTECT(x);
-    PROTECT(newx = R_allocVectorLike(x, newtruelen));
+    PROTECT(newx = R_allocVectorLikeUninit(x, newtruelen));
 
     /* Copy the elements into place. */
     switch(TYPEOF(x)) {
