@@ -551,6 +551,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	case INTSXP:  return integer_mean(x);
 	case REALSXP: return real_mean(x);
 	case CPLXSXP: return complex_mean(x);
+	case BYTESXP: return R_bytesMean(call, x);
 	default:
 	    error(R_MSG_type, R_typeToChar(x));
 	    return R_NilValue; // -Wall on clang 4.2

@@ -1974,6 +1974,7 @@ attribute_hidden SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
 attribute_hidden SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
 attribute_hidden void R_bytesSummaryType(SEXP call, int iop, SEXP args,
 					 int *pkind, int *pw, int *phasNA);
+attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x);
 attribute_hidden SEXP R_bytesCum(SEXP call, int iop, SEXP x);
 attribute_hidden SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args,
 					    bool narm);

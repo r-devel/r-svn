@@ -1103,17 +1103,10 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
    a sticky bit, and the single conversion the hardware then does is
    correctly rounded.  Scaling back up by a power of 256 is exact, and
    overflows to Inf, which is what the caller warns about. */
-attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
+/* the top-eight-bytes-plus-sticky-bit conversion described above, on a
+   bare MSB-first magnitude; shared with the mean's wide accumulator */
+static double magAsReal(const Rbyte *A, int w)
 {
-    Rbyte A[BYTEVEC_MAX_WIDTH];
-    bool neg = false;
-
-    toMSB(A, p, w);
-    if (kind == BYTEVEC_INT && (A[0] & 0x80)) {
-	neg = true;
-	magNegate(A, w);
-    }
-
     int s = 0;			/* the first byte that carries a bit */
     while (s < w && A[s] == 0) s++;
     if (s == w) return 0.0;
@@ -1127,7 +1120,21 @@ attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
 	    if (A[i]) { hi |= 1; break; }	/* sticky */
     }
 
-    double d = (nb > 8) ? ldexp((double) hi, 8 * (nb - 8)) : (double) hi;
+    return (nb > 8) ? ldexp((double) hi, 8 * (nb - 8)) : (double) hi;
+}
+
+attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
+{
+    Rbyte A[BYTEVEC_MAX_WIDTH];
+    bool neg = false;
+
+    toMSB(A, p, w);
+    if (kind == BYTEVEC_INT && (A[0] & 0x80)) {
+	neg = true;
+	magNegate(A, w);
+    }
+
+    double d = magAsReal(A, w);
 
     return neg ? -d : d;
 }
@@ -1536,6 +1543,48 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
     UNPROTECT(1);
 
     return ans;
+}
+
+/* mean(), behind do_summary's mean switch and so behind mean.bytes.
+   The sum is accumulated exactly in the wide form sum() uses, converted
+   to double once and divided once, so mean(x) agrees with
+   sum(x) / length(x) wherever that sum is representable -- and, the
+   accumulator being wider than the type, still answers where sum()
+   would overflow, as the integer mean does.  Rounding each element
+   first, as mean.default(as.numeric(x)) did, loses up to a digit per
+   element above 2^53. */
+attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x)
+{
+    int w = BYTEVEC_WIDTH(x), kind = BYTEVEC_KIND(x);
+
+    if (kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"),
+		  "mean");
+    if (!arithWidthOK(w))
+	errorcall(call,
+		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+
+    R_xlen_t n = XLENGTH(x);
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    Rbyte sumMag[MAXW + 8] = {0};
+    bool sumNeg = false;
+    const Rbyte *bx = BYTEVEC_DATA_RO(x);	/* hoisted; see R_bytesArith */
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = bx + i * w;
+
+	if (hasNA && eltIsNA(p, w, kind))
+	    return ScalarReal(NA_REAL);
+
+	Rbyte m[MAXW];
+	bool neg = magFromElt(m, p, w, kind);
+	wideSumAdd(sumMag, &sumNeg, m, neg, w);
+    }
+
+    double s = magAsReal(sumMag, w + 8);
+
+    /* 0/0 for an empty vector: NaN, as mean(integer(0)) is */
+    return ScalarReal((sumNeg ? -s : s) / (double) n);
 }
 /* ---- cumsum / cumprod / cummax / cummin ---- */
 
