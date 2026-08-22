@@ -2472,7 +2472,13 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     R_InitConnOutPStream(&out, con, type, version, NULL, NULL);
 
     R_Serialize(s, &out);
-    if (!wasopen) con->close(con);
+    if (!wasopen) {
+	/* drop the cleanup context before closing, as
+	   do_serializeToConn() does: leaving it registered points
+	   R_GlobalContext into this frame after it has returned */
+	endcontext(&cntxt);
+	con->close(con);
+    }
     UNPROTECT(1);
     return R_NilValue;
 }
