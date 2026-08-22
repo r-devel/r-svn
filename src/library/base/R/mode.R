@@ -61,7 +61,7 @@ mode <- function(x) {
     ## pick a width silently.  Only the value is tested: converting a
     ## 'bytes' vector to some other mode is as.numeric()'s business,
     ## like any other.
-    if(value == "bytes" || grepl("^(u?int[0-9]+|bytes[0-9]+)$", value)) {
+    if(value == "bytes" || .isBytesTypeName(value)) {
 	storage.mode(x) <- value
 	return(x)
     }

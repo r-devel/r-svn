@@ -287,7 +287,7 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
     if(!(is.character(what) && length(what) == 1L && !is.na(what) &&
          (what %in% c("numeric", "double", "integer", "int", "logical",
                       "complex", "character", "raw") ||
-          grepl("^(u?int[0-9]+|bytes[0-9]+)$", what)))) {
+          .isBytesTypeName(what)))) {
         if(!is.bytes(what))
             what <- typeof(what)
     }

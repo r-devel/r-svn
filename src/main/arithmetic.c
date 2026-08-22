@@ -541,37 +541,29 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
        itself is deferred to the dispatch below so that dim, dimnames,
        names and tsp are carried over as they are for every other
        type. */
-    bool bytes = false;
-    if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
-	if (oper == DIVOP || oper == POWOP) {
-	    /* Only the 'bytes' operand is coerced; the other one goes
-	       through the ordinary check, or a string operand would become
-	       a silent NA where every other type gives an error.  That
-	       check comes first so that an operation about to be rejected
-	       does not also warn about precision on its way out. */
-	    if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-	    if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
-	    if (TYPEOF(x) == BYTESXP)
-		REPROTECT(x = coerceVector(x, REALSXP), xpi);
-	    if (TYPEOF(y) == BYTESXP)
-		REPROTECT(y = coerceVector(y, REALSXP), ypi);
-	}
-	else {
-	    /* FIXUP_NULL_AND_CHECK_TYPES applies whole to the operand
-	       that is not 'bytes'.  Its type gate matters as much as its
-	       NULL fixup: the recycling code below takes XLENGTH() of
-	       both operands, and on a closure or a builtin that reads a
-	       field the node does not have.  Which numeric types combine
-	       with this one is still R_bytesNarrow()'s to say. */
-	    if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-	    if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
-	    bytes = true;
-	}
-    }
+    bool bytes = (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP);
 
-    if (!bytes) {
-	FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-	FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+    /* FIXUP_NULL_AND_CHECK_TYPES applies whole to an operand that is
+       not 'bytes'.  Its type gate matters as much as its NULL fixup:
+       the recycling code below takes XLENGTH() of both operands, and
+       on a closure or a builtin that reads a field the node does not
+       have.  Which numeric types combine with a 'bytes' operand is
+       still R_bytesNarrow()'s to say, so the 'bytes' one is left
+       alone -- and the other is checked first, so that an operation
+       about to be rejected does not also warn about precision on its
+       way out. */
+    if (TYPEOF(x) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+    if (TYPEOF(y) != BYTESXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+
+    if (bytes && (oper == DIVOP || oper == POWOP)) {
+	/* these two are explicitly double-producing, as they are for
+	   integer, so the 'bytes' operand coerces and the ordinary path
+	   takes it from there */
+	if (TYPEOF(x) == BYTESXP)
+	    REPROTECT(x = coerceVector(x, REALSXP), xpi);
+	if (TYPEOF(y) == BYTESXP)
+	    REPROTECT(y = coerceVector(y, REALSXP), ypi);
+	bytes = false;
     }
 
     R_xlen_t

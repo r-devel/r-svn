@@ -53,3 +53,11 @@ bytesKind <- function(x) .Internal(bytesKind(x))
 bytesWidth <- function(x) .Internal(bytesWidth(x))
 
 is.bytes <- function(x) .Internal(is.bytes(x))
+
+## Does this name spell a 'bytes' type -- "int64", "uint128", "bytes16"?
+## The grammar itself lives in R_bytesTypeFromName() (src/main/bytes.c),
+## which every consumer re-validates against; this is the cheap R-level
+## screen readBin() and `mode<-` need before handing a name over, and it
+## is here rather than in both of them so the two cannot drift.
+.isBytesTypeName <- function(s)
+    grepl("^(u?int[0-9]+|bytes[0-9]+)$", s)

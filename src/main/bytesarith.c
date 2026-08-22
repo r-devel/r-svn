@@ -604,6 +604,18 @@ static bool eltIsZero(const Rbyte *p, int w)
    flips. */
 static bool eltNeg(Rbyte *out, const Rbyte *a, int w, int kind, bool hasNA)
 {
+    /* 0 - v overflows at every nonzero value of an unsigned element.
+       The native body reports that; the general path below would store
+       the wrapped magnitude instead, since storeResult() does not ask
+       about the sign for this kind.  R_bytesUnary() refuses unsigned
+       before reaching either, but the two kernels are checked against
+       each other and must agree without relying on that. */
+    if (kind == BYTEVEC_UINT) {
+	if (!eltIsZero(a, w)) return false;
+	memset(out, 0, (size_t) w);	/* -0 is 0, and never the reserved value */
+	return true;
+    }
+
     BYTES_NATIVE(BYTES_NEG_BODY, w, kind);
 
     Rbyte A[MAXW];
@@ -1027,12 +1039,16 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 
     if (k == BYTEVEC_OPAQUE)
 	errorcall(call, _("arithmetic is not defined for opaque 'bytes' vectors"));
-    if (oper == PLUSOP) return x;
-    if (oper != MINUSOP)
+    if (oper != PLUSOP && oper != MINUSOP)
 	errorcall(call, _("invalid argument to unary operator"));
+
+    /* the width gate applies to '+' as much as to '-': the two must
+       agree about which types arithmetic is defined for, or +x becomes
+       a compatibility probe that answers wrongly */
+    checkArithWidth(call, w);
+    if (oper == PLUSOP) return x;
     if (k == BYTEVEC_UINT)
 	errorcall(call, _("unary minus is not defined for unsigned 'bytes' vectors"));
-    checkArithWidth(call, w);
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = BYTEVEC_HAS_NA(x);

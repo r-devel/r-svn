@@ -829,8 +829,9 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* A 'bytes' mode names its width and kind -- "int64", "uint128",
        "bytes16" -- because those are per-vector properties that a
-       SEXPTYPE cannot carry.  Checked before str2type() so that plain
-       "bytes", which has no width, still reaches the error below. */
+       SEXPTYPE cannot carry.  Checked before str2type(), which knows
+       only the coarse name "bytes"; that one is answered with the
+       family's default further down. */
     int bwidth, bkind;
     if (R_bytesTypeFromName(modestr, &bwidth, &bkind))
 	return R_allocBytesVector(len, bwidth, bkind, TRUE);
