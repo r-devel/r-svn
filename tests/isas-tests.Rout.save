@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2024-02-16 r85931) -- "Unsuffered Consequences"
-Copyright (C) 2024 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu
+R Under development (unstable) (2026-06-22 r88888) -- "Unsuffered Consequences"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin25.5.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -28,6 +28,9 @@ Type 'q()' to quit R.
 >  x <- integer(0)
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
+[1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 [1] TRUE
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
@@ -106,6 +109,11 @@ Type 'q()' to quit R.
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
+[1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.call( x ), silent = TRUE)
@@ -247,6 +255,9 @@ IS: [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
+[1] TRUE
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 > f <- try(as.character( x ), silent = TRUE)
@@ -347,6 +358,8 @@ In as.dist.default(x) : non-square matrix
 >  x <- NULL
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 > res <- try(as.character( x ), silent = TRUE)
@@ -424,6 +437,10 @@ Calls: report -> stopifnot
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
@@ -563,6 +580,8 @@ Calls: report -> stopifnot
 [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 > f <- try(as.character( x ), silent = TRUE)
@@ -658,6 +677,8 @@ Calls: report -> stopifnot
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 > res <- try(as.character( x ), silent = TRUE)
@@ -737,6 +758,10 @@ Calls: report -> stopifnot
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.call(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -873,6 +898,8 @@ IS: [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 > f <- try(as.character( x ), silent = TRUE)
@@ -972,6 +999,8 @@ In as.dist.default(x) : non-square matrix
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 > res <- try(as.character( x ), silent = TRUE)
@@ -1053,6 +1082,10 @@ In as.dist.default(x) : non-square matrix
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.call(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1194,6 +1227,8 @@ IS: [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 > f <- try(as.character( x ), silent = TRUE)
@@ -1295,6 +1330,8 @@ IS: [1] TRUE
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 > res <- try(as.character( x ), silent = TRUE)
@@ -1376,6 +1413,10 @@ IS: [1] TRUE
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.call(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1517,6 +1558,8 @@ IS: [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 > f <- try(as.character( x ), silent = TRUE)
@@ -1616,6 +1659,11 @@ IS: [1] TRUE
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+Warning message:
+In as.bytes(x) : NAs introduced by coercion
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
+[1] TRUE
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 > res <- try(as.character( x ), silent = TRUE)
@@ -1695,6 +1743,13 @@ IS: [1] TRUE
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
+[1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+Warning message:
+In as.bytes(x) : NAs introduced by coercion
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
 > res <- try(as.call( x ), silent = TRUE)
@@ -1834,6 +1889,11 @@ IS: [1] TRUE
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXlt( f )))
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
+[1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+Warning message:
+In as.bytes(x) : NAs introduced by coercion
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 [1] TRUE
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
@@ -1935,6 +1995,8 @@ IS: [1] TRUE
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 [1] TRUE
@@ -2015,6 +2077,10 @@ IS: [1] TRUE
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 [1] TRUE
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.call(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -2152,6 +2218,8 @@ IS: [1] TRUE
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
 [1] TRUE
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 [1] TRUE
@@ -2249,6 +2317,8 @@ IS: [1] TRUE
 >  x <- as.data.frame(character(0))
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.array(res))
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error')) report(is.bytes(res))
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.call(res))
 [1] TRUE
@@ -2327,6 +2397,10 @@ In doTryCatch(return(expr), name, parentenv, handler) :
 > res <- try(as.array( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.array(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
++    } else   !isall.equal(x, res)})
+> res <- try(as.bytes( x ), silent = TRUE)
+> if(!inherits(res, 'try-error'))
++    report({if(is.bytes(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
 > res <- try(as.call( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
@@ -2467,6 +2541,8 @@ In doTryCatch(return(expr), name, parentenv, handler) :
 >   if(!inherits(f, 'try-error')) report(identical(f, as.POSIXlt( f )))
 > f <- try(as.array( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.array( f )))
+> f <- try(as.bytes( x ), silent = TRUE)
+>   if(!inherits(f, 'try-error')) report(identical(f, as.bytes( f )))
 > f <- try(as.call( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.call( f )))
 [1] TRUE
@@ -2563,6 +2639,6 @@ In as.dist.default(x) : non-square matrix
 > f <- try(as.ts( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.ts( f )))
 > cat('Time elapsed: ', proc.time() - .proctime00,'\n')
-Time elapsed:  0.093 0.02 0.114 0 0 
+Time elapsed:  0.033 0.01 0.043 0 0 
 > 
 > 
