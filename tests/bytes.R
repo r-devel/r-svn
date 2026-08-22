@@ -370,7 +370,8 @@ unlink(f)
 ### vector(), storage.mode<- and mode<-
 
 stopifnot(identical(vector("uint64", 2L), bytes(2L, 8L, "unsigned")),
-	  identical(as.vector(u, "int64"), as.bytes(c("1","2","3"), 8L, "signed")))
+	  identical(as.vector(u, "int64"), as.bytes(c("1","2","3"), 8L, "signed")),
+	  !bytesHasNA(vector(nn, 2L)))
 
 x <- 1:3
 storage.mode(x) <- "uint64"
@@ -596,6 +597,10 @@ y <- x; mode(y) <- mode(y)
 stopifnot(identical(x, y))
 y <- x; class(y) <- class(y)
 stopifnot(identical(x, y), !is.object(y), is.null(attributes(y)))
+## The two-element implicit class belongs only to opaque bytes vectors.
+## For numeric vectors it is an explicit class the caller means to keep.
+y <- x; class(y) <- c(class(y), "bytes")
+stopifnot(identical(class(y), c("uint64", "bytes")), is.object(y))
 y <- matrix(x[1:4 %% 3 + 1], 2, 2); z <- y; class(z) <- class(z)
 stopifnot(identical(y, z))
 ## and mode<- still converts away from the type by the ordinary route

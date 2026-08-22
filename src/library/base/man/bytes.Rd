@@ -115,13 +115,14 @@ bytesRaw(x)
   miss, arithmetic overflow -- raises an error instead.  Whether a
   sentinel is reserved is part of the type, as the kind and the width
   are, so vectors that disagree about it cannot be combined or compared.
-  \code{\link{typeof}} names the width and the kind but not the
-  sentinel, so a type name is not quite the whole type: interfaces that
-  need all three, such as \code{\link{readBin}}, \code{\link{scan}}
-  and \code{\link{vector}}, accept an existing vector in place of a
-  name.  That is what lets the \code{vector(typeof(x), n)} idiom behind
-  \code{\link{tapply}}, \code{\link{apply}} and \code{\link{diag}}
-  reproduce a vector created with \code{na = FALSE}.
+  A storage-mode name identifies the width and kind but not the
+  sentinel, so it is not quite the whole type.  Interfaces that need
+  all three, such as \code{\link{readBin}}, \code{\link{scan}} and
+  \code{\link{vector}}, accept an existing vector as a prototype.
+  Thus \code{vector(x, n)} reproduces a vector created with
+  \code{na = FALSE}; \code{vector(storage.mode(x), n)} uses the same
+  width and kind with the default sentinel policy.  The incomplete
+  structural name \code{vector("bytes", n)} is an error.
 
   There is no literal for a missing \code{bytes} value, since the
   sentinel's bit pattern depends on the width and the kind:
