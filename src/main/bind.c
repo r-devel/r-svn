@@ -1416,16 +1416,12 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    if (mode == BYTESXP) {
-	/* allocMatrix cannot carry a per-vector width, so build the vector
-	   and set dim; the width and kind are the ones AnswerType already
-	   agreed across the arguments */
-	PROTECT(result = BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols));
-	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
-	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
-	setAttrib(result, R_DimSymbol, bdim);
-	UNPROTECT(1); /* bdim */
-    }
+    if (mode == BYTESXP)
+	/* allocMatrix cannot carry a per-vector width; the width and kind
+	   are the ones AnswerType already agreed across the arguments */
+	PROTECT(result = R_bytesShapeMatrix(
+		    BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols),
+		    rows, cols));
     else
 	PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
@@ -1728,16 +1724,12 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    if (mode == BYTESXP) {
-	/* allocMatrix cannot carry a per-vector width, so build the vector
-	   and set dim; the width and kind are the ones AnswerType already
-	   agreed across the arguments */
-	PROTECT(result = BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols));
-	SEXP bdim = PROTECT(allocVector(INTSXP, 2));
-	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
-	setAttrib(result, R_DimSymbol, bdim);
-	UNPROTECT(1); /* bdim */
-    }
+    if (mode == BYTESXP)
+	/* allocMatrix cannot carry a per-vector width; the width and kind
+	   are the ones AnswerType already agreed across the arguments */
+	PROTECT(result = R_bytesShapeMatrix(
+		    BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols),
+		    rows, cols));
     else
 	PROTECT(result = allocMatrix(mode, rows, cols));
 

@@ -493,6 +493,35 @@ SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
     return allocVector(TYPEOF(s), length);
 }
 
+/* The 'bytes' half of allocMatrix(): that allocator cannot carry a
+   per-vector width either, so the matrix sites build the vector first
+   and shape it here -- one place for the dim dance.  Returns x. */
+SEXP R_bytesShapeMatrix(SEXP x, int nrow, int ncol)
+{
+    PROTECT(x);
+    SEXP dim = PROTECT(allocVector(INTSXP, 2));
+    INTEGER(dim)[0] = nrow;
+    INTEGER(dim)[1] = ncol;
+    setAttrib(x, R_DimSymbol, dim);
+    UNPROTECT(2);
+
+    return x;
+}
+
+/* allocMatrix() for a result like s -- the matrix counterpart of
+   R_allocVectorLike(), extent guard included */
+SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol)
+{
+    if (TYPEOF(s) != BYTESXP)
+	return allocMatrix(TYPEOF(s), nrow, ncol);
+
+    if ((double) nrow * ncol > R_XLEN_T_MAX)
+	error(_("too many elements specified"));
+
+    return R_bytesShapeMatrix(R_allocVectorLike(s, (R_xlen_t) nrow * ncol),
+			      nrow, ncol);
+}
+
 /* The rest of this section is the package-facing API declared in
    Rinternals.h.  R's own code uses the BYTEVEC_* accessors directly;
    these check the type first, as INTEGER() and RAW() do, because a

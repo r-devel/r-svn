@@ -172,16 +172,9 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
-    if (TYPEOF(vals) == BYTESXP) {
-	/* allocMatrix cannot carry a per-vector width */
-	PROTECT(ans = R_allocVectorLike(vals, (R_xlen_t) nr * nc));
-	SEXP mdim = PROTECT(allocVector(INTSXP, 2));
-	INTEGER(mdim)[0] = nr; INTEGER(mdim)[1] = nc;
-	setAttrib(ans, R_DimSymbol, mdim);
-	UNPROTECT(1); /* mdim */
-    }
-    else
-	PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
+    /* R_allocMatrixLike: allocMatrix cannot carry a per-vector 'bytes'
+       width; for every other type it is allocMatrix itself */
+    PROTECT(ans = R_allocMatrixLike(vals, nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
     else { /* fill with NAs */
@@ -2401,11 +2394,7 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
    {
        /* allocMatrix cannot carry a per-vector width, and mk_DIAG
 	  indexes elements by type, so this arm spells both out */
-       PROTECT(ans = R_allocVectorLike(x, NR * nc));
-       SEXP mdim = PROTECT(allocVector(INTSXP, 2));
-       INTEGER(mdim)[0] = nr; INTEGER(mdim)[1] = nc;
-       setAttrib(ans, R_DimSymbol, mdim);
-       UNPROTECT(1); /* mdim */
+       PROTECT(ans = R_allocMatrixLike(x, nr, nc));
 
        size_t w = (size_t) BYTEVEC_WIDTH(x);
        if (NR * nc)
