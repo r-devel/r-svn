@@ -57,8 +57,12 @@ ok("width 0 rejected",           inherits(tryCatch(bytes(1L, 0L), error = identi
 ok("width 256 rejected",         inherits(tryCatch(bytes(1L, 256L), error = identity), "error"))
 ok("non-multiple length rejected",
                                  inherits(tryCatch(as.bytes(as.raw(1:5), 2L), error = identity), "error"))
-ok("allocVector(BYTESXP) refused",
-                                 inherits(tryCatch(.Internal(vector("bytes", 3L)), error = identity), "error"))
+## allocVector(BYTESXP, n) itself is refused -- it cannot know the
+## width -- but the "bytes" *mode* name is answered with the family's
+## default, as "numeric" is; see vector() below and ?vector
+ok("mode \"bytes\" gets the default", { v <- .Internal(vector("bytes", 3L))
+                                   is.bytes(v) && bytesWidth(v) == 1L &&
+                                   bytesKind(v) == "opaque" })
 
 cat("\n== D. duplication, attributes, identity ==\n")
 d <- x; attr(d, "k") <- 1L
@@ -343,8 +347,11 @@ ok("unary minus on unsigned errors",
                                  inherits(tryCatch(-a, error = identity), "error"))
 ok("/ yields double",            identical(a[3] / a[2], 1.5))
 ok("^ yields double",            identical(a[2] ^ a[3], 8))
-ok("promotion to max(width)",    { r <- mk("unsigned", 4L, "00000007") + a[3]
-                                   bytesWidth(r) == 8L && as.character(r) == "10" })
+## the width is part of the type, so arithmetic refuses a pair that
+## disagrees rather than promoting -- the rule c(), ==, match() and
+## subassignment all hold to; see bytesBinaryOperands()
+ok("no promotion across widths",  inherits(tryCatch(mk("unsigned", 4L, "00000007") + a[3],
+                                                    error = identity), "error"))
 ok("result keeps the kind",      identical(bytesKind(a + a), "unsigned"))
 ok("NA propagates",              is.na(a[1] + as.bytes(NA, 8L, "unsigned")))
 ok("unsigned overflow -> NA",    { r <- suppressWarnings(mk("unsigned",8L,"fffffffffffffff0") +
@@ -1098,7 +1105,8 @@ ok("an unknown class still errs",inherits(tryCatch(utils::read.csv(tc, colClasse
 ## the mode names, which is how read.table builds the prototype
 ok("vector() takes a bytes mode",identical(typeof(vector("uint128", 3L)), "uint128"))
 ok("and zero-fills",             identical(as.character(vector("int64", 2L)), c("0", "0")))
-probe("vector(\"bytes\") needs a width", vector("bytes", 1L))
+ok("vector(\"bytes\") takes the default", { v <- vector("bytes", 1L)
+                                   is.bytes(v) && bytesWidth(v) == 1L })
 probe("vector(\"int65\")",         vector("int65", 1L))
 ok("as.vector() parses text",    identical(as.character(as.vector("9223372036854775807", "int64")),
                                            "9223372036854775807"))
