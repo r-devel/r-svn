@@ -1184,10 +1184,15 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    /* R_MissingArg: which positions the assignment reaches is spread
-       over the two subscripts, so SubassignTypeFix() must not assume
-       anything is covered; see assignLeavesGap() */
-    which = SubassignTypeFix(&x, &y, 0, R_MissingArg, 1, call, rho);
+    /* Which positions the assignment reaches is spread over the two
+       subscripts, so R_MissingArg tells SubassignTypeFix() not to
+       assume anything is covered -- except when a subscript is empty,
+       which says precisely that nothing is: the zero-length 'bytes'
+       escape (see case 2610 there) must apply to m[integer(0), ] <- NA
+       as it does to the vector form. */
+    which = SubassignTypeFix(&x, &y, 0,
+			     n == 0 ? (nrs == 0 ? sr : sc) : R_MissingArg,
+			     1, call, rho);
     if (n == 0) return x;
 
     PROTECT(x);
@@ -1438,8 +1443,18 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* a form which can accept elements from the RHS. */
 
     /* R_MissingArg as in MatrixAssign(): coverage is spread over the
-       dimension subscripts */
-    int which = SubassignTypeFix(&x, &y, 0, R_MissingArg, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
+       dimension subscripts -- but an empty subscript covers nothing at
+       all, and the zero-length 'bytes' escape has to see that */
+    SEXP assigned = R_MissingArg;
+    if (n == 0) {
+	tmp = s;
+	for (int i = 0; i < k; i++, tmp = CDR(tmp))
+	    if (bound[i] == 0) {
+		assigned = CAR(tmp);
+		break;
+	    }
+    }
+    int which = SubassignTypeFix(&x, &y, 0, assigned, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
 
     if (n == 0) {
 	UNPROTECT(1);
