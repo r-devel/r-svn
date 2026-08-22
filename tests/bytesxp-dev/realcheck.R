@@ -20,7 +20,11 @@ big <- function(n, digits) vapply(seq_len(n), function(i)
 hexd <- function(d) vapply(d, function(z)
     paste(sprintf("%02x", as.integer(writeBin(z, raw(), endian = "little"))),
           collapse = ""), "")
-PY <- "import sys, struct\nfor l in sys.stdin.read().split():\n    print(struct.pack('<d', float(int(l))).hex())"
+PY <- r"---(
+import sys, struct
+for l in sys.stdin.read().split():
+    print(struct.pack('<d', float(int(l))).hex())
+)---"
 
 total <- 0L; bad <- 0L
 for (spec in list(list(8L, "unsigned", 19), list(8L, "signed", 18),
