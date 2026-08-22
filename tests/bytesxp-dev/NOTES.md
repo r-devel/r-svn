@@ -1194,13 +1194,26 @@ too.  (`tests/bytes.R` is a `test-src-reg` file and runs under plain
 `make check`; `tests/bytes-ffi` has `test-BytesFFI`, also in
 `all-devel-tests`.)
 
-Five of the seven ask python3 for a reference computed OUTSIDE R --
-pcheck, archeck, realcheck, xcheck, rxcheck -- which is the whole
-point of them: a mistake and its mirror image would agree with each
-other, and Python's integers are exact at every width here where R has
-nothing to compare a 128-bit value against.  Without python3 those five
-are skipped with a note and the target still passes.  gauntlet and
-endcheck are pure R and always run.
+Five of the seven -- pcheck, archeck, realcheck, xcheck, rxcheck --
+check against a reference computed a DIFFERENT WAY rather than against
+R itself, which is the whole point of them: a mistake and its mirror
+image would agree with each other, and R has no arbitrary-precision
+integer type to compare a 128-bit value against.
+
+`bignum.R` supplies that reference: exact integer arithmetic over
+DECIMAL digit vectors, schoolbook base 10, plus a correctly-rounded
+integer-to-double written from the IEEE rule.  It shares nothing with
+the implementation, which works in binary bytes with native ordering,
+MSB-first scratch buffers and native C integer types -- so a bug in one
+has no way to be the same bug in the other.  It checks itself first:
+`bnSelfTest()` runs at the top of each script, validating every
+operation against R's own arithmetic wherever a double is exact, then
+the big-value identities and the rounding boundaries.  A reference
+nobody has checked is worth nothing.
+
+These used to ask python3 for that reference, which put an external
+interpreter in the way of running R's own tests.  Nothing here needs
+anything outside R now.
 
 What the simulation CANNOT cover, by construction: the native kernels.
 They `memcpy` an element's bytes into a C integer of the same width,

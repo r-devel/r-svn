@@ -1,4 +1,4 @@
-## The byte radix sort, against Python.
+## The byte radix sort, against an ordering computed independently.
 ##
 ## sort() and order() take an LSD counting sort for the numeric kinds
 ## and, since the opaque kind's lexicographic order is exactly what a
@@ -13,74 +13,52 @@
 ## tiebreak that R gives.  Getting that backwards is invisible without
 ## ties, so it is checked separately.
 ##
-## Self-contained -- it generates its own reference with python3:
-##   build/bin/Rscript tests/bytesxp-dev/rxcheck.R
+## The reference ordering comes from bignum.R's decimal sort key for the
+## numeric kinds, and from the byte strings themselves for the opaque
+## kind -- neither shares anything with the radix under test.
 ##
-## The payload is written in the machine's own byte order, so this is
-## correct on a big-endian machine too.
+## Self-contained, no external tools:
+##   build/bin/Rscript tests/bytesxp-dev/rxcheck.R
 
-REF <- tempfile(fileext = ".tsv")
-PY <- r"---(
-import random, sys
-random.seed(23)
-rows = []
-combos = [(8,"unsigned"), (8,"signed"), (16,"signed"), (4,"unsigned"),
-          (1,"signed"), (2,"unsigned"), (16,"opaque"), (5,"opaque")]
-N = 400
-for w, kind in combos:
-    bits = 8 * w
-    if kind == "opaque":
-        # byte strings, ordered lexicographically; a small pool of them
-        pool = [bytes(random.randrange(256) for _ in range(w))
-                for _ in range(max(4, N // 40))]
-        vals = [random.choice(pool) for _ in range(N)]
-        if any(v == b"\xff" * w for v in vals):      # the reserved NA
-            vals = [v for v in vals if v != b"\xff" * w]
-        keys = list(vals)                            # compare as bytes
-        payload = b"".join(vals)
-    else:
-        if kind == "unsigned":
-            lo, hi = 0, 2**bits - 1
-        else:
-            lo, hi = -(2**(bits-1)), 2**(bits-1) - 1
-        reserved = hi if kind == "unsigned" else lo
-        pool = [v for v in
-                (random.randint(lo, hi) for _ in range(max(4, N // 40)))
-                if v != reserved]
-        if not pool: pool = [0]
-        vals = [random.choice(pool) for _ in range(N)]
-        keys = list(vals)                            # compare by value
-        payload = b"".join(v.to_bytes(w, sys.byteorder,
-                                      signed = (kind == "signed"))
-                           for v in vals)
-    n = len(keys)
-    # R's order(): ties keep ascending index, in BOTH directions
-    asc  = sorted(range(n), key = lambda i: (keys[i], i))
-    desc = sorted(range(n), key = lambda i: i)
-    desc = sorted(desc, key = lambda i: keys[i], reverse = True)
-    rows.append("\t".join([
-        "%d,%s" % (w, kind),
-        payload.hex(),
-        ",".join(str(i + 1) for i in asc),
-        ",".join(str(i + 1) for i in desc)]))
-open(sys.argv[1], "w").write("\n".join(rows) + "\n")
-)---"
-system2("python3", c("-c", shQuote(PY), shQuote(REF)))
+.bytesxpDir <- local({
+    a <- commandArgs(FALSE)
+    hit <- startsWith(a, "--file=")
+    f <- if (any(hit)) sub("^--file=", "", a[hit][1L])
+         else { i <- match("-f", a, nomatch = 0L); if (i) a[i + 1L] else "" }
+    if (nzchar(f)) dirname(f) else "."
+})
+source(file.path(.bytesxpDir, "bignum.R"))
+bnSelfTest()
 
+set.seed(23)
 fails <- 0L
 chk <- function(l, c) { if (!isTRUE(c)) fails <<- fails + 1L
                         cat(sprintf("%-38s %s\n", l, if (isTRUE(c)) "ok" else "FAIL")) }
+N <- 400L
 
-for (line in readLines(REF)) {
-    f <- strsplit(line, "\t", fixed = TRUE)[[1L]]
-    w <- as.integer(sub(",.*", "", f[1L])); k <- sub(".*,", "", f[1L])
-    hex <- f[2L]
-    asc  <- as.integer(strsplit(f[3L], ",", fixed = TRUE)[[1L]])
-    desc <- as.integer(strsplit(f[4L], ",", fixed = TRUE)[[1L]])
+for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
+                  list(4L, "unsigned"), list(1L, "signed"), list(2L, "unsigned"),
+                  list(16L, "opaque"), list(5L, "opaque"))) {
+    w <- spec[[1L]]; k <- spec[[2L]]
 
-    raw <- as.raw(strtoi(substring(hex, seq(1, nchar(hex) - 1, 2),
-                                   seq(2, nchar(hex), 2)), 16L))
-    x <- as.bytes(raw, w, k)
+    if (k == "opaque") {
+        ## byte strings, ordered lexicographically; a small pool of them
+        pool <- replicate(10L, paste(sprintf("%02x", sample(0:255, w, TRUE)),
+                                     collapse = ""))
+        pool <- pool[pool != strrep("ff", w)]     # the reserved NA pattern
+        txt <- sample(pool, N, replace = TRUE)
+        key <- txt                                # hex compares as bytes do
+        x <- as.bytes(txt, w, k)
+    } else {
+        pool <- bnRandomValues(w, k, 10L)
+        txt <- sample(pool, N, replace = TRUE)
+        key <- bnKey(txt)
+        x <- as.bytes(txt, w, k)
+    }
+
+    ## R's order(): ties keep ascending index, in BOTH directions
+    asc  <- order(key)
+    desc <- order(key, decreasing = TRUE)
 
     cat(sprintf("\n-- width %d, %s, n = %d, heavy ties --\n", w, k, length(x)))
     chk("order ascending (stable ties)",  identical(order(x), asc))
@@ -89,6 +67,7 @@ for (line in readLines(REF)) {
     chk("sort decreasing matches order",  identical(sort(x, decreasing = TRUE), x[desc]))
     chk("sorted really is sorted",        !is.unsorted(sort(x)))
     chk("ties really are present",        length(unique(x)) < length(x))
+    chk("sorted text agrees",             identical(as.character(sort(x)), txt[asc]))
     ## NAs must still land per na.last, on both sides
     half <- length(x) %/% 2L
     xn <- c(x[seq_len(half)], rep(as.bytes(NA, w, k), 3L),

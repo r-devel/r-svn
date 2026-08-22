@@ -1,122 +1,105 @@
-## Arithmetic checked against Python's exact integers.
+## Arithmetic checked against exact integers computed independently of
+## the implementation.
 ##
 ## This is the oracle for the arithmetic kernels: every operation, at
 ## every width and kind, on operand pairs weighted to the range edges so
 ## that overflow is hit hard, and to magnitudes that put a product just
-## either side of the boundary.  Python's // and % are already floor
-## division and divisor-signed modulo, which is what R's %/% and %% mean
-## for integers and therefore what these mean too.
+## either side of the boundary.  bignum.R's bnDivMod() is floor division
+## with a divisor-signed modulo, which is what R's %/% and %% mean for
+## integers and therefore what these mean too.
 ##
-## Self-contained -- it generates its own reference with python3:
+## Self-contained, no external tools:
 ##   build/bin/Rscript tests/bytesxp-dev/archeck.R
 
-REF <- tempfile(fileext = ".tsv")
-PY <- r"---(
-import random, sys
-random.seed(23)
+.bytesxpDir <- local({
+    a <- commandArgs(FALSE)
+    hit <- startsWith(a, "--file=")
+    f <- if (any(hit)) sub("^--file=", "", a[hit][1L])
+         else { i <- match("-f", a, nomatch = 0L); if (i) a[i + 1L] else "" }
+    if (nzchar(f)) dirname(f) else "."
+})
+source(file.path(.bytesxpDir, "bignum.R"))
+bnSelfTest()
 
-COMBOS = [(1,"signed"),(1,"unsigned"),(2,"unsigned"),(4,"signed"),
-          (8,"unsigned"),(8,"signed"),(16,"unsigned"),(16,"signed")]
-
-def limits(w, kind):
-    bits = 8 * w
-    if kind == "unsigned":
-        lo, hi = 0, 2**bits - 1
-        reserved = hi                      # all bits set
-    else:
-        lo, hi = -(2**(bits-1)), 2**(bits-1) - 1
-        reserved = lo                      # the most negative value
-    return lo, hi, reserved
-
-def mag(k):
-    return 0 if k == 0 else (1 << (k - 1)) | random.getrandbits(k - 1)
-
-def draw(lo, hi, k=None):
-    if k is not None:                      # a magnitude of exactly k bits
-        v = mag(k)
-        return -v if lo < 0 and random.random() < .5 else v
-    r = random.random()
-    if r < .25:   return random.randint(lo, min(hi, lo + 3))
-    if r < .50:   return random.randint(max(lo, hi - 3), hi)
-    if r < .60:   return 0
-    if r < .70:   return random.choice([1, -1] if lo < 0 else [1])
-    return random.randint(lo, hi)
-
-rows = []
-for w, kind in COMBOS:
-    lo, hi, reserved = limits(w, kind)
-
-    def fits(v):
-        # a result equal to the reserved value is reported as overflow:
-        # it is not representable, and saying so beats a silent NA
-        return "NA" if (v is None or v < lo or v > hi or v == reserved) else str(v)
-
-    mbits = 8 * w - (kind == "signed")     # bits a magnitude can use
-
-    n = 0
-    while n < 400:
-        if random.random() < .3:
-            # magnitudes whose bit widths add up to about the width, so
-            # that a product lands on either side of the overflow
-            # boundary rather than always far past it -- multiply is
-            # checked before the fact and this is where it is decided
-            k = random.randint(1, mbits - 1)
-            a = draw(lo, hi, k)
-            b = draw(lo, hi, min(mbits, max(0, mbits - k + random.randint(-1, 1))))
-        else:
-            a, b = draw(lo, hi), draw(lo, hi)
-        if a == reserved or b == reserved:
-            continue                       # an operand that is really NA
-        q = None if b == 0 else a // b
-        r = None if b == 0 else a % b
-        neg = -a if kind == "signed" else None
-        rows.append("\t".join([
-            "%d,%s" % (w, kind), str(a), str(b),
-            fits(a + b), fits(a - b), fits(a * b), fits(q), fits(r),
-            fits(neg) if neg is not None else ""]))
-        n += 1
-
-open(sys.argv[1], "w").write("\n".join(rows) + "\n")
-)---"
-system2("python3", c("-c", shQuote(PY), shQuote(REF)))
-
-ref <- read.delim(REF, header = FALSE, colClasses = "character", sep = "\t",
-                  na.strings = character())
-names(ref) <- c("meta", "a", "b", "add", "sub", "mul", "idiv", "mod", "neg")
-
-## our NA prints as NA; compare as character so exact 128-bit values survive
-str_ <- function(v) { s <- as.character(v); s[is.na(v)] <- "NA"; s }
-
+set.seed(23)
 fails <- 0L
 chk <- function(l, c) {
     if (!isTRUE(c)) fails <<- fails + 1L
     cat(sprintf("  %-10s %s\n", l, if (isTRUE(c)) "ok" else "FAIL"))
 }
 
-for (m in unique(ref$meta)) {
-    s <- ref[ref$meta == m, ]
-    w <- as.integer(sub(",.*", "", m))
-    k <- sub(".*,", "", m)
-    a <- as.bytes(s$a, w, k)
-    b <- as.bytes(s$b, w, k)
+## our NA prints as NA; compare as character so exact 128-bit values survive
+str_ <- function(v) { s <- as.character(v); s[is.na(v)] <- "NA"; s }
 
-    cat(sprintf("\n-- %s, %d pairs --\n", m, nrow(s)))
+COMBOS <- list(list(1L,"signed"), list(1L,"unsigned"), list(2L,"unsigned"),
+               list(4L,"signed"), list(8L,"unsigned"), list(8L,"signed"),
+               list(16L,"unsigned"), list(16L,"signed"))
+NPAIR <- 250L
+
+for (spec in COMBOS) {
+    w <- spec[[1L]]; k <- spec[[2L]]
+    rng <- bnRange(w, k, hasNA = TRUE)     # the range EXCLUDING reserved
+    mbits <- 8L * w - (k == "signed")      # bits a magnitude can use
+
+    ## a result the type cannot hold is NA -- including one that lands
+    ## exactly on the reserved value, which is not representable either
+    fits <- function(v) if (is.null(v) || !bnInRange(v, rng)) "NA" else v
+
+    draw <- function(bits = NULL) {
+        v <- if (!is.null(bits)) bnRandomBits(bits)
+             else {
+                 r <- runif(1)
+                 if (r < .25)      bnAdd(rng$lo, as.character(sample(0:3, 1L)))
+                 else if (r < .50) bnSub(rng$hi, as.character(sample(0:3, 1L)))
+                 else if (r < .60) "0"
+                 else if (r < .70) if (k == "signed") sample(c("1","-1"), 1L) else "1"
+                 else              bnRandomValues(w, k, 1L)
+             }
+        if (!is.null(bits) && k == "signed" && runif(1) < .5) v <- bnNeg(v)
+        v
+    }
+
+    A <- character(NPAIR); B <- character(NPAIR)
+    n <- 0L
+    while (n < NPAIR) {
+        if (runif(1) < .3) {
+            ## magnitudes whose bit widths add up to about the width
+            j <- sample.int(max(1L, mbits - 1L), 1L)
+            x <- draw(j)
+            y <- draw(max(1L, min(mbits, mbits - j + sample(-1:1, 1L))))
+        } else { x <- draw(); y <- draw() }
+        if (!bnInRange(x, rng) || !bnInRange(y, rng)) next
+        n <- n + 1L; A[n] <- x; B[n] <- y
+    }
+
+    exp_add <- vapply(seq_len(NPAIR), function(i) fits(bnAdd(A[i], B[i])), "")
+    exp_sub <- vapply(seq_len(NPAIR), function(i) fits(bnSub(A[i], B[i])), "")
+    exp_mul <- vapply(seq_len(NPAIR), function(i) fits(bnMul(A[i], B[i])), "")
+    exp_div <- vapply(seq_len(NPAIR), function(i)
+        if (B[i] == "0") "NA" else fits(bnDivMod(A[i], B[i])$q), "")
+    exp_mod <- vapply(seq_len(NPAIR), function(i)
+        if (B[i] == "0") "NA" else fits(bnDivMod(A[i], B[i])$r), "")
+
+    a <- as.bytes(A, w, k)
+    b <- as.bytes(B, w, k)
+
+    cat(sprintf("\n-- %d,%s, %d pairs --\n", w, k, NPAIR))
     got <- suppressWarnings(list(a + b, a - b, a * b, a %/% b, a %% b))
+    want <- list(exp_add, exp_sub, exp_mul, exp_div, exp_mod)
     for (j in seq_along(got))
-        chk(c("+", "-", "*", "%/%", "%%")[j],
-            identical(str_(got[[j]]), s[[c("add","sub","mul","idiv","mod")[j]]]))
+        chk(c("+", "-", "*", "%/%", "%%")[j], identical(str_(got[[j]]), want[[j]]))
     if (k == "signed")
-        chk("unary -", identical(str_(suppressWarnings(-a)), s$neg))
+        chk("unary -", identical(str_(suppressWarnings(-a)),
+                                 vapply(A, function(v) fits(bnNeg(v)), "",
+                                        USE.NAMES = FALSE)))
 
     ## the reductions run their own accumulator loop, so they are not
-    ## covered by the element-wise checks above
-    tot <- suppressWarnings(sum(a))
-    py <- sum(as.numeric(s$a))
-    lo <- if (k == "unsigned") 0 else -(2^(8*w-1))
-    hi <- if (k == "unsigned") 2^(8*w) - 1 else 2^(8*w-1) - 1
-    chk("sum", if (py > lo && py < hi) !is.na(tot) else TRUE)
+    ## covered by the element-wise checks above.  sum() accumulates wider
+    ## than the type, so only an unrepresentable TOTAL is NA.
+    chk("sum", identical(str_(suppressWarnings(sum(a))), fits(bnSum(A))))
+    ord <- order(bnKey(A))
     chk("min/max", identical(str_(suppressWarnings(c(min(a), max(a)))),
-                             c(min(s$a[order(a)][1]), s$a[order(a)][nrow(s)])))
+                             c(A[ord[1L]], A[ord[NPAIR]])))
 }
 
 ## The two implementations against each other.  The Python reference
@@ -144,8 +127,13 @@ for (spec in list(c(1,"signed"), c(1,"unsigned"), c(2,"unsigned"), c(4,"signed")
 ## -- which it was, at first, because an empty R_BYTES_GENERIC_ARITH
 ## still reads as set.  The two paths differ by ~100x on division, so
 ## the factor asserted below has an enormous margin.
-d <- as.bytes(as.character(rep(1:100, length.out = 3e5)), 8L, "unsigned")
-e <- as.bytes(as.character(rep(3:7, length.out = 3e5)), 8L, "unsigned")
+##
+## Sized so the NATIVE run is comfortably above the clock\'s resolution:
+## at 3e5 it timed as exactly 0 here, and a ratio of gen/0 is Inf, which
+## satisfies any factor you care to assert without measuring anything.
+## The check below requires a nonzero native time for that reason.
+d <- as.bytes(as.character(rep(1:100, length.out = 3e6)), 8L, "unsigned")
+e <- as.bytes(as.character(rep(3:7, length.out = 3e6)), 8L, "unsigned")
 cat("ELAPSED", min(replicate(3, system.time(d %/% e)[["elapsed"]])), "\n")
 )---"
 tmp <- tempfile(fileext = ".R")
@@ -163,7 +151,8 @@ gen <- grep("^ELAPSED", gen, value = TRUE, invert = TRUE)
 
 cat("\n-- the two implementations against each other --\n")
 chk(sprintf("%d results", length(nat)), length(nat) > 0 && identical(nat, gen))
-chk(sprintf("paths differ (%.0fx)", genT / natT), genT > 2 * natT)
+chk(sprintf("paths differ (%.0fx, native %.3fs)", genT / natT, natT),
+    natT > 0 && genT > 2 * natT)
 if (!identical(nat, gen)) {
     i <- which(nat != gen)[1:min(5, sum(nat != gen))]
     cat("  first differences at ", paste(i, collapse = ", "), "\n",

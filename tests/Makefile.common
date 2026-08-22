@@ -237,20 +237,15 @@ test-BytesFFI:
 	    R_DEFAULT_PACKAGES= $${TOP}/bin/R --vanilla --no-echo -f probe.R
 
 ## The BYTESXP development suites in bytesxp-dev.  These are not
-## test-src-reg files: the gauntlet is long, five of them shell out to
-## python3 for a reference computed OUTSIDE R (so that a mistake and
-## its mirror image cannot agree), and endcheck is the one to run on a
-## big-endian machine.  Every script exits non-zero on failure.  Where
-## python3 is absent those five are skipped with a note rather than
-## failing the run, so this target is safe wherever it lands.
+## test-src-reg files: the gauntlet is long, and endcheck is the one to
+## run on a big-endian machine.  Five of them check the implementation
+## against exact arithmetic computed a different way (bignum.R: decimal
+## digit vectors, schoolbook base 10) rather than against R itself, so
+## that a mistake and its mirror image cannot agree.  Pure R throughout,
+## no external tools.  Every script exits non-zero on failure.
 test-BytesXP:
 	@$(ECHO) "running the 'bytes' development suites"
-	@scripts="gauntlet endcheck"; \
-	 if command -v python3 > /dev/null 2>&1; then \
-	   scripts="$${scripts} pcheck archeck realcheck xcheck rxcheck"; \
-	 else \
-	   $(ECHO) "  skipping the python3 cross-checks: no python3"; \
-	 fi; \
+	@scripts="gauntlet endcheck pcheck archeck realcheck xcheck rxcheck"; \
 	 TOP=`cd $(top_builddir) && pwd`; \
 	 for f in $${scripts}; do \
 	   $(ECHO) "  $${f}.R"; \
