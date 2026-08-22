@@ -803,6 +803,14 @@ SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
 	Rbyte *p = BYTEVEC_ELT(ans, i);
 	if (v == NA_INTEGER || !eltFromLong(p, (long long) v, w, kind, hasNA != 0)) {
+	    /* The two failures are different mistakes, and with nothing
+	       reserved they earn different errors: a missing operand is
+	       R_bytesCheckNA()'s to report, while an out-of-range one is
+	       not missing and must not be reported as if it were. */
+	    if (v != NA_INTEGER && !hasNA)
+		errorcall(call,
+			  _("value %d is outside the range of '%s'; it was created with na = FALSE, so there is no NA to produce"),
+			  v, R_bytesTypeName(ans));
 	    R_bytesCheckNA(ans);
 	    R_bytesSetEltNA(p, w, kind);
 	    if (v != NA_INTEGER) nLost++;
@@ -875,37 +883,6 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 	}
     }
 
-    UNPROTECT(1);
-
-    return ans;
-}
-
-/* Drop the NA elements of an integer or logical operand.
-
-   R_bytesNarrow() has to give every element a value in the target type,
-   and where that type reserves no NA pattern an NA element has none.
-   Under na.rm = TRUE it is not going to be read, so taking it out first
-   gives the same answer without the refusal. */
-static SEXP dropNAs(SEXP x)
-{
-    SEXPTYPE t = TYPEOF(x);
-    if (t != INTSXP && t != LGLSXP)
-	return x;
-
-    R_xlen_t n = XLENGTH(x), m = 0;
-    for (R_xlen_t i = 0; i < n; i++)
-	if (((t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i)) != NA_INTEGER)
-	    m++;
-    if (m == n)
-	return x;
-
-    SEXP ans = PROTECT(allocVector(t, m));
-    int *pa = (t == INTSXP) ? INTEGER(ans) : LOGICAL(ans);
-    m = 0;
-    for (R_xlen_t i = 0; i < n; i++) {
-	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
-	if (v != NA_INTEGER) pa[m++] = v;
-    }
     UNPROTECT(1);
 
     return ans;
@@ -1397,8 +1374,10 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
     bool seen = false, isNA = false, over = false;
     /* an operand outside the range of the type: unrep once it is known
        to be the answer, sawOut while it is only the answer if nothing
-       representable turns up */
+       representable turns up; nRange counts the ones sum() turns into
+       NA, as the narrowing's own warning would have */
     bool unrep = false, sawOut = false;
+    R_xlen_t nRange = 0;
     /* sum's running total, wider than the type; see wideSumAdd() */
     Rbyte sumMag[MAXW + 8] = {0};
     bool sumNeg = false;
@@ -1411,30 +1390,17 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	if (TAG(t) == R_NaRmSymbol || TYPEOF(a) == NILSXP) continue;
 
 	/* Narrowed here rather than in the pass above, which settles the
-	   type this needs.  min and max narrow for comparison: a bound
-	   the type cannot hold still settles every comparison against it,
-	   and only the answer itself can be out of range.  sum and prod
-	   narrow for value, where an operand outside the range overflows
-	   like any other. */
+	   type this needs -- and for comparison whatever the summary:
+	   dir[] marks what the type cannot hold, out-of-range operands
+	   and (where nothing is reserved) NA ones, without refusing
+	   them.  min and max read the marks as bounds; sum reads them
+	   as the NAs the narrowing would have produced, so na.rm can
+	   still drop them and the diagnostics can name the real cause. */
 	int *dir = NULL;
 	const void *vmax = vmaxget();
 	if (TYPEOF(a) != BYTESXP) {
-	    if (arith) {
-		/* sum and prod narrow for value, so an NA operand the type
-		   reserves nothing for cannot come through at all -- but
-		   na.rm = TRUE means never reading it.  min and max narrow
-		   for comparison, where dir[] carries it instead. */
-		if (narm && !hasNA)
-		    a = dropNAs(a);
-
-		PROTECT(a);
-		a = R_bytesNarrow(a, w, kind, hasNA, call);
-		UNPROTECT(1);
-	    }
-	    else {
-		dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
-		a = R_bytesNarrowCmp(a, w, kind, hasNA, dir, call);
-	    }
+	    dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
+	    a = R_bytesNarrowCmp(a, w, kind, hasNA, dir, call);
 	}
 	PROTECT(a);
 
@@ -1455,6 +1421,21 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	    }
 
 	    if (dir && dir[i]) {
+		if (arith) {
+		    /* out of range: for sum it becomes the NA the na =
+		       TRUE narrowing would have made of it, so na.rm
+		       drops it -- and where nothing is reserved and
+		       na.rm does not apply, the error names the range,
+		       not a missing value that was never there */
+		    if (!narm && !hasNA)
+			errorcall(call,
+				  _("an operand is outside the range of '%s'; it was created with na = FALSE, so there is no NA to produce"),
+				  R_bytesTypeName(ans));
+		    nRange++;
+		    if (narm) continue;
+		    isNA = true;
+		    break;
+		}
 		/* below (-1) or above (+1) every element of the type: for
 		   min a low bound is the answer straight away, and a high
 		   one is the answer only if nothing else turns up */
@@ -1539,6 +1520,9 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
 	R_bytesCheckNA(ans);
 	R_bytesSetEltNA(acc, w, kind);
     }
+    if (nRange)
+	warningcall(call, _("NAs introduced by values outside the range of '%s'"),
+		    R_bytesTypeName(ans));
     if (over)
 	warningcall(call, _("NAs produced by integer overflow"));
 
