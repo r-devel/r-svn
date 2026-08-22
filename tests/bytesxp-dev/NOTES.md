@@ -1169,6 +1169,22 @@ digest of a text-driven run is byte-identical between the two builds,
 and an `.rds` written under one reads back with exactly the same values
 under the other, in both directions.
 
+### Running the suites
+
+`make -C build/tests test-BytesXP` runs everything in this directory,
+and that target is in `all-devel-tests`, so `make check-devel` runs it
+too.  (`tests/bytes.R` is a `test-src-reg` file and runs under plain
+`make check`; `tests/bytes-ffi` has `test-BytesFFI`, also in
+`all-devel-tests`.)
+
+Five of the seven ask python3 for a reference computed OUTSIDE R --
+pcheck, archeck, realcheck, xcheck, rxcheck -- which is the whole
+point of them: a mistake and its mirror image would agree with each
+other, and Python's integers are exact at every width here where R has
+nothing to compare a 128-bit value against.  Without python3 those five
+are skipped with a note and the target still passes.  gauntlet and
+endcheck are pure R and always run.
+
 What the simulation CANNOT cover, by construction: the native kernels.
 They `memcpy` an element's bytes into a C integer of the same width,
 which is correct precisely when storage order is the machine's -- and
