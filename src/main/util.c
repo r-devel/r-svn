@@ -169,11 +169,10 @@ SEXP asChar(SEXP x)
 		   it reached the default below and every element read
 		   as NA.  Rendered as coerceToString() renders it. */
 		int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
-		const Rbyte *p = BYTEVEC_ELT_RO(x, 0);
-		if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(p, w, k))
+		if (BYTEVEC_HAS_NA(x) &&
+		    R_bytesEltIsNA(BYTEVEC_ELT_RO(x, 0), w, k))
 		    return NA_STRING;
-		return mkChar(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
-			      : R_bytesEltDecimal(p, w, k));
+		return mkChar(R_bytesEltRender(x, 0));
 	    }
 	    default:
 		return NA_STRING;

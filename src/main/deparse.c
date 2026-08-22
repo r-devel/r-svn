@@ -1689,8 +1689,7 @@ static void bytes2buff(SEXP v, LocalParseData *d)
 	    else {
 		/* digits, '-' and hex only, so no escaping is in question */
 		print2buff("\"", d);
-		print2buff(k == BYTEVEC_OPAQUE ? EncodeBytes(p, w)
-					       : R_bytesEltDecimal(p, w, k), d);
+		print2buff(R_bytesEltRender(v, i), d);
 		print2buff("\"", d);
 	    }
 

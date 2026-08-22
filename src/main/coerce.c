@@ -844,16 +844,15 @@ static SEXP coerceToString(SEXP v)
 	break;
     case BYTESXP:
 	{
+	    /* R_bytesEltRender() is the one place an element's text
+	       form is decided; only the NA spelling differs here */
 	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
 	    for (i = 0; i < n; i++) {
-		const Rbyte *e = BYTEVEC_ELT_RO(v, i);
-		if (BYTEVEC_HAS_NA(v) && R_bytesEltIsNA(e, w, k))
+		if (BYTEVEC_HAS_NA(v) &&
+		    R_bytesEltIsNA(BYTEVEC_ELT_RO(v, i), w, k))
 		    SET_STRING_ELT(ans, i, NA_STRING);
 		else
-		    SET_STRING_ELT(ans, i,
-				   mkChar(k == BYTEVEC_OPAQUE
-					  ? EncodeBytes(e, w)
-					  : R_bytesEltDecimal(e, w, k)));
+		    SET_STRING_ELT(ans, i, mkChar(R_bytesEltRender(v, i)));
 	    }
 	}
 	break;
