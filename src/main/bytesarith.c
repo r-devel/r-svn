@@ -1132,12 +1132,14 @@ attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
     return neg ? -d : d;
 }
 
-/* Whether an element's exact magnitude is above 2^53, the last integer
-   a double names with no neighbour rounding onto it.  Asked of the
+/* Whether an element's exact value is changed by conversion to double:
+   it survives iff its significant bits -- highest set bit down to
+   lowest set bit -- span at most the 53 a double's mantissa keeps, so
+   a value like 2^54 converts exactly and must not warn.  Asked of the
    bytes rather than of the double they convert to: a value just above
-   2^53 rounds down onto 2^53 exactly, so a test on the result would let
-   through the one element that did lose a digit. */
-static bool eltMagAbove2p53(const Rbyte *p, int w, int kind)
+   2^53 rounds down onto 2^53 exactly, so a test on the result would
+   let through the one element that did lose a digit. */
+static bool eltLosesAsDouble(const Rbyte *p, int w, int kind)
 {
     if (w < 7) return false;	/* at most 48 bits, so always exact */
 
@@ -1147,18 +1149,23 @@ static bool eltMagAbove2p53(const Rbyte *p, int w, int kind)
     if (kind == BYTEVEC_INT && (A[0] & 0x80))
 	magNegate(A, w);
 
-    /* 2^53 is 0x20 in the seventh byte from the bottom, zero elsewhere */
-    int lo = w - 7;
+    int hi = -1, lo = 0;	/* set-bit positions, 0 the least significant */
+    for (int i = 0; i < w; i++) {
+	Rbyte b = A[i];
+	if (!b) continue;
 
-    for (int i = 0; i < lo; i++)
-	if (A[i]) return true;
+	int base = 8 * (w - 1 - i);
+	if (hi < 0) {
+	    int t = 7;
+	    while (!(b & (1 << t))) t--;
+	    hi = base + t;
+	}
+	int t = 0;
+	while (!(b & (1 << t))) t++;
+	lo = base + t;
+    }
 
-    if (A[lo] != 0x20) return A[lo] > 0x20;
-
-    for (int i = lo + 1; i < w; i++)
-	if (A[i]) return true;
-
-    return false;
+    return hi - lo + 1 > 53;	/* hi is -1 only for zero, which is exact */
 }
 
 attribute_hidden
@@ -1220,7 +1227,7 @@ SEXP R_bytesCoerce(SEXP x, SEXPTYPE type)
 	       is not a rounding of the value, so it does not report as
 	       one. */
 	    if (!R_FINITE(d)) nOver++;
-	    else if (eltMagAbove2p53(p, w, k)) nLost++;
+	    else if (eltLosesAsDouble(p, w, k)) nLost++;
 	    REAL0(ans)[i] = d;
 	}
     }
