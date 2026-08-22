@@ -312,8 +312,11 @@ static void fromMSB(Rbyte *dst, const Rbyte *src, int w)
     for (int i = 0; i < w; i++) dst[BYTEVEC_MSB(i, w)] = src[i];
 }
 
-/* two's complement negate in place, MSB-first */
-static void magNegate(Rbyte *a, int w)
+/* Two's complement negate in place, MSB-first.  Shared with the text
+   parser and the decimal renderer in bytes.c, as R_bytesMagFits() is:
+   a carry fix here must reach them, or as.bytes(as.character(x)) == x
+   quietly breaks for negative values. */
+attribute_hidden void R_bytesMagNegate(Rbyte *a, int w)
 {
     int carry = 1;
 
@@ -382,7 +385,7 @@ static bool magFromElt(Rbyte *out, const Rbyte *p, int w, int kind)
     toMSB(out, p, w);
 
     if (kind == BYTEVEC_INT && (out[0] & 0x80)) {
-	magNegate(out, w);
+	R_bytesMagNegate(out, w);
 	return true;
     }
 
@@ -429,7 +432,7 @@ static bool storeResult(Rbyte *out, Rbyte *mag, int w, int kind, bool negative, 
 {
     if (!R_bytesMagFits(mag, w, kind, negative, hasNA)) return false;
 
-    if (negative) magNegate(mag, w);
+    if (negative) R_bytesMagNegate(mag, w);
     fromMSB(out, mag, w);
 
     return true;
@@ -461,7 +464,7 @@ static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
     if (sa == sb && sr != sa) return false;
 
     bool neg = sr != 0;
-    if (neg) magNegate(R, w);
+    if (neg) R_bytesMagNegate(R, w);
 
     return storeResult(out, R, w, kind, neg, hasNA);
 }
@@ -489,7 +492,7 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
     if (sa != sb && sr != sa) return false;
 
     bool neg = sr != 0;
-    if (neg) magNegate(R, w);
+    if (neg) R_bytesMagNegate(R, w);
 
     return storeResult(out, R, w, kind, neg, hasNA);
 }
@@ -668,7 +671,7 @@ static bool eltConvert(Rbyte *out, int ow, int ok, bool ohasNA,
     if (neg && ok == BYTEVEC_UINT) return false;
 
     if (!R_bytesMagFits(mag, ow, ok, neg, ohasNA)) return false;
-    if (neg) magNegate(mag, ow);
+    if (neg) R_bytesMagNegate(mag, ow);
     fromMSB(out, mag, ow);
 
     return true;
@@ -1124,7 +1127,7 @@ attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind)
     toMSB(A, p, w);
     if (kind == BYTEVEC_INT && (A[0] & 0x80)) {
 	neg = true;
-	magNegate(A, w);
+	R_bytesMagNegate(A, w);
     }
 
     double d = magAsReal(A, w);
@@ -1147,7 +1150,7 @@ static bool eltLosesAsDouble(const Rbyte *p, int w, int kind)
 
     toMSB(A, p, w);
     if (kind == BYTEVEC_INT && (A[0] & 0x80))
-	magNegate(A, w);
+	R_bytesMagNegate(A, w);
 
     int hi = -1, lo = 0;	/* set-bit positions, 0 the least significant */
     for (int i = 0; i < w; i++) {

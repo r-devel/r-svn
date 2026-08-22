@@ -113,14 +113,8 @@ const char *R_bytesEltDecimal(const Rbyte *p, int width, int kind)
 	tmp[i] = p[BYTEVEC_MSB(i, width)];
 
     if (kind == BYTEVEC_INT && (tmp[0] & 0x80)) {
-	/* two's complement negate, most significant byte first */
 	negative = true;
-	int carry = 1;
-	for (int i = width - 1; i >= 0; i--) {
-	    int v = (int) ((Rbyte) ~tmp[i]) + carry;
-	    tmp[i] = (Rbyte) (v & 0xFF);
-	    carry = v >> 8;
-	}
+	R_bytesMagNegate(tmp, width);
     }
 
     char digits[sizeof buff];
@@ -241,14 +235,8 @@ static R_bytes_parse_t parseDecimal(Rbyte *out, const char *s, int w,
     if (over || !R_bytesMagFits(mag, w, kind, negative, hasNA))
 	return BYTES_PARSE_RANGE;
 
-    if (negative) {		/* two's complement, MSB-first */
-	int carry = 1;
-	for (int i = w - 1; i >= 0; i--) {
-	    int v = (int) ((Rbyte) ~mag[i]) + carry;
-	    mag[i] = (Rbyte) (v & 0xFF);
-	    carry = v >> 8;
-	}
-    }
+    if (negative)
+	R_bytesMagNegate(mag, w);
 
     for (int i = 0; i < w; i++)
 	out[BYTEVEC_MSB(i, w)] = mag[i];

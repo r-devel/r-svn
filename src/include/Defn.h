@@ -1957,6 +1957,7 @@ attribute_hidden int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width,
 				   int kind);
 attribute_hidden const char *R_bytesEltDecimal(const Rbyte *p, int width,
 					       int kind);
+attribute_hidden void R_bytesMagNegate(Rbyte *a, int w);
 attribute_hidden bool R_bytesMagFits(const Rbyte *v, int w, int kind,
 				     bool negative, bool hasNA);
 /* why one element of text did not convert; SYNTAX and RANGE get
