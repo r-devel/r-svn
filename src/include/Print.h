@@ -30,6 +30,7 @@
 #define formatRaw           Rf_formatRaw
 #define formatString        Rf_formatString
 #define formatRawS          Rf_formatRawS
+#define formatBytesS        Rf_formatBytesS
 #define formatStringS       Rf_formatStringS
 #define EncodeElement       Rf_EncodeElement
 #define EncodeElement0      Rf_EncodeElement0
@@ -49,6 +50,7 @@ extern R_print_par_t R_print;
 void formatRaw(const Rbyte *, R_xlen_t, int *);
 void formatString(const SEXP *, R_xlen_t, int *, int);
 void formatRawS(SEXP, R_xlen_t, int *);
+void formatBytesS(SEXP, R_xlen_t, R_xlen_t, int *);
 void formatStringS(SEXP, R_xlen_t, int*, int);
 
 /* Formating of values */

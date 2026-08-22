@@ -27,8 +27,13 @@ unserialize(connection, refhook = NULL)
   \item{xdr}{a logical: if a binary representation is used, should a
     big-endian one (\I{XDR}) be used?}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3). The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    lets the writer choose: the current default (3), raised to 4 if the
+    object holds something only version 4 can carry, which today means
+    a \code{\link{bytes}} vector.  \code{serialize} raises it silently;
+    \code{\link{saveRDS}} and \code{\link{save}} announce the raise
+    with a message.  The other supported values are 2, the default
+    from \R 1.4.0 to \R 3.5.0, and 4 itself.  A version named here is
+    used as given, and is an error if it cannot hold the object.}
   \item{refhook}{a hook function for handling reference objects.}
 }
 \details{

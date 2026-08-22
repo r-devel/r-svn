@@ -314,6 +314,45 @@ static int rawequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return (RAW_ELT(x, i) == RAW_ELT(y, j));
 }
 
+/* The whole match/unique/duplicated/table/factor family runs off this
+   one pair.  Elements are opaque, so there is nothing to hash but the
+   bytes: FNV-1a over BYTEVEC_WIDTH(x) of them, and memcmp to confirm.
+   No per-width specialization is needed. */
+static hlen byteshash(SEXP x, R_xlen_t indx, HashData *d)
+{
+    const Rbyte *p = BYTEVEC_ELT_RO(x, indx);
+    int w = BYTEVEC_WIDTH(x);
+    unsigned int h = 2166136261U;
+
+    for (int i = 0; i < w; i++) {
+	h ^= (unsigned int) p[i];
+	h *= 16777619U;
+    }
+
+    return scatter(h, d);
+}
+
+static int bytesequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+
+    int w = BYTEVEC_WIDTH(x);
+    /* A backstop.  match5() rejects a width, kind or NA-reservation
+       clash before hashing, bytesIncomparables() holds an
+       'incomparables' operand to the same rule, and every other caller
+       compares a vector with itself, so these should not fire; a
+       mismatch that reached here would otherwise memcmp() across two
+       different element widths.  Whether a value is reserved for NA
+       counts as part of the type in the same way: without it a genuine
+       all-0xFF datum would equal an NA. */
+    if (BYTEVEC_WIDTH(y) != w) return 0;
+    if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x)) return 0;
+    if (BYTEVEC_HAS_NA(y) != BYTEVEC_HAS_NA(x)) return 0;
+
+    return memcmp(BYTEVEC_ELT_RO(x, i), BYTEVEC_ELT_RO(y, j),
+		  (size_t) w) == 0;
+}
+
 static hlen vhash_one(SEXP _this, HashData *d);
 static hlen vhash(SEXP x, R_xlen_t indx, HashData *d)
 {
@@ -367,6 +406,14 @@ static hlen vhash_one(SEXP _this, HashData *d)
     case RAWSXP:
 	for(i = 0; i < LENGTH(_this); i++) {
 	    key ^= scatter((unsigned int)rawhash(_this, i, d), d);
+	    key *= 97;
+	}
+	break;
+    case BYTESXP:
+	/* without this the key is the length alone, which makes
+	   unique() and match() over a list of such vectors quadratic */
+	for(i = 0; i < LENGTH(_this); i++) {
+	    key ^= byteshash(_this, i, d);
 	    key *= 97;
 	}
 	break;
@@ -504,6 +551,11 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	d->equal = rawequal;
 	d->nmax = d->M = 256;
 	d->K = 8; /* unused */
+	break;
+    case BYTESXP:
+	d->hash = byteshash;
+	d->equal = bytesequal;
+	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case EXPRSXP:
     case VECSXP:
@@ -1009,6 +1061,8 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 
 #undef DUP_KNOWN_SORTED
 
+static SEXP bytesIncomparables(SEXP incomp, SEXP b);
+
 static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 {
     SEXP ans;
@@ -1035,7 +1089,10 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	if(TYPEOF(x) == BYTESXP)
+	    PROTECT(incomp = bytesIncomparables(incomp, x));
+	else
+	    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1060,7 +1117,10 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    if(TYPEOF(x) == BYTESXP)
+	PROTECT(incomp = bytesIncomparables(incomp, x));
+    else
+	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
     m = length(incomp);
 
     if(from_last)
@@ -1114,7 +1174,8 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
     R_xlen_t n = xlength(x);
     if (n == 0)
 	return(PRIMVAL(op) <= 1
-	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
+	       ? (PRIMVAL(op) != 1 ? allocVector(LGLSXP, 0)
+		                   : R_allocVectorLike(x, 0))
 	       : ScalarInteger(0));
 
     if (!isVector(x)) {
@@ -1162,7 +1223,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
-    SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
+    SEXP ans = PROTECT(R_allocVectorLike(x, k));
 
     k = 0;
     switch (TYPEOF(x)) {
@@ -1207,6 +1268,14 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	for (i = 0; i < n; i++)
 	    if (LOGICAL_ELT(dup, i) == 0)
 		RAW0(ans)[k++] = RAW_ELT(x, i);
+	break;
+    case BYTESXP:
+	{
+	    size_t w = (size_t) BYTEVEC_WIDTH(x);
+	    for (i = 0; i < n; i++)
+		if (LOGICAL_ELT(dup, i) == 0)
+		    memcpy(BYTEVEC_ELT(ans, k++), BYTEVEC_ELT_RO(x, i), w);
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("duplicated", x);
@@ -1335,16 +1404,93 @@ static SEXP asUTF8(SEXP x)
 	return x;
 }
 
+/* An integer, logical or exactly integral double operand narrows into
+   the 'bytes' type here for the same reason it does for ==: refusing it
+   would leave `x %in% 1L` an error where `x == 1L` gives an answer.
+
+   A value the width cannot hold is neither missing nor present: it
+   matches nothing and nothing matches it.  There is no bit pattern that
+   could stand in for it either, since every pattern of the width is a
+   value the vector might legitimately hold -- so on the table side
+   those entries are dropped here, keep[] mapping what is left back to
+   the caller's own 1-based positions, and on the needle side they stay
+   in place and are struck out of the answer once it is built. */
+static SEXP bytesMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
+{
+    int w = BYTEVEC_WIDTH(b), k = BYTEVEC_KIND(b), na = BYTEVEC_HAS_NA(b);
+    R_xlen_t n = XLENGTH(o), nOut = 0, m = 0;
+    int *dir = (int *) R_alloc(n + 1, sizeof(int));
+
+    SEXP nar = PROTECT(R_bytesNarrowMatch(o, w, k, na, dir, call));
+    for (R_xlen_t i = 0; i < n; i++) if (dir[i]) nOut++;
+    if (nOut == 0) {
+	*keep = NULL;
+	UNPROTECT(1);
+	return nar;
+    }
+
+    SEXP ans = PROTECT(R_allocBytesVector(n - nOut, w, k, na ? TRUE : FALSE));
+    int *kp = (int *) R_alloc(n - nOut + 1, sizeof(int));
+    for (R_xlen_t i = 0; i < n; i++)
+	if (!dir[i]) {
+	    memcpy(BYTEVEC_ELT(ans, m), BYTEVEC_ELT_RO(nar, i), (size_t) w);
+	    kp[m++] = (int) i + 1;
+	}
+    *keep = kp;
+    UNPROTECT(2);
+
+    return ans;
+}
+
+/* An 'incomparables' operand, held to the rule x and table are held to:
+   a 'bytes' vector must be the same type, and an ordinary numeric one
+   narrows exactly into it where possible.
+
+   coerceVector() can do neither.  It has no arm for a target that
+   carries a width, so it refuses the integer outright, and it hands a
+   clashing 'bytes' vector straight through to bytesequal(), whose width
+   backstop then reports every comparison unequal -- dropping the
+   incomparable silently, which is a wrong answer rather than a
+   refusal. */
+static SEXP bytesIncomparables(SEXP incomp, SEXP b)
+{
+    if (TYPEOF(incomp) == BYTESXP) {
+	R_bytesCheckSameType(incomp, b, "incomparables");
+	return incomp;
+    }
+
+    /* a value the type cannot hold is equal to nothing in it, so it is
+       no more incomparable than it is present; bytesMatchTable() drops
+       those, and the positions it maps back are not wanted here */
+    int *drop = NULL;
+    return bytesMatchTable(incomp, b, &drop, R_NilValue);
+}
+
 // workhorse of R's match() and hence also  " ix %in% itable "
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
+    /* an ordinary numeric operand narrowed into a 'bytes' type:
+       xdrop marks needles the type cannot hold, tkeep maps table
+       positions past the entries it could not hold.  See
+       bytesMatchTable(). */
+    int *xdrop = NULL, *tkeep = NULL;
     R_xlen_t n = xlength(ix);
-    /* handle zero length arguments */
-    if (n == 0) return allocVector(INTSXP, 0);
+
+    /* before the zero-length short circuits, which would otherwise
+       report no match for a pair that is a mistake at any length */
+    if (TYPEOF(ix) == BYTESXP && TYPEOF(itable) == BYTESXP)
+	R_bytesCheckPair(R_CurrentExpression, ix, itable, "match");
+
+    /* Handle zero length arguments -- except with a 'bytes' operand in
+       the pair: its foreign-type refusals live in the type settlement
+       below and must apply at every length, so those pairs pass through
+       it first and take the same short circuits after it. */
+    bool anyBytes = (TYPEOF(ix) == BYTESXP || TYPEOF(itable) == BYTESXP);
+    if (!anyBytes && n == 0) return allocVector(INTSXP, 0);
 
     SEXP ans;
-    if (length(itable) == 0) {
+    if (!anyBytes && length(itable) == 0) {
 	ans = allocVector(INTSXP, n);
 	int *pa = INTEGER0(ans);
 	for (R_xlen_t i = 0; i < n; i++) pa[i] = nmatch;
@@ -1388,14 +1534,62 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
+    if(TYPEOF(x) == BYTESXP || TYPEOF(table) == BYTESXP) {
+	/* opaque data has no common type with anything else, and the
+	   numeric SEXPTYPE order would otherwise send it to STRSXP */
+	if(TYPEOF(x) != TYPEOF(table)) {
+	    /* the other side narrows, as it does for == and c(); an
+	       opaque vector, or a type that does not narrow at all, is
+	       refused there.  See bytesMatchTable(). */
+	    SEXP b = (TYPEOF(x) == BYTESXP) ? x : table;
+	    if(TYPEOF(x) == BYTESXP)
+		REPROTECT(table = bytesMatchTable(table, b, &tkeep, R_NilValue),
+			  tbpi);
+	    else {
+		R_xlen_t nx = XLENGTH(x);
+		xdrop = (int *) R_alloc(nx + 1, sizeof(int));
+		REPROTECT(x = R_bytesNarrowMatch(x, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
+						 BYTEVEC_HAS_NA(b), xdrop, R_NilValue),
+			  xpi);
+	    }
+	}
+	else
+	    /* two 'bytes' vectors are the same equality relation as ==, so
+	       they are refused on the same terms: a width, kind or
+	       NA-reservation clash is a mistake to report, not a set of
+	       values to report absent.  Answering "no match" instead would
+	       make setdiff() and %in% quietly disagree with union(),
+	       intersect() and == on the very same pair of vectors. */
+	    R_bytesCheckPair(R_CurrentExpression, x, table, "match");
+	type = BYTESXP;
+    }
+    else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);
 
+    /* the zero-length short circuits for the 'bytes' pairs deferred
+       above, their pairing now validated */
+    if (n == 0) {
+	UNPROTECT(nprot);
+	return allocVector(INTSXP, 0);
+    }
+    if (xlength(table) == 0) {
+	ans = allocVector(INTSXP, n);
+	int *pa = INTEGER0(ans);
+	for (R_xlen_t i = 0; i < n; i++) pa[i] = nmatch;
+	UNPROTECT(nprot);
+	return ans;
+    }
+
+    /* While table positions are being mapped back through tkeep, "no
+       match" has to be a value no position can take, and the caller's
+       nomatch can itself be one (match(x, t, nomatch = 3)). */
+    int nomatch = tkeep ? 0 : nmatch;
+
     // special case scalar x -- for speed only :
     if(XLENGTH(x) == 1 && !incomp) {
-      int val = nmatch;
+      int val = nomatch;
       int ntable = LENGTH(table);
       switch (type) {
       case STRSXP: {
@@ -1449,13 +1643,29 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 		  val = i + 1; break;
 	      }
 	  break; }
+      case BYTESXP: {
+	  /* width, kind and NA reservation already agree: the check above
+	     rejected the alternative rather than reporting no match */
+	  int w = BYTEVEC_WIDTH(x);
+	  const Rbyte *x_val = BYTEVEC_ELT_RO(x, 0);
+	  for (int i=0; i < ntable; i++)
+	      if (!memcmp(BYTEVEC_ELT_RO(table, i), x_val, (size_t) w)) {
+		  val = i + 1; break;
+	      }
+	  break; }
       }
       PROTECT(ans = ScalarInteger(val)); nprot++;
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
-	data.nomatch = nmatch;
+	if (incomp) {
+	    if (type == BYTESXP)
+		PROTECT(incomp = bytesIncomparables(incomp, x));
+	    else
+		PROTECT(incomp = coerceVector(incomp, type));
+	    nprot++;
+	}
+	data.nomatch = nomatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
 	if(type == STRSXP) {
@@ -1504,6 +1714,21 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
 	ans = HashLookup(table, x, &data);
+    }
+    /* the narrowing above left one of these to settle: a needle the
+       type could not hold matches nothing, and a table it could not
+       hold entries of was matched against with those taken out */
+    if (xdrop) {
+	int *pa = INTEGER(ans);
+	R_xlen_t nans = XLENGTH(ans);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    if (xdrop[i]) pa[i] = nmatch;
+    }
+    else if (tkeep) {
+	int *pa = INTEGER(ans);
+	R_xlen_t nans = XLENGTH(ans);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    pa[i] = pa[i] ? tkeep[pa[i] - 1] : nmatch;
     }
     UNPROTECT(nprot);
     return ans;

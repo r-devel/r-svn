@@ -26,8 +26,12 @@ infoRDS(file)
     representation is written; otherwise (default), a binary one is used.
     See the comments in the help for \code{\link{save}}.}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3).  The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    lets the writer choose: the current default (3), raised to 4 -- with
+    a message -- if the object holds something only version 4 can carry,
+    which today means a \code{\link{bytes}} vector.  The other supported
+    values are 2, the default from \R 1.4.0 to \R 3.5.0, and 4 itself.
+    A version named here is used as given, and is an error if it cannot
+    hold the object.}
   \item{compress}{a logical specifying whether saving to a named file is
     to use \code{"gzip"} compression, or one of \code{"gzip"},
     \code{"bzip2"}, \code{"xz"} or \code{"zstd"} to indicate the type of

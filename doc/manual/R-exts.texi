@@ -14995,6 +14995,96 @@ have to fully materialize the object.
 @apifun SET_RAW_ELT
 @apifun SET_REAL_ELT
 
+@subsection @code{bytes} vectors
+
+A @code{bytes} vector (@code{BYTESXP}) holds @code{XLENGTH(x)} elements
+of @code{R_bytesWidth(x)} bytes each.  Unlike every other vector type
+the element size is a property of the vector rather than of the
+@code{SEXPTYPE}, so @code{Rf_allocVector} cannot make one and there is
+no fixed C type to cast the payload to; use @code{R_allocBytesVector}
+instead.  The width, the @emph{kind} and whether a value is reserved
+for @code{NA} together make up a vector's @dfn{element type}: two
+@code{bytes} vectors can be combined or compared only if all three
+agree, and the @code{SEXPTYPE} they share says nothing about any of
+them.
+@apifun R_allocBytesVector
+@apifun R_isBytes
+@apifun R_bytesWidth
+@apifun R_bytesKind
+@apifun R_bytesHasNA
+
+The @emph{kind} says how an element's bytes are to be read.
+@code{BYTES_OPAQUE} elements are byte strings -- hashes, UUIDs, network
+addresses -- which are compared verbatim and never interpreted as
+numbers.  @code{BYTES_UNSIGNED} and @code{BYTES_SIGNED} elements are
+integers of @code{8 * width} bits held in the platform's @emph{native}
+byte order, so a value that is already in native order -- a C
+@code{int64_t}, say -- can be copied in verbatim.  A source with a
+fixed external byte order must be converted first, as @code{readBin}
+does when its @code{endian} argument disagrees with the platform.
+
+Missingness works as it does for the other atomic types: one value of
+the type is reserved as a @dfn{sentinel} and read as @code{NA}, the
+way @code{NA_INTEGER} and @code{NA_REAL} reserve one value of theirs
+(@pxref{Missing and IEEE values}).  For a @code{bytes} vector the
+sentinel is part of the element type rather than fixed by the
+@code{SEXPTYPE}, and it is optional: the @code{hasNA} argument says
+whether one value of that width is set aside, all bits set for the
+opaque and unsigned kinds and the most negative value for the signed
+kind.  Pass @code{FALSE} when every bit pattern in the source is a
+legitimate value: with no sentinel to spare, operations that would
+have to produce @code{NA} raise an error instead of silently colliding
+with a real datum.
+
+@code{BYTES} and @code{BYTES_RO} return a pointer to the whole payload,
+which is @code{XLENGTH(x) * R_bytesWidth(x)} bytes laid out end to end.
+The untyped @code{DATAPTR_RO} deliberately refuses a @code{bytes}
+vector, since a caller that does not know the width and kind cannot
+read it correctly.
+@apifun BYTES
+@apifun BYTES_RO
+
+Individual elements are best reached through @code{R_bytesElt} and
+@code{R_bytesEltRO}, which return the address of element @code{i}, and
+tested or marked missing with @code{R_bytesIsNA} and
+@code{R_bytesSetNA}.  On a vector that reserves no sentinel
+@code{R_bytesIsNA} is always false and @code{R_bytesSetNA} is an
+error.
+@apifun R_bytesElt
+@apifun R_bytesEltRO
+@apifun R_bytesIsNA
+@apifun R_bytesSetNA
+
+@noindent
+So a package reading a column of 64-bit integers might write
+
+@example
+    /* source_value() and source_is_missing() stand for the package's
+       own reader: a database column, a file format, another library */
+    SEXP ans = PROTECT(R_allocBytesVector(n, 8, BYTES_SIGNED, TRUE));
+    for (R_xlen_t i = 0; i < n; i++) @{
+        if (source_is_missing(i))
+            R_bytesSetNA(ans, i);
+        else @{
+            int64_t v = source_value(i);
+            memcpy(R_bytesElt(ans, i), &v, sizeof v);
+            if (R_bytesIsNA(ans, i))
+                Rf_error("source value collides with the NA sentinel");
+        @}
+    @}
+    UNPROTECT(1);
+@end example
+
+@noindent
+The last argument is a decision to be taken once, from what the source
+can hold rather than from what a particular batch happens to contain:
+pass @code{TRUE} if a value there can be missing, and mark those
+elements with @code{R_bytesSetNA} as they are read.  A non-missing
+source value equal to the sentinel must be diagnosed, as in the example:
+the sentinel representation cannot hold both that value and missingness.
+A vector allocated with @code{FALSE} keeps the full value domain, but
+there is no way to record a missing value in it afterwards.
+
 
 @node Character encoding issues
 @section Character encoding issues

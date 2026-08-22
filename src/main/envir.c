@@ -2400,6 +2400,14 @@ static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4)
 	return OBJSXP;
     }
     else {
+	/* typeof() names a fixed-width vector by its width and kind, and
+	   those names are not a fixed list.  Matching is by SEXPTYPE, as
+	   coarse here as the fold of INTSXP into REALSXP in
+	   findVar1mode(), so any of the names finds any such vector. */
+	int bwidth, bkind;
+	if (R_bytesTypeFromName(modestr, &bwidth, &bkind))
+	    return BYTESXP;
+
 	SEXPTYPE gmode = str2type(modestr);
 	if(gmode == (SEXPTYPE) (-1))
 	    error(_("invalid '%s' argument '%s'"), "mode", modestr);

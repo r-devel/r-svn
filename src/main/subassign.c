@@ -137,7 +137,61 @@ static R_INLINE SEXP getNames(SEXP x)
 */
 static SEXP EnlargeNames(SEXP, R_xlen_t, R_xlen_t);
 
-static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
+/* Whether the assignment about to happen leaves any position in
+   [lo, hi) unwritten -- 0-based, and against the length 'newlen' the
+   destination will have.  Two things ask: the enlargement, about the
+   positions it would have to fill, and the coercion of a destination,
+   about whether any of it survives to be coerced.
+
+   'assigned' is the subscript the assignment will write, as
+   makeSubscript() produced it and so 1-based; R_NilValue when the
+   assignment writes only the last position -- which is what
+   x[[i]] <- value does; or R_MissingArg when the caller cannot say
+   which positions it will reach -- which is what the matrix and array
+   assignments pass, their coverage being spread over the dimensions. */
+static bool assignLeavesGap(SEXP assigned, R_xlen_t lo, R_xlen_t hi,
+			    R_xlen_t newlen)
+{
+    R_xlen_t ngap = hi - lo;
+
+    if (ngap <= 0)
+	return false;
+    if (assigned == R_MissingArg)	/* coverage unknown: assume gaps */
+	return true;
+    if (assigned == R_NilValue)
+	return ngap > 1 || lo != newlen - 1;
+
+    R_xlen_t n = xlength(assigned);
+    if (n < ngap)		/* too few subscripts to cover them all */
+	return true;
+
+    /* at most n of them, n being a subscript vector that already exists */
+    const void *vmax = vmaxget();
+    char *seen = R_alloc((size_t) ngap, sizeof(char));
+    memset(seen, 0, (size_t) ngap);
+
+    R_xlen_t covered = 0;
+    for (R_xlen_t i = 0; i < n && covered < ngap; i++) {
+	double d = (TYPEOF(assigned) == REALSXP) ? REAL_ELT(assigned, i)
+	    : (double) INTEGER_ELT(assigned, i);
+	if (!R_FINITE(d))	/* NA_REAL; NA_INTEGER falls out below */
+	    continue;
+
+	R_xlen_t ii = (R_xlen_t) d - 1;		/* to 0-based */
+	if (ii < lo || ii >= hi)
+	    continue;
+
+	if (!seen[ii - lo]) {
+	    seen[ii - lo] = 1;
+	    covered++;
+	}
+    }
+    vmaxset(vmax);
+
+    return covered < ngap;
+}
+
+static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
 {
     R_xlen_t len, newtruelen;
     SEXP newx, names;
@@ -161,6 +215,12 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     if (! MAYBE_SHARED(x) &&
 	IS_GROWABLE(x) &&
 	XTRUELENGTH(x) >= newlen) {
+	/* the slack an earlier enlargement left was filled with NA, and
+	   exposing it here is the same promise the copy below makes */
+	if (TYPEOF(x) == BYTESXP && !BYTEVEC_HAS_NA(x) &&
+	    assignLeavesGap(assigned, len, newlen, newlen))
+	    R_bytesCheckNA(x);
+
 	SET_STDVEC_LENGTH(x, newlen);
 	if (ATTRIB(x) != R_NilValue) {
 	    names = getNames(x);
@@ -212,7 +272,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
     if (newtruelen > R_LEN_T_MAX) newtruelen = newlen;
 */
     PROTECT(x);
-    PROTECT(newx = allocVector(TYPEOF(x), newtruelen));
+    PROTECT(newx = R_allocVectorLikeUninit(x, newtruelen));
 
     /* Copy the elements into place. */
     switch(TYPEOF(x)) {
@@ -256,6 +316,23 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	for (R_xlen_t i = len; i < newtruelen; i++)
 	    RAW0(newx)[i] = (Rbyte) 0;
 	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    if (len > 0)
+		R_bytesMemcpy(BYTEVEC_DATA(newx), BYTEVEC_DATA_RO(x),
+			      (size_t) len * w);
+	    /* Only the positions the assignment will not reach matter:
+	       one it does reach is overwritten before anyone sees it,
+	       and the slack past newlen is not visible at all until a
+	       later enlargement exposes it, which asks again. */
+	    if (!BYTEVEC_HAS_NA(newx) &&
+		assignLeavesGap(assigned, len, newlen, newlen))
+		R_bytesCheckNA(newx);
+	    for (R_xlen_t i = len; i < newtruelen; i++)
+		R_bytesSetEltNA(BYTEVEC_ELT(newx, i), w, k);
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("EnlargeVector", x);
     }
@@ -278,7 +355,7 @@ static SEXP EnlargeNames(SEXP names, R_xlen_t len, R_xlen_t newlen)
 {
     if (TYPEOF(names) != STRSXP || XLENGTH(names) != len)
 	error(_("bad names attribute"));
-    SEXP newnames = PROTECT(EnlargeVector(names, newlen));
+    SEXP newnames = PROTECT(EnlargeVector(names, newlen, R_NilValue));
     for (R_xlen_t i = len; i < newlen; i++)
 	SET_STRING_ELT(newnames, i, R_BlankString);
     UNPROTECT(1);
@@ -322,8 +399,17 @@ static bool dispatch_asvector(SEXP *x, SEXP call, SEXP rho) {
    Level 2 is used in do_subassign2_dflt.
    This does not coerce when assigning into a list.
 */
+/* Assignment between 'bytes' vectors is only defined at equal widths;
+   there is no widening conversion, since the elements are opaque. */
+static int BytesAssignWidth(SEXP x, SEXP y, SEXP call)
+{
+    R_bytesCheckPair(call, x, y, "assign between");
+
+    return BYTEVEC_WIDTH(x);
+}
+
 static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
-			    int level,
+			    SEXP assigned, int level,
 			    SEXP call, SEXP rho)
 {
     /* A rather pointless optimization, but level 2 used to be handled
@@ -341,6 +427,8 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1600:	/* character  <- null       */
     case 1900:  /* vector     <- null       */
     case 2000:  /* expression <- null       */
+    case 2600:	/* bytes      <- null       */
+    case 2626:	/* bytes      <- bytes      */
     case 2400:	/* raw        <- null       */
 
     case 1010:	/* logical    <- logical    */
@@ -410,6 +498,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1922:  /* vector     <- external pointer */
     case 1923:  /* vector     <- weak reference */
     case 1924:  /* vector     <- raw */
+    case 1926:  /* vector     <- bytes */
     case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	if (level == 1) {
@@ -438,6 +527,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1519:  /* complex    <- vector     */
     case 1619:  /* character  <- vector     */
     case 2419:  /* raw        <- vector     */
+    case 2619:  /* bytes      <- vector     */
 	*x = coerceVector(*x, VECSXP);
 	break;
 
@@ -447,6 +537,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1520:  /* complex    <- expression */
     case 1620:  /* character  <- expression */
     case 2420:  /* raw        <- expression */
+    case 2620:  /* bytes      <- expression */
 	*x = coerceVector(*x, EXPRSXP);
 	break;
 
@@ -481,6 +572,87 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	}
 	break;
 
+    case 2610:
+    case 2613:
+	/* logical and integer narrow into 'bytes'; a double right-hand
+	   side falls to the default below rather than being guessed at.
+	   A subscript that reaches no position reads nothing from the
+	   right-hand side, so there is nothing to narrow -- and
+	   x[FALSE] <- NA on a vector with na = FALSE, which order()
+	   relies on, must not fail over an NA it never stores. */
+	if (!stretch && assigned != R_NilValue && assigned != R_MissingArg &&
+	    xlength(assigned) == 0)
+	    *y = R_allocBytesVector(0, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
+				    BYTEVEC_HAS_NA(*x) ? TRUE : FALSE);
+	else
+	    *y = R_bytesNarrow(*y, BYTEVEC_WIDTH(*x), BYTEVEC_KIND(*x),
+			       BYTEVEC_HAS_NA(*x), call);
+	break;
+
+    case 2614:	/* bytes      <- real       */
+	*x = coerceVector(*x, REALSXP);
+	break;
+
+    case 2615:	/* bytes      <- complex    */
+	*x = coerceVector(*x, CPLXSXP);
+	break;
+
+    case 1026:	/* logical    <- bytes      */
+    case 1326:	/* integer    <- bytes      */
+	/* the mirror of the two above: the same two types narrow, so
+	   here it is the destination that moves.  This is the shape
+	   ifelse() assigns in, its answer starting life as the logical
+	   test.  A double destination has no meeting type with this
+	   one and falls to the error below, as arithmetic does. */
+	{
+	    R_xlen_t nx = XLENGTH(*x);
+	    SEXP xnew;
+
+	    /* An assignment that writes every position of the
+	       destination has nothing to convert: none of the old values
+	       is there to read afterwards.  That matters most for the
+	       opaque kind, which R_bytesNarrow() refuses outright -- a
+	       byte string is not a number, so there is no opaque value
+	       for 2L -- and would refuse for values about to be thrown
+	       away.  It also keeps the legality of x[i] <- value from
+	       depending on what x happened to hold. */
+	    if (!assignLeavesGap(assigned, 0, nx, stretch ? stretch : nx))
+		xnew = PROTECT(R_allocBytesVector(nx, BYTEVEC_WIDTH(*y),
+						  BYTEVEC_KIND(*y),
+						  BYTEVEC_HAS_NA(*y)
+						  ? TRUE : FALSE));
+	    else
+		/* the rest survive the assignment and have to become
+		   elements of the destination's new type */
+		xnew = PROTECT(R_bytesNarrow(*x, BYTEVEC_WIDTH(*y),
+					     BYTEVEC_KIND(*y),
+					     BYTEVEC_HAS_NA(*y), call));
+
+	    /* Both build a bare vector, where every other arm of this
+	       switch goes through coerceVector(), which carries the
+	       attributes over.  Without this the destination silently
+	       loses its dim, names and class -- and SET_OBJECT() below
+	       would then stamp the object bit onto a result that has no
+	       class attribute left. */
+	    SHALLOW_DUPLICATE_ATTRIB(xnew, *x);	/* *x is the caller's */
+	    UNPROTECT(1);
+	    *x = xnew;
+	}
+	break;
+
+    case 1426:	/* real       <- bytes      */
+	*y = coerceVector(*y, REALSXP);
+	break;
+
+    case 1526:	/* complex    <- bytes      */
+	*y = coerceVector(*y, CPLXSXP);
+	break;
+
+    case 1626:	/* character  <- bytes      */
+
+	*y = coerceVector(*y, STRSXP);
+	break;
+
     case 1025: /* logical   <- S4|OBJ */
     case 1325: /* integer   <- S4|OBJ */
     case 1425: /* real      <- S4|OBJ */
@@ -491,19 +663,33 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 	    /*^^^^^^^^^^^^^^^ creates an unprotected *y; call below may allocate (coerceVector),
 	      so the new value has to be protected: */
             PROTECT(*y);
-            which = SubassignTypeFix(x, y, stretch, level, call, rho);
+            which = SubassignTypeFix(x, y, stretch, assigned, level, call, rho);
             UNPROTECT(1);
             return which;
         }
+	/* no as.vector() method: fall through to the error below */
 
     default:
 	error(_("incompatible types (from %s to %s) in subassignment type fix"),
 	      R_typeToChar(*x), R_typeToChar(*y));
     } //--- end switch(which)
 
+    /* An error the assignment is going to raise has to come before the
+       stretch below: EnlargeVector() can grow a growable destination in
+       place, and failing after that leaves it longer, with slack the
+       assignment never wrote -- which a 'bytes' vector with na = FALSE
+       reads back as values it promises the user stored.  So the checks
+       the 'bytes' assignment makes later are made here first. */
+    if (stretch && TYPEOF(*x) == BYTESXP) {
+	if (TYPEOF(*y) == BYTESXP)
+	    BytesAssignWidth(*x, *y, call);
+	if (XLENGTH(*y) == 0)
+	    error(_("replacement has length zero"));
+    }
+
     if (stretch) {
 	PROTECT(*y);
-	*x = EnlargeVector(*x, stretch); // FIXME: 1d-array w/ {dim,dimnames} |--> vector w/ names
+	*x = EnlargeVector(*x, stretch, assigned); // FIXME: 1d-array w/ {dim,dimnames} |--> vector w/ names
 	UNPROTECT(1);
     }
     SET_OBJECT(*x, x_is_object);
@@ -559,7 +745,7 @@ static SEXP DeleteListElements(SEXP x, SEXP which)
 	UNPROTECT(1);
 	return x;
     }
-    PROTECT(xnew = allocVector(TYPEOF(x), ii));
+    PROTECT(xnew = R_allocVectorLike(x, ii));
     ii = 0;
     for (i = 0; i < len; i++) {
 	if (pinclude[i] == 1) {
@@ -678,7 +864,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* been coerced into a form which can */
     /* accept elements from the RHS. */
     SEXP old_x = x;
-    int which = SubassignTypeFix(&x, &y, stretch, 1, call, rho);
+    int which = SubassignTypeFix(&x, &y, stretch, indx, 1, call, rho);
     /* = 100 * TYPEOF(x) + TYPEOF(y);*/
     if (n == 0) {
 	UNPROTECT(2);
@@ -862,6 +1048,15 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 	return x;
 	break;
 
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    VECTOR_ASSIGN_LOOP(memcpy(px + ii * w, BYTEVEC_ELT_RO(y, iny), w););
+	}
+	break;
+
     case 2424:	/* raw   <- raw	  */
 
 	{
@@ -996,7 +1191,15 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    which = SubassignTypeFix(&x, &y, 0, 1, call, rho);
+    /* Which positions the assignment reaches is spread over the two
+       subscripts, so R_MissingArg tells SubassignTypeFix() not to
+       assume anything is covered -- except when a subscript is empty,
+       which says precisely that nothing is: the zero-length 'bytes'
+       escape (see case 2610 there) must apply to m[integer(0), ] <- NA
+       as it does to the vector form. */
+    which = SubassignTypeFix(&x, &y, 0,
+			     n == 0 ? (nrs == 0 ? sr : sc) : R_MissingArg,
+			     1, call, rho);
     if (n == 0) return x;
 
     PROTECT(x);
@@ -1137,6 +1340,15 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 	MATRIX_ASSIGN_LOOP(SET_VECTOR_ELT(x, ij, VECTOR_ELT_FIX_NAMED(y, k)););
 	break;
 
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    MATRIX_ASSIGN_LOOP(memcpy(px + ij * w, BYTEVEC_ELT_RO(y, k), w););
+	}
+	break;
+
     case 2424: /* raw   <- raw   */
 
 	{
@@ -1237,7 +1449,19 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
 
-    int which = SubassignTypeFix(&x, &y, 0, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
+    /* R_MissingArg as in MatrixAssign(): coverage is spread over the
+       dimension subscripts -- but an empty subscript covers nothing at
+       all, and the zero-length 'bytes' escape has to see that */
+    SEXP assigned = R_MissingArg;
+    if (n == 0) {
+	tmp = s;
+	for (int i = 0; i < k; i++, tmp = CDR(tmp))
+	    if (bound[i] == 0) {
+		assigned = CAR(tmp);
+		break;
+	    }
+    }
+    int which = SubassignTypeFix(&x, &y, 0, assigned, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
 
     if (n == 0) {
 	UNPROTECT(1);
@@ -1369,6 +1593,15 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
 		SET_VECTOR_ELT(x, ii, VECTOR_ELT_FIX_NAMED(y, iny));
 	    });
+	break;
+
+    case 2626: /* bytes <- bytes */
+
+	{
+	    size_t w = (size_t) BytesAssignWidth(x, y, call);
+	    Rbyte *px = BYTEVEC_DATA(x);
+	    ARRAY_ASSIGN_LOOP(memcpy(px + ii * w, BYTEVEC_ELT_RO(y, iny), w););
+	}
 	break;
 
     case 2424: /* raw <- raw */
@@ -1658,7 +1891,13 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	else {
 	    /* bug PR#2590 coerce only if null */
-	    if(isNull(x)) x = coerceVector(x, TYPEOF(y));
+	    if(isNull(x))
+		/* a 'bytes' vector's width and kind are per-vector, so
+		   the SEXPTYPE alone cannot size one: allocVector() --
+		   which is what coerceVector() reaches for -- refuses
+		   the type outright, and its message is internal */
+		x = (TYPEOF(y) == BYTESXP) ? R_allocVectorLike(y, 0)
+					   : coerceVector(x, TYPEOF(y));
 	}
     }
     PROTECT(x);
@@ -1672,6 +1911,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     case EXPRSXP:
     case VECSXP:
     case RAWSXP:
+    case BYTESXP:
 	switch (nsubs) {
 	case 0:
 	    x = VectorAssign(call, rho, x, R_MissingArg, y);
@@ -1917,7 +2157,8 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 
 	SEXP old_x = x;
-	which = SubassignTypeFix(&x, &y, stretch, 2, call, rho);
+	/* x[[i]] <- value writes the last new position, and no other */
+	which = SubassignTypeFix(&x, &y, stretch, R_NilValue, 2, call, rho);
 
 	PROTECT(x);
 	PROTECT(y);
@@ -2016,6 +2257,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 1923:  /* vector     <- weak reference */
 	case 1924:  /* vector     <- raw */
 	case 1925:  /* vector     <- S4 */
+	case 1926:  /* vector     <- bytes */
 	case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	    /* drop through: vectors and expressions are treated the same */
@@ -2030,12 +2272,20 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 2016:	/* expression <- character  */
 	case 2024:	/* expression     <- raw */
 	case 2025:	/* expression     <- S4 */
+	case 2026:	/* expression     <- bytes */
 	case 1919:      /* vector     <- vector     */
 	case 2020:	/* expression <- expression */
 
 	    if (MAYBE_REFERENCED(y) && VECTOR_ELT(x, offset) != y)
 		y = R_FixupRHS(x, y);
 	    SET_VECTOR_ELT(x, offset, y);
+	    break;
+
+	case 2626:      /* bytes <- bytes */
+	    {
+		size_t w = (size_t) BytesAssignWidth(x, y, call);
+		memcpy(BYTEVEC_DATA(x) + offset * w, BYTEVEC_ELT_RO(y, 0), w);
+	    }
 	    break;
 
 	case 2424:      /* raw <- raw */

@@ -55,11 +55,18 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     be read.  (Here \sQuote{type} is used in the sense of
     \code{\link{typeof}}.)  The supported types are \code{logical},
     \code{integer}, \code{numeric}, \code{complex}, \code{character},
-    \code{raw} and \code{\link{list}}.  If \code{what} is a list, it is
+    \code{raw}, \code{\link{bytes}} and \code{\link{list}}.  If
+    \code{what} is a list, it is
     assumed that the lines of the data file are records each containing
     \code{length(what)} items (\sQuote{fields}) and the list components
-    should have elements which are one of the first six (\link{atomic})
-    types listed or \code{NULL}, see section \sQuote{Details} below.}
+    should have elements which are one of the atomic
+    types listed or \code{NULL}, see section \sQuote{Details} below.
+
+    A \code{\link{bytes}} prototype -- \code{bytes(0L, 8L, "signed")},
+    say -- is read as one element of that type per field, so a column
+    of 64-bit identifiers can be read at full precision without going
+    through \code{character}.  Its width, kind and whether it reserves
+    a value for \code{NA} all come from the prototype.}
 
   \item{nmax}{the maximum number of data values to be read, or if
     \code{what} is a list, the maximum number of records to be read.  If

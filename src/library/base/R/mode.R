@@ -27,14 +27,33 @@ mode <- function(x) {
     switch(tx <- typeof(x),
 	   double =, integer = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
-	   ## otherwise
-	   tx)
+	   ## These are their own mode, and naming them is not redundant
+	   ## with the default below: a 'bytes' vector is the only type
+	   ## whose typeof() is not a fixed string -- it names the width and
+	   ## the kind -- so this is what keeps every other type off a test
+	   ## that has to look at the object.  A name left out of the list
+	   ## only pays for that test; it is not answered wrongly.
+	   logical =, character =, complex =, raw =, list =, pairlist =,
+	   environment =, externalptr =, promise =, weakref =, bytecode =,
+	   S4 =, `NULL` = tx,
+	   ## otherwise: the public mode follows the interpretation, not
+	   ## BYTESXP's shared storage representation
+	   if(is.numeric(x)) "numeric" else if(is.bytes(x)) "bytes" else tx)
 }
 
 `mode<-` <- function(x, value)
 {
     if (storage.mode(x) == value) return(x)
+    if (is.fixedwidth(x) && mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
+    ## A 'bytes' type is named by its width and kind (see
+    ## R_bytesTypeFromName in src/main/bytes.c).  Plain "bytes" is also
+    ## handled here so that as.bytes()'s defaults cannot silently pick
+    ## a width while changing mode.
+    if(value == "bytes" || .isBytesTypeName(value)) {
+	storage.mode(x) <- value
+	return(x)
+    }
     atr <- attributes(x)
     isSingle <- !is.null(attr(x, "Csingle"))
     setSingle <- value == "single"

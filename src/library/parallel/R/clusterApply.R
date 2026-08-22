@@ -292,7 +292,9 @@ parApply <- function(cl = NULL, X, MARGIN, FUN, ..., chunk.size = NULL)
         ## arrays with some 0 extents: return ``empty result'' trying
         ## to use proper mode and dimension:
         ## The following is still a bit `hackish': use non-empty X
-        newX <- array(vector(typeof(X), 1L), dim = c(prod(d.call), 1L))
+        ## a fixed-width vector stands in for its own type name; see vector()
+        newX <- array(vector(if(is.fixedwidth(X)) X else typeof(X), 1L),
+                      dim = c(prod(d.call), 1L))
         ans <- FUN(if(length(d.call) < 2L) newX[,1] else
                    array(newX[, 1L], d.call, dn.call), ...)
         return(if(is.null(ans)) ans else if(length(d.ans) < 2L) ans[1L][-1L]
@@ -337,4 +339,3 @@ parApply <- function(cl = NULL, X, MARGIN, FUN, ..., chunk.size = NULL)
     }
     return(ans)
 }
-

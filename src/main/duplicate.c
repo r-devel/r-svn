@@ -194,6 +194,7 @@ SEXP lazy_duplicate(SEXP s) {
     case REALSXP:
     case CPLXSXP:
     case RAWSXP:
+    case BYTESXP:
     case STRSXP:
     case OBJSXP:
 	ENSURE_NAMEDMAX(s);
@@ -348,6 +349,22 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, REAL_RO, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;
+    case BYTESXP:
+	/* not DUPLICATE_ATOMIC_VECTOR: the element size is per-vector, so
+	   allocVector(TYPEOF(s), n) cannot reproduce it. */
+	n = XLENGTH(s);
+	PROTECT(s);
+	PROTECT(t = R_allocVectorLikeUninit(s, n));
+	/* R_bytesMemcpy() and not memcpy(): the chunking that the macro
+	   above carries for macOS is the other half of what this arm
+	   declines, and a payload here reaches 2^32 bytes soonest */
+	if (n > 0)
+	    R_bytesMemcpy(BYTEVEC_DATA(t), BYTEVEC_DATA_RO(s),
+			  (size_t) n * BYTEVEC_WIDTH(s));
+	DUPLICATE_ATTRIB(t, s, deep);
+	COPY_TRUELENGTH(t, s);
+	UNPROTECT(2);
+	break;
     case STRSXP:
 	/* Direct copying and bypassing the write barrier would be OK
 	   since t was just allocated and so it cannot be older than
@@ -411,6 +428,9 @@ void copyVector(SEXP s, SEXP t)
 	break;
     case RAWSXP:
 	xcopyRawWithRecycle(RAW(s), RAW_RO(t), 0, ns, nt);
+	break;
+    case BYTESXP:
+	R_bytesCopyWithRecycle(s, t, 0, ns, nt);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("copyVector", s);
@@ -490,6 +510,16 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		RAW(s)[didx] = RAW(t)[sidx];
 	    break;
+	case BYTESXP:
+	{
+	    /* unlike the branch below, this one does not go through
+	       copyVector(), so the widths are checked here */
+	    R_bytesCheckSameType(s, t, "copyMatrix");
+	    size_t w = (size_t) BYTEVEC_WIDTH(s);
+	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
+		memcpy(BYTEVEC_ELT(s, didx), BYTEVEC_ELT_RO(t, sidx), w);
+	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("copyMatrix", s);
 	}

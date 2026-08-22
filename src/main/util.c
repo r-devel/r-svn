@@ -163,6 +163,17 @@ SEXP asChar(SEXP x)
 		return mkChar(EncodeComplex(COMPLEX(x)[0], w, d, e, wi, di, ei, OutDec));
 	    case STRSXP:
 		return STRING_ELT(x, 0);
+	    case BYTESXP:
+	    {
+		/* isVectorAtomic() accepts this type, so without an arm
+		   it reached the default below and every element read
+		   as NA.  Rendered as coerceToString() renders it. */
+		int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+		if (BYTEVEC_HAS_NA(x) &&
+		    R_bytesEltIsNA(BYTEVEC_ELT_RO(x, 0), w, k))
+		    return NA_STRING;
+		return mkChar(R_bytesEltRender(x, 0));
+	    }
 	    default:
 		return NA_STRING;
 	    }
@@ -228,6 +239,7 @@ TypeTable[] = {
     { "bytecode",	BCODESXP   },
     { "weakref",	WEAKREFSXP },
     { "raw",		RAWSXP },
+    { "bytes",		BYTESXP },
     { "S4",		S4SXP },
     { "object",		OBJSXP }, /* == S4SXP */
     /* aliases : */
@@ -342,16 +354,19 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
 
 #ifdef USE_TYPE2CHAR_2
 const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
-    return (t != OBJSXP)
-	? type2char(t)
-	: (IS_S4_OBJECT(x) ? "S4" : "object");
+    if (t == OBJSXP) return IS_S4_OBJECT(x) ? "S4" : "object";
+    if (t == BYTESXP) return R_bytesTypeName(x);
+    return type2char(t);
 }
 #endif
 
 const char *R_typeToChar(SEXP x) {
-    // = type2char() but distinguishing {S4, object}
+    // = type2char() but distinguishing {S4, object} and naming a
+    // 'bytes' vector by its kind and width
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
+    else if(TYPEOF(x) == BYTESXP)
+	return R_bytesTypeName(x);
     else
 	return type2char(TYPEOF(x));
 }

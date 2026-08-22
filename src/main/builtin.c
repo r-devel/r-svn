@@ -49,14 +49,23 @@ R_xlen_t asVecSize(SEXP x)
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    /* a negative size is the caller's to interpret -- readLines()
+	       reads to the end on n = -1 -- so it is only clamped into
+	       the range the cast below can represent */
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
+	case BYTESXP:
 	{
+	    /* asReal() reads a 'bytes' element by its width and kind;
+	       a size a double cannot name exactly is past R_XLEN_T_MAX
+	       and turned away here anyway */
 	    double d = asReal(x);
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;	/* as above */
 	    return (R_xlen_t) d;
 	}
 	default:
@@ -547,6 +556,28 @@ static void cat_cleanup(void *data)
 #endif
 }
 
+/* EncodeElement0() returns a shared buffer that cat_newline() may reuse
+   before the element is printed, so each element has to be copied out.
+   Most types encode to a few dozen characters and fit the caller's stack
+   buffer; a wide 'bytes' element runs to several hundred, and is copied to
+   a buffer sized to what was actually encoded rather than truncated to
+   fit.  That buffer is grown rather than replaced, so a long vector of
+   wide elements costs one allocation per new maximum width, not one per
+   element. */
+static const char *cat_element(SEXP s, R_xlen_t i, char **buf, size_t *buflen)
+{
+    const char *p = EncodeElement0(s, i, 0, OutDec);
+    size_t n = strlen(p);
+
+    if (n >= *buflen) {
+	*buflen = n + 1;
+	*buf = R_alloc(*buflen, 1);
+    }
+    memcpy(*buf, p, n + 1);
+
+    return *buf;
+}
+
 attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     cat_info ci;
@@ -557,7 +588,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     int append;
     int i, iobj, n, nobjs, sepw, lablen, ntot, nlsep, nlines;
     size_t width, pwidth;
-    char buf[512];
+    char sbuf[512], *buf = sbuf;
+    size_t buflen = sizeof sbuf;
     const char *p = "";
 
     checkArity(op, args);
@@ -652,14 +684,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    else if (isSymbol(s)) /* length 1 */
 		p = CHAR(PRINTNAME(s));
 	    else if (isVectorAtomic(s)) {
-		/* Not a string, as that is covered above.
-		   Thus the maximum size is about 60.
-		   The copy is needed as cat_newline might reuse the buffer.
-		   Use strncpy is in case these assumptions change.
-		*/
-		p = EncodeElement0(s, 0, 0, OutDec);
-		strncpy(buf, p, 511); buf[511] = '\0';
-		p = buf;
+		/* Not a string, as that is covered above. */
+		p = cat_element(s, 0, &buf, &buflen);
 	    }
 #ifdef fixed_cat
 	    else if (isVectorList(s)) {
@@ -687,11 +713,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    cat_printsep(sepr, ntot);
 		    if (isString(s))
 			p = trChar(STRING_ELT(s, i+1));
-		    else {
-			p = EncodeElement0(s, i+1, 0, OutDec);
-			strncpy(buf, p, 511); buf[511] = '\0';
-			p = buf;
-		    }
+		    else
+			p = cat_element(s, i+1, &buf, &buflen);
 		    w = strlen(p);
 		    cat_sepwidth(sepr, &sepw, ntot);
 		    if (width + w + sepw > pwidth) {
@@ -792,11 +815,35 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(CADR(args)) != 1) error(_("invalid '%s' argument"), "length");
     len = asVecSize(CADR(args));
     if (len < 0) error(_("invalid '%s' argument"), "length");
+    /* A type name carries the width and the kind but not the sentinel,
+       so no name spells a whole 'bytes' type.  An existing vector does,
+       the way readBin() and scan() take one in place of a name, and it
+       is what lets the vector(typeof(x), n) idiom reproduce a vector
+       created with na = FALSE. */
+    if (TYPEOF(CAR(args)) == BYTESXP)
+	return R_allocVectorLike(CAR(args), len);
+
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
-    mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
-    if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
+    const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
+
+    /* A 'bytes' mode names its width and kind -- "int64", "uint128",
+       "bytes16" -- because those are per-vector properties that a
+       SEXPTYPE cannot carry.  Checked before str2type(), which knows
+       only the coarse name "bytes"; that one is answered with the
+       family's default further down. */
+    int bwidth, bkind;
+    if (R_bytesTypeFromName(modestr, &bwidth, &bkind))
+	return R_allocBytesVector(len, bwidth, bkind, TRUE);
+
+    mode = str2type(modestr);
+    if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
+    if (mode == BYTESXP)
+	/* "bytes" denotes the opaque family's default -- width 1 with
+	   an NA reservation.  A specific fixed-width type is named by
+	   typeof(), or given as a vector above. */
+	return R_allocBytesVector(len, 1, BYTEVEC_OPAQUE, TRUE);
     switch (mode) {
     case LGLSXP:
     case INTSXP:
@@ -846,7 +893,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
-    PROTECT(rval = allocVector(TYPEOF(x), len));
+    PROTECT(rval = R_allocVectorLike(x, len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)
 	names = allocVector(STRSXP, len);
@@ -921,6 +968,22 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    }
 	    else
 		RAW(rval)[i] = (Rbyte) 0;
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    for (i = 0; i < len; i++)
+		if (i < lenx) {
+		    memcpy(BYTEVEC_ELT(rval, i), BYTEVEC_ELT_RO(x, i),
+			   (size_t) w);
+		    if (xnames != R_NilValue)
+			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+		}
+		else {
+		    R_bytesCheckNA(rval);
+		    R_bytesSetEltNA(BYTEVEC_ELT(rval, i), w, k);
+		}
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("length<-", x);

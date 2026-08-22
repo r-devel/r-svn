@@ -81,6 +81,7 @@ typedef struct {
     bool atStart;
     bool embedWarn;
     bool skipNul;
+    R_xlen_t bytesReserved;
     char convbuf[100];
 } LocalData;
 
@@ -551,15 +552,47 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 		expected("a raw", buffer, d);
 	}
 	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(ans), k = BYTEVEC_KIND(ans);
+	    Rbyte *p = BYTEVEC_ELT(ans, i);
+
+	    if (isNAstring(buffer, 0, d)) {
+		R_bytesCheckNA(ans);
+		R_bytesSetEltNA(p, w, k);
+	    }
+	    /* Strtoi gives NA_INTEGER for a value out of int range as
+	       well as for one that is not a number, so an integer column
+	       errors on both.  This follows that rather than the
+	       NA-with-a-warning that as.bytes() gives. */
+	    else {
+		R_bytes_parse_t st = R_bytesEltFromString(p, buffer, w, k,
+						       BYTEVEC_HAS_NA(ans));
+		if (st == BYTES_PARSE_OK && BYTEVEC_HAS_NA(ans) &&
+		    R_bytesEltIsNA(p, w, k))
+		    d->bytesReserved++;
+		else if (st != BYTES_PARSE_OK) {
+		char what[32];
+		snprintf(what, sizeof what, "%s", R_bytesTypeName(ans));
+		expected(what, buffer, d);
+		}
+	    }
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("extractItem", ans);
     }
 }
 
-static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
+/* Takes the prototype rather than its SEXPTYPE: a 'bytes' vector's
+   width, kind and NA reservation are per-vector properties a type
+   number cannot carry, and every "another vector like this one" site
+   below needs all three. */
+static SEXP scanVector(SEXP proto, R_xlen_t maxitems, R_xlen_t maxlines,
 		       int flush, SEXP stripwhite, int blskip, LocalData *d)
 {
     SEXP ans, bns;
+    SEXPTYPE type = TYPEOF(proto);
     int c, strip, bch, ic;
     R_xlen_t i, blocksize, linesread, n, nprev;
     char *buffer;
@@ -569,7 +602,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     else blocksize = SCAN_BLOCKSIZE;
 
     R_AllocStringBuffer(0, &strBuf);
-    PROTECT(ans = allocVector(type, blocksize));
+    PROTECT(ans = R_allocVectorLike(proto, blocksize));
 
     nprev = 0; n = 0; linesread = 0; bch = 1;
 
@@ -602,7 +635,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 	    bns = ans;
 	    if(blocksize > R_XLEN_T_MAX/2) error(_("too many items"));
 	    blocksize = 2 * blocksize;
-	    ans = allocVector(type, blocksize);
+	    ans = R_allocVectorLike(proto, blocksize);
 	    UNPROTECT(1);
 	    PROTECT(ans);
 	    copyVector(ans, bns);
@@ -636,7 +669,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     if (n == 0) {
 	UNPROTECT(1);
 	R_FreeStringBuffer(&strBuf);
-	return allocVector(type,0);
+	return R_allocVectorLike(proto, 0);
     }
     if (n == maxitems) {
 	UNPROTECT(1);
@@ -644,7 +677,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 	return ans;
     }
 
-    bns = allocVector(type, n);
+    bns = R_allocVectorLike(proto, n);
     switch (type) {
     case LGLSXP:
     case INTSXP:
@@ -666,6 +699,10 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     case RAWSXP:
 	for (i = 0; i < n; i++)
 	    RAW(bns)[i] = RAW(ans)[i];
+	break;
+    case BYTESXP:
+	R_bytesMemcpy(BYTEVEC_DATA(bns), BYTEVEC_DATA_RO(ans),
+		      (size_t) n * BYTEVEC_WIDTH(ans));
 	break;
     default:
 	UNIMPLEMENTED_TYPEt("scanVector", type);
@@ -704,7 +741,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    if (!isVector(w)) {
 		error(_("invalid '%s' argument"), "what");
 	    }
-	    SET_VECTOR_ELT(ans, i, allocVector(TYPEOF(w), blksize));
+	    SET_VECTOR_ELT(ans, i, R_allocVectorLike(w, blksize));
 	}
     }
     setAttrib(ans, R_NamesSymbol, getAttrib(what, R_NamesSymbol));
@@ -765,7 +802,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    for (i = 0; i < nc; i++) {
 		old = VECTOR_ELT(ans, i);
 		if(!isNull(old)) {
-		    new = allocVector(TYPEOF(old), blksize);
+		    new = R_allocVectorLike(old, blksize);
 		    copyVector(new, old);
 		    SET_VECTOR_ELT(ans, i, new);
 		}
@@ -813,7 +850,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 
     for (i = 0; i < nc; i++) {
 	old = VECTOR_ELT(ans, i);
-	new = allocVector(TYPEOF(old), n);
+	new = R_allocVectorLike(old, n);
 	switch (TYPEOF(old)) {
 	case LGLSXP:
 	case INTSXP:
@@ -836,6 +873,12 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    for (j = 0; j < n; j++)
 		RAW(new)[j] = RAW(old)[j];
 	    break;
+	case BYTESXP:
+	    /* R_bytesMemcpy() and not memcpy(): a whole payload can pass
+	       the size macOS has been seen to mis-copy in one call */
+	    R_bytesMemcpy(BYTEVEC_DATA(new), BYTEVEC_DATA_RO(old),
+			  (size_t) n * BYTEVEC_WIDTH(old));
+	    break;
 	case NILSXP:
 	    break;
 	default:
@@ -856,7 +899,7 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     const char *p, *encoding;
     RCNTXT cntxt;
     LocalData data = {NULL, 0, 0, '.', NULL, NO_COMCHAR, 0, NULL, false,
-		      false, 0, false, false, false, false, false, {false}};
+		      false, 0, false, false, false, false, false, 0, {false}};
     data.NAstrings = R_NilValue;
 
     checkArity(op, args);
@@ -998,7 +1041,8 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
-	ans = scanVector(TYPEOF(what), nmax, nlines, flush, stripwhite,
+    case BYTESXP:
+	ans = scanVector(what, nmax, nlines, flush, stripwhite,
 			 blskip, &data);
 	break;
 
@@ -1009,6 +1053,8 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     default:
 	error(_("invalid '%s' argument"), "what");
     }
+
+    R_bytesWarnReservedCount(data.bytesReserved);
     PROTECT(ans);
     endcontext(&cntxt);
 

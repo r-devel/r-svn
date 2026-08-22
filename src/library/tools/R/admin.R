@@ -1095,7 +1095,18 @@ checkRdaFiles <- function(paths)
         if (grepl("RD[ABX][1-9]", magic, useBytes = TRUE)) {
             res[p, "ASCII"]  <- substr(magic, 3, 3) == "A"
             ver <- sub("(RD[ABX])([1-9])", "\\2", magic, useBytes = TRUE)
-            res[p, "version"] <- as.integer(ver)
+            ver <- as.integer(ver)
+            ## The magic stops at 3: R_ReadMagic() knows no higher digit,
+            ## so a version 3 or newer stream is written "RDX3" and says
+            ## which it really is in its own header.  Version 1 has no
+            ## such header, and .Internal() below errors on one.
+            if (ver >= 3L) {
+                con <- gzfile(p, "rb")
+                ver <- tryCatch(.Internal(loadInfoFromConn2(con))$version,
+                                error = function(e) ver)
+                close(con)
+            }
+            res[p, "version"] <- ver
         }
     }
     res

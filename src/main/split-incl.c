@@ -22,7 +22,7 @@
     PROTECT(vec = allocVector(VECSXP, nlevs));
     for (R_xlen_t i = 0;  i < nlevs; i++) {
 	SET_VECTOR_ELT(vec, i, 
-		       allocVector(TYPEOF(x), (_L_int_)_L_INTEG_(counts)[i]));
+		       R_allocVectorLike(x, (_L_int_)_L_INTEG_(counts)[i]));
 	setAttrib(VECTOR_ELT(vec, i), R_LevelsSymbol,
 		  getAttrib(x, R_LevelsSymbol));
 	if(have_names)
@@ -53,6 +53,10 @@
 		break;
 	    case RAWSXP:
 		RAW(VECTOR_ELT(vec, j - 1))[k] = RAW(x)[i];
+		break;
+	    case BYTESXP:
+		memcpy(BYTEVEC_ELT(VECTOR_ELT(vec, j - 1), k),
+		       BYTEVEC_ELT_RO(x, i), (size_t) BYTEVEC_WIDTH(x));
 		break;
 	    default:
 		UNIMPLEMENTED_TYPE("split", x);

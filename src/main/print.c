@@ -519,6 +519,25 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
+	    case BYTESXP:
+		/* a single element renders in full, as for the other
+		   atomic types; the type name carries the width.  This is
+		   the one arm of this switch that prints a value rather
+		   than a summary, so it is also the one that can outrun
+		   pbuf: a wide element runs to hundreds of digits, and
+		   those cut to fit read as a smaller number that is
+		   simply wrong.  Such an element falls back to the
+		   summary the other arms always print. */
+		if (LENGTH(s_i) == 1) {
+		    const char *bstr = R_bytesEltRender(s_i, 0);
+		    if (strlen(bstr) < 115) {
+			snprintf(pbuf, 115, "%s", bstr);
+			break;
+		    }
+		}
+		snprintf(pbuf, 115, "%s,%d", R_bytesTypeName(s_i),
+			 LENGTH(s_i));
+		break;
 	    case LISTSXP:
 	    case VECSXP:
 		snprintf(pbuf, 115, "list,%d", length(s_i));
@@ -690,6 +709,11 @@ static void printList(SEXP s, R_PrintData *data)
 
 	    case RAWSXP:
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
+		break;
+
+	    case BYTESXP:
+		snprintf(pbuf, 100, "%s,%d", R_bytesTypeName(CAR(s)),
+			 LENGTH(CAR(s)));
 		break;
 
 	    case LISTSXP:
@@ -915,6 +939,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
+    case BYTESXP:
 	PROTECT(t = getAttrib(s, R_DimSymbol));
 	if (TYPEOF(t) == INTSXP) {
 	    if (LENGTH(t) == 1) {

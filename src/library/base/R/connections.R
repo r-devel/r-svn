@@ -268,11 +268,29 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
-    if(!is.character(what) || is.na(what) ||
-       length(what) != 1L || ## hence length(what) == 1:
-       !any(what == c("numeric", "double", "integer", "int", "logical",
-	    "complex", "character", "raw")))
-	what <- typeof(what)
+    ## a character vector of length one names the mode and a length-zero
+    ## one is a prototype for strings, but a longer one is neither, and
+    ## typeof() would quietly turn it into "character" and read the
+    ## stream as NUL-terminated strings
+    if(is.character(what) && length(what) > 1L)
+        stop("'what' must name a single mode")
+
+    ## A length-one character vector naming a mode is the mode; anything
+    ## else is a prototype whose type is the mode -- including a length-one
+    ## character vector that is not one of the names, since character(1)
+    ## is a documented way to ask for strings.  A 'bytes' prototype is
+    ## passed through whole, as it also says whether NA is representable,
+    ## which the type name does not.  The 'bytes' names join the list so
+    ## that readBin(con, "int64") does not fall through to typeof(), which
+    ## is "character", and silently read strings; a name of that shape but
+    ## an unsupported width is left for .Internal to reject.
+    if(!(is.character(what) && length(what) == 1L && !is.na(what) &&
+         (what %in% c("numeric", "double", "integer", "int", "logical",
+                      "complex", "character", "raw") ||
+          .isBytesTypeName(what)))) {
+        if(!is.fixedwidth(what))
+            what <- typeof(what)
+    }
     .Internal(readBin(con, what, n, size, signed, swap))
 }
 

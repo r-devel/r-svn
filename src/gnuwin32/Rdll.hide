@@ -36,6 +36,11 @@
  BNDCELL_IVAL
  BNDCELL_LVAL
  BNDCELL_TAG
+ BYTEVEC_DATA
+ BYTEVEC_DATA_RO
+ BYTEVEC_HAS_NA
+ BYTEVEC_KIND
+ BYTEVEC_WIDTH
  BZ2_blockSort
  BZ2_bsInitWrite
  BZ2_bzBuffToBuffCompress@28
@@ -126,6 +131,7 @@
  RExitContext
  RSTEP
  RTRACE
+ R_AnnounceSerializeVersion
  R_BCIntActive
  R_BCNodeStackBase
  R_BCProtReset
@@ -137,7 +143,10 @@
  R_BrowseLevel
  R_BrowseLines
  R_BrowserLastCommand
+ R_BytesVectorSeen
  R_CBoundsCheck
+ R_CheckBytesVector
+ R_CheckSerializeVersion
  R_CheckTimeLimits
  R_ChooseFile
  R_CollectWarnings
@@ -233,6 +242,7 @@
  R_SaveToFile
  R_SaveToFileV
  R_SerializeInfo
+ R_SerializeVersionFor
  R_SessionContext
  R_SetMaxNSize
  R_SetMaxVSize
@@ -269,8 +279,42 @@
  R_XDREncodeDouble
  R_XDREncodeInteger
  R_allocObject
+ R_allocVectorLike
  R_args_enable_refcnt
  R_binary
+ R_bytesAllNA
+ R_bytesArith
+ R_bytesBitwise
+ R_bytesCheckNA
+ R_bytesCheckSameNA
+ R_bytesCheckSameType
+ R_bytesCoerce
+ R_bytesConvert
+ R_bytesCopyWithRecycle
+ R_bytesCum
+ R_bytesEltAsReal
+ R_bytesEltCmp
+ R_bytesEltDecimal
+ R_bytesEltFromString
+ R_bytesEltIsNA
+ R_bytesEltRender
+ R_bytesFillMatrixWithRecycle
+ R_bytesFromBytes
+ R_bytesKindName
+ R_bytesMagFits
+ R_bytesMemcpy
+ R_bytesNarrow
+ R_bytesNarrowCmp
+ R_bytesParallelMinMax
+ R_bytesSetEltNA
+ R_bytesSummary
+ R_bytesSummaryType
+ R_bytesSwapWire
+ R_bytesTypeFromName
+ R_bytesTypeName
+ R_bytesTypeNameOf
+ R_bytesUnary
+ R_bytesWarnReserved
  R_checkConstants
  R_check_constants
  R_check_locale
@@ -412,6 +456,7 @@
  Rf_DispatchAnyOrEval
  Rf_DispatchGroup
  Rf_DispatchOrEval
+ Rf_EncodeBytes
  Rf_EncodeEnvironment
  Rf_EncodeRaw
  Rf_EncodeReal2
@@ -598,6 +643,9 @@
  SET_BNDCELL_TAG
  SET_BODY
  SET_BYTES
+ SET_BYTEVEC_KIND
+ SET_BYTEVEC_NONA
+ SET_BYTEVEC_WIDTH
  SET_CACHED
  SET_CLOENV
  SET_CXTAIL
@@ -743,6 +791,7 @@
  cpuLimitValue
  csroot_
  dblep0_
+ defaultSaveVersion
  deleditordata
  dim2total
  dispatch_length
@@ -786,6 +835,7 @@
  do_asPOSIXlt
  do_as_environment
  do_asatomic
+ do_asbytes
  do_ascall
  do_asfunction
  do_assign
@@ -816,6 +866,12 @@
  do_break
  do_browser
  do_builtins
+ do_bytes
+ do_byteshasna
+ do_bytesis
+ do_byteskind
+ do_bytesraw
+ do_byteswidth
  do_c
  do_c_dflt
  do_call
@@ -1160,6 +1216,7 @@
  do_sequence
  do_serialize
  do_serializeToConn
+ do_serializeVersion
  do_serversocket
  do_set
  do_setFileTime

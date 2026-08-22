@@ -440,6 +440,12 @@ static SEXP coerceToSymbol(SEXP v)
     case RAWSXP:
 	ans = StringFromRaw(RAW_ELT(v, 0), &warn);
 	break;
+    case BYTESXP:
+	/* as every other atomic type does: render element 0 and intern
+	   it.  Without this as.name() on a 'bytes' vector reported an
+	   internal "unimplemented type" from ordinary user code. */
+	ans = mkChar(R_bytesEltRender(v, 0));
+	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToSymbol", v);
     }
@@ -448,6 +454,37 @@ static SEXP coerceToSymbol(SEXP v)
     ans = installTrChar(ans);
     UNPROTECT(2); /* ans, v */
     return ans;
+}
+
+/* "any bit set": the one reading of a 'bytes' element that needs no
+   interpretation of the bytes, and so is available for every kind.  It is
+   what as.logical() already does for raw. */
+static int bytesEltAsLogical(const Rbyte *p, int w, int kind, bool hasNA)
+{
+    if (hasNA && R_bytesEltIsNA(p, w, kind))
+	return NA_LOGICAL;
+
+    for (int b = 0; b < w; b++)
+	if (p[b] != 0)
+	    return TRUE;
+
+    return FALSE;
+}
+
+/* Element 0 as a double, for the asXXX() family.  The opaque kind has no
+   numeric reading, and is refused here as it is in R_bytesCoerce(). */
+static double bytesElt0AsReal(SEXP x, const char *target)
+{
+    int w = BYTEVEC_WIDTH(x), kind = BYTEVEC_KIND(x);
+    const Rbyte *p = BYTEVEC_ELT_RO(x, 0);
+
+    if (kind == BYTEVEC_OPAQUE)
+	error(_("cannot coerce an opaque 'bytes' vector to type '%s'"),
+	      target);
+    if (BYTEVEC_HAS_NA(x) && R_bytesEltIsNA(p, w, kind))
+	return NA_REAL;
+
+    return R_bytesEltAsReal(p, w, kind);
 }
 
 static SEXP coerceToLogical(SEXP v)
@@ -493,6 +530,14 @@ static SEXP coerceToLogical(SEXP v)
 	for (i = 0; i < n; i++) {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    pa[i] = LogicalFromInteger((int)RAW_ELT(v, i), &warn);
+	}
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
+	    bool hasNA = BYTEVEC_HAS_NA(v);
+	    for (i = 0; i < n; i++)
+		pa[i] = bytesEltAsLogical(BYTEVEC_ELT_RO(v, i), w, k, hasNA);
 	}
 	break;
     default:
@@ -662,6 +707,17 @@ static SEXP coerceToComplex(SEXP v)
     return ans;
 }
 
+/* as.complex() of 'bytes' goes by way of double, so that the real part is
+   the value and R_bytesCoerce() issues the precision warning that the wide
+   widths earn.  There is no complex kind, so nothing is lost by the detour. */
+static SEXP bytesCoerceToComplex(SEXP v)
+{
+    SEXP d = PROTECT(R_bytesCoerce(v, REALSXP));
+    SEXP ans = coerceToComplex(d);
+    UNPROTECT(1);
+    return ans;
+}
+
 static SEXP coerceToRaw(SEXP v)
 {
     SEXP ans;
@@ -792,6 +848,20 @@ static SEXP coerceToString(SEXP v)
 	    SET_STRING_ELT(ans, i, StringFromRaw(RAW_ELT(v, i), &warn));
 	}
 	break;
+    case BYTESXP:
+	{
+	    /* R_bytesEltRender() is the one place an element's text
+	       form is decided; only the NA spelling differs here */
+	    int w = BYTEVEC_WIDTH(v), k = BYTEVEC_KIND(v);
+	    for (i = 0; i < n; i++) {
+		if (BYTEVEC_HAS_NA(v) &&
+		    R_bytesEltIsNA(BYTEVEC_ELT_RO(v, i), w, k))
+		    SET_STRING_ELT(ans, i, NA_STRING);
+		else
+		    SET_STRING_ELT(ans, i, mkChar(R_bytesEltRender(v, i)));
+	    }
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToString", v);
     }
@@ -837,6 +907,17 @@ static SEXP coerceToExpression(SEXP v)
 	case RAWSXP:
 	    for (i = 0; i < n; i++)
 		SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
+	    break;
+	case BYTESXP:
+	    /* as in coerceToVectorList(): a length-1 vector of the same
+	       width and kind, there being no scalar form of an element */
+	    for (i = 0; i < n; i++) {
+		SEXP e = PROTECT(R_allocVectorLike(v, 1));
+		memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(v, i),
+		       (size_t) BYTEVEC_WIDTH(v));
+		SET_VECTOR_ELT(ans, i, e);
+		UNPROTECT(1);
+	    }
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("coerceToExpression", v);
@@ -899,6 +980,17 @@ static SEXP coerceToVectorList(SEXP v)
 	    SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
 	}
 	break;
+    case BYTESXP:
+	/* a length-1 vector per element, keeping the width and kind;
+	   there is no scalar form of a 'bytes' element */
+	for (i = 0; i < n; i++) {
+	    SEXP e = PROTECT(R_allocVectorLike(v, 1));
+	    memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(v, i),
+		   (size_t) BYTEVEC_WIDTH(v));
+	    SET_VECTOR_ELT(ans, i, e);
+	    UNPROTECT(1);
+	}
+	break;
     case LISTSXP:
     case LANGSXP:
 	tmp = v;
@@ -947,6 +1039,11 @@ static SEXP coerceToPairList(SEXP v)
 	case RAWSXP:
 	    SETCAR(ansp, allocVector(RAWSXP, 1));
 	    RAW0(CAR(ansp))[0] = RAW_ELT(v, i);
+	    break;
+	case BYTESXP:
+	    SETCAR(ansp, R_allocVectorLike(v, 1));
+	    memcpy(BYTEVEC_DATA(CAR(ansp)), BYTEVEC_ELT_RO(v, i),
+		   (size_t) BYTEVEC_WIDTH(v));
 	    break;
 	case VECSXP:
 	    SETCAR(ansp, VECTOR_ELT(v, i));
@@ -1272,6 +1369,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 
 #define COERCE_ERROR_STRING "cannot coerce type '%s' to vector of type '%s'"
 
@@ -1284,13 +1382,17 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	case LGLSXP:
 	    ans = coerceToLogical(v);	    break;
 	case INTSXP:
-	    ans = coerceToInteger(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, INTSXP)
+					 : coerceToInteger(v);	break;
 	case REALSXP:
-	    ans = coerceToReal(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, REALSXP)
+					 : coerceToReal(v);	break;
 	case CPLXSXP:
-	    ans = coerceToComplex(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? bytesCoerceToComplex(v)
+					 : coerceToComplex(v);	break;
 	case RAWSXP:
-	    ans = coerceToRaw(v);	    break;
+	    ans = (TYPEOF(v) == BYTESXP) ? R_bytesCoerce(v, RAWSXP)
+					 : coerceToRaw(v);	break;
 	case STRSXP:
 	    if (ATTRIB(v) == R_NilValue)
 		switch(TYPEOF(v)) {
@@ -1522,10 +1624,32 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error_return(R_MSG_mode);
 
     SEXP x = CAR(args);
+    const char *modestr = CHAR(STRING_ELT(CADR(args), 0)); /* ASCII */
+
+    /* A 'bytes' mode names its width and kind, since neither is
+       implied by the SEXPTYPE; see do_makevector().  as.vector() drops
+       attributes, which R_bytesConvert() does not have to do -- it
+       either builds a new vector or, when nothing would change,
+       returns x -- so the tail below still runs. */
+    int bwidth, bkind;
+    if (R_bytesTypeFromName(modestr, &bwidth, &bkind)) {
+	/* the mode names the width and the kind but cannot say whether
+	   NA is reserved, so converting one 'bytes' vector to another
+	   keeps what it already had */
+	int bna = R_isBytes(x) ? R_bytesHasNA(x) : TRUE;
+	SEXP val = PROTECT(R_bytesConvert(x, bwidth, bkind, bna, call));
+	if (ATTRIB(val) != R_NilValue) {
+	    if (MAYBE_REFERENCED(val)) val = duplicate(val);
+	    CLEAR_ATTRIB(val);
+	}
+	UNPROTECT(1);
+	return val;
+    }
+
     int type =
-	(!strcmp("function", CHAR(STRING_ELT(CADR(args), 0))))  /* ASCII */
+	(!strcmp("function", modestr))
 	? CLOSXP
-	: str2type(CHAR(STRING_ELT(CADR(args), 0))); /* ASCII */
+	: str2type(modestr);
 
     /* "any" case added in 2.13.0 */
     if(type == ANYSXP || TYPEOF(x) == type) {
@@ -1536,6 +1660,11 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	/* BYTESXP belongs here for the same reason RAWSXP does: without an
+	   arm of its own it falls through to the CLEAR_ATTRIB() at the end
+	   of this function still aliasing the argument, and so strips the
+	   caller's own vector rather than the result */
+	case BYTESXP:
 	    if(ATTRIB(x) == R_NilValue) return x;
 	    ans  = MAYBE_REFERENCED(x) ? duplicate(x) : x;
 	    CLEAR_ATTRIB(ans);
@@ -1799,6 +1928,9 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	    return LogicalFromString(STRING_ELT(x, 0), &warn);
 	case RAWSXP:
 	    return LogicalFromInteger((int)RAW_ELT(x, 0), &warn);
+	case BYTESXP:
+	    return bytesEltAsLogical(BYTEVEC_ELT_RO(x, 0), BYTEVEC_WIDTH(x),
+				     BYTEVEC_KIND(x), BYTEVEC_HAS_NA(x));
 	default:
 	    UNIMPLEMENTED_TYPE("asLogical", x);
 	}
@@ -1872,6 +2004,10 @@ int asInteger(SEXP x)
 	    res = IntegerFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case BYTESXP:
+	    res = IntegerFromReal(bytesElt0AsReal(x, "integer"), &warn);
+	    CoercionWarning(warn);
+	    return res;
 	default:
 	    UNIMPLEMENTED_TYPE("asInteger", x);
 	}
@@ -1902,6 +2038,7 @@ R_xlen_t asXLength(SEXP x)
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
+	case BYTESXP:
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("asXLength", x);
@@ -1941,6 +2078,8 @@ double asReal(SEXP x)
 	    res = RealFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case BYTESXP:
+	    return bytesElt0AsReal(x, "double");
 	default:
 	    UNIMPLEMENTED_TYPE("asReal", x);
 	}
@@ -1977,6 +2116,10 @@ Rcomplex asComplex(SEXP x)
 	    z = ComplexFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return z;
+	case BYTESXP:
+	    z = ComplexFromReal(bytesElt0AsReal(x, "complex"), &warn);
+	    CoercionWarning(warn);
+	    return z;
 	default:
 	    UNIMPLEMENTED_TYPE("asComplex", x);
 	}
@@ -1998,7 +2141,9 @@ attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
     if(TYPEOF(CAR(args)) == OBJSXP && ! IS_S4_OBJECT(CAR(args)))
 	return mkString("object");
     else
-	return type2rstr(TYPEOF(CAR(args)));
+	return TYPEOF(CAR(args)) == BYTESXP
+	    ? mkString(R_bytesTypeName(CAR(args)))
+	    : type2rstr(TYPEOF(CAR(args)));
 }
 
 /* Define many of the <primitive> "is.xxx" functions :
@@ -2095,8 +2240,9 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 */
 
     case 100:		/* is.numeric */
-	LOGICAL0(ans)[0] = isNumeric(CAR(args)) &&
-	    !isLogical(CAR(args));  /* isNumeric excludes factors */
+	LOGICAL0(ans)[0] = R_bytesIsNumeric(CAR(args)) ||
+	    (isNumeric(CAR(args)) &&
+	     !isLogical(CAR(args)));  /* isNumeric excludes factors */
 	break;
     case 101:		/* is.matrix */
 	LOGICAL0(ans)[0] = isMatrix(CAR(args));
@@ -2118,6 +2264,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	case BYTESXP:
 	    LOGICAL0(ans)[0] = 1;
 	    break;
 	default:
@@ -2203,6 +2350,12 @@ attribute_hidden SEXP do_isvector(SEXP call, SEXP op, SEXP args, SEXP rho)
        "closure", but not aliases such as "name" and "function". */
     else if (streql(stype, R_typeToChar(x))) {
 	LOGICAL0(ans)[0] = 1;
+    }
+    /* "bytes" is the mode of every width and kind, as "numeric" is the
+       mode of integer and double, so is.vector(x, mode(x)) has to hold
+       for this type too; R_typeToChar() gives the finer name */
+    else if (streql(stype, "bytes")) {
+	LOGICAL0(ans)[0] = (TYPEOF(x) == BYTESXP);
     }
     else
 	LOGICAL0(ans)[0] = 0;
@@ -2352,6 +2505,14 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    bool anyPossible = BYTEVEC_HAS_NA(x);
+	    for (i = 0; i < n; i++)
+		pa[i] = anyPossible && R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k);
+	}
+	break;
     case NILSXP: break;
     default:
 	warningcall(call, _("%s() applied to non-(list or vector) of type '%s'"),
@@ -2431,6 +2592,14 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     case STRSXP:
 	for (i = 0; i < n; i++)
 	    if (STRING_ELT(x, i) == NA_STRING) return true;
+	break;
+    case BYTESXP:
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    if (!BYTEVEC_HAS_NA(x)) break;
+	    for (i = 0; i < n; i++)
+		if (R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k)) return true;
+	}
 	break;
     case RAWSXP: /* no such thing as a raw NA:  is.na(.) gives false always */
 	return false;
@@ -2537,6 +2706,7 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -2601,6 +2771,17 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
+    case BYTESXP:
+	/* every bit pattern names a value, so only a reserved NA is not
+	   finite -- the analogue of the integer case above */
+	{
+	    int w = BYTEVEC_WIDTH(x), k = BYTEVEC_KIND(x);
+	    bool hasNA = BYTEVEC_HAS_NA(x);
+	    for (i = 0; i < n; i++)
+		pa[i] = !(hasNA &&
+			  R_bytesEltIsNA(BYTEVEC_ELT_RO(x, i), w, k));
+	}
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = R_FINITE(REAL_ELT(x, i));
@@ -2664,6 +2845,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -3036,6 +3218,27 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	}
     }
 
+    /* A 'bytes' vector's implicit class is c("bytes16", "bytes") for
+       the opaque kind, or a semantic type such as "uint64" for a
+       numeric kind, so setting either back has to be the same no-op.
+       Without this the branches below install a class attribute and set
+       the object bit, and class(x) <- class(x) turns a bare vector into
+       an S3 one.
+
+       Only when there is no dim, though: R_data_class() gives a bytes
+       matrix c("matrix", "array") like any other, which leaves
+       c("uint64", "bytes") a class the caller means to keep. */
+    if(TYPEOF(obj) == BYTESXP && length(getAttrib(obj, R_DimSymbol)) == 0 &&
+       !strcmp(R_bytesTypeName(obj), valueString) &&
+       (length(value) == 1 ||
+	(BYTEVEC_KIND(obj) == BYTEVEC_OPAQUE && length(value) == 2 &&
+	 !strcmp("bytes", CHAR(STRING_ELT(value, 1)))))) {
+	setAttrib(obj, R_ClassSymbol, R_NilValue);
+	if(IS_S4_OBJECT(obj))
+	    do_unsetS4(obj, value);
+	goto done_set_class;
+    }
+
     if(length(value) > 1) { // multiple strings ==> S3
         setAttrib(obj, R_ClassSymbol, value);
 	if(IS_S4_OBJECT(obj)) /*  multiple strings only valid for S3 objects */
@@ -3113,6 +3316,39 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
       value = CADR(args);
     if (!isValidString(value) || STRING_ELT(value, 0) == NA_STRING)
 	error(_("'value' must be non-null character string"));
+    /* a 'bytes' storage mode names its width and kind; see
+       do_makevector() */
+    int bwidth, bkind;
+    if(R_bytesTypeFromName(CHAR(STRING_ELT(value, 0)), &bwidth, &bkind)) {
+	if(isFactor(obj))
+	    error(_("invalid to change the storage mode of a factor"));
+	int bna = R_isBytes(obj) ? R_bytesHasNA(obj) : TRUE;	/* see do_asvector */
+	SEXP ans = PROTECT(R_bytesConvert(obj, bwidth, bkind, bna, call));
+	if(ans != obj) {
+	    SHALLOW_DUPLICATE_ATTRIB(ans, obj);
+	    /* Raw bytes regroup into width-byte elements, so this is the
+	       one storage mode that changes the element count -- and the
+	       attributes that are tied to it would then describe more
+	       elements than the result has.  No other route reaches that
+	       state: dim<-, attr(,"dim")<- and structure() all reject a
+	       length that does not match. */
+	    if(XLENGTH(ans) != XLENGTH(obj)) {
+		setAttrib(ans, R_DimSymbol, R_NilValue); /* takes dimnames */
+		setAttrib(ans, R_NamesSymbol, R_NilValue);
+	    }
+	}
+	UNPROTECT(1);
+	return ans;
+    }
+
+    /* "bytes" on its own names no width and no kind, so it cannot be a
+       target: mode<- documents it as an error, and the type table below
+       does have the name -- which would make this a silent no-op for a
+       vector that is already of the type */
+    if(streql(CHAR(STRING_ELT(value, 0)), "bytes"))
+	error(_("'%s' does not name a type; give a width and a kind, as '%s' does"),
+	      "bytes", "int64");
+
     SEXPTYPE type = str2type(CHAR(STRING_ELT(value, 0)));
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {

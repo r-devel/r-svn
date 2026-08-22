@@ -1934,6 +1934,12 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 			    R_typeToChar(s), na + 1);
 	    cargs[na] =  (void*) s;
 	    break;
+	case BYTESXP:
+	    /* An element is w bytes wide with w known only at run time,
+	       so there is no C type to hand the callee.  Turned away
+	       here because the deprecated default arm below would pass
+	       the SEXP itself -- a header pointer the callee is free to
+	       write through, which corrupts the node. */
 	case NILSXP:
 	    error(_("invalid mode (%s) to pass to C or Fortran (arg %d)"),
 		  R_typeToChar(s), na + 1);

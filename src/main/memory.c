@@ -217,6 +217,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case WEAKREFSXP:	return "WEAKREFSXP";
     case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
+    case BYTESXP:	return "BYTESXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";
     default:		return "<unknown>";
@@ -722,6 +723,7 @@ static R_size_t R_NodesInUse = 0;
   case CPLXSXP: \
   case WEAKREFSXP: \
   case RAWSXP: \
+  case BYTESXP: \
   case OBJSXP: \
     break; \
   case STRSXP: \
@@ -1115,6 +1117,9 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
 	break;
     case RAWSXP:
 	size = XLENGTH(s);
+	break;
+    case BYTESXP:
+	size = XLENGTH(s) * (R_size_t) BYTEVEC_WIDTH(s);
 	break;
     case LGLSXP:
     case INTSXP:
@@ -2753,6 +2758,8 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	actual_size = length;
 #endif
 	break;
+    case BYTESXP:
+	error("use R_allocBytesVector() to allocate a 'bytes' vector");
     case CHARSXP:
 	error("use of allocVector(CHARSXP ...) is defunct\n");
     case intCHARSXP:
@@ -2987,6 +2994,77 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	VALGRIND_MAKE_MEM_UNDEFINED(RAW(s), actual_size);
 #endif
     return s;
+}
+
+/* A 'bytes' vector is allocated as a RAWSXP of the full byte size, so
+   that the standard vector allocator does the size-class selection and
+   heap accounting, then retyped and given its true element count.
+   getVecSizeInVEC() multiplies the width back out, so the GC sees the
+   same byte size both here and at collection time.
+
+   This is here rather than in bytes.c because that retyping needs the
+   bare SET_TYPEOF(): the function of that name, which is all the rest of
+   R sees once the write barrier is being checked, whitelists a handful
+   of conversions that deliberately do not include this one. */
+
+/* Width, kind and the NA reservation are all per-vector properties, and
+   every one of them has been forgotten at an allocation site at least
+   once during this branch's history.  Taking all three as arguments
+   makes that impossible: there is one way to make a 'bytes' vector, and
+   it cannot be called without saying what kind of one you want.  Code
+   deriving a new vector from an existing one should still prefer
+   R_allocVectorLike(), which copies all three from the original. */
+static SEXP allocBytesVector(R_xlen_t length, int width, int kind,
+			     Rboolean hasNA, bool fill)
+{
+    if (width < 1 || width > BYTEVEC_MAX_WIDTH)
+	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
+    if (kind != BYTEVEC_OPAQUE && kind != BYTEVEC_UINT && kind != BYTEVEC_INT)
+	error(_("invalid '%s' argument"), "kind");
+    if (length < 0)
+	error(_("negative length vectors are not allowed"));
+    if (length > R_XLEN_T_MAX / width)
+	error(_("cannot allocate vector of length %lld"), (long long) length);
+
+    /* Read by R_SerializeVersionFor(): with no 'bytes' vector ever made
+       in this session no object can contain one, and every serialize()
+       and saveRDS() in R can skip the scan that looks for one.  This is
+       the only way to make one, unserializing included, so the flag
+       cannot be missed. */
+    R_BytesVectorSeen = TRUE;
+
+    SEXP val = PROTECT(allocVector(RAWSXP, length * width));
+    SET_TYPEOF(val, BYTESXP);
+    SET_BYTEVEC_WIDTH(val, width);
+    SET_BYTEVEC_KIND(val, kind);
+    SET_BYTEVEC_NONA(val, !hasNA);
+    SET_STDVEC_LENGTH(val, length);
+
+    /* zero-filled: these bytes are user-visible values, and leaving
+       them undefined would make results depend on heap history */
+    if (fill && length > 0)
+	memset(BYTEVEC_DATA(val), 0, (size_t) length * width);
+
+    UNPROTECT(1);
+
+    return val;
+}
+
+SEXP R_allocBytesVector(R_xlen_t length, int width, int kind,
+			Rboolean hasNA)
+{
+    return allocBytesVector(length, width, kind, hasNA, true);
+}
+
+/* For internal callers about to write every element -- an arithmetic
+   or subset result, a duplicate's target -- where the fill above would
+   be paid only to be overwritten; x+y on 1e8 uint64s should not memset
+   800MB first.  allocVector() leaves atomics unfilled on the same
+   grounds.  The public allocator keeps its documented zero fill. */
+attribute_hidden SEXP R_allocBytesVectorUninit(R_xlen_t length, int width,
+					       int kind, Rboolean hasNA)
+{
+    return allocBytesVector(length, width, kind, hasNA, false);
 }
 
 /* For future hiding of allocVector(CHARSXP) */
@@ -3339,15 +3417,26 @@ static void R_gc_internal(R_size_t size_needed)
 attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, nms;
-    int i, tmp;
+    int i;
+    /* One slot per SEXPTYPE that the type table names, found by asking it
+       rather than by compacting the code range by hand: the unused codes
+       11 and 12 drop out on their own, and a type added later is counted
+       and named here without a second place to remember.  Oversizing
+       instead would not do, since the same pass builds the names and
+       type2str() has none to give for a code the table does not know. */
+    int slot[MAX_NUM_SEXPTYPE], ntypes = 0;
 
     checkArity(op, args);
-    PROTECT(ans = allocVector(INTSXP, 24));
-    PROTECT(nms = allocVector(STRSXP, 24));
-    for (i = 0; i < 24; i++) {
-	INTEGER(ans)[i] = 0;
-	SET_STRING_ELT(nms, i, type2str(i > LGLSXP? i+2 : i));
-    }
+    for (i = 0; i < MAX_NUM_SEXPTYPE; i++)
+	slot[i] = (type2str_nowarn((SEXPTYPE) i) != R_NilValue) ? ntypes++ : -1;
+
+    PROTECT(ans = allocVector(INTSXP, ntypes));
+    PROTECT(nms = allocVector(STRSXP, ntypes));
+    for (i = 0; i < MAX_NUM_SEXPTYPE; i++)
+	if (slot[i] >= 0) {
+	    INTEGER(ans)[slot[i]] = 0;
+	    SET_STRING_ELT(nms, slot[i], type2str_nowarn((SEXPTYPE) i));
+	}
     setAttrib(ans, R_NamesSymbol, nms);
 
     BEGIN_SUSPEND_INTERRUPTS {
@@ -3361,9 +3450,8 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 	  for (s = NEXT_NODE(R_GenHeap[i].Old[gen]);
 	       s != R_GenHeap[i].Old[gen];
 	       s = NEXT_NODE(s)) {
-	      tmp = TYPEOF(s);
-	      if(tmp > LGLSXP) tmp -= 2;
-	      INTEGER(ans)[tmp]++;
+	      int j = slot[TYPEOF(s)];
+	      if(j >= 0) INTEGER(ans)[j]++;
 	  }
 	}
       }
@@ -4069,7 +4157,7 @@ static int nvec[32] = {
     1,1,1,1,1,1,1,1,
     1,0,0,1,1,0,0,0,
     0,1,1,0,0,1,1,0,
-    0,1,1,1,1,1,1,1
+    0,1,0,1,1,1,1,1	/* 26 = BYTESXP is a vector */
 };
 
 static R_INLINE SEXP CHK2(SEXP x)
@@ -4100,6 +4188,39 @@ void (SETLENGTH)(SEXP x, R_xlen_t v)
 attribute_hidden
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v) { SET_TRUELENGTH(CHK2(x), v); }
 int  (IS_LONG_VEC)(SEXP x) { return IS_LONG_VEC(CHK2(x)); }
+
+/* The BYTESXP accessors, for the builds that compile R's own code without
+   USE_RINTERNALS (--enable-strict-barrier); elsewhere Defn.h supplies the
+   macros these wrap.  Each checks the type first, since without it a
+   width read out of some other SEXP's gp field would be taken for real. */
+attribute_hidden
+int (BYTEVEC_WIDTH)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_WIDTH(x); }
+attribute_hidden
+void (SET_BYTEVEC_WIDTH)(SEXP x, int w)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_WIDTH(x, w);
+}
+attribute_hidden
+int (BYTEVEC_HAS_NA)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_HAS_NA(x); }
+attribute_hidden
+void (SET_BYTEVEC_NONA)(SEXP x, int v)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_NONA(x, v);
+}
+attribute_hidden
+int (BYTEVEC_KIND)(SEXP x) { R_CheckBytesVector(x); return BYTEVEC_KIND(x); }
+attribute_hidden
+void (SET_BYTEVEC_KIND)(SEXP x, int k)
+{
+    R_CheckBytesVector(x);
+    SET_BYTEVEC_KIND(x, k);
+}
+attribute_hidden
+Rbyte *(BYTEVEC_DATA)(SEXP x) { return BYTEVEC_DATA(CHK(x)); }
+attribute_hidden
+const Rbyte *(BYTEVEC_DATA_RO)(SEXP x) { return BYTEVEC_DATA_RO(CHK(x)); }
 #ifdef TESTING_WRITE_BARRIER
 attribute_hidden
 R_xlen_t (STDVEC_LENGTH)(SEXP x) { return STDVEC_LENGTH(CHK2(x)); }
@@ -4232,6 +4353,27 @@ const Rbyte *(RAW_RO)(SEXP x) {
 	      "RAW", "raw", R_typeToChar(x));
     CHKZLN(x);
     return RAW(x);
+}
+
+/* The payload of a 'bytes' vector: XLENGTH(x) elements of
+   R_bytesWidth(x) bytes each, laid out end to end.  This is the only
+   door to those bytes -- the untyped DATAPTR family deliberately
+   refuses BYTESXP, since a caller who does not know the width and kind
+   cannot read them correctly. */
+Rbyte *(BYTES)(SEXP x) {
+    if(TYPEOF(x) != BYTESXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "BYTES", "bytes", R_typeToChar(x));
+    CHKZLN(x);
+    return BYTEVEC_DATA(x);
+}
+
+const Rbyte *(BYTES_RO)(SEXP x) {
+    if(TYPEOF(x) != BYTESXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "BYTES", "bytes", R_typeToChar(x));
+    CHKZLN(x);
+    return BYTEVEC_DATA_RO(x);
 }
 
 double *(REAL)(SEXP x) {
@@ -5082,6 +5224,12 @@ SEXP R_duplicateAsResizable(SEXP x)
 	error(_("ALTREP objects cannot be made resizable"));
     if (! isVector(x))
 	error(_("cannot make non-vector objects resizable"));
+    /* isVector() covers BYTESXP, which R_allocResizableVector() cannot
+       make: its width and kind are not in an allocVector() call.  Half
+       an API for the type is worse than none. */
+    if (TYPEOF(x) == BYTESXP)
+	error(_("cannot make a resizable vector of type '%s'"),
+	      R_typeToChar(x));
     SEXP val = duplicate(x);
     SET_TRUELENGTH(val, XLENGTH(val));
     SET_GROWABLE_BIT(val);

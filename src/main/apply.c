@@ -126,11 +126,14 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (commonType != CPLXSXP && commonType != REALSXP &&
 	commonType != INTSXP  && commonType != LGLSXP &&
 	commonType != RAWSXP  && commonType != STRSXP &&
-	commonType != VECSXP)
+	commonType != VECSXP  && commonType != BYTESXP)
 	error(_("type '%s' is not supported"), R_typeToChar(value));
     dim_v = getAttrib(value, R_DimSymbol);
     array_value = (TYPEOF(dim_v) == INTSXP && LENGTH(dim_v) >= 1);
-    PROTECT(ans = allocVector(commonType, n*commonLen));
+    /* R_allocVectorLike() rather than allocVector(): FUN.VALUE is a
+       prototype, and for a 'bytes' vector the width, kind and NA
+       reservation are carried by it rather than by the type */
+    PROTECT(ans = R_allocVectorLike(value, n*commonLen));
     if (useNames) {
 	PROTECT(names = getAttrib(XX, R_NamesSymbol));
 	if (isNull(names) && TYPEOF(XX) == STRSXP) {
@@ -191,6 +194,23 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 			  R_typeToChar(value), (long long)i+1, R_typeToChar(val));
 		REPROTECT(val = coerceVector(val, commonType), indx);
 	    }
+	    /* Equal SEXPTYPEs are not equal types here: two 'bytes'
+	       vectors of different widths or kinds are as different as
+	       an integer and a double, and nothing below would notice.
+	       R_typeToChar() names them, so the message above still
+	       reads correctly. */
+	    else if (commonType == BYTESXP) {
+		if (BYTEVEC_WIDTH(val) != BYTEVEC_WIDTH(value) ||
+		    BYTEVEC_KIND(val) != BYTEVEC_KIND(value))
+		    error(_("values must be type '%s',\n but FUN(X[[%lld]]) result is type '%s'"),
+			  R_typeToChar(value), (long long)i+1, R_typeToChar(val));
+		/* its own message: the reservation is part of the type but
+		   not part of the type's name, so the one above would print
+		   the same name twice */
+		if (BYTEVEC_HAS_NA(val) != BYTEVEC_HAS_NA(value))
+		    error(_("values and FUN(X[[%lld]]) result differ in whether NA is representable"),
+			  (long long) i + 1);
+	    }
 	    /* Take row names from the first result only */
 	    if (i == 0 && useNames && isNull(rowNames))
 		REPROTECT(rowNames = getAttrib(val,
@@ -206,6 +226,8 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case RAWSXP:  RAW(ans)    [i] = RAW    (val)[0]; break;
 		case STRSXP:  SET_STRING_ELT(ans, i, STRING_ELT(val, 0)); break;
 		case VECSXP:  SET_VECTOR_ELT(ans, i, VECTOR_ELT(val, 0)); break;
+		case BYTESXP: memcpy(BYTEVEC_ELT(ans, i), BYTEVEC_DATA_RO(val),
+				     (size_t) BYTEVEC_WIDTH(ans)); break;
 		}
 	    } else if (commonLen) { // commonLen > 1
 		switch (commonType) {
@@ -231,6 +253,11 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case VECSXP:
 		    for (int j = 0; j < commonLen; j++)
 			SET_VECTOR_ELT(ans, common_len_offset + j, VECTOR_ELT(val, j));
+		    break;
+		case BYTESXP:
+		    memcpy(BYTEVEC_ELT(ans, common_len_offset),
+			   BYTEVEC_DATA_RO(val),
+			   (size_t) commonLen * BYTEVEC_WIDTH(ans));
 		    break;
 		}
 		common_len_offset += commonLen;

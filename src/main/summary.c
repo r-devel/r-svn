@@ -551,6 +551,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	case INTSXP:  return integer_mean(x);
 	case REALSXP: return real_mean(x);
 	case CPLXSXP: return complex_mean(x);
+	case BYTESXP: return R_bytesMean(call, x);
 	default:
 	    error(R_MSG_type, R_typeToChar(x));
 	    return R_NilValue; // -Wall on clang 4.2
@@ -580,6 +581,58 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
+
+    /* As for ordinary integers, the presence of a double or complex
+       argument selects that result domain.  Numeric BYTESXP operands
+       convert with their precision checks; opaque ones are refused. */
+    bool anyBytes = false, anyReal = false, anyComplex = false;
+    for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
+	if (TAG(t) == R_NaRmSymbol) continue;
+	switch (TYPEOF(CAR(t))) {
+	case BYTESXP: anyBytes = true; break;
+	case REALSXP: anyReal = true; break;
+	case CPLXSXP: anyComplex = true; break;
+	default: break;
+	}
+    }
+    if (anyBytes && (anyReal || anyComplex)) {
+	SEXPTYPE target = anyComplex ? CPLXSXP : REALSXP;
+	for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	    if (TYPEOF(CAR(t)) == BYTESXP)
+		SETCAR(t, coerceVector(CAR(t), target));
+    }
+
+    /* prod() is a double for every type -- ans_type below is REALSXP
+       for it unconditionally -- so a 'bytes' operand converts and takes
+       the ordinary path rather than saturating at its own width.  sum()
+       keeps the type, as it does for integer.
+
+       The operands answer to the same rule as every other summary's,
+       and are held to it before any of them is converted: afterwards
+       there is no 'bytes' vector left to refuse a double operand
+       against, and prod() would be the one place in the type that takes
+       one silently. */
+    if (PRIMVAL(op) == 4) {
+	anyBytes = false;
+	for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	    if (TYPEOF(CAR(t)) == BYTESXP) { anyBytes = true; break; }
+
+	if (anyBytes) {
+	    R_bytesSummaryType(call, PRIMVAL(op), args, NULL, NULL, NULL);
+	    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+		if (TYPEOF(CAR(t)) == BYTESXP)
+		    SETCAR(t, coerceVector(CAR(t), REALSXP));
+	}
+    }
+
+    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	if (TYPEOF(CAR(t)) == BYTESXP) {
+	    /* args must stay protected: R_bytesSummary walks it and
+	       allocates as it goes */
+	    SEXP val = R_bytesSummary(call, PRIMVAL(op), args, narm);
+	    UNPROTECT(1); /* args */
+	    return val;
+	}
 
     if (ALTREP(CAR(args)) && CDDR(args) == R_NilValue &&
 	(CDR(args) == R_NilValue || TAG(CDR(args)) == R_NaRmSymbol)) {
@@ -1036,7 +1089,10 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SEXP call = PROTECT(lang2(install("xtfrm"), sx)); nprot++;
 	PROTECT(sx = eval(call, rho)); nprot++;
     } else
-    if (!isNumeric(sx)) {
+    if (!isNumeric(sx) && TYPEOF(sx) != BYTESXP) {
+	/* a 'bytes' vector is scanned in place below: coercing it to
+	   double would round two elements above 2^53 onto the same
+	   value and hand back the index of the wrong one */
 	PROTECT(sx = coerceVector(CAR(args), REALSXP)); nprot++;
     }
     n = XLENGTH(sx);
@@ -1096,6 +1152,28 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if ( !ISNAN(r[i]) && (r[i] > s || indx == -1) ) {
 		    s = r[i]; indx = i;
 		}
+	}
+    }
+    break;
+
+    case BYTESXP:
+    {
+	int w = BYTEVEC_WIDTH(sx), kind = BYTEVEC_KIND(sx);
+	bool hasNA = BYTEVEC_HAS_NA(sx);
+	const Rbyte *r = BYTEVEC_DATA_RO(sx), *s = NULL;
+	bool wantMin = (PRIMVAL(op) == 0);
+	for (i = 0; i < n; i++) {
+	    const Rbyte *p = r + i * w;
+	    if (hasNA && R_bytesEltIsNA(p, w, kind))
+		continue;
+	    if (indx == -1) {
+		s = p; indx = i;
+		continue;
+	    }
+	    int c = R_bytesEltCmp(p, s, w, kind);
+	    if (wantMin ? (c < 0) : (c > 0)) {
+		s = p; indx = i;
+	    }
 	}
     }
     } // switch()
@@ -1205,6 +1283,35 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     args = CDR(args);
     if(args == R_NilValue) error(_("no arguments"));
     SEXP x = CAR(args);
+
+    /* Match ordinary numeric promotion when a numeric fixed-width
+       operand is combined with a double.  Conversion performs the
+       usual precision check and rejects opaque fixed-width values. */
+    bool anyBytes = false, anyReal = false, other = false;
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	switch(TYPEOF(CAR(a))) {
+	case BYTESXP: anyBytes = true; break;
+	case REALSXP: anyReal = true; break;
+	case NILSXP:
+	case LGLSXP:
+	case INTSXP: break;
+	default: other = true; break;
+	}
+    if (anyBytes && anyReal && !other) {
+	for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	    if (TYPEOF(CAR(a)) == BYTESXP)
+		SETCAR(a, coerceVector(CAR(a), REALSXP));
+	x = CAR(args);
+    }
+
+    /* 'bytes' vectors reconcile width, kind and the NA reservation
+       rather than promoting to a common SEXPTYPE, so they take their
+       own path -- but keep the one-input shortcut below, which hands
+       back the argument itself */
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	if (TYPEOF(CAR(a)) == BYTESXP)
+	    return (CDR(args) == R_NilValue) ? x
+		: R_bytesParallelMinMax(call, PRIMVAL(op), args, narm != 0);
 
     SEXPTYPE anstype = TYPEOF(x);
     switch(anstype) {

@@ -429,7 +429,10 @@ str.default <-
 	    if(is.atomic(object)) {
 		##-- atomic:   numeric{dbl|int} complex character logical raw
 		mod <- substr(mode(object), 1, 4)
-		if     (mod == "nume")
+		## Report fixed-width vectors by their semantic type;
+		## typeof() carries both the width and the kind.
+		if(is.fixedwidth(object)) mod <- typeof(object)
+		else if(mod == "nume")
 		    mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }
 		else if(mod == "comp") mod <- "cplx" #- else: keep 'logi'
@@ -564,6 +567,10 @@ str.default <-
 	} else if(is.logical(object)) {
 	    v.len <- 1.5 * v.len # was '3' originally (but S prints 'T' 'F' ..)
 	    format.fun <- formatNum
+	} else if(is.fixedwidth(object)) {
+	    ## Numeric fixed-width vectors are not represented by REALSXP or
+	    ## INTSXP, so use their exact character representation here.
+	    format.fun <- as.character
 	} else if(is.numeric(object)) {
 	    iv.len <- round(2.5 * v.len)
 	    if(iSurv <- inherits(object, "Surv"))

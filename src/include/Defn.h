@@ -537,6 +537,127 @@ typedef union {
 
 #endif /* USE_RINTERNALS */
 
+/* BYTESXP: vectors of fixed-width opaque data.  XLENGTH() is the
+   element count, as for every other vector; the payload is
+   XLENGTH(x) * BYTEVEC_WIDTH(x) bytes.  The width lives in gp bits
+   8-15, clear of the low bits that generic vector code uses
+   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
+   gp means it round-trips through serialization for free, since
+   PackFlags() already encodes gp into the flags word.
+
+   This sits outside the USE_RINTERNALS block above because R's own code
+   uses it everywhere and --enable-strict-barrier compiles that code
+   without USE_RINTERNALS: the accessors that touch sxpinfo or the
+   payload are macros when the fields are in reach and out-of-line
+   functions (from memory.c) when they are not, exactly as LENGTH() and
+   the rest of the vector accessors are. */
+#define BYTEVEC_WIDTH_SHIFT 8
+#define BYTEVEC_MAX_WIDTH 255
+#define BYTEVEC_WIDTH_MASK \
+    ((unsigned short)(BYTEVEC_MAX_WIDTH << BYTEVEC_WIDTH_SHIFT))
+
+/* Interpretation of the elements, in gp bits 0-1.  A width-16 UUID and
+   a width-16 uint128 are the same size but must sort differently, so
+   width alone cannot carry this.
+
+   OPAQUE elements are byte strings: stored verbatim, ordered
+   lexicographically, rendered as hex.  This is the default and is what
+   hashes, UUIDs and addresses want.
+
+   UINT and INT elements are integers of 8*width bits, stored in
+   *native* byte order so that ingest from an external source is a
+   plain memcpy, ordered by value, and rendered as decimal.  Since the
+   order is by value rather than by bytes, it is the same on every
+   platform even though the storage is not.
+
+   These are the names R's own code uses; the values are fixed by the
+   public spellings in Rinternals.h, which package code and the
+   serialized format both depend on. */
+#define BYTEVEC_KIND_MASK ((unsigned short) 3)
+#define BYTEVEC_OPAQUE BYTES_OPAQUE
+#define BYTEVEC_UINT   BYTES_UNSIGNED
+#define BYTEVEC_INT    BYTES_SIGNED
+
+/* Arithmetic is defined only for widths that correspond to an integer
+   type someone might actually be carrying; wider elements are pure
+   storage. */
+#define BYTEVEC_MAX_ARITH_WIDTH 16
+
+/* gp bit 2: this vector declines to reserve a value for NA, so every
+   bit pattern of its width is a legitimate value.  The sense is
+   inverted deliberately -- clear means "has NA" -- so that the default,
+   and anything read from an older file, behaves as before. */
+#define BYTEVEC_NONA_MASK ((unsigned short) 4)
+
+/* Index of the i-th most significant byte of a numeric element, in
+   storage order. */
+#if defined(WORDS_BIGENDIAN) || defined(R_BYTES_SIMULATE_BIGENDIAN)
+# define BYTEVEC_MSB(i, w) (i)
+#else
+# define BYTEVEC_MSB(i, w) ((w) - 1 - (i))
+#endif
+
+/* NA patterns.  OPAQUE and UINT reserve all-0xFF: zero is the
+   universal "unset" value and appears in real data (the nil UUID,
+   0.0.0.0, ::), so 0xFF is the safer sacrifice, and for UINT it costs
+   only UINT_MAX.  INT cannot use it -- all-0xFF is -1 in two's
+   complement -- so INT reserves INT_MIN, which is what bit64 does and
+   for the same reason. */
+#define BYTEVEC_NA_BYTE 0xFF
+
+#ifdef USE_RINTERNALS
+#define BYTEVEC_WIDTH(x) \
+    ((int)(((x)->sxpinfo.gp & BYTEVEC_WIDTH_MASK) >> BYTEVEC_WIDTH_SHIFT))
+#define SET_BYTEVEC_WIDTH(x, w) do {					\
+	SEXP bw__x__ = (x);						\
+	unsigned short bw__w__ = (unsigned short) (w);			\
+	bw__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bw__x__->sxpinfo.gp & ~BYTEVEC_WIDTH_MASK) \
+			      | (bw__w__ << BYTEVEC_WIDTH_SHIFT));	\
+    } while (0)
+#define BYTEVEC_HAS_NA(x) (((x)->sxpinfo.gp & BYTEVEC_NONA_MASK) == 0)
+#define SET_BYTEVEC_NONA(x, v) do {					\
+	SEXP bn__x__ = (x);						\
+	if (v) bn__x__->sxpinfo.gp |= BYTEVEC_NONA_MASK;		\
+	else   bn__x__->sxpinfo.gp &= (unsigned short) ~BYTEVEC_NONA_MASK; \
+    } while (0)
+#define BYTEVEC_KIND(x) ((int) ((x)->sxpinfo.gp & BYTEVEC_KIND_MASK))
+#define SET_BYTEVEC_KIND(x, k) do {					\
+	SEXP bk__x__ = (x);						\
+	bk__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bk__x__->sxpinfo.gp & ~BYTEVEC_KIND_MASK)	\
+			      | ((unsigned short) (k) & BYTEVEC_KIND_MASK)); \
+    } while (0)
+
+/* R's own code reaches the payload through these rather than through
+   DATAPTR(), which deliberately does not know about BYTESXP: refusing an
+   untyped data pointer to elements whose width and kind the caller does
+   not know is what makes package code fail safely (tests/bytes-ffi).
+   BYTESXP is never ALTREP, so there is nothing else to consult. */
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
+# define CHKBYTEVEC(x) R_CheckBytesVector(x)
+#else
+# define CHKBYTEVEC(x) ((void) 0)
+#endif
+#define BYTEVEC_DATA(x)	   ((Rbyte *) (CHKBYTEVEC(x), STDVEC_DATAPTR(x)))
+#define BYTEVEC_DATA_RO(x) ((const Rbyte *) (CHKBYTEVEC(x), STDVEC_DATAPTR(x)))
+#else
+attribute_hidden int BYTEVEC_WIDTH(SEXP x);
+attribute_hidden void SET_BYTEVEC_WIDTH(SEXP x, int w);
+attribute_hidden int BYTEVEC_HAS_NA(SEXP x);
+attribute_hidden void SET_BYTEVEC_NONA(SEXP x, int v);
+attribute_hidden int BYTEVEC_KIND(SEXP x);
+attribute_hidden void SET_BYTEVEC_KIND(SEXP x, int k);
+attribute_hidden Rbyte *BYTEVEC_DATA(SEXP x);
+attribute_hidden const Rbyte *BYTEVEC_DATA_RO(SEXP x);
+#endif /* USE_RINTERNALS */
+
+/* address of element i; the sole element operation this type needs */
+#define BYTEVEC_ELT(x, i) \
+    (BYTEVEC_DATA(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+#define BYTEVEC_ELT_RO(x, i) \
+    (BYTEVEC_DATA_RO(x) + (R_xlen_t)(i) * BYTEVEC_WIDTH(x))
+
 #define INCREMENT_LINKS(x) do {			\
 	SEXP il__x__ = (x);			\
 	INCREMENT_NAMED(il__x__);		\
@@ -1606,6 +1727,7 @@ extern0 int	R_BrowseLines	INI_as(0);	/* lines/per call in browser :
 						 * options(deparse.max.lines) */
 extern0 int	R_Expressions	INI_as(5000);	/* options(expressions) */
 extern0 int	R_Expressions_keep INI_as(5000);/* options(expressions) */
+extern0 Rboolean R_BytesVectorSeen INI_as(FALSE); /* see R_allocBytesVector() */
 extern0 Rboolean R_KeepSource	INI_as(FALSE);	/* options(keep.source) */
 extern0 Rboolean R_CBoundsCheck	INI_as(FALSE);	/* options(CBoundsCheck) */
 extern0 MATPROD_TYPE R_Matprod	INI_as(MATPROD_DEFAULT);  /* options(matprod) */
@@ -1804,6 +1926,114 @@ SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
+/* R_allocBytesVector() and the rest of the 'bytes' entry points that
+   package code needs are declared in Rinternals.h.  Everything below is
+   R's own, and is hidden: none of it is used outside src/main, and an
+   accidentally exported helper is one packages start depending on. */
+attribute_hidden SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
+attribute_hidden SEXP R_allocVectorLikeUninit(SEXP s, R_xlen_t length);
+attribute_hidden SEXP R_allocBytesVectorUninit(R_xlen_t length, int width,
+					       int kind, Rboolean hasNA);
+attribute_hidden SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol);
+attribute_hidden SEXP R_bytesShapeMatrix(SEXP x, int nrow, int ncol);
+attribute_hidden Rboolean R_bytesEltIsNA(const Rbyte *p, int width, int kind);
+
+/* First-byte short circuit around R_bytesEltIsNA(): that function is a
+   real call across translation units, and at two per element it is a
+   visible part of an add or a comparison.  The first byte settles the
+   answer for all but one value in 256, so testing it at the call site
+   leaves only the rare case to the call.  Same answer, one predictable
+   branch instead of a call; for the hot loops. */
+static R_INLINE bool R_bytesEltIsNAFast(const Rbyte *p, int w, int kind)
+{
+    if (kind == BYTEVEC_INT)
+	return p[BYTEVEC_MSB(0, w)] == 0x80 && R_bytesEltIsNA(p, w, kind);
+
+    return p[0] == BYTEVEC_NA_BYTE && R_bytesEltIsNA(p, w, kind);
+}
+
+attribute_hidden void R_bytesSetEltNA(Rbyte *p, int width, int kind);
+attribute_hidden int R_bytesEltCmp(const Rbyte *a, const Rbyte *b, int width,
+				   int kind);
+attribute_hidden const char *R_bytesEltDecimal(const Rbyte *p, int width,
+					       int kind);
+attribute_hidden void R_bytesMagNegate(Rbyte *a, int w);
+attribute_hidden bool R_bytesMagFits(const Rbyte *v, int w, int kind,
+				     bool negative, bool hasNA);
+/* why one element of text did not convert; SYNTAX and RANGE get
+   different warnings, as they do for as.integer() */
+typedef enum {
+    BYTES_PARSE_OK = 0,
+    BYTES_PARSE_SYNTAX,
+    BYTES_PARSE_RANGE
+} R_bytes_parse_t;
+attribute_hidden R_bytes_parse_t R_bytesEltFromString(Rbyte *out,
+						      const char *s, int w,
+						      int kind, bool hasNA);
+attribute_hidden const char *R_bytesEltRender(SEXP x, R_xlen_t i);
+attribute_hidden const char *R_bytesTypeName(SEXP x);
+attribute_hidden Rboolean R_bytesIsNumeric(SEXP x);
+/* longest derived name is width 255 unsigned: "uint2040", 8 chars */
+#define BYTEVEC_TYPE_NAME_MAX 16
+attribute_hidden const char *R_bytesTypeNameOf(int width, int kind);
+attribute_hidden Rboolean R_bytesTypeFromName(const char *s, int *width,
+					      int *kind);
+attribute_hidden const char *R_bytesKindName(SEXP x);
+attribute_hidden void R_bytesWarnReserved(SEXP x);
+attribute_hidden void R_bytesWarnReservedCount(R_xlen_t n);
+attribute_hidden void R_bytesCopyWithRecycle(SEXP dst, SEXP src,
+					     R_xlen_t dstart, R_xlen_t n,
+					     R_xlen_t nsrc);
+attribute_hidden void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src,
+						   R_xlen_t dstart,
+						   R_xlen_t drows,
+						   R_xlen_t srows,
+						   R_xlen_t cols,
+						   R_xlen_t nsrc);
+attribute_hidden void R_bytesSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n,
+				      int w, int kind);
+attribute_hidden SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y);
+attribute_hidden SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b);
+attribute_hidden SEXP R_bytesUnary(SEXP call, int oper, SEXP x);
+attribute_hidden SEXP R_bytesCoerce(SEXP x, SEXPTYPE type);
+attribute_hidden SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm);
+attribute_hidden void R_bytesSummaryType(SEXP call, int iop, SEXP args,
+					 int *pkind, int *pw, int *phasNA);
+attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x);
+attribute_hidden SEXP R_bytesCum(SEXP call, int iop, SEXP x);
+attribute_hidden SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args,
+					    bool narm);
+attribute_hidden SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA,
+				    SEXP call);
+/* dir[] entry for an operand that is NA where the target type reserves
+   no pattern for one: nonzero like an out-of-range operand, since both
+   are absent from a vector that cannot hold them, but not a direction.
+   Small enough to keep in R_bytesParallelMinMax()'s state[]. */
+#define BYTES_CMP_NA 2
+attribute_hidden SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA,
+				       int *dir, SEXP call);
+attribute_hidden SEXP R_bytesNarrowMatch(SEXP x, int w, int kind, int hasNA,
+					 int *drop, SEXP call);
+attribute_hidden int R_bytesEltCompareReal(const Rbyte *p, int w, int kind,
+					   bool hasNA, double value,
+					   bool *isNA);
+attribute_hidden bool R_bytesAllNA(SEXP x);
+attribute_hidden SEXP R_bytesAbs(SEXP call, SEXP x);
+attribute_hidden SEXP R_bytesSign(SEXP x);
+attribute_hidden SEXP R_bytesSeq(SEXP call, SEXP from, SEXP to);
+attribute_hidden SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA,
+				     SEXP call);
+attribute_hidden SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA,
+				       SEXP call);
+attribute_hidden void R_bytesMemcpy(Rbyte *dst, const Rbyte *src, size_t n);
+attribute_hidden void R_bytesCheckNA(SEXP x);
+attribute_hidden void R_bytesCheckSameNA(SEXP x, SEXP y);
+attribute_hidden void R_bytesCheckPair(SEXP call, SEXP x, SEXP y,
+				       const char *verb);
+attribute_hidden void R_bytesCheckOperand(SEXP x, int kind, SEXP call);
+attribute_hidden void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun);
+attribute_hidden void R_CheckBytesVector(SEXP x); /* CHKBYTEVEC(), above */
+attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
@@ -1888,6 +2118,7 @@ int R_XDRDecodeInteger(void *buf);
 # define DispatchAnyOrEval      Rf_DispatchAnyOrEval
 # define dynamicfindVar		Rf_dynamicfindVar
 # define EncodeChar             Rf_EncodeChar
+# define EncodeBytes            Rf_EncodeBytes
 # define EncodeRaw              Rf_EncodeRaw
 # define EncodeReal2            Rf_EncodeReal2
 # define EncodeString           Rf_EncodeString
@@ -2402,6 +2633,7 @@ typedef enum {
 } Rprt_adj;
 
 int	Rstrlen(SEXP, int);
+const char *EncodeBytes(const Rbyte *, int);
 const char *EncodeRaw(Rbyte, const char *);
 const char *EncodeString(SEXP, int, int, Rprt_adj);
 const char *EncodeReal2(double, int, int, int);
@@ -2413,6 +2645,14 @@ int mbrtoint(int *w, const char *s);
 /* main/sort.c */
 void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
+
+/* main/serialize.c */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
+attribute_hidden void R_CheckSerializeVersion(SEXP object, int version);
+attribute_hidden void R_AnnounceSerializeVersion(int from, int to);
+
+/* main/saveload.c */
+attribute_hidden int defaultSaveVersion(void);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);

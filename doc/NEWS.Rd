@@ -28,11 +28,42 @@
       \item The Sweave syntax definition objects
       \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
       their own detailed help page.
+
+      \item \code{readBin()} and \code{scan()} take the names of the new
+      \code{bytes} types (\code{"int64"}, \code{"uint16"},
+      \code{"bytes4"}, \dots) for \code{what} and \code{what}/
+      \code{colClasses}.  A length-one string that is none of the modes
+      \code{readBin()} knows was previously taken as an object, giving
+      mode \code{"character"}, so \code{readBin(f, "int32", 4L)} used to
+      read four strings and now reads four 32-bit integers.  Such a call
+      was already reading something other than what it named, but it now
+      returns different data rather than visibly wrong strings.
     }
   }
 
   \subsection{New Features}{
     \itemize{
+      \item There is a new atomic vector type, \code{bytes}
+      (\code{BYTESXP}), whose elements are a fixed number of bytes wide,
+      with the width and the interpretation (\code{"unsigned"},
+      \code{"signed"} or \code{"opaque"}) properties of the vector rather
+      than of the type.  \code{typeof()} reports the derived name, so a
+      64-bit unsigned vector is \code{"uint64"} and sixteen opaque bytes
+      are \code{"bytes16"}.  Numeric kinds satisfy \code{is.numeric()},
+      have mode \code{"numeric"}, and promote to double when an operation
+      requires it, warning on actual precision loss; opaque values remain
+      nonnumeric bytes.  Mixed comparisons and matching use a double's
+      exact binary value rather than rounding the integer, and unit-step
+      sequences remain in the fixed-width type.  Created by
+      \code{bytes()}, \code{as.bytes()} and semantic constructors such
+      as \code{as.int64()} and \code{as.uint64()}, and by
+      \code{vector()}, \code{as.vector()}, \code{storage.mode<-},
+      \code{readBin()}, \code{scan()} and
+      \code{read.table()} through the type names; see \code{?bytes}.
+      Arithmetic, comparison, bitwise operations, sorting, matching and
+      serialization keep the full width, so a 64-bit identifier survives a
+      round trip that a \code{double} would round.
+
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
       suppresses warnings about \dQuote{notches outside hinges}.
 

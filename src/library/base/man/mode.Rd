@@ -22,13 +22,18 @@ storage.mode(x) <- value
 \arguments{
   \item{x}{any \R object.}
   \item{value}{a character string giving the desired mode or
-    \sQuote{storage mode} (type) of the object.}
+    \sQuote{storage mode} (type) of the object.  For a
+    \code{\link{bytes}} vector this names the width and kind, as
+    \code{\link{typeof}} reports them: \code{storage.mode(x) <-
+    "int64"}.}
 }
 \details{
   Both \code{mode} and \code{storage.mode} return a character string
   giving the (storage) mode of the object --- often the same --- both
   relying on the output of \code{\link{typeof}(x)}, see the example
-  below.
+  below.  Numeric fixed-width integer vectors have mode
+  \code{"numeric"}; only opaque fixed-width vectors have mode
+  \code{"bytes"}.
 
   \code{mode(x) <- "newmode"} changes the \code{mode} of object \code{x} to
   \code{newmode}.  This is only supported if there is an appropriate
@@ -36,7 +41,14 @@ storage.mode(x) <- value
   \code{"logical"}, \code{"integer"}, \code{"double"}, \code{"complex"},
   \code{"raw"}, \code{"character"}, \code{"list"}, \code{"expression"},
   \code{"name"}, \code{"symbol"} and \code{"function"}.  Attributes are
-  preserved (but see below).
+  preserved (but see below).  A \code{\link{bytes}} type name such as
+  \code{"int64"} is also supported, and is passed to \code{storage.mode<-}
+  since there is no \code{as.int64} function.  \code{"bytes"} on its own
+  names no type: it is what \code{mode} already reports for such a
+  vector, so setting it back is the no-op that \code{mode(x) <- mode(x)}
+  has to be, and from anything else it is an error, as it is for
+  \code{storage.mode<-} --- use \code{\link{as.bytes}} to choose a width
+  and kind.
 
   \code{storage.mode(x) <- "newmode"} is a more efficient \link{primitive}
   version of \code{mode<-}, which works for \code{"newmode"} which is
@@ -64,6 +76,8 @@ storage.mode(x) <- value
     \code{"function"}.
     \item type \code{"symbol"} is called mode \code{"name"}.
     \item type \code{"language"} is returned as \code{"("} or \code{"call"}.
+    \item the types of a \code{\link{bytes}} vector, which name a width
+    and a kind, are all returned as \code{"bytes"}.
   }
 }
 \references{

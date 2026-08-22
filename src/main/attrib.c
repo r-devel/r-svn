@@ -697,6 +697,17 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	  case REALSXP:
 	    klass = mkChar("numeric");
 	    break;
+	  case BYTESXP:
+	    if(singleString || BYTEVEC_KIND(obj) != BYTEVEC_OPAQUE)
+		klass = mkChar(R_bytesTypeName(obj));
+	    else {
+		PROTECT(klass = allocVector(STRSXP, 2));
+		SET_STRING_ELT(klass, 0, mkChar(R_bytesTypeName(obj)));
+		SET_STRING_ELT(klass, 1, mkChar("bytes"));
+		UNPROTECT(1);
+		return klass;
+	    }
+	    break;
 	  case SYMSXP:
 	    klass = mkChar("name");
 	    break;
@@ -831,6 +842,7 @@ void InitS3DefaultTypes(void)
 		nprotected += 2;
 		break;
 	    case LANGSXP:
+	    case BYTESXP:
 		/* part3 remains R_NilValue: default type cannot be
 		   pre-allocated, as it depends on the object value */
 		break;
@@ -881,6 +893,23 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	}
 
 	if (defaultClass != R_NilValue) {
+	    return defaultClass;
+	}
+
+	/* Like LANGSXP, and unlike every other type here, a 'bytes'
+	   vector's implicit class depends on the object rather than on
+	   its SEXPTYPE alone: the name comes from the kind and width.
+	   It must agree with R_data_class() above, or UseMethod() would
+	   offer methods that class(x) never mentions. */
+	if (t == BYTESXP) {
+	    int I_mat = (n == 2) ? 1 : 0, I_arr = (n > 0) ? 1 : 0, i = 0;
+	    int I_bytes = BYTEVEC_KIND(obj) == BYTEVEC_OPAQUE ? 1 : 0;
+	    defaultClass = PROTECT(allocVector(STRSXP, 1 + I_bytes + I_mat + I_arr));
+	    if (I_mat) SET_STRING_ELT(defaultClass, i++, mkChar("matrix"));
+	    if (I_arr) SET_STRING_ELT(defaultClass, i++, mkChar("array"));
+	    SET_STRING_ELT(defaultClass, i++, mkChar(R_bytesTypeName(obj)));
+	    if (I_bytes) SET_STRING_ELT(defaultClass, i, mkChar("bytes"));
+	    UNPROTECT(1);
 	    return defaultClass;
 	}
 

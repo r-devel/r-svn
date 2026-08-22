@@ -136,6 +136,7 @@ typedef unsigned int SEXPTYPE;
 #define RAWSXP      24    /* raw bytes */
 #define OBJSXP      25    /* object, non-vector  */
 #define S4SXP       25    /* same as OBJSXP, retained for back compatability */
+#define BYTESXP     26    /* fixed-width opaque data vectors */
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -171,6 +172,7 @@ typedef enum {
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
     OBJSXP	= 25,	/* S4 non-vector */
+    BYTESXP	= 26,	/* fixed-width opaque data vectors */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */
@@ -303,6 +305,38 @@ int REAL_NO_NA(SEXP x);
 int LOGICAL_NO_NA(SEXP x);
 int STRING_IS_SORTED(SEXP x);
 int STRING_NO_NA(SEXP x);
+
+/* 'bytes' vectors (BYTESXP): fixed-width elements, XLENGTH() of them,
+   each R_bytesWidth(x) bytes wide.  The width is a property of the
+   vector rather than of the type, so allocVector(BYTESXP, n) cannot
+   work and R_allocBytesVector() is the way to make one.
+
+   The kind says how an element's bytes are read.  BYTES_OPAQUE
+   elements are byte strings -- hashes, UUIDs, addresses -- compared
+   verbatim.  BYTES_UNSIGNED and BYTES_SIGNED elements are integers of
+   8*width bits held in *native* byte order, so ingesting them from
+   another data source is a plain copy.
+
+   hasNA says whether one value of the width is reserved to mean NA
+   (all-0xFF for opaque and unsigned, the most negative value for
+   signed).  Pass FALSE when every bit pattern in the source is a
+   legitimate value; operations that would then have to produce NA
+   raise an error instead. */
+#define BYTES_OPAQUE	0
+#define BYTES_UNSIGNED	1
+#define BYTES_SIGNED	2
+
+SEXP R_allocBytesVector(R_xlen_t n, int width, int kind, Rboolean hasNA);
+Rboolean R_isBytes(SEXP x);
+int R_bytesWidth(SEXP x);
+int R_bytesKind(SEXP x);
+Rboolean R_bytesHasNA(SEXP x);
+Rbyte *(BYTES)(SEXP x);
+const Rbyte *(BYTES_RO)(SEXP x);
+Rbyte *R_bytesElt(SEXP x, R_xlen_t i);
+const Rbyte *R_bytesEltRO(SEXP x, R_xlen_t i);
+Rboolean R_bytesIsNA(SEXP x, R_xlen_t i);
+void R_bytesSetNA(SEXP x, R_xlen_t i);
 
 /* List Access Functions */
 /* These also work for ... objects */

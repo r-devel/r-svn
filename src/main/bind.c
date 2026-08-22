@@ -37,9 +37,6 @@ static R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
 
 #define LIST_ASSIGN(x) {SET_VECTOR_ELT(data->ans_ptr, data->ans_length, x); data->ans_length++;}
 
-static SEXP cbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
-static SEXP rbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
-
 /* The following code establishes the return type for the */
 /* functions  unlist, c, cbind, and rbind and also determines */
 /* whether the returned object is to have a names attribute. */
@@ -50,8 +47,18 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
+ int  ans_width; /* BYTESXP element width; 0 until one is seen */
+ int  ans_kind;  /* BYTESXP element kind */
+ int  ans_nona;  /* BYTESXP: does it decline to reserve an NA? */
+ int  ans_opaque; /* at least one BYTESXP argument is opaque */
+ int  ans_clash; /* a second BYTESXP type that does not agree with the
+		    first: 0 none, 1 width, 2 kind, 3 NA reservation */
+ int  ans_clashwidth;	/* its width, for the message */
 /* int  deparse_level; Initialize to 1. */
 };
+
+static SEXP cbind(SEXP, SEXP, SEXPTYPE, struct BindData *, SEXP, int);
+static SEXP rbind(SEXP, SEXP, SEXPTYPE, struct BindData *, SEXP, int);
 
 static int HasNames(SEXP x)
 {
@@ -77,6 +84,33 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	break;
     case RAWSXP:
 	data->ans_flags |= 1;
+	data->ans_length += XLENGTH(x);
+	break;
+    case BYTESXP:
+	if (BYTEVEC_KIND(x) == BYTEVEC_OPAQUE) data->ans_opaque = 1;
+	/* Two 'bytes' types that do not agree are only a mistake if the
+	   answer is one of them: a list holds its elements by reference
+	   and takes both without losing anything.  So the clash is
+	   recorded here and reported by BindAnswerMode(), which is where
+	   the answer type is settled. */
+	if (data->ans_width) {
+	    if (data->ans_clash)
+		;			/* the first one reported wins */
+	    else if (data->ans_width != BYTEVEC_WIDTH(x)) {
+		data->ans_clash = 1;
+		data->ans_clashwidth = BYTEVEC_WIDTH(x);
+	    }
+	    else if (data->ans_kind != BYTEVEC_KIND(x))
+		data->ans_clash = 2;
+	    else if (data->ans_nona != !BYTEVEC_HAS_NA(x))
+		data->ans_clash = 3;
+	}
+	else {
+	    data->ans_nona = !BYTEVEC_HAS_NA(x);
+	    data->ans_width = BYTEVEC_WIDTH(x);
+	    data->ans_kind = BYTEVEC_KIND(x);
+	}
+	data->ans_flags |= 1024;
 	data->ans_length += XLENGTH(x);
 	break;
     case LGLSXP:
@@ -165,6 +199,73 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 #endif
 }
 
+/* The result type the flags call for.  c(), unlist() and cbind()/rbind()
+   all ask the same question, so they ask it in one place: a per-vector
+   property added to BYTESXP is then a change here rather than in three
+   switches that have to be kept in step. */
+static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
+{
+    /* 'bytes' (1024) is not a step in the coercion chain below but a
+       thing apart, so it gets its own branch ahead of it: it combines
+       only with the two types that narrow into it, and with a list,
+       which holds its elements by reference and so loses nothing. */
+    if (data->ans_flags & 1024) {
+	if      (data->ans_flags & 512) return EXPRSXP;
+	else if (data->ans_flags & 256) return VECSXP;
+	else if (data->ans_flags & 128) return STRSXP;
+	else if (data->ans_flags & 64) {
+	    if (data->ans_opaque)
+		errorcall(call, _("cannot combine an opaque 'bytes' vector with a complex vector"));
+	    return CPLXSXP;
+	}
+	else if (data->ans_flags & 32) {
+	    if (data->ans_opaque)
+		errorcall(call, _("cannot combine an opaque 'bytes' vector with a double vector"));
+	    return REALSXP;
+	}
+	/* the answer is a 'bytes' vector, so now the arguments do have
+	   to agree on which one; see AnswerType() */
+	switch (data->ans_clash) {
+	case 1:
+	    errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
+		      data->ans_width, data->ans_clashwidth);
+	case 2:
+	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
+	case 3:
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+	}
+	/* logical (2) and integer (16) narrow into 'bytes'. */
+	if (data->ans_flags & ~(1024 | 16 | 2))
+	    errorcall(call,
+		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
+	else return BYTESXP;
+    }
+
+    if      (data->ans_flags & 512) return EXPRSXP;
+    else if (data->ans_flags & 256) return VECSXP;
+    else if (data->ans_flags & 128) return STRSXP;
+    else if (data->ans_flags &  64) return CPLXSXP;
+    else if (data->ans_flags &  32) return REALSXP;
+    else if (data->ans_flags &  16) return INTSXP;
+    else if (data->ans_flags &   2) return LGLSXP;
+    else if (data->ans_flags &   1) return RAWSXP;
+
+    return NILSXP;
+}
+
+/* allocVector() cannot carry the per-vector width and kind a 'bytes'
+   answer needs, and AnswerType has already agreed them across the
+   arguments, so both come from data. */
+static SEXP BindAnswerAlloc(SEXPTYPE mode, struct BindData *data,
+			    R_xlen_t length)
+{
+    if (mode != BYTESXP)
+	return allocVector(mode, length);
+
+    return R_allocBytesVector(length, data->ans_width, data->ans_kind,
+			      data->ans_nona ? FALSE : TRUE);
+}
 
 /* The following functions are used to coerce arguments to the
  * appropriate type for inclusion in the returned value. */
@@ -184,6 +285,17 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
     case RAWSXP:
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarRaw(RAW(x)[i]));
+	break;
+    case BYTESXP:
+	/* one length-1 vector per element, keeping the width and kind;
+	   there is no scalar form of a 'bytes' element */
+	for (i = 0; i < XLENGTH(x); i++) {
+	    SEXP e = PROTECT(R_allocVectorLike(x, 1));
+	    memcpy(BYTEVEC_DATA(e), BYTEVEC_ELT_RO(x, i),
+		   (size_t) BYTEVEC_WIDTH(x));
+	    LIST_ASSIGN(e);
+	    UNPROTECT(1);
+	}
 	break;
     case INTSXP:
 	for (i = 0; i < XLENGTH(x); i++)
@@ -355,6 +467,14 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = REAL(x)[i];
 	break;
+    case BYTESXP:
+	{
+	    SEXP y = PROTECT(coerceVector(x, REALSXP));
+	    for (i = 0; i < XLENGTH(y); i++)
+		REAL(data->ans_ptr)[data->ans_length++] = REAL(y)[i];
+	    UNPROTECT(1);
+	}
+	break;
     case LGLSXP:
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = LOGICAL(x)[i];
@@ -456,9 +576,67 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
 
+    case BYTESXP:
+	{
+	    SEXP y = PROTECT(coerceVector(x, CPLXSXP));
+	    for (i = 0; i < XLENGTH(y); i++)
+		COMPLEX(data->ans_ptr)[data->ans_length++] = COMPLEX(y)[i];
+	    UNPROTECT(1);
+	}
+	break;
+
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
 		  R_typeToChar(x), "ComplexAnswer");
+    }
+}
+
+static void
+BytesAnswer(SEXP x, struct BindData *data, SEXP call)
+{
+    R_xlen_t i;
+    switch(TYPEOF(x)) {
+    case NILSXP:
+	break;
+    case LISTSXP:
+	while (x != R_NilValue) {
+	    BytesAnswer(CAR(x), data, call);
+	    x = CDR(x);
+	}
+	break;
+    case EXPRSXP:
+    case VECSXP:
+	for (i = 0; i < XLENGTH(x); i++)
+	    BytesAnswer(VECTOR_ELT(x, i), data, call);
+	break;
+    case BYTESXP:
+	{
+	    /* one block copy: AnswerType has already agreed the width */
+	    R_xlen_t nx = XLENGTH(x);
+	    R_bytesMemcpy(BYTEVEC_ELT(data->ans_ptr, data->ans_length),
+			  BYTEVEC_DATA_RO(x),
+			  (size_t) nx * BYTEVEC_WIDTH(x));
+	    data->ans_length += nx;
+	}
+	break;
+    case LGLSXP:
+    case INTSXP:
+	{
+	    SEXP ap = data->ans_ptr;
+	    SEXP nx = PROTECT(R_bytesNarrow(x, BYTEVEC_WIDTH(ap),
+					    BYTEVEC_KIND(ap),
+					    BYTEVEC_HAS_NA(ap), call));
+	    R_xlen_t nn = XLENGTH(nx);
+	    R_bytesMemcpy(BYTEVEC_ELT(ap, data->ans_length),
+			  BYTEVEC_DATA_RO(nx),
+			  (size_t) nn * BYTEVEC_WIDTH(ap));
+	    data->ans_length += nn;
+	    UNPROTECT(1);
+	}
+	break;
+    default:
+	errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		  R_typeToChar(x), "BytesAnswer");
     }
 }
 
@@ -634,6 +812,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 	for (i = 0; i < n && nameData->count <= 1; i++)
 	    nameData->count++;
 	break;
@@ -702,6 +881,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case BYTESXP:
 	for (i = 0; i < n; i++) {
 	    namei = ItemName(names, i);
 	    namei = NewName(base, namei, ++(nameData->seqno), nameData->count);
@@ -813,9 +993,10 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* The strategy here is appropriate because the */
     /* object being operated on is a pair based list. */
 
-    struct BindData data;
+    struct BindData data = { 0 };
 /*    data.deparse_level = 1;  Initialize this early. */
     data.ans_flags  = 0;
+    data.ans_width  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
 
@@ -832,20 +1013,12 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* recursive is FALSE) then we must return a list.	Otherwise, */
     /* we use the natural coercion for vector types. */
 
-    int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = BindAnswerAlloc(mode, &data, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -868,6 +1041,8 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
+    else if (mode == BYTESXP)
+	BytesAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
     else /* integer */
@@ -899,7 +1074,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, t;
     R_xlen_t i, n = 0;
-    struct BindData data;
+    struct BindData data = { 0 };
 
 /*    data.deparse_level = 1; */
     checkArity(op, args);
@@ -924,6 +1099,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* object being operated on is a generic vector. */
 
     data.ans_flags  = 0;
+    data.ans_width  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
 
@@ -956,20 +1132,12 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* recursive is FALSE) then we must return a list.  Otherwise, */
     /* we use the natural coercion for vector types. */
 
-    int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = BindAnswerAlloc(mode, &data, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -994,6 +1162,8 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
+    else if (mode == BYTESXP)
+	BytesAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
     else /* integer */
@@ -1134,7 +1304,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     /* The default code for rbind/cbind.default follows */
     /* First, extract the evaluated arguments. */
     SEXP rho = env;
-    struct BindData data;
+    struct BindData data = { 0 };
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
@@ -1147,15 +1317,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 	return R_NilValue;
     }
 
-    int mode = NILSXP;
-    if      (data.ans_flags & 512) mode = EXPRSXP;
-    else if (data.ans_flags & 256) mode = VECSXP;
-    else if (data.ans_flags & 128) mode = STRSXP;
-    else if (data.ans_flags &  64) mode = CPLXSXP;
-    else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
-    else if (data.ans_flags &	2) mode = LGLSXP;
-    else if (data.ans_flags &	1) mode = RAWSXP;
+    SEXPTYPE mode = BindAnswerMode(&data, call);
 
     switch(mode) {
     case NILSXP:
@@ -1166,6 +1328,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     case STRSXP:
     case VECSXP:
     case RAWSXP:
+    case BYTESXP:
 	break;
 	/* we don't handle expressions: we could, but coercion of a matrix
 	   to an expression is not ideal.
@@ -1176,9 +1339,9 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if (PRIMVAL(op) == 1)
-	a = cbind(call, args, mode, rho, deparse_level);
+	a = cbind(call, args, mode, &data, rho, deparse_level);
     else
-	a = rbind(call, args, mode, rho, deparse_level);
+	a = rbind(call, args, mode, &data, rho, deparse_level);
     UNPROTECT(1);
     return a;
 }
@@ -1207,7 +1370,8 @@ static void SetColNames(SEXP dimnames, SEXP x)
  * unless the result has zero rows, hence is of length zero and no
  * copying will be done.
  */
-static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
+static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
+		  struct BindData *data, SEXP rho,
 		  int deparse_level)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
@@ -1284,7 +1448,14 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    if (mode == BYTESXP)
+	/* allocMatrix cannot carry a per-vector width; the width and kind
+	   are the ones AnswerType already agreed across the arguments */
+	PROTECT(result = R_bytesShapeMatrix(
+		    BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols),
+		    rows, cols));
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
     if (mode == STRSXP) {
@@ -1309,6 +1480,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		case NILSXP:
 		case LANGSXP:
 		case RAWSXP:
+		case BYTESXP:
 		case LGLSXP:
 		case INTSXP:
 		case REALSXP:
@@ -1356,6 +1528,29 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
 		xcopyRawWithRecycle(RAW(result), RAW(u), n, idx, k);
 		n += idx;
+	    }
+	}
+    }
+    else if (mode == BYTESXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		int umatrix = isMatrix(u); /* lost in the narrowing below */
+		/* NULL contributes nothing, as coerceVector() makes it
+		   raw(0) in the branch above; R_bytesNarrow() is the
+		   arithmetic rule and rightly refuses it */
+		if (u == R_NilValue)
+		    u = R_allocVectorLike(result, 0);
+		else if (TYPEOF(u) != BYTESXP)
+		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
+				      BYTEVEC_KIND(result),
+				      BYTEVEC_HAS_NA(result), call);
+		PROTECT(u);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = (!umatrix) ? rows : k;
+		R_bytesCopyWithRecycle(result, u, n, idx, k);
+		n += idx;
+		UNPROTECT(1);
 	    }
 	}
     }
@@ -1481,7 +1676,8 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     return result;
 } /* cbind */
 
-static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
+static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
+		  struct BindData *data, SEXP rho,
 		  int deparse_level)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
@@ -1560,7 +1756,14 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    if (mode == BYTESXP)
+	/* allocMatrix cannot carry a per-vector width; the width and kind
+	   are the ones AnswerType already agreed across the arguments */
+	PROTECT(result = R_bytesShapeMatrix(
+		    BindAnswerAlloc(mode, data, (R_xlen_t) rows * cols),
+		    rows, cols));
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
 
@@ -1602,6 +1805,30 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		xfillRawMatrixWithRecycle(RAW(result), RAW(u), n, rows, idx,
 					  cols, k);
 		n += idx;
+	    }
+	}
+    }
+    else if (mode == BYTESXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		/* both are lost in the narrowing below */
+		int umatrix = isMatrix(u), unrows = umatrix ? nrows(u) : 0;
+		/* NULL contributes nothing, as coerceVector() makes it
+		   raw(0) in the branch above; R_bytesNarrow() is the
+		   arithmetic rule and rightly refuses it */
+		if (u == R_NilValue)
+		    u = R_allocVectorLike(result, 0);
+		else if (TYPEOF(u) != BYTESXP)
+		    u = R_bytesNarrow(u, BYTEVEC_WIDTH(result),
+				      BYTEVEC_KIND(result),
+				      BYTEVEC_HAS_NA(result), call);
+		PROTECT(u);
+		R_xlen_t k = XLENGTH(u);
+		R_xlen_t idx = umatrix ? unrows : (k > 0);
+		R_bytesFillMatrixWithRecycle(result, u, n, rows, idx, cols, k);
+		n += idx;
+		UNPROTECT(1);
 	    }
 	}
     }

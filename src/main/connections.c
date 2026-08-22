@@ -4686,6 +4686,11 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP ans = R_NilValue, swhat;
     int size, signd, swap, sizedef= 4, mode = 1;
     const char *what;
+    /* 'bytes' width and kind, once one of the two spellings of 'what'
+       has been resolved; hasNA can only come from a prototype */
+    int bwidth = 0, bkind = 0;
+    Rboolean bhasNA = TRUE;
+    char bname[32];
     void *p = NULL;
     Rboolean wasopen = TRUE, isRaw = FALSE;
     Rconnection con = NULL;
@@ -4706,9 +4711,18 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 
     args = CDR(args);
     swhat = CAR(args); args = CDR(args);
-    if(!isString(swhat) || LENGTH(swhat) != 1)
-	error(_("invalid '%s' argument"), "what");
-    what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
+    if(TYPEOF(swhat) == BYTESXP) {
+	/* the prototype form: it names the same type the string form
+	   would, and additionally says whether NA is representable */
+	bhasNA = R_bytesHasNA(swhat);
+	/* copied off its static buffer, which the next caller reuses */
+	snprintf(bname, sizeof bname, "%s", R_bytesTypeName(swhat));
+	what = bname;
+    } else {
+	if(!isString(swhat) || LENGTH(swhat) != 1)
+	    error(_("invalid '%s' argument"), "what");
+	what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
+    }
     n = asVecSize(CAR(args)); args = CDR(args);
     if(n < 0) error(_("invalid '%s' argument"), "n");
     size = asInteger(CAR(args)); args = CDR(args);
@@ -4832,10 +4846,35 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	    PROTECT(ans = allocVector(REALSXP, n));
 	    p = (void *) REAL(ans);
+	} else if (R_bytesTypeFromName(what, &bwidth, &bkind)) {
+	    /* Reading straight into the vector rather than via a raw
+	       intermediate is not only one buffer instead of two: it is
+	       also the only way to apply 'endian', since the numeric
+	       kinds are stored natively and as.bytes() takes its input
+	       verbatim. */
+	    sizedef = bwidth; mode = 3;
+	    if(size == NA_INTEGER) size = sizedef;
+	    if(size != sizedef)
+		error(_("size changing is not supported for '%s' vectors"),
+		      what);
+	    /* an opaque element is a byte string, which has no byte
+	       order; reversing a UUID because the file came from another
+	       machine would be silent corruption */
+	    if(swap && bkind == BYTES_OPAQUE) {
+		warning(_("'endian' is not meaningful for opaque 'bytes' vectors"));
+		swap = 0;
+	    }
+	    PROTECT(ans = R_allocBytesVector(n, bwidth, bkind, bhasNA));
+	    p = (void *) BYTEVEC_DATA(ans);
 	} else
 	    error(_("invalid '%s' argument"), "what");
 
-	if(!signd && (mode != 1 || size > 2))
+	/* An unsigned or opaque 'bytes' type is exempt: readBin(con,
+	   "uint64", signed = FALSE) is saying what the type already
+	   says.  A signed one is not -- the flag asks for something the
+	   type cannot do, and every other such request warns. */
+	if(!signd && (mode != 3 || bkind == BYTES_SIGNED) &&
+	   (mode != 1 || size > 2))
 	    warning(_("'signed = FALSE' is only valid for integers of sizes 1 and 2"));
 	if(size == sizedef) {
 	    if(isRaw) {
@@ -4930,8 +4969,14 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
-    if(m < n)
+    if(m < n) {
 	ans = xlengthgets(ans, m);
+	UNPROTECT(1);		/* the untruncated one */
+	PROTECT(ans);		/* R_bytesWarnReserved() can allocate */
+    }
+    /* after the truncation, so the count is of what was actually read */
+    if(TYPEOF(ans) == BYTESXP)
+	R_bytesWarnReserved(ans);
     UNPROTECT(1);
     return ans;
 }
@@ -5057,6 +5102,17 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(size != 1)
 		error(_("size changing is not supported for raw vectors"));
 	    break;
+	case BYTESXP:
+	    if(size == NA_INTEGER) size = R_bytesWidth(object);
+	    if(size != R_bytesWidth(object))
+		error(_("size changing is not supported for '%s' vectors"),
+		      R_typeToChar(object));
+	    /* see do_readbin: a byte string has no byte order to convert */
+	    if(swap && R_bytesKind(object) == BYTES_OPAQUE) {
+		warning(_("'endian' is not meaningful for opaque 'bytes' vectors"));
+		swap = 0;
+	    }
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("writeBin", object);
 	}
@@ -5141,6 +5197,14 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	case RAWSXP:
 	    memcpy(buf, RAW(object), len); /* size = 1 */
+	    break;
+	case BYTESXP:
+	    /* the payload as stored: native order for the numeric kinds,
+	       which 'endian' then converts below if asked.  R_bytesMemcpy()
+	       because a whole payload can pass the size macOS has been
+	       seen to mis-copy in one memcpy call. */
+	    R_bytesMemcpy((Rbyte *) buf, BYTEVEC_DATA_RO(object),
+			  (size_t) size * len);
 	    break;
 	}
 

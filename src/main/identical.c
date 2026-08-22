@@ -347,6 +347,15 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
 	return memcmp((const void *)RAW_RO(x), (const void *)RAW_RO(y),
 		      XLENGTH(x) * sizeof(Rbyte)) == 0 ? TRUE : FALSE;
+    case BYTESXP:
+	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
+	if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y)) return FALSE;
+	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y)) return FALSE;
+	if (BYTEVEC_HAS_NA(x) != BYTEVEC_HAS_NA(y)) return FALSE;
+	return memcmp((const void *)BYTEVEC_DATA_RO(x),
+		      (const void *)BYTEVEC_DATA_RO(y),
+		      XLENGTH(x) * (size_t) BYTEVEC_WIDTH(x)) == 0
+	    ? TRUE : FALSE;
     case PROMSXP:
     {
 	// args are evaluated -- but can be seen from DOTSXP dissection
