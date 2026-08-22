@@ -20,26 +20,25 @@ saveRDS <-
     function(object, file = "", ascii = FALSE, version = NULL,
              compress = TRUE, refhook = NULL)
 {
-    ## Settle the version before anything below opens a connection:
-    ## opening truncates, and both the refusal of a version that cannot
-    ## hold 'object' and the message announcing one raised past the
-    ## default can be unwound out of, which would leave the caller
-    ## nothing where the file used to be.  This forces 'object' too.
-    version <- .Internal(serializeVersion(object, version))
-
     if(is.character(file)) {
         if(length(file) != 1 || file == "")
             stop(gettextf("'%s' must be a non-empty character string", "file"), domain = NA)
 	object <- object # do not create corrupt file if object does not exist
-	mode <- if(ascii %in% FALSE) "wb" else "w"
+	## The connection is created but not opened: serializeToConn()
+	## settles the version -- announcing one raised past the
+	## default, refusing one that cannot hold 'object' -- and only
+	## then opens, so nothing that can fail or be unwound out of
+	## runs with the file already truncated.  It also means 'object'
+	## is walked exactly once, where settling the version here would
+	## walk it a second time there.
 	con <- if (is.logical(compress))
-		   if(compress) gzfile(file, mode) else file(file, mode)
+		   if(compress) gzfile(file) else file(file)
 	       else
 		   switch(compress,
-			  "bzip2" = bzfile(file, mode),
-			  "xz"    = xzfile(file, mode),
-			  "gzip"  = gzfile(file, mode),
-			  "zstd"  = zstdfile(file, mode),
+			  "bzip2" = bzfile(file),
+			  "xz"    = xzfile(file),
+			  "gzip"  = gzfile(file),
+			  "zstd"  = zstdfile(file),
 			  stop("invalid 'compress' argument: ", compress))
         on.exit(close(con))
     }

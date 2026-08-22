@@ -393,6 +393,19 @@ static void InWord(R_inpstream_t stream, char * buf, int size)
     buf[i] = 0;
 }
 
+/* n bytes written as two-digit hex words -- the ascii form of a 'bytes'
+   payload, in either of ReadItem's arms for it */
+static void InBytesHex(R_inpstream_t stream, Rbyte *p, R_xlen_t n)
+{
+    for (R_xlen_t ix = 0; ix < n; ix++) {
+	char word[128];
+	unsigned int i;
+	InWord(stream, word, sizeof(word));
+	if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
+	p[ix] = (Rbyte) i;
+    }
+}
+
 static int InInteger(R_inpstream_t stream)
 {
     char word[128];
@@ -1275,6 +1288,31 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    len = XLENGTH(s);
 	    WriteLENGTH(stream, s);
 
+	    if (k == BYTEVEC_OPAQUE) {
+		/* wire form == storage form (R_bytesSwapWire() would be
+		   a plain copy), so the payload goes out directly, as
+		   the RAWSXP arm above writes its bytes */
+		Rbyte *data = BYTEVEC_DATA(s);
+		R_xlen_t nbytes = len * w;
+		switch (stream->type) {
+		case R_pstream_xdr_format:
+		case R_pstream_binary_format:
+		    for (R_xlen_t done = 0; done < nbytes; ) {
+			IF_IC_R_CheckUserInterrupt();
+			R_xlen_t this = min2(CHUNK_SIZE, nbytes - done);
+			stream->OutBytes(stream, data + done, (int) this);
+			done += this;
+		    }
+		    break;
+		default:
+		    for (R_xlen_t ix = 0; ix < nbytes; ix++) {
+			IF_IC_R_CheckUserInterrupt();
+			OutByte(stream, data[ix]);
+		    }
+		}
+		break;
+	    }
+
 	    const void *vmax = vmaxget();
 	    R_xlen_t chunk = CHUNK_SIZE / w;	/* whole elements per pass */
 	    if (chunk < 1) chunk = 1;
@@ -1643,7 +1681,7 @@ static bool containsBytesVector(SEXP s, SEXP seen, int version)
    read the result, so it is said out loud -- and suppressMessages()
    can turn it off, which a warning would make harder.
 
-   Only saveRDS() -- through do_serializeVersion() -- and save() --
+   Only saveRDS() -- through do_serializeToConn() -- and save() --
    through do_saveToConn() -- say it, and both say it before their
    destination has been opened.  Saying it later would mean evaluating
    R code with the destination already open and truncated, where a
@@ -2405,6 +2443,22 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 					   (levs & BYTEVEC_NONA_MASK)
 					   ? FALSE : TRUE));
 
+	    if (k == BYTEVEC_OPAQUE) {
+		/* wire form == storage form: read straight into the
+		   payload, as the RAWSXP arm above does */
+		Rbyte *data = BYTEVEC_DATA(s);
+		R_xlen_t nbytes = len * w;
+		if (stream->type == R_pstream_ascii_format)
+		    InBytesHex(stream, data, nbytes);
+		else
+		    for (R_xlen_t done = 0; done < nbytes; ) {
+			R_xlen_t this = min2(CHUNK_SIZE, nbytes - done);
+			stream->InBytes(stream, data + done, (int) this);
+			done += this;
+		    }
+		break;
+	    }
+
 	    const void *vmax = vmaxget();
 	    R_xlen_t chunk = CHUNK_SIZE / w;
 	    if (chunk < 1) chunk = 1;
@@ -2412,15 +2466,8 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 
 	    for (R_xlen_t done = 0; done < len; ) {
 		R_xlen_t this = min2(chunk, len - done);
-		if (stream->type == R_pstream_ascii_format) {
-		    for (R_xlen_t ix = 0; ix < this * w; ix++) {
-			char word[128];
-			unsigned int i;
-			InWord(stream, word, sizeof(word));
-			if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
-			buf[ix] = (Rbyte) i;
-		    }
-		}
+		if (stream->type == R_pstream_ascii_format)
+		    InBytesHex(stream, buf, this * w);
 		else
 		    stream->InBytes(stream, buf, (int) (this * w));
 		R_bytesSwapWire(BYTEVEC_ELT(s, done), buf, this, w, k);
@@ -2967,9 +3014,18 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (ascii) type = R_pstream_ascii_format;
     else type = R_pstream_xdr_format;
 
+    /* The walk, the announcement and the refusal all run before the
+       connection is opened below: opening truncates, and both the
+       message and the version error can be unwound out of.  saveRDS()
+       hands its connection over unopened for exactly this reason, and
+       this is the one walk 'object' gets. */
     bool defaulted = (CADDDR(args) == R_NilValue);
-    if (defaulted)
-	version = R_SerializeVersionFor(object, defaultSerializeVersion());
+    if (defaulted) {
+	int dflt = defaultSerializeVersion();
+	version = R_SerializeVersionFor(object, dflt);
+	if (version != dflt)
+	    R_AnnounceSerializeVersion(dflt, version);
+    }
     else
 	version = asInteger(CADDDR(args));
     if (version == NA_INTEGER || version <= 0)
@@ -3009,49 +3065,6 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
 
     return R_NilValue;
-}
-
-/* serializeVersion(object, version) -- and saveVersion(), which is the
-   same thing against save()'s default rather than serialize()'s.
-
-   The R-level writers open their destination before they reach any
-   writer here, and opening for writing truncates it.  So everything
-   about the version that can signal has to happen before that, or the
-   caller pays for it with whatever the file used to hold: the refusal
-   of a version too low for the object, and the message announcing one
-   raised past the default.  saveRDS() and save() settle it here, first
-   thing, and pass back what comes out.
-
-   NULL back means the writer's own default still fits and it should go
-   on choosing for itself -- which keeps the choice with the code that
-   knows which default is its own, and keeps this from walking an object
-   that has no 'bytes' vector in it only to say so. */
-attribute_hidden SEXP do_serializeVersion(SEXP call, SEXP op, SEXP args,
-					  SEXP env)
-{
-    checkArity(op, args);
-
-    SEXP object = CAR(args), sversion = CADR(args);
-
-    if (sversion != R_NilValue) {
-	int version = asInteger(sversion);
-
-	/* an out-of-range version is the writer's to report, in its own
-	   words and against its own limits */
-	if (version != NA_INTEGER && version > 0)
-	    R_CheckSerializeVersion(object, version);
-
-	return sversion;
-    }
-
-    int dflt = PRIMVAL(op) ? defaultSaveVersion() : defaultSerializeVersion();
-    int version = R_SerializeVersionFor(object, dflt);
-    if (version == dflt)
-	return R_NilValue;
-
-    R_AnnounceSerializeVersion(dflt, version);
-
-    return ScalarInteger(version);
 }
 
 static SEXP checkNotPromise(SEXP val)
