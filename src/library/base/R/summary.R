@@ -88,7 +88,12 @@ summary.default <- function(object, ..., digits, quantile.type = 7,
 	sumry[, 1L] <- format(as.integer(ll))
 	sumry
     } else # very basic/all-purpose summary
-        c(Length = length(object), Class = class(object), Mode = mode(object))
+        ## class(object)[1L], as the data.frame branch above uses: an
+        ## implicit class can have more than one element -- a bare
+        ## 'bytes' vector is c("uint64", "bytes") -- and concatenating
+        ## it would give a 4-element summary named Class1/Class2
+        c(Length = length(object), Class = class(object)[1L],
+          Mode = mode(object))
     class(value) <- c("summaryDefault", "table")
     value
 }

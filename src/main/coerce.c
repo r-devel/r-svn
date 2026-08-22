@@ -440,6 +440,12 @@ static SEXP coerceToSymbol(SEXP v)
     case RAWSXP:
 	ans = StringFromRaw(RAW_ELT(v, 0), &warn);
 	break;
+    case BYTESXP:
+	/* as every other atomic type does: render element 0 and intern
+	   it.  Without this as.name() on a 'bytes' vector reported an
+	   internal "unimplemented type" from ordinary user code. */
+	ans = mkChar(R_bytesEltRender(v, 0));
+	break;
     default:
 	UNIMPLEMENTED_TYPE("coerceToSymbol", v);
     }
@@ -2343,6 +2349,12 @@ attribute_hidden SEXP do_isvector(SEXP call, SEXP op, SEXP args, SEXP rho)
        "closure", but not aliases such as "name" and "function". */
     else if (streql(stype, R_typeToChar(x))) {
 	LOGICAL0(ans)[0] = 1;
+    }
+    /* "bytes" is the mode of every width and kind, as "numeric" is the
+       mode of integer and double, so is.vector(x, mode(x)) has to hold
+       for this type too; R_typeToChar() gives the finer name */
+    else if (streql(stype, "bytes")) {
+	LOGICAL0(ans)[0] = (TYPEOF(x) == BYTESXP);
     }
     else
 	LOGICAL0(ans)[0] = 0;

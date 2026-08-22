@@ -696,9 +696,13 @@ attribute_hidden SEXP do_bytes(SEXP call, SEXP op, SEXP args, SEXP env)
 static void warnReserved(R_xlen_t nNA)
 {
     if (nNA)
+	/* the selector is only singular-or-not, and R_xlen_t overflows
+	   the unsigned long ngettext() takes on LLP64 -- so clamp
+	   rather than truncate, which would pick the singular form for
+	   a count of 2^32 + 1 */
 	warning(ngettext("%lld element equal to the reserved NA value became NA",
 			 "%lld elements equal to the reserved NA value became NA",
-			 (unsigned long) nNA), (long long) nNA);
+			 (nNA == 1) ? 1UL : 2UL), (long long) nNA);
 }
 
 /* The same warning for a payload taken verbatim rather than element by
