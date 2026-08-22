@@ -1466,21 +1466,6 @@ static SEXP bytesIncomparables(SEXP incomp, SEXP b)
     return bytesMatchTable(incomp, b, &drop, R_NilValue);
 }
 
-/* Two 'bytes' vectors must agree in width, kind and NA reservation to
-   be matched at all.  Hoisted out of match5()'s body so that the
-   zero-length short circuits above it are held to it too: answering
-   "no match" for a pair that c(), ==, min() and union() all refuse is
-   exactly the divergence the check exists to prevent. */
-static void bytesMatchCheck(SEXP x, SEXP table)
-{
-    if(BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(table))
-	error(_("cannot match 'bytes' vectors of widths %d and %d"),
-	      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(table));
-    if(BYTEVEC_KIND(x) != BYTEVEC_KIND(table))
-	error(_("cannot match 'bytes' vectors of different kinds"));
-    R_bytesCheckSameNA(x, table);
-}
-
 // workhorse of R's match() and hence also  " ix %in% itable "
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
@@ -1495,7 +1480,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     /* before the zero-length short circuits, which would otherwise
        report no match for a pair that is a mistake at any length */
     if (TYPEOF(ix) == BYTESXP && TYPEOF(itable) == BYTESXP)
-	bytesMatchCheck(ix, itable);
+	R_bytesCheckPair(R_CurrentExpression, ix, itable, "match");
 
     /* Handle zero length arguments -- except with a 'bytes' operand in
        the pair: its foreign-type refusals live in the type settlement
@@ -1575,7 +1560,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	       values to report absent.  Answering "no match" instead would
 	       make setdiff() and %in% quietly disagree with union(),
 	       intersect() and == on the very same pair of vectors. */
-	    bytesMatchCheck(x, table);
+	    R_bytesCheckPair(R_CurrentExpression, x, table, "match");
 	type = BYTESXP;
     }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;

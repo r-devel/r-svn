@@ -51,9 +51,11 @@
 
 typedef Rbyte mag_t[2 * MAXW];	/* MSB-first, room for a full product */
 
-static bool arithWidthOK(int w)
+static void checkArithWidth(SEXP call, int w)
 {
-    return w == 1 || w == 2 || w == 4 || w == 8 || w == 16;
+    if (w != 1 && w != 2 && w != 4 && w != 8 && w != 16)
+	errorcall(call,
+		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
 }
 
 /* ---- native kernels ------------------------------------------------
@@ -753,36 +755,38 @@ bool R_bytesAllNA(SEXP x)
     return true;
 }
 
-/* Narrow a logical or integer vector into a 'bytes' vector of the given
-   kind and width.
-
-   Only these two types narrow.  A double operand is deliberately
-   refused by the callers rather than converted: R's coercion lattice is
-   otherwise lossless, and neither double nor a 64-bit integer subsumes
-   the other, so there is no answer that is right in general.  Refusing
+/* Which types a foreign operand may have, with one wording for the
+   refusals.  An opaque element is a byte string, so only NA -- the
+   absence of a value rather than a value -- can stand in for one.
+   Integer and logical narrow.  Everything else, double above all, is
+   deliberately turned away: R's coercion lattice is otherwise
+   lossless, and neither double nor a 64-bit integer subsumes the
+   other, so there is no answer that is right in general.  Refusing
    keeps both candidate rules -- widen to double, or narrow into bytes
    -- reachable later, since an operation that errors today can start
-   working without breaking any code written in the meantime.
+   working without breaking any code written in the meantime. */
+attribute_hidden
+void R_bytesCheckOperand(SEXP x, int kind, SEXP call)
+{
+    if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
+	errorcall(call,
+		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
+		  R_typeToChar(x));
+    if (TYPEOF(x) != INTSXP && TYPEOF(x) != LGLSXP)
+	errorcall(call,
+		  _("'%s' and '%s' cannot be combined; use an integer operand (1L), or as.numeric() for double arithmetic"),
+		  "bytes", R_typeToChar(x));
+}
 
-   Values that do not fit become NA with a warning, exactly as integer
-   overflow does. */
+/* Narrow a logical or integer vector into a 'bytes' vector of the given
+   kind and width; anything else is refused above.  Values that do not
+   fit become NA with a warning, exactly as integer overflow does. */
 attribute_hidden
 SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
 {
     SEXPTYPE t = TYPEOF(x);
 
-    /* An opaque element is a byte string, so there is no number to read
-       into one.  NA is the exception: it is the absence of a value
-       rather than a value, and every kind reserves a sentinel for it,
-       so NA is the one right-hand side an opaque vector can take. */
-    if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
-	errorcall(call,
-		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
-		  R_typeToChar(x));
-    if (t != INTSXP && t != LGLSXP)
-	errorcall(call,
-		  _("'%s' and '%s' cannot be combined; use an integer operand (1L), or as.numeric() for double arithmetic"),
-		  "bytes", R_typeToChar(x));
+    R_bytesCheckOperand(x, kind, call);
 
     R_xlen_t n = XLENGTH(x);
     SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
@@ -841,14 +845,7 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 {
     SEXPTYPE t = TYPEOF(x);
 
-    if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
-	errorcall(call,
-		  _("cannot combine an opaque 'bytes' vector with type '%s'"),
-		  R_typeToChar(x));
-    if (t != INTSXP && t != LGLSXP)
-	errorcall(call,
-		  _("'%s' and '%s' cannot be combined; use an integer operand (1L), or as.numeric() for double arithmetic"),
-		  "bytes", R_typeToChar(x));
+    R_bytesCheckOperand(x, kind, call);
 
     R_xlen_t n = XLENGTH(x);
     SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
@@ -885,19 +882,13 @@ static void bytesBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
     SEXP b = (TYPEOF(x) == BYTESXP) ? x : y;
     int kind = BYTEVEC_KIND(b), w = BYTEVEC_WIDTH(b);
 
-    if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP) {
+    if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP)
 	/* The rule c(), ==, match(), pmin() and subassignment hold to:
 	   the width is part of the type, so a pair that disagrees is a
 	   mistake to report.  Promoting to max(width) here instead would
 	   make arithmetic the one operation that accepts a pair every
 	   other one refuses, which is not what bytes.Rd describes. */
-	if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y))
-	    errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
-		      BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(y));
-	if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
-	    errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
-	R_bytesCheckSameNA(x, y);
-    }
+	R_bytesCheckPair(call, x, y, "combine");
     else if (TYPEOF(x) == BYTESXP)
 	*py = R_bytesNarrow(y, w, kind, BYTEVEC_HAS_NA(x), call);
     else
@@ -938,9 +929,7 @@ SEXP R_bytesArith(SEXP call, int oper, SEXP x, SEXP y)
     bytesBinaryOperands(call, &x, &y, &w, &kx);
     REPROTECT(x, xi);
     REPROTECT(y, yi);
-    if (!arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    checkArithWidth(call, w);
 
     /* The operator settles the kernel once, not per element -- the
        dispatch the sibling kernels hoist into one loop per operator.
@@ -1043,9 +1032,7 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
 	errorcall(call, _("invalid argument to unary operator"));
     if (k == BYTEVEC_UINT)
 	errorcall(call, _("unary minus is not defined for unsigned 'bytes' vectors"));
-    if (!arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    checkArithWidth(call, w);
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = BYTEVEC_HAS_NA(x);
@@ -1272,6 +1259,7 @@ void R_bytesSummaryType(SEXP call, int iop, SEXP args,
 {
     /* sum and prod accumulate; min and max only ever compare */
     bool arith = (iop == 0 || iop == 4);
+    SEXP first = NULL;
     int kind = -1, w = 0, hasNA = -1;
 
     /* one pass to settle the result kind, width and NA flag */
@@ -1291,31 +1279,24 @@ void R_bytesSummaryType(SEXP call, int iop, SEXP args,
 	    errorcall(call,
 		      _("'%s' is not defined for opaque 'bytes' vectors"),
 		      iop == 0 ? "sum" : "prod");
-	if (kind == -1) {
+	if (first == NULL) {
+	    first = a;
 	    kind = BYTEVEC_KIND(a);
 	    hasNA = BYTEVEC_HAS_NA(a);
 	    w = BYTEVEC_WIDTH(a);
 	}
-	else {
+	else
 	    /* the rule c() and == already use: a width is part of the
 	       type, so these refuse exactly the pairs c() refuses.  That
 	       is what keeps range() -- whose answer goes through c() --
 	       from failing on arguments min() and max() accept. */
-	    if (BYTEVEC_WIDTH(a) != w)
-		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
-			  w, BYTEVEC_WIDTH(a));
-	    if (kind != BYTEVEC_KIND(a))
-		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
-	    if (hasNA != BYTEVEC_HAS_NA(a))
-		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
-	}
+	    R_bytesCheckPair(call, first, a, "combine");
     }
 
     /* An element comparison is defined for every width and every kind,
        so min and max are not restricted the way sum and prod are. */
-    if (arith && !arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    if (arith)
+	checkArithWidth(call, w);
 
     if (pkind)  *pkind  = kind;
     if (pw)     *pw     = w;
@@ -1556,9 +1537,7 @@ attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x)
     if (kind == BYTEVEC_OPAQUE)
 	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"),
 		  "mean");
-    if (!arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    checkArithWidth(call, w);
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = BYTEVEC_HAS_NA(x);
@@ -1608,9 +1587,8 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
     if (arith && kind == BYTEVEC_OPAQUE)
 	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"),
 		  "cumsum");
-    if (arith && !arithWidthOK(w))
-	errorcall(call,
-		  _("arithmetic on 'bytes' vectors is only defined for widths 1, 2, 4, 8 and 16"));
+    if (arith)
+	checkArithWidth(call, w);
 
     SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
     setAttrib(ans, R_NamesSymbol, getAttrib(x, R_NamesSymbol));
@@ -1675,6 +1653,7 @@ SEXP R_bytesCum(SEXP call, int iop, SEXP x)
 attribute_hidden
 SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 {
+    SEXP proto = NULL;		/* the first 'bytes' operand */
     int kind = -1, w = 0, hasNA = -1;
     R_xlen_t len = 0;
     bool anyEmpty = false;
@@ -1696,22 +1675,16 @@ SEXP R_bytesParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 	}
 	if (TYPEOF(a) != BYTESXP)
 	    errorcall(call, _("cannot mix 'bytes' vectors with other types"));
-	if (kind == -1) {
+	if (proto == NULL) {
+	    proto = a;
 	    kind = BYTEVEC_KIND(a);
 	    hasNA = BYTEVEC_HAS_NA(a);
 	    w = BYTEVEC_WIDTH(a);
 	}
-	else {
+	else
 	    /* refused on the same terms as c() and min(); see
 	       R_bytesSummary() */
-	    if (BYTEVEC_WIDTH(a) != w)
-		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
-			  w, BYTEVEC_WIDTH(a));
-	    if (kind != BYTEVEC_KIND(a))
-		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
-	    if (hasNA != BYTEVEC_HAS_NA(a))
-		errorcall(call, _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
-	}
+	    R_bytesCheckPair(call, proto, a, "combine");
 
 	R_xlen_t n = XLENGTH(a);
 	if (n == 0) anyEmpty = true;

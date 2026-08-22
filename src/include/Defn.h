@@ -2016,6 +2016,9 @@ attribute_hidden SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA,
 attribute_hidden void R_bytesMemcpy(Rbyte *dst, const Rbyte *src, size_t n);
 attribute_hidden void R_bytesCheckNA(SEXP x);
 attribute_hidden void R_bytesCheckSameNA(SEXP x, SEXP y);
+attribute_hidden void R_bytesCheckPair(SEXP call, SEXP x, SEXP y,
+				       const char *verb);
+attribute_hidden void R_bytesCheckOperand(SEXP x, int kind, SEXP call);
 attribute_hidden void R_bytesCheckSameType(SEXP x, SEXP y, const char *fun);
 attribute_hidden void R_CheckBytesVector(SEXP x); /* CHKBYTEVEC(), above */
 attribute_hidden double R_bytesEltAsReal(const Rbyte *p, int w, int kind);

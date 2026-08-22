@@ -327,17 +327,11 @@ SEXP R_bytesBitwise(SEXP call, int oper, SEXP a, SEXP b)
 	       value rather than a value.  R_bytesNarrow() draws that
 	       line, here as it does for c(), == and [<-. */
 	    b = R_bytesNarrow(b, w, k, hasNA, call);
-	else {
+	else
 	    /* widths are not promoted the way arithmetic promotes them:
 	       a mask that is not the width of what it masks is a
 	       mistake, not a value to extend */
-	    if (BYTEVEC_KIND(b) != k)
-		errorcall(call, _("cannot combine 'bytes' vectors of different kinds"));
-	    if (BYTEVEC_WIDTH(b) != w)
-		errorcall(call, _("cannot combine 'bytes' vectors of widths %d and %d"),
-			  w, BYTEVEC_WIDTH(b));
-	    R_bytesCheckSameNA(a, b);
-	}
+	    R_bytesCheckPair(call, a, b, "combine");
     }
     PROTECT(a);
     PROTECT(b);		/* may be the narrowed or coerced temporary */
@@ -449,6 +443,25 @@ void R_bytesCheckSameNA(SEXP x, SEXP y)
     if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP &&
 	BYTEVEC_HAS_NA(x) != BYTEVEC_HAS_NA(y))
 	error(_("cannot combine 'bytes' vectors that differ in whether NA is representable"));
+}
+
+/* The whole of that rule for a pair of 'bytes' operands: width, kind
+   and NA reservation are all part of the type, and every pairwise
+   operation -- c() and arithmetic combine, == compares, match()
+   matches, [<- assigns between -- refuses a pair that disagrees.  One
+   checker so the wording and the order of the checks cannot drift
+   between them; only the verb differs.  Pass R_CurrentExpression as
+   the call where none is at hand. */
+void R_bytesCheckPair(SEXP call, SEXP x, SEXP y, const char *verb)
+{
+    if (BYTEVEC_WIDTH(x) != BYTEVEC_WIDTH(y))
+	errorcall(call, _("cannot %s 'bytes' vectors of widths %d and %d"),
+		  verb, BYTEVEC_WIDTH(x), BYTEVEC_WIDTH(y));
+    if (BYTEVEC_KIND(x) != BYTEVEC_KIND(y))
+	errorcall(call, _("cannot %s 'bytes' vectors of different kinds"),
+		  verb);
+
+    R_bytesCheckSameNA(x, y);
 }
 
 /* Rf_copyVector() and Rf_copyMatrix() are public API, and the only check
@@ -952,16 +965,26 @@ const char *R_bytesKindName(SEXP x)
     }
 }
 
+/* The .Internal()s below all take one 'bytes' vector as 'x'.  Not
+   checkBytes(), whose message names a C entry point: that is the right
+   thing to tell a package and the wrong thing to tell someone who
+   typed bytesWidth(1L). */
+static SEXP checkBytesArg(SEXP args)
+{
+    SEXP x = CAR(args);
+
+    if (TYPEOF(x) != BYTESXP)
+	error(_("'%s' must be a 'bytes' vector"), "x");
+
+    return x;
+}
+
 /* bytesHasNA(x) */
 attribute_hidden SEXP do_byteshasna(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    SEXP x = CAR(args);
-    if (TYPEOF(x) != BYTESXP)
-	error(_("'%s' must be a 'bytes' vector"), "x");
-
-    return ScalarLogical(BYTEVEC_HAS_NA(x));
+    return ScalarLogical(BYTEVEC_HAS_NA(checkBytesArg(args)));
 }
 
 /* bytesKind(x) */
@@ -969,11 +992,7 @@ attribute_hidden SEXP do_byteskind(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    SEXP x = CAR(args);
-    if (TYPEOF(x) != BYTESXP)
-	error(_("'%s' must be a 'bytes' vector"), "x");
-
-    return mkString(R_bytesKindName(x));
+    return mkString(R_bytesKindName(checkBytesArg(args)));
 }
 
 /* bytesRaw(x): the flat payload, for round-tripping and for handing
@@ -982,9 +1001,7 @@ attribute_hidden SEXP do_bytesraw(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    SEXP x = CAR(args);
-    if (TYPEOF(x) != BYTESXP)
-	error(_("'%s' must be a 'bytes' vector"), "x");
+    SEXP x = checkBytesArg(args);
 
     R_xlen_t nbytes = XLENGTH(x) * BYTEVEC_WIDTH(x);
     SEXP val = PROTECT(allocVector(RAWSXP, nbytes));
@@ -1085,12 +1102,5 @@ attribute_hidden SEXP do_byteswidth(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
 
-    /* not R_bytesWidth(), whose message names the C entry point: that is
-       the right thing to tell a package and the wrong thing to tell
-       someone who typed bytesWidth(1L) */
-    SEXP x = CAR(args);
-    if (TYPEOF(x) != BYTESXP)
-	error(_("'%s' must be a 'bytes' vector"), "x");
-
-    return ScalarInteger(BYTEVEC_WIDTH(x));
+    return ScalarInteger(BYTEVEC_WIDTH(checkBytesArg(args)));
 }

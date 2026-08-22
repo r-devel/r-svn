@@ -403,18 +403,9 @@ static bool dispatch_asvector(SEXP *x, SEXP call, SEXP rho) {
    there is no widening conversion, since the elements are opaque. */
 static int BytesAssignWidth(SEXP x, SEXP y, SEXP call)
 {
-    int w = BYTEVEC_WIDTH(x);
+    R_bytesCheckPair(call, x, y, "assign between");
 
-    if (BYTEVEC_WIDTH(y) != w)
-	errorcall(call,
-		  _("incompatible 'bytes' widths (%d and %d) in subassignment"),
-		  w, BYTEVEC_WIDTH(y));
-    if (BYTEVEC_KIND(y) != BYTEVEC_KIND(x))
-	errorcall(call,
-		  _("incompatible 'bytes' kinds in subassignment"));
-    R_bytesCheckSameNA(x, y);
-
-    return w;
+    return BYTEVEC_WIDTH(x);
 }
 
 static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,

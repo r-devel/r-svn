@@ -37,7 +37,6 @@ static SEXP complex_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 static SEXP string_relop (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP raw_relop    (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP bytes_relop  (RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
-static void bytesCompareCheck(SEXP s1, SEXP s2, SEXP call);
 
 #define DO_SCALAR_RELOP(oper, x, y) do {		\
 	switch (oper) {					\
@@ -400,19 +399,17 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
     } else errorcall(call, _("comparison of these types is not implemented"));
   } else { // nx == 0 || ny == 0
 	if (TYPEOF(x) == BYTESXP && TYPEOF(y) == BYTESXP)
-	    bytesCompareCheck(x, y, call);
+	    /* an empty operand still has a type, and answering
+	       logical(0) for a pair that c(), min() and union() refuse
+	       is the silent divergence these checks exist to prevent */
+	    R_bytesCheckPair(call, x, y, "compare");
 	else if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
 	    /* the same rule at length zero as at any other: a pairing
 	       the narrowing refuses -- double, character -- is refused
-	       here too, rather than quietly answering logical(0); the
-	       marks it produces are not needed */
+	       here too, without paying for the narrowing itself */
 	    SEXP b = (TYPEOF(x) == BYTESXP) ? x : y;
 	    SEXP o = (TYPEOF(x) == BYTESXP) ? y : x;
-	    const void *vmax = vmaxget();
-	    int *dir = (int *) R_alloc(XLENGTH(o) + 1, sizeof(int));
-	    R_bytesNarrowCmp(o, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
-			     BYTEVEC_HAS_NA(b), dir, call);
-	    vmaxset(vmax);
+	    R_bytesCheckOperand(o, BYTEVEC_KIND(b), call);
 	}
 	x = allocVector(LGLSXP, 0);
   }
@@ -684,22 +681,6 @@ static SEXP string_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     return ans;
 }
 
-/* Two 'bytes' vectors must agree in width, kind and NA reservation to
-   be compared.  Its own function so that do_relop()'s zero-length path
-   can reach it: an empty operand still has a type, and answering
-   logical(0) for a pair that c(), min() and union() refuse is the same
-   silent divergence the check exists to prevent. */
-static void bytesCompareCheck(SEXP s1, SEXP s2, SEXP call)
-{
-    if (BYTEVEC_WIDTH(s1) != BYTEVEC_WIDTH(s2))
-	errorcall(call, _("cannot compare 'bytes' vectors of widths %d and %d"),
-		  BYTEVEC_WIDTH(s1), BYTEVEC_WIDTH(s2));
-    if (BYTEVEC_KIND(s1) != BYTEVEC_KIND(s2))
-	errorcall(call, _("cannot compare 'bytes' vectors of different kinds"));
-
-    R_bytesCheckSameNA(s1, s2);
-}
-
 /* Comparison is memcmp over the element's bytes: unsigned lexicographic
    in storage order.  That is the right order for the values this type
    exists to hold (hashes, UUIDs, IPv6 addresses are big-endian byte
@@ -722,7 +703,7 @@ static SEXP bytes_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     PROTECT_WITH_INDEX(s1, &p1);
     PROTECT_WITH_INDEX(s2, &p2);
     if (TYPEOF(s1) == BYTESXP && TYPEOF(s2) == BYTESXP)
-	bytesCompareCheck(s1, s2, call);
+	R_bytesCheckPair(call, s1, s2, "compare");
     else if (TYPEOF(s1) == BYTESXP) {
 	dir = (int *) R_alloc(XLENGTH(s2) + 1, sizeof(int));
 	REPROTECT(s2 = R_bytesNarrowCmp(s2, w, k, BYTEVEC_HAS_NA(s1), dir, call), p2);
