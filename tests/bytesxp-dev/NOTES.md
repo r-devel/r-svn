@@ -361,18 +361,32 @@ restructuring the loop, not swapping in more instructions.
 exists they cover every arithmetic width, so the byte-at-a-time path
 becomes unreachable in an ordinary session -- and unreachable code is
 where bugs settle in.  `R_BYTES_GENERIC_ARITH` forces it, and
-`tests/bytesxp-dev/archeck.R` runs both: each against Python's exact integers,
-and then the two against each other over ~960,000 results.
+`tests/bytesxp-dev/archeck.R` runs both: each against bignum.R's exact
+integers, and then the two against each other over ~960,000 results.
 
 That last check was vacuous when first written, which is the part worth
 remembering.  `system2(env = "R_BYTES_GENERIC_ARITH=")` sets the
 variable to the empty string, and `getenv()` reports an empty variable
 as *set*, so the "native" run was the general one and the harness was
-comparing the general path with itself and passing.  Two fixes: an
-empty value now counts as unset, and the harness asserts that the two
-runs differ in speed by more than 2x on a division-heavy workload --
-they differ by about 130x, so the margin is enormous and the check can
-no longer pass while measuring nothing.
+comparing the general path with itself and passing.  Two fixes: a
+false-looking value -- empty, `0`, or any of R's `FALSE` spellings --
+now counts as unset, and the harness asserts that the two runs differ
+in speed by more than 2x on a division-heavy workload -- they differ by
+about 130x, so the margin is enormous and the check can no longer pass
+while measuring nothing.
+
+`system2(env=)` is also what broke the check on Windows, and it broke
+it the other way: loudly.  That argument is portable in name only.  On
+Unix the `name=value` strings are prefixed to the command line and the
+shell reads them as an environment assignment; on Windows there is no
+shell to do that, so they are appended to the command line as ordinary
+*arguments* and `Rscript` takes the first one for the script to run.
+Both children exited without running the harness's script, `nat` and
+`gen` came back empty, and `0 results FAIL` was the whole story.  The
+harness now sets the variable in its own process with `Sys.setenv()`
+before each `system2()` call and lets the child inherit it, which is
+the same on every platform.  Changing it in the parent is safe because
+`useNative()` caches on first use and the checks above it have run.
 
 Signed multiply does not use the builtin at the top two widths.
 `__builtin_mul_overflow` on a signed type the target cannot multiply in

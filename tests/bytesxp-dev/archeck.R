@@ -139,10 +139,22 @@ cat("ELAPSED", min(replicate(3, system.time(d %/% e)[["elapsed"]])), "\n")
 tmp <- tempfile(fileext = ".R")
 writeLines(AB, tmp)
 RS <- file.path(R.home("bin"), "Rscript")
-nat <- system2(RS, shQuote(tmp), stdout = TRUE,
-               env = "R_BYTES_GENERIC_ARITH=")
-gen <- system2(RS, shQuote(tmp), stdout = TRUE,
-               env = "R_BYTES_GENERIC_ARITH=1")
+
+## Not system2(env=): that argument is not portable.  On Windows the
+## name=value strings are spliced into the command line as arguments
+## rather than set in the child's environment, and Rscript takes the
+## first of them for the script to run, so neither child ever runs this
+## one.  Set the variable here instead -- the child inherits this
+## process's environment on every platform.  Changing it here does not
+## disturb the checks above: useNative() caches on first use, and they
+## have run.
+Sys.setenv(R_BYTES_GENERIC_ARITH = "0")
+nat <- system2(RS, shQuote(tmp), stdout = TRUE)
+
+Sys.setenv(R_BYTES_GENERIC_ARITH = "1")
+gen <- system2(RS, shQuote(tmp), stdout = TRUE)
+
+Sys.unsetenv("R_BYTES_GENERIC_ARITH")
 
 el <- function(x) as.numeric(sub("ELAPSED ", "", grep("^ELAPSED", x, value = TRUE)))
 natT <- el(nat); genT <- el(gen)

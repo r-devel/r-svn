@@ -100,17 +100,21 @@ typedef __int128 bytes_int128_t;
    kernels become unreachable -- and unreachable code is where bugs
    settle in unnoticed.  Setting R_BYTES_GENERIC_ARITH runs them
    anyway, so the two paths can be compared with each other and with
-   the Python reference.  One predictable branch per element. */
+   the exact-integer reference.  One predictable branch per element. */
 static bool useNative(void)
 {
     static int cached = -1;
 
     if (cached < 0) {
-	/* an empty value counts as unset, so that a caller can hand a
-	   child process the native setting without having to remove the
-	   variable from the environment it inherited */
+	/* an empty or false value counts as unset, so that a caller can
+	   hand a child process the native setting without having to
+	   remove the variable from the environment it inherited.  Empty
+	   is the one that bites: getenv() reports it as set, and reading
+	   it that way once had the cross-check in archeck.R comparing
+	   the general path with itself. */
 	const char *e = getenv("R_BYTES_GENERIC_ARITH");
-	cached = (e == NULL || *e == '\0');
+	cached = (e == NULL || *e == '\0' || !strcmp(e, "0") ||
+		  StringFalse(e));
     }
 
     return cached != 0;
