@@ -1497,11 +1497,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     if (TYPEOF(ix) == BYTESXP && TYPEOF(itable) == BYTESXP)
 	bytesMatchCheck(ix, itable);
 
-    /* handle zero length arguments */
-    if (n == 0) return allocVector(INTSXP, 0);
+    /* Handle zero length arguments -- except with a 'bytes' operand in
+       the pair: its foreign-type refusals live in the type settlement
+       below and must apply at every length, so those pairs pass through
+       it first and take the same short circuits after it. */
+    bool anyBytes = (TYPEOF(ix) == BYTESXP || TYPEOF(itable) == BYTESXP);
+    if (!anyBytes && n == 0) return allocVector(INTSXP, 0);
 
     SEXP ans;
-    if (length(itable) == 0) {
+    if (!anyBytes && length(itable) == 0) {
 	ans = allocVector(INTSXP, n);
 	int *pa = INTEGER0(ans);
 	for (R_xlen_t i = 0; i < n; i++) pa[i] = nmatch;
@@ -1578,6 +1582,20 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);
+
+    /* the zero-length short circuits for the 'bytes' pairs deferred
+       above, their pairing now validated */
+    if (n == 0) {
+	UNPROTECT(nprot);
+	return allocVector(INTSXP, 0);
+    }
+    if (xlength(table) == 0) {
+	ans = allocVector(INTSXP, n);
+	int *pa = INTEGER0(ans);
+	for (R_xlen_t i = 0; i < n; i++) pa[i] = nmatch;
+	UNPROTECT(nprot);
+	return ans;
+    }
 
     /* While table positions are being mapped back through tkeep, "no
        match" has to be a value no position can take, and the caller's
