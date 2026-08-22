@@ -37,6 +37,8 @@ static SEXP complex_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 static SEXP string_relop (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP raw_relop    (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP bytes_relop  (RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
+static SEXP bytes_numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2,
+				SEXP call);
 
 #define DO_SCALAR_RELOP(oper, x, y) do {		\
 	switch (oper) {					\
@@ -356,27 +358,17 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	}
     }
 
-    /* A numeric BYTESXP compared with a double or complex vector joins
-       that ordinary numeric domain.  The checked conversion rejects
-       opaque payloads and warns only for values that really lose
-       precision. */
-    if ((TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) &&
-	(TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
-	 TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)) {
-	SEXPTYPE target = (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
-	    ? CPLXSXP : REALSXP;
-	if (TYPEOF(x) == BYTESXP)
-	    REPROTECT(x = coerceVector(x, target), xpi);
-	if (TYPEOF(y) == BYTESXP)
-	    REPROTECT(y = coerceVector(y, target), ypi);
-    }
-
   if (nx > 0 && ny > 0) {
 	if(((nx > ny) ? nx % ny : ny % nx) != 0) // mismatch
             warningcall(call, _(
 		"longer object length is not a multiple of shorter object length"));
 
-    if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
+    if ((TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) &&
+	(TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	 TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)) {
+	x = bytes_numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
+    }
+    else if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
 	x = bytes_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
     }
     else if (isString(x) || isString(y)) {
@@ -420,11 +412,17 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	    R_bytesCheckPair(call, x, y, "compare");
 	else if (TYPEOF(x) == BYTESXP || TYPEOF(y) == BYTESXP) {
 	    /* the same rule at length zero as at any other: a pairing
-	       the narrowing refuses -- double, character -- is refused
-	       here too, without paying for the narrowing itself */
+	       the narrowing refuses is refused here too, without paying
+	       for the narrowing itself */
 	    SEXP b = (TYPEOF(x) == BYTESXP) ? x : y;
 	    SEXP o = (TYPEOF(x) == BYTESXP) ? y : x;
-	    R_bytesCheckOperand(o, BYTEVEC_KIND(b), call);
+	    if (TYPEOF(o) == REALSXP || TYPEOF(o) == CPLXSXP) {
+		if (BYTEVEC_KIND(b) == BYTEVEC_OPAQUE)
+		    errorcall(call, _("cannot compare an opaque 'bytes' vector with a numeric vector"));
+		if (TYPEOF(o) == CPLXSXP && PRIMVAL(op) != EQOP && PRIMVAL(op) != NEOP)
+		    errorcall(call, _("invalid comparison with complex values"));
+	    }
+	    else R_bytesCheckOperand(o, BYTEVEC_KIND(b), call);
 	}
 	x = allocVector(LGLSXP, 0);
   }
@@ -491,6 +489,61 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
         break;                                                          \
     }                                                                   \
 } while(0)
+
+static int relopFromCmp(RELOP_TYPE code, int cmp)
+{
+    switch (code) {
+    case EQOP: return cmp == 0;
+    case NEOP: return cmp != 0;
+    case LTOP: return cmp < 0;
+    case GTOP: return cmp > 0;
+    case LEOP: return cmp <= 0;
+    case GEOP: return cmp >= 0;
+    }
+    return FALSE;
+}
+
+/* Compare in the exact integer/double domain.  Converting the integer
+   first would make 2^53+1 equal to 2^53, so even a precision warning
+   could not rescue the resulting logical answer. */
+static SEXP bytes_numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2,
+				SEXP call)
+{
+    bool left = TYPEOF(s1) == BYTESXP;
+    SEXP b = left ? s1 : s2, o = left ? s2 : s1;
+    int w = BYTEVEC_WIDTH(b), kind = BYTEVEC_KIND(b);
+    bool hasNA = BYTEVEC_HAS_NA(b);
+    if (kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("cannot compare an opaque 'bytes' vector with a numeric vector"));
+    bool complex = TYPEOF(o) == CPLXSXP;
+    if (complex && code != EQOP && code != NEOP)
+	errorcall(call, _("invalid comparison with complex values"));
+
+    R_xlen_t nb = XLENGTH(b), no = XLENGTH(o), n = nb > no ? nb : no;
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
+    for (R_xlen_t i = 0; i < n; i++) {
+	double value, imaginary = 0.0;
+	if (complex) {
+	    Rcomplex z = COMPLEX_ELT(o, i % no);
+	    value = z.r; imaginary = z.i;
+	}
+	else value = REAL_ELT(o, i % no);
+
+	bool isNA;
+	int cmp = R_bytesEltCompareReal(BYTEVEC_ELT_RO(b, i % nb), w, kind,
+					       hasNA, value, &isNA);
+	if (complex && ISNAN(imaginary)) isNA = true;
+	if (isNA) LOGICAL(ans)[i] = NA_LOGICAL;
+	else if (complex && imaginary != 0.0)
+	    LOGICAL(ans)[i] = code == NEOP;
+	else {
+	    if (!left) cmp = -cmp;
+	    LOGICAL(ans)[i] = relopFromCmp(code, cmp);
+	}
+    }
+    UNPROTECT(1);
+    return ans;
+}
 
 static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 {

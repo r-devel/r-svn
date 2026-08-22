@@ -214,12 +214,11 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
     checkArity(op, args);
     if (DispatchGroup("Math", call, op, args, env, &ans))
 	return ans;
-    /* cumprod() falls through to the double branch below, as prod()
-       converts and as the integer branch under this one already sends
-       its own cumprod there; cumsum, cummax and cummin stay in the
-       type, as their integer versions stay integer.  (cumvar is not
-       defined for 'bytes' vectors; R_bytesCum reports that.) */
-    if (TYPEOF(CAR(args)) == BYTESXP && PRIMVAL(op) != 2)
+    /* cumprod() and cumvar() fall through to the double branch below,
+       as their integer counterparts do; cumsum, cummax and cummin stay
+       in the type, as their integer versions stay integer. */
+    if (TYPEOF(CAR(args)) == BYTESXP &&
+	PRIMVAL(op) != 2 && PRIMVAL(op) != 5)
 	return R_bytesCum(call, PRIMVAL(op), CAR(args));
     if (isComplex(CAR(args))) {
 	t = CAR(args);

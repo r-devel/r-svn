@@ -2012,7 +2012,15 @@ attribute_hidden SEXP R_bytesNarrow(SEXP x, int w, int kind, int hasNA,
 #define BYTES_CMP_NA 2
 attribute_hidden SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA,
 				       int *dir, SEXP call);
+attribute_hidden SEXP R_bytesNarrowMatch(SEXP x, int w, int kind, int hasNA,
+					 int *drop, SEXP call);
+attribute_hidden int R_bytesEltCompareReal(const Rbyte *p, int w, int kind,
+					   bool hasNA, double value,
+					   bool *isNA);
 attribute_hidden bool R_bytesAllNA(SEXP x);
+attribute_hidden SEXP R_bytesAbs(SEXP call, SEXP x);
+attribute_hidden SEXP R_bytesSign(SEXP x);
+attribute_hidden SEXP R_bytesSeq(SEXP call, SEXP from, SEXP to);
 attribute_hidden SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA,
 				     SEXP call);
 attribute_hidden SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA,

@@ -52,10 +52,13 @@
       are \code{"bytes16"}.  Numeric kinds satisfy \code{is.numeric()},
       have mode \code{"numeric"}, and promote to double when an operation
       requires it, warning on actual precision loss; opaque values remain
-      nonnumeric bytes.  Created by \code{bytes()}, \code{as.bytes()} and
-      semantic constructors such as \code{as.int64()} and
-      \code{as.uint64()}, and by \code{vector()}, \code{as.vector()},
-      \code{storage.mode<-}, \code{readBin()}, \code{scan()} and
+      nonnumeric bytes.  Mixed comparisons and matching use a double's
+      exact binary value rather than rounding the integer, and unit-step
+      sequences remain in the fixed-width type.  Created by
+      \code{bytes()}, \code{as.bytes()} and semantic constructors such
+      as \code{as.int64()} and \code{as.uint64()}, and by
+      \code{vector()}, \code{as.vector()}, \code{storage.mode<-},
+      \code{readBin()}, \code{scan()} and
       \code{read.table()} through the type names; see \code{?bytes}.
       Arithmetic, comparison, bitwise operations, sorting, matching and
       serialization keep the full width, so a 64-bit identifier survives a

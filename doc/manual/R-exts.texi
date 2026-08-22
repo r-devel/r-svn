@@ -15059,12 +15059,18 @@ error.
 So a package reading a column of 64-bit integers might write
 
 @example
-    /* source_value() stands for the package's own reader: a database
-       column, a file format, another library */
+    /* source_value() and source_is_missing() stand for the package's
+       own reader: a database column, a file format, another library */
     SEXP ans = PROTECT(R_allocBytesVector(n, 8, BYTES_SIGNED, TRUE));
     for (R_xlen_t i = 0; i < n; i++) @{
-        int64_t v = source_value(i);
-        memcpy(R_bytesElt(ans, i), &v, sizeof v);
+        if (source_is_missing(i))
+            R_bytesSetNA(ans, i);
+        else @{
+            int64_t v = source_value(i);
+            memcpy(R_bytesElt(ans, i), &v, sizeof v);
+            if (R_bytesIsNA(ans, i))
+                Rf_error("source value collides with the NA sentinel");
+        @}
     @}
     UNPROTECT(1);
 @end example
@@ -15073,9 +15079,11 @@ So a package reading a column of 64-bit integers might write
 The last argument is a decision to be taken once, from what the source
 can hold rather than from what a particular batch happens to contain:
 pass @code{TRUE} if a value there can be missing, and mark those
-elements with @code{R_bytesSetNA} as they are read.  A vector allocated
-with @code{FALSE} reserves no sentinel, so there is no way to record a
-missing value in it afterwards.
+elements with @code{R_bytesSetNA} as they are read.  A non-missing
+source value equal to the sentinel must be diagnosed, as in the example:
+the sentinel representation cannot hold both that value and missingness.
+A vector allocated with @code{FALSE} keeps the full value domain, but
+there is no way to record a missing value in it afterwards.
 
 
 @node Character encoding issues

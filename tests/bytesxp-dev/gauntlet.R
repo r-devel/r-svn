@@ -560,6 +560,13 @@ ok("lossy promotion warns",     { w <- FALSE
                                        warning = function(cnd) { w <<- TRUE
                                                                  invokeRestart("muffleWarning") })
                                    w })
+exact53 <- as.uint64("9007199254740993")
+ok("double comparison is exact", exact53 > 9007199254740992 &&
+                                 !(exact53 == 9007199254740992))
+ok("double matching is exact", !(exact53 %in%
+                                     c(9007199254740992, 9007199254740994)))
+ok("character c() is lossless", identical(c(u64[1:2], "x"),
+                                            c("1", "5120000000", "x")))
 ok("/ still yields double",      identical(u64[1] / 2, 0.5))
 ok("^ still yields double",      identical(u64[1] ^ 2L, 1))
 ok("opaque still refuses all",   inherits(tryCatch(x + 1L, error = identity), "error"))
@@ -577,6 +584,7 @@ ok("S3 methods see numeric kinds", { mean.uint64 <- function(x, ...) sum(x) / le
                                    m16 <- mean(mk("signed", 16L,
                                                   "0000000000000000000000000000000a"))
                                    identical(c(m8, m16), c(3, 10)) })
+rm(mean.uint64, mean.int128)
 ok("matrices still class matrix", identical(class(cbind(u64, u64)), c("matrix", "array")))
 
 cat("\n== W. declining to reserve an NA (na = FALSE) ==\n")
@@ -738,6 +746,7 @@ ok(".class2 of a matrix",        identical(.class2(matrix(u4, 2, 2)),
                                            c("matrix", "array", "uint64")))
 ok("UseMethod sees the kind",    { mean.uint64 <- function(x, ...) "by kind"
                                    identical(mean(u4), "by kind") })
+rm(mean.uint64)
 ok("c() into a list is lossless",
                                  { r <- c(list(a = 1), u4)
                                    length(r) == 5L && identical(r$a, 1) &&
@@ -1328,6 +1337,30 @@ ar <- as.bytes(c("1", "2"), 8L, "signed"); attr(ar, "units") <- "ns"
 ok("+ keeps other attrs",          identical(attr(ar + ar, "units"), "ns"))
 ok("unary - keeps them",           identical(attr(-ar, "units"), "ns"))
 ok("mixed operand keeps them",     identical(attr(ar * 2L, "units"), "ns"))
+ok("large seq() stays exact",      { e <- as.uint64(c("9223372036854775801",
+                                                       "9223372036854775805"))
+                                     identical(as.character(seq(e[1], e[2])),
+                                               as.character(e[1] + 0:4L)) })
+ok("abs and sign are numeric",     { z <- as.int64(c("-2", "0", "3"))
+                                     identical(as.character(abs(z)), c("2", "0", "3")) &&
+                                         identical(sign(z), c(-1, 0, 1)) })
+ok("log and cumvar are numeric",   identical(log(as.uint64(c("1", "2"))),
+                                               log(c(1, 2))) &&
+                                     identical(cumvar(as.uint64(c("1", "2", "3"))),
+                                               c(NA, .5, 1)))
+ok("quantile can interpolate",     identical(unname(quantile(
+                                         as.uint64(c("1", "2", "3", "4")))),
+                                               c(1, 1.75, 2.5, 3.25, 4)))
+ok("an inexact mean warns",        { e <- as.uint64(c("9223372036854775801",
+                                                       "9223372036854775805")); w <- FALSE
+                                     withCallingHandlers(mean(e),
+                                         warning = function(cnd) { w <<- TRUE
+                                                                   invokeRestart("muffleWarning") })
+                                     w })
+ok("an exact large mean is quiet", { oo <- options(warn = 2)
+                                     on.exit(options(oo))
+                                     identical(mean(as.uint64(rep("4503599627370497", 3L))),
+                                               4503599627370497) })
 ## and a zero-length result is bare, which is what integer_binary() and
 ## real_binary() return: the point is to match them, in both directions
 az <- as.bytes(character(0), 8L, "signed"); attr(az, "units") <- "ns"

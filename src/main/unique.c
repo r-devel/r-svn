@@ -1404,9 +1404,9 @@ static SEXP asUTF8(SEXP x)
 	return x;
 }
 
-/* An integer or logical operand narrows into the 'bytes' type here for
-   the same reason it does for ==, c() and arithmetic; refusing it would
-   leave `x %in% 1L` an error where `x == 1L` gives an answer.
+/* An integer, logical or exactly integral double operand narrows into
+   the 'bytes' type here for the same reason it does for ==: refusing it
+   would leave `x %in% 1L` an error where `x == 1L` gives an answer.
 
    A value the width cannot hold is neither missing nor present: it
    matches nothing and nothing matches it.  There is no bit pattern that
@@ -1421,7 +1421,7 @@ static SEXP bytesMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
     R_xlen_t n = XLENGTH(o), nOut = 0, m = 0;
     int *dir = (int *) R_alloc(n + 1, sizeof(int));
 
-    SEXP nar = PROTECT(R_bytesNarrowCmp(o, w, k, na, dir, call));
+    SEXP nar = PROTECT(R_bytesNarrowMatch(o, w, k, na, dir, call));
     for (R_xlen_t i = 0; i < n; i++) if (dir[i]) nOut++;
     if (nOut == 0) {
 	*keep = NULL;
@@ -1443,8 +1443,8 @@ static SEXP bytesMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
 }
 
 /* An 'incomparables' operand, held to the rule x and table are held to:
-   a 'bytes' vector must be the same type, and an integer or logical one
-   narrows into it.
+   a 'bytes' vector must be the same type, and an ordinary numeric one
+   narrows exactly into it where possible.
 
    coerceVector() can do neither.  It has no arm for a target that
    carries a width, so it refuses the integer outright, and it hands a
@@ -1470,7 +1470,7 @@ static SEXP bytesIncomparables(SEXP incomp, SEXP b)
 static /* or attribute_hidden? */
 SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 {
-    /* an integer or logical operand narrowed into a 'bytes' type:
+    /* an ordinary numeric operand narrowed into a 'bytes' type:
        xdrop marks needles the type cannot hold, tkeep maps table
        positions past the entries it could not hold.  See
        bytesMatchTable(). */
@@ -1548,8 +1548,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	    else {
 		R_xlen_t nx = XLENGTH(x);
 		xdrop = (int *) R_alloc(nx + 1, sizeof(int));
-		REPROTECT(x = R_bytesNarrowCmp(x, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
-					       BYTEVEC_HAS_NA(b), xdrop, R_NilValue),
+		REPROTECT(x = R_bytesNarrowMatch(x, BYTEVEC_WIDTH(b), BYTEVEC_KIND(b),
+						 BYTEVEC_HAS_NA(b), xdrop, R_NilValue),
 			  xpi);
 	    }
 	}

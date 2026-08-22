@@ -212,6 +212,7 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
     if (data->ans_flags & 1024) {
 	if      (data->ans_flags & 512) return EXPRSXP;
 	else if (data->ans_flags & 256) return VECSXP;
+	else if (data->ans_flags & 128) return STRSXP;
 	else if (data->ans_flags & 64) {
 	    if (data->ans_opaque)
 		errorcall(call, _("cannot combine an opaque 'bytes' vector with a complex vector"));
@@ -234,8 +235,7 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors that differ in whether NA is representable"));
 	}
-	/* logical (2) and integer (16) narrow into 'bytes'; a double
-	   operand is deliberately refused rather than guessed at */
+	/* logical (2) and integer (16) narrow into 'bytes'. */
 	if (data->ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'bytes' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));

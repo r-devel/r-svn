@@ -1414,6 +1414,13 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
+    if (TYPEOF(CAR(args)) == BYTESXP) {
+	if (PRIMVAL(op) == 4) return R_bytesSign(CAR(args));
+	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+	SETCAR(args, bx);
+	UNPROTECT(1);
+    }
+
     if (isComplex(CAR(args)))
 	return complex_math1(call, op, args, env);
 
@@ -1490,6 +1497,12 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
     check1arg(args, call, "x");
     if (isComplex(CAR(args)))
 	errorcall(call, _("unimplemented complex function"));
+    if (TYPEOF(CAR(args)) == BYTESXP) {
+	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+	SEXP ans = math1(bx, trunc, call);
+	UNPROTECT(1);
+	return ans;
+    }
     return math1(CAR(args), trunc, call);
 }
 
@@ -1509,7 +1522,9 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
-    if (isInteger(x) || isLogical(x)) {
+    if (TYPEOF(x) == BYTESXP)
+	return R_bytesAbs(call, x);
+    else if (isInteger(x) || isLogical(x)) {
 	/* integer or logical ==> return integer,
 	   factor was covered by Math.factor. */
 	R_xlen_t i, n = XLENGTH(x);
@@ -1563,7 +1578,8 @@ static SEXP math2(SEXP sa, SEXP sb, double (*f)(double, double),
     double ai, bi, *y;					\
     const double *a, *b;				\
 							\
-    if (!isNumeric(sa) || !isNumeric(sb))		\
+    if (!(isNumeric(sa) || R_bytesIsNumeric(sa)) ||	\
+	!(isNumeric(sb) || R_bytesIsNumeric(sb)))		\
 	errorcall(lcall, R_MSG_NONNUM_MATH);		\
 							\
     na = XLENGTH(sa);					\
@@ -1916,6 +1932,11 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (x != R_MissingArg && ! OBJECT(x)) {
 	    if (isComplex(x))
 		res = complex_math1(call, op, args, env);
+	    else if (TYPEOF(x) == BYTESXP) {
+		SEXP bx = PROTECT(coerceVector(x, REALSXP));
+		res = math1(bx, R_log, call);
+		UNPROTECT(1);
+	    }
 	    else
 		res = math1(x, R_log, call);
 	    UNPROTECT(1);
@@ -1954,6 +1975,11 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (! DispatchGroup("Math", call, op, args, env, &res)) {
 	    if (isComplex(CAR(args)))
 		res = complex_math1(call, op, args, env);
+	    else if (TYPEOF(CAR(args)) == BYTESXP) {
+		SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+		res = math1(bx, R_log, call);
+		UNPROTECT(1);
+	    }
 	    else
 		res = math1(CAR(args), R_log, call);
 	}

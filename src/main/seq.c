@@ -146,6 +146,8 @@ attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
 	s2 = CADR(args);
     if (inherits(s1, "factor") && inherits(s2, "factor"))
 	return(cross_colon(call, s1, s2));
+    if (TYPEOF(s1) == BYTESXP && TYPEOF(s2) == BYTESXP)
+	return R_bytesSeq(call, s1, s2);
     double
 	n1 = length(s1),
 	n2 = length(s2);
@@ -859,6 +861,13 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
     bool
 	miss_from = (from == R_MissingArg),
 	miss_to   = (to   == R_MissingArg);
+    if (!miss_from && !miss_to && TYPEOF(from) == BYTESXP &&
+	TYPEOF(to) == BYTESXP && by == R_MissingArg &&
+	(len == R_MissingArg || len == R_NilValue) &&
+	along == R_MissingArg) {
+	ans = R_bytesSeq(call, from, to);
+	goto done;
+    }
     if(One && !miss_from) {
 	int lf = length(from);
 	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP)) {

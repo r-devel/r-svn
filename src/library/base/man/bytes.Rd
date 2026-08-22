@@ -155,13 +155,27 @@ bytesRaw(x)
   \code{\link{max}} and \code{\link{pmin}} refuse exactly the pairs
   \code{\link{c}} refuses -- so that \code{\link{range}}, whose answer
   goes through \code{c}, cannot fail on arguments they accept.
+  A numeric fixed-width vector is compared with a double using the
+  double's exact binary value, without first rounding the integer;
+  matching likewise succeeds only for an exactly integral double.
+  Combining with a character vector uses the reversible character form.
+
+  Unit-step \code{\link{seq}} and \code{:} sequences between two scalar
+  endpoints of the same fixed-width numeric type, at the arithmetic
+  widths listed above, retain that type and remain exact above
+  \eqn{2^{53}}.  The \code{\link{Math}} group accepts
+  numeric fixed-width vectors: \code{abs} is exact in the fixed-width
+  type, \code{sign} is exact, and double-valued functions use the checked
+  conversion described above.
 
   \code{\link{as.integer}}, \code{\link{as.numeric}} and
   \code{\link{as.raw}} convert the numeric kinds and refuse the opaque
   one, each behaving as it does for an integer vector when the value
   will not fit.  \code{\link{mean}} is a double like every other mean
   in \R, but is formed from an exact total rather than element by
-  element, so it agrees with \code{sum(x)/length(x)}.
+  element.  It warns when the returned double is not the exact rational
+  mean, without warning merely because the unreduced total itself needs
+  more than 53 significant bits.
 
   At the R interface, the signed and unsigned kinds are numeric:
   \code{is.numeric} is true, \code{mode} is \code{"numeric"}, and their

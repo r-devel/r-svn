@@ -38,6 +38,7 @@
 #endif
 
 #include <stdint.h>
+#include <float.h>
 
 #include <Defn.h>
 #include <Internal.h>
@@ -774,13 +775,11 @@ bool R_bytesAllNA(SEXP x)
 /* Which types a foreign operand may have, with one wording for the
    refusals.  An opaque element is a byte string, so only NA -- the
    absence of a value rather than a value -- can stand in for one.
-   Integer and logical narrow.  Everything else, double above all, is
-   deliberately turned away: R's coercion lattice is otherwise
-   lossless, and neither double nor a 64-bit integer subsumes the
-   other, so there is no answer that is right in general.  Refusing
-   keeps both candidate rules -- widen to double, or narrow into bytes
-   -- reachable later, since an operation that errors today can start
-   working without breaking any code written in the meantime. */
+   Integer and logical narrow.  Value-producing operations deliberately
+   turn everything else away: neither double nor a 64-bit integer
+   subsumes the other, so there is no lossless result type in general.
+   Comparisons and matching use their own exact, non-value-producing
+   settlement rules below. */
 attribute_hidden
 void R_bytesCheckOperand(SEXP x, int kind, SEXP call)
 {
@@ -887,6 +886,136 @@ SEXP R_bytesNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
 
     UNPROTECT(1);
 
+    return ans;
+}
+
+/* The integer part of a non-negative finite double, as an MSB-first
+   magnitude.  A double is a binary significand shifted by an exponent,
+   so this is exact even above 2^53.  false means the integer part is
+   wider than the destination; fractional records a discarded fraction. */
+static bool realIntegerMagnitude(double x, Rbyte *mag, int w,
+				 bool *fractional)
+{
+    double ip;
+    *fractional = modf(x, &ip) != 0.0;
+    memset(mag, 0, (size_t) w);
+    if (ip == 0.0) return true;
+
+    int exp;
+    double f = frexp(ip, &exp);
+    uint64_t sig = (uint64_t) ldexp(f, DBL_MANT_DIG);
+    int shift = exp - DBL_MANT_DIG;
+
+    /* Below 2^52 the binary point lies inside the significand.  ip is
+       integral, so all bits shifted away here are necessarily zero. */
+    if (shift < 0) {
+	sig >>= -shift;
+	shift = 0;
+    }
+
+    int nbits = 0;
+    for (uint64_t t = sig; t; t >>= 1) nbits++;
+    if (nbits + shift > 8 * w) return false;
+
+    for (int bit = shift; sig; bit++, sig >>= 1)
+	if (sig & 1) mag[w - 1 - bit / 8] |= (Rbyte) (1U << (bit % 8));
+    return true;
+}
+
+/* Exact comparison of a fixed-width integer element with a double.
+   No integer is first rounded to double: the double's exact binary
+   integer part is compared as bytes, with its fractional part settling
+   a tie.  The return value orders p against value. */
+attribute_hidden
+int R_bytesEltCompareReal(const Rbyte *p, int w, int kind, bool hasNA,
+			  double value, bool *isNA)
+{
+    *isNA = false;
+    if ((hasNA && R_bytesEltIsNAFast(p, w, kind)) || ISNAN(value)) {
+	*isNA = true;
+	return 0;
+    }
+    if (value == R_PosInf) return -1;
+    if (value == R_NegInf) return 1;
+
+    Rbyte pmag[BYTEVEC_MAX_WIDTH], dmag[BYTEVEC_MAX_WIDTH];
+    bool pneg = magFromElt(pmag, p, w, kind);
+    bool pzero = magIsZero(pmag, w);
+    bool dneg = value < 0.0;
+    double a = fabs(value);
+
+    if (!pzero && pneg != dneg) return pneg ? -1 : 1;
+    if (pzero && dneg) return 1;
+    if (!pzero && pneg && value == 0.0) return -1;
+
+    bool fractional;
+    int cmp;
+    if (!realIntegerMagnitude(a, dmag, w, &fractional))
+	cmp = -1;                 /* |value| is wider than p can be */
+    else {
+	cmp = magCmp(pmag, dmag, w);
+	if (cmp == 0 && fractional) cmp = -1;
+    }
+
+    return pneg ? -cmp : cmp;
+}
+
+/* Narrow for equality and matching.  A finite double can equal an
+   integer only when it is integral and its exact binary value fits the
+   fixed-width type.  Anything else is marked drop[] rather than rounded.
+   Complex values additionally require a zero imaginary part. */
+attribute_hidden
+SEXP R_bytesNarrowMatch(SEXP x, int w, int kind, int hasNA, int *drop,
+			SEXP call)
+{
+    SEXPTYPE t = TYPEOF(x);
+    if (t == INTSXP || t == LGLSXP)
+	return R_bytesNarrowCmp(x, w, kind, hasNA, drop, call);
+    if (t != REALSXP && t != CPLXSXP)
+	errorcall(call, _("'%s' and '%s' cannot be combined for matching"),
+		  "bytes", R_typeToChar(x));
+    if (kind == BYTEVEC_OPAQUE)
+	errorcall(call, _("cannot combine an opaque 'bytes' vector with type '%s'"),
+		  R_typeToChar(x));
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, kind,
+					       hasNA ? TRUE : FALSE));
+    for (R_xlen_t i = 0; i < n; i++) {
+	double v, im = 0.0;
+	bool isNA = false, isNaN = false;
+	if (t == REALSXP) {
+	    v = REAL_ELT(x, i);
+	    isNA = R_IsNA(v);
+	    isNaN = R_IsNaN(v);
+	}
+	else {
+	    Rcomplex z = COMPLEX_ELT(x, i);
+	    v = z.r; im = z.i;
+	    isNA = R_IsNA(v) || R_IsNA(im);
+	    isNaN = !isNA && (R_IsNaN(v) || R_IsNaN(im));
+	}
+
+	Rbyte *p = BYTEVEC_ELT(ans, i);
+	drop[i] = 0;
+	if (isNA) {
+	    if (hasNA) R_bytesSetEltNA(p, w, kind);
+	    else { memset(p, 0, (size_t) w); drop[i] = 1; }
+	    continue;
+	}
+	if (isNaN || im != 0.0 || !R_FINITE(v)) {
+	    memset(p, 0, (size_t) w); drop[i] = 1; continue;
+	}
+
+	Rbyte mag[BYTEVEC_MAX_WIDTH];
+	bool fractional;
+	if (!realIntegerMagnitude(fabs(v), mag, w, &fractional) || fractional ||
+	    !storeResult(p, mag, w, kind, v < 0.0, hasNA != 0)) {
+	    memset(p, 0, (size_t) w);
+	    drop[i] = 1;
+	}
+    }
+    UNPROTECT(1);
     return ans;
 }
 
@@ -1089,6 +1218,131 @@ SEXP R_bytesUnary(SEXP call, int oper, SEXP x)
     if (nOver) warningcall(call, _("NAs produced by integer overflow"));
     UNPROTECT(1);
 
+    return ans;
+}
+
+attribute_hidden
+SEXP R_bytesAbs(SEXP call, SEXP x)
+{
+    int k = BYTEVEC_KIND(x), w = BYTEVEC_WIDTH(x);
+    if (k == BYTEVEC_OPAQUE)
+	errorcall(call, _("'%s' is not defined for opaque 'bytes' vectors"), "abs");
+    if (k == BYTEVEC_UINT) return x;
+
+    R_xlen_t n = XLENGTH(x), nOver = 0;
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, k,
+					       hasNA ? TRUE : FALSE));
+    SHALLOW_DUPLICATE_ATTRIB(ans, x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
+	Rbyte *q = BYTEVEC_ELT(ans, i);
+	if (hasNA && R_bytesEltIsNAFast(p, w, k)) {
+	    R_bytesSetEltNA(q, w, k);
+	    continue;
+	}
+	Rbyte mag[BYTEVEC_MAX_WIDTH];
+	bool neg = magFromElt(mag, p, w, k);
+	if (!neg) memcpy(q, p, (size_t) w);
+	else if (!storeResult(q, mag, w, k, false, hasNA)) {
+	    R_bytesCheckNA(ans);
+	    R_bytesSetEltNA(q, w, k);
+	    nOver++;
+	}
+    }
+    if (nOver) warningcall(call, _("NAs produced by integer overflow"));
+    UNPROTECT(1);
+    return ans;
+}
+
+attribute_hidden
+SEXP R_bytesSign(SEXP x)
+{
+    int k = BYTEVEC_KIND(x), w = BYTEVEC_WIDTH(x);
+    if (k == BYTEVEC_OPAQUE)
+	error(_("'%s' is not defined for opaque 'bytes' vectors"), "sign");
+
+    R_xlen_t n = XLENGTH(x);
+    bool hasNA = BYTEVEC_HAS_NA(x);
+    SEXP ans = PROTECT(allocVector(REALSXP, n));
+    SHALLOW_DUPLICATE_ATTRIB(ans, x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	const Rbyte *p = BYTEVEC_ELT_RO(x, i);
+	if (hasNA && R_bytesEltIsNAFast(p, w, k))
+	    REAL(ans)[i] = NA_REAL;
+	else {
+	    Rbyte mag[BYTEVEC_MAX_WIDTH];
+	    bool neg = magFromElt(mag, p, w, k);
+	    REAL(ans)[i] = magIsZero(mag, w) ? 0.0 : (neg ? -1.0 : 1.0);
+	}
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+/* Exact unit-step sequence between scalar endpoints of one fixed-width
+   integer type.  Distance is computed as a magnitude and must fit an
+   R_xlen_t before any output is allocated. */
+attribute_hidden
+SEXP R_bytesSeq(SEXP call, SEXP from, SEXP to)
+{
+    R_bytesCheckPair(call, from, to, "sequence");
+    int k = BYTEVEC_KIND(from), w = BYTEVEC_WIDTH(from);
+    bool hasNA = BYTEVEC_HAS_NA(from);
+    if (k == BYTEVEC_OPAQUE)
+	errorcall(call, _("a sequence is not defined for opaque 'bytes' vectors"));
+    if (XLENGTH(from) != 1 || XLENGTH(to) != 1)
+	errorcall(call, _("'%s' and '%s' must be of length 1"), "from", "to");
+    checkArithWidth(call, w);
+
+    const Rbyte *pf = BYTEVEC_ELT_RO(from, 0), *pt = BYTEVEC_ELT_RO(to, 0);
+    if (hasNA && (R_bytesEltIsNAFast(pf, w, k) ||
+		  R_bytesEltIsNAFast(pt, w, k)))
+	errorcall(call, _("NA argument"));
+
+    Rbyte fm[MAXW + 1] = {0}, tm[MAXW + 1] = {0}, dist[MAXW + 1] = {0};
+    bool fn = magFromElt(fm + 1, pf, w, k);
+    bool tn = magFromElt(tm + 1, pt, w, k);
+    if (fn == tn) {
+	if (magCmp(fm, tm, w + 1) >= 0) {
+	    memcpy(dist, fm, (size_t) w + 1);
+	    magSub(dist, tm, w + 1);
+	}
+	else {
+	    memcpy(dist, tm, (size_t) w + 1);
+	    magSub(dist, fm, w + 1);
+	}
+    }
+    else {
+	memcpy(dist, fm, (size_t) w + 1);
+	magAdd(dist, tm, w + 1);
+    }
+
+    R_xlen_t distance = 0;
+    for (int i = 0; i < w + 1; i++) {
+	if (distance > (R_XLEN_T_MAX - 1 - dist[i]) / 256)
+	    errorcall(call, _("result would be too long a vector"));
+	distance = distance * 256 + dist[i];
+    }
+    R_xlen_t n = distance + 1;
+    SEXP ans = PROTECT(R_allocBytesVectorUninit(n, w, k,
+					       hasNA ? TRUE : FALSE));
+    memcpy(BYTEVEC_ELT(ans, 0), pf, (size_t) w);
+
+    int direction = R_bytesEltCmp(pf, pt, w, k) <= 0 ? 1 : -1;
+    Rbyte one[MAXW];
+    if (!eltFromLong(one, 1, w, k, hasNA))
+	errorcall(call, _("cannot represent a unit step in '%s'"),
+		  R_bytesTypeName(from));
+    for (R_xlen_t i = 1; i < n; i++) {
+	Rbyte *q = BYTEVEC_ELT(ans, i);
+	const Rbyte *p = BYTEVEC_ELT_RO(ans, i - 1);
+	bool ok = direction > 0
+	    ? eltAdd(q, p, one, w, k, hasNA)
+	    : eltSub(q, p, one, w, k, hasNA);
+	if (!ok) errorcall(call, _("integer overflow while constructing sequence"));
+    }
+    UNPROTECT(1);
     return ans;
 }
 
@@ -1542,6 +1796,73 @@ SEXP R_bytesSummary(SEXP call, int iop, SEXP args, bool narm)
     return ans;
 }
 
+static void magFromU64(Rbyte *a, int w, uint64_t v)
+{
+    memset(a, 0, (size_t) w);
+    for (int i = w - 1; i >= 0 && v; i--) {
+	a[i] = (Rbyte) (v & 0xFF);
+	v >>= 8;
+    }
+}
+
+static void magMul16(Rbyte *p, const Rbyte *a, const Rbyte *b)
+{
+    memset(p, 0, 32);
+    for (int i = 0; i < 16; i++) {
+	unsigned int carry = 0, ai = a[15 - i];
+	for (int j = 0; j < 16; j++) {
+	    int at = 31 - (i + j);
+	    unsigned int cur = (unsigned int) p[at] +
+		ai * b[15 - j] + carry;
+	    p[at] = (Rbyte) (cur & 0xFF);
+	    carry = cur >> 8;
+	}
+	for (int at = 15 - i; carry && at >= 0; at--) {
+	    unsigned int cur = (unsigned int) p[at] + carry;
+	    p[at] = (Rbyte) (cur & 0xFF);
+	    carry = cur >> 8;
+	}
+    }
+}
+
+static bool magShiftLeftChecked(Rbyte *a, int w, int shift)
+{
+    for (int j = 0; j < shift; j++) {
+	if (a[0] & 0x80) return false;
+	magShiftLeft1(a, w);
+    }
+    return true;
+}
+
+/* Is result exactly the rational sum/n?  This checks the returned
+   double as a dyadic rational rather than using the rounded double sum,
+   avoiding both missed warnings and warnings for an exactly representable
+   mean whose unreduced sum itself needs more than 53 significant bits. */
+static bool meanIsExact(const Rbyte *sum, int sw, R_xlen_t n, double result)
+{
+    if (n == 0 || !R_FINITE(result)) return false;
+    if (magIsZero(sum, sw)) return result == 0.0;
+    if (result == 0.0) return false;
+
+    int exp;
+    double f = frexp(fabs(result), &exp);
+    uint64_t sig = (uint64_t) ldexp(f, DBL_MANT_DIG);
+    int shift = exp - DBL_MANT_DIG;
+    while (!(sig & 1)) { sig >>= 1; shift++; }
+
+    Rbyte a[16], b[16], product[32], exact[32] = {0};
+    magFromU64(a, 16, sig);
+    magFromU64(b, 16, (uint64_t) n);
+    magMul16(product, a, b);
+    memcpy(exact + 32 - sw, sum, (size_t) sw);
+
+    if (shift >= 0) {
+	if (!magShiftLeftChecked(product, 32, shift)) return false;
+    }
+    else if (!magShiftLeftChecked(exact, 32, -shift)) return false;
+    return !memcmp(product, exact, 32);
+}
+
 /* mean(), behind do_summary's mean switch and so behind mean.bytes.
    The sum is accumulated exactly in the wide form sum() uses, converted
    to double once and divided once, so mean(x) agrees with
@@ -1579,7 +1900,10 @@ attribute_hidden SEXP R_bytesMean(SEXP call, SEXP x)
     double s = magAsReal(sumMag, w + 8);
 
     /* 0/0 for an empty vector: NaN, as mean(integer(0)) is */
-    return ScalarReal((sumNeg ? -s : s) / (double) n);
+    double ans = (sumNeg ? -s : s) / (double) n;
+    if (n && !meanIsExact(sumMag, w + 8, n, ans))
+	warningcall(call, _("fixed-width mean loses precision as double"));
+    return ScalarReal(ans);
 }
 /* ---- cumsum / cumprod / cummax / cummin ---- */
 

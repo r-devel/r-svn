@@ -47,6 +47,43 @@ stopifnot(grepl("lose precision", conditionMessage(tryCatch(
 	  { withCallingHandlers(lost + 0, warning = function(w) stop(w)); NULL },
 	  warning = identity, error = identity))))
 
+## Comparison and matching use the exact binary value of a double; the
+## fixed-width operand is never rounded to make a logical answer.
+stopifnot(lost > 9007199254740992,
+	  !(lost == 9007199254740992),
+	  lost < 9007199254740994,
+	  !(lost %in% c(9007199254740992, 9007199254740994)),
+	  identical(as.uint64(c("1", "2")) %in% c(1, 2.5),
+		    c(TRUE, FALSE)),
+	  identical(c(u, "key"), c("1", "2", "3", "key")))
+
+## Unit-step sequences stay exact above 2^53, and the Math group behaves
+## numerically without routing abs() or sign() through double.
+ends <- as.uint64(c("9223372036854775801", "9223372036854775805"))
+want <- c("9223372036854775801", "9223372036854775802",
+	  "9223372036854775803", "9223372036854775804",
+	  "9223372036854775805")
+stopifnot(identical(as.character(seq(ends[1], ends[2])), want),
+	  identical(as.character(ends[1]:ends[2]), want),
+	  identical(as.character(abs(as.int64(c("-2", "0", "3")))),
+		    c("2", "0", "3")),
+	  identical(sign(as.int64(c("-2", "0", "3"))), c(-1, 0, 1)),
+	  identical(sqrt(as.uint64(c("4", "9"))), c(2, 3)),
+	  identical(log(as.uint64(c("1", "2"))), log(c(1, 2))),
+	  identical(cumvar(as.uint64(c("1", "2", "3"))), c(NA, .5, 1)),
+	  identical(unname(quantile(as.uint64(c("1", "2", "3", "4")))),
+		    c(1, 1.75, 2.5, 3.25, 4)))
+
+## mean() warns only when the returned double is not the exact rational
+## mean.  The second sum itself needs more than 53 bits, but its mean does not.
+mw <- tryCatch({ withCallingHandlers(mean(ends), warning = function(w) stop(w)); NULL },
+	       warning = identity, error = identity)
+opw <- options(warn = 2)
+exact.mean <- tryCatch(mean(as.uint64(rep("4503599627370497", 3L))),
+                       finally = options(opw))
+stopifnot(grepl("loses precision", conditionMessage(mw)),
+	  identical(exact.mean, 4503599627370497))
+
 ## the accessors are about 'bytes' vectors, and say so in R's terms
 ## rather than naming the C entry point
 for (f in list(bytesWidth, bytesKind, bytesHasNA, bytesRaw))
