@@ -781,7 +781,9 @@ void sortVector(SEXP s, bool decreasing)
 		Rbyte *tmp = (Rbyte *) R_alloc((size_t) n * w, sizeof(Rbyte));
 		for (R_xlen_t i = 0; i < n; i++) ord[i] = (int) i;
 		bytesRadixOrder(ord, 0, n - 1, s, decreasing);
-		memcpy(tmp, BYTEVEC_DATA_RO(s), (size_t) n * w);
+		/* R_bytesMemcpy(): the snapshot is a whole payload, which
+		   can pass the size macOS mis-copies in one memcpy call */
+		R_bytesMemcpy(tmp, BYTEVEC_DATA_RO(s), (size_t) n * w);
 		for (R_xlen_t i = 0; i < n; i++)
 		    memcpy(BYTEVEC_ELT(s, i), tmp + (R_xlen_t) ord[i] * w,
 			   (size_t) w);

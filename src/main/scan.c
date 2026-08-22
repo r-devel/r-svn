@@ -868,8 +868,10 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 		RAW(new)[j] = RAW(old)[j];
 	    break;
 	case BYTESXP:
-	    memcpy(BYTEVEC_DATA(new), BYTEVEC_DATA_RO(old),
-		   (size_t) n * BYTEVEC_WIDTH(old));
+	    /* R_bytesMemcpy() and not memcpy(): a whole payload can pass
+	       the size macOS has been seen to mis-copy in one call */
+	    R_bytesMemcpy(BYTEVEC_DATA(new), BYTEVEC_DATA_RO(old),
+			  (size_t) n * BYTEVEC_WIDTH(old));
 	    break;
 	case NILSXP:
 	    break;

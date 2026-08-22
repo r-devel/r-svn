@@ -5198,8 +5198,11 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	case BYTESXP:
 	    /* the payload as stored: native order for the numeric kinds,
-	       which 'endian' then converts below if asked */
-	    memcpy(buf, BYTEVEC_DATA_RO(object), (size_t) size * len);
+	       which 'endian' then converts below if asked.  R_bytesMemcpy()
+	       because a whole payload can pass the size macOS has been
+	       seen to mis-copy in one memcpy call. */
+	    R_bytesMemcpy((Rbyte *) buf, BYTEVEC_DATA_RO(object),
+			  (size_t) size * len);
 	    break;
 	}
 
