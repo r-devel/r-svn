@@ -521,9 +521,12 @@ fast paths must bail out for a new representation.
 ## Arithmetic
 
 Defined for the `unsigned` and `signed` kinds at widths 1, 2, 4, 8 and
-16; wider elements stay pure storage and error.  Binary operands
-promote to `max(width)` -- widths are totally ordered, so this is a far
-simpler lattice than R's usual one -- and kinds never mix.  Overflow,
+16; wider elements stay pure storage and error.  Two `bytes` operands
+must AGREE on the width, the kind and the NA reservation -- nothing is
+promoted to the wider of the two, exactly as for `c()` and `==`.  (An
+earlier design promoted to `max(width)`; that was dropped when it made
+`range()`, which goes through `c()`, refuse arguments `min()` and
+`max()` accepted.  `bytes.Rd` is the normative statement.)  Overflow,
 underflow and division by zero all yield NA with a warning, matching
 integer overflow.  `/` and `^` yield a double, as they do for integers.
 
@@ -1130,6 +1133,51 @@ and hashing free.  Serialization normalizes instead -- see below.)
 `signed` cannot use the all-`0xFF` NA, since that is -1 in two's
 complement, so it reserves `INT_MIN` -- which is exactly what bit64
 does, and for the same reason.
+
+### Testing the other byte order
+
+`BYTEVEC_MSB()` is the ONE construct that differs between a
+little- and a big-endian build, and everything else -- the kernels, the
+parser, the decimal renderer, the radix sort's byte index, the
+serialization transform -- is written in terms of it.  R still ships on
+big-endian platforms, and none of them is in reach here, so the arm is
+exercised two ways instead.
+
+`tests/bytesxp-dev/endcheck.R` asserts INVARIANTS rather than fixtures
+-- text is the inverse of parsing, order is by value, arithmetic agrees
+with R's own integers, a file round trips, the wire payload is
+most-significant-byte-first -- so it passes unchanged on a real
+big-endian machine.  Run it there first when one is available.  Note
+the gauntlet cannot serve this purpose: its `mk()` builds elements from
+raw bytes in little-endian order, so 48 of its checks fail under the
+simulation below for the harness's reasons, not the type's.
+
+The simulation: build with `-DR_BYTES_SIMULATE_BIGENDIAN`, which forces
+`BYTEVEC_MSB()` to its big-endian form on this machine, and run with
+`R_BYTES_GENERIC_ARITH=1`.
+
+```sh
+make -C src/main R CPPFLAGS="$CPPFLAGS -DR_BYTES_SIMULATE_BIGENDIAN"
+R_BYTES_GENERIC_ARITH=1 build/bin/Rscript tests/bytesxp-dev/endcheck.R
+```
+
+Verified this way (2026-08-21): `endcheck` clean; `realcheck` 15324
+values with 0 mismatches; `archeck`'s comparisons against Python exact
+integers all pass; `pcheck` reports `text ok` for all 1992 values with
+only the stored payload differing, which is the point.  The value
+digest of a text-driven run is byte-identical between the two builds,
+and an `.rds` written under one reads back with exactly the same values
+under the other, in both directions.
+
+What the simulation CANNOT cover, by construction: the native kernels.
+They `memcpy` an element's bytes into a C integer of the same width,
+which is correct precisely when storage order is the machine's -- and
+the simulation deliberately breaks that pairing, so `archeck`'s
+native-vs-general comparison fails there and should.  On real hardware
+the two are the same order, so that path reduces to a no-op
+reinterpretation; the only byte-indexed thing it touches is the NA
+test, which it shares with the general kernels and which the simulation
+does cover.
 
 Kinds do not mix.  `c()`, comparison, subassignment, `identical` and
 `match` all treat a differing kind the way they treat a differing

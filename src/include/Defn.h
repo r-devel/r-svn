@@ -591,7 +591,7 @@ typedef union {
 
 /* Index of the i-th most significant byte of a numeric element, in
    storage order. */
-#ifdef WORDS_BIGENDIAN
+#if defined(WORDS_BIGENDIAN) || defined(R_BYTES_SIMULATE_BIGENDIAN)
 # define BYTEVEC_MSB(i, w) (i)
 #else
 # define BYTEVEC_MSB(i, w) ((w) - 1 - (i))
