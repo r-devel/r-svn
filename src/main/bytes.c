@@ -42,7 +42,6 @@
 #include <Internal.h>
 #include <Print.h>  /* R_print.na_string */
 #include <R_ext/Itermacros.h>  /* MOD_ITERATE2 */
-#include "duplicate.h"  /* FILL_MATRIX_ITERATE */
 
 /* See BYTEVEC_NA_BYTE in Defn.h for why OPAQUE/UINT reserve all-0xFF
    and INT reserves INT_MIN instead. */
@@ -903,20 +902,39 @@ static void checkRecycleSource(R_xlen_t n, R_xlen_t nsrc, const char *fun)
 /* Block-copy analogues of xcopyRawWithRecycle and
    xfillRawMatrixWithRecycle: those assign elements, which cannot work
    when the element size is a per-vector property. */
+
+/* n elements into dst at dstart, reading src cyclically from sidx, in
+   contiguous runs rather than an element at a time -- c() of two large
+   vectors is two block copies, not one memcpy per element.  Returns
+   the next source position, so the matrix fill below can carry it
+   across columns. */
+static R_xlen_t copyRuns(SEXP dst, SEXP src, R_xlen_t dstart, R_xlen_t n,
+			 R_xlen_t nsrc, R_xlen_t sidx)
+{
+    size_t w = (size_t) BYTEVEC_WIDTH(dst);
+    Rbyte *d = BYTEVEC_DATA(dst) + (size_t) dstart * w;
+    const Rbyte *s = BYTEVEC_DATA_RO(src);
+
+    for (R_xlen_t done = 0; done < n; ) {
+	R_xlen_t run = n - done;
+	if (run > nsrc - sidx) run = nsrc - sidx;
+	R_bytesMemcpy(d + (size_t) done * w, s + (size_t) sidx * w,
+		      (size_t) run * w);
+	done += run;
+	sidx += run;
+	if (sidx == nsrc) sidx = 0;
+    }
+
+    return sidx;
+}
+
 void R_bytesCopyWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 			    R_xlen_t n, R_xlen_t nsrc)
 {
     R_bytesCheckSameType(dst, src, "copyVector");
     checkRecycleSource(n, nsrc, "copyVector");
 
-    size_t w = (size_t) BYTEVEC_WIDTH(dst);
-    Rbyte *d = BYTEVEC_DATA(dst);
-    const Rbyte *s = BYTEVEC_DATA_RO(src);
-
-    for (R_xlen_t i = 0, sidx = 0; i < n; i++, sidx++) {
-	if (sidx == nsrc) sidx = 0;
-	memcpy(d + (dstart + i) * w, s + sidx * w, w);
-    }
+    copyRuns(dst, src, dstart, n, nsrc, 0);
 }
 
 void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
@@ -924,17 +942,17 @@ void R_bytesFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 				  R_xlen_t cols, R_xlen_t nsrc)
 {
     R_bytesCheckSameType(dst, src, "copyMatrix");
-    /* srows, not drows: FILL_MATRIX_ITERATE() writes srows rows per
-       column, so a source contributing no rows at all -- rbind() of a
-       zero-row matrix -- reads and writes nothing and needs no source */
+    /* srows, not drows: srows rows are written per column, so a source
+       contributing no rows at all -- rbind() of a zero-row matrix --
+       reads and writes nothing and needs no source */
     checkRecycleSource(srows * cols, nsrc, "copyMatrix");
 
-    size_t w = (size_t) BYTEVEC_WIDTH(dst);
-    Rbyte *d = BYTEVEC_DATA(dst);
-    const Rbyte *s = BYTEVEC_DATA_RO(src);
-
-    FILL_MATRIX_ITERATE(dstart, drows, srows, cols, nsrc)
-	memcpy(d + didx * w, s + sidx * w, w);
+    /* column by column, in FILL_MATRIX_ITERATE()'s source order:
+       column j's rows read positions (j * srows + i) mod nsrc, a
+       contiguous run that copyRuns() carries across columns */
+    R_xlen_t sidx = 0;
+    for (R_xlen_t j = 0; j < cols; j++)
+	sidx = copyRuns(dst, src, dstart + j * drows, srows, nsrc, sidx);
 }
 
 const char *R_bytesKindName(SEXP x)

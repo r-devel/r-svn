@@ -582,10 +582,12 @@ BytesAnswer(SEXP x, struct BindData *data, SEXP call)
 	break;
     case BYTESXP:
 	{
-	    size_t w = (size_t) BYTEVEC_WIDTH(x);
-	    for (i = 0; i < XLENGTH(x); i++)
-		memcpy(BYTEVEC_ELT(data->ans_ptr, data->ans_length++),
-		       BYTEVEC_ELT_RO(x, i), w);
+	    /* one block copy: AnswerType has already agreed the width */
+	    R_xlen_t nx = XLENGTH(x);
+	    R_bytesMemcpy(BYTEVEC_ELT(data->ans_ptr, data->ans_length),
+			  BYTEVEC_DATA_RO(x),
+			  (size_t) nx * BYTEVEC_WIDTH(x));
+	    data->ans_length += nx;
 	}
 	break;
     case LGLSXP:
@@ -595,10 +597,11 @@ BytesAnswer(SEXP x, struct BindData *data, SEXP call)
 	    SEXP nx = PROTECT(R_bytesNarrow(x, BYTEVEC_WIDTH(ap),
 					    BYTEVEC_KIND(ap),
 					    BYTEVEC_HAS_NA(ap), call));
-	    size_t w = (size_t) BYTEVEC_WIDTH(ap);
-	    for (i = 0; i < XLENGTH(nx); i++)
-		memcpy(BYTEVEC_ELT(ap, data->ans_length++),
-		       BYTEVEC_ELT_RO(nx, i), w);
+	    R_xlen_t nn = XLENGTH(nx);
+	    R_bytesMemcpy(BYTEVEC_ELT(ap, data->ans_length),
+			  BYTEVEC_DATA_RO(nx),
+			  (size_t) nn * BYTEVEC_WIDTH(ap));
+	    data->ans_length += nn;
 	    UNPROTECT(1);
 	}
 	break;
