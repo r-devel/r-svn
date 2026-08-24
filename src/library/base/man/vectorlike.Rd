@@ -16,7 +16,8 @@
 .arraylike(x, dim = length(x), dimnames = NULL)
 }
 \arguments{
-  \item{x}{a vector, taken for its element type only.}
+  \item{x}{an atomic, list or expression vector, taken for its element
+    type.  Attributes on the vector are allowed.}
   \item{length}{a non-negative integer specifying the desired length, as
     for \code{\link{vector}}.}
   \item{dim, dimnames}{the shape of the result, as for
@@ -32,16 +33,19 @@
   element type of \code{x} whatever \code{x} is, where
   \code{vector(typeof(x), n)} reproduces only what a name can express.
 
-  Only the element type comes from \code{x}; its contents, length and
-  attributes are not used.  The result is filled as \code{vector} fills
-  one -- zero for the atomic types, \code{NULL} for a list or an
-  expression -- and carries no attributes beyond \code{dim} and
-  \code{dimnames}.  Use \code{\link{array}(x, dim)} to carry the
-  contents of \code{x} over instead.
+  Only the element type comes from \code{x}; its contents and attributes
+  are not used.  The one exception is the default \code{dim} of
+  \code{.arraylike}, which is \code{length(x)}, as it is for
+  \code{\link{array}}.  The result is filled as \code{vector} fills one
+  -- zero for the atomic types, \code{NULL} for a list or an expression
+  -- and carries no attributes beyond \code{dim} and \code{dimnames}.
+  Use \code{array(x, dim)} to carry the contents of \code{x} over instead.
 
-  \code{x} must be a vector, so \code{.vectorlike(NULL, n)} is an error.
-  A character vector is an object like any other and never a name, so
-  \code{.vectorlike("integer", 2)} is a character vector of length two.
+  \code{x} must have an atomic, list or expression vector type, so
+  \code{.vectorlike(NULL, n)} and \code{.vectorlike(pairlist(), n)} are
+  errors.  A character vector is an object like any other and never a
+  name, so \code{.vectorlike("integer", 2)} is a character vector of
+  length two.
 }
 \value{
   For \code{.vectorlike}, a vector of the element type of \code{x} and of
