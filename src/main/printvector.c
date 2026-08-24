@@ -319,6 +319,28 @@ void printRawVectorS(SEXP x, R_xlen_t n, int indx)
 }
 
 
+static
+void printXIntVectorS(SEXP x, R_xlen_t n, int indx)
+{
+    int w, labwidth=0, width;
+    R_xlen_t i;
+    DO_first_lab;
+
+    formatXIntS(x, 0, n, &w);
+    w += R_print.gap;
+
+    for (i = 0; i < n; i++) {
+	if (i > 0 && width + w > R_print.width) {
+	    DO_newline;
+	}
+	Rprintf("%*s%*s", R_print.gap, "", w - R_print.gap,
+		R_xintEltRender(x, i));
+	width += w;
+    }
+    Rprintf("\n");
+}
+
+
 attribute_hidden void printVector(SEXP x, int indx, int quote)
 {
 /* print R vector x[];	if(indx) print indices; if(quote) quote strings */
@@ -349,6 +371,9 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case RAWSXP:
 	    printRawVectorS(x, n_pr, indx);
 	    break;
+	case XINTSXP:
+	    printXIntVectorS(x, n_pr, indx);
+	    break;
 	}
 	if(n_pr < n)
 	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
@@ -363,6 +388,13 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\
 	case RAWSXP:	Rprintf("raw(0)\n");		break;	\
+	/* "xinteger(0)" would be a valid call producing a different	\
+	   object (width 1, unsigned), where every line above names	\
+	   exactly what it printed; this matches what dput() gives */	\
+	case XINTSXP:	Rprintf("xinteger(0L, %dL, \"%s\"%s)\n",		\
+				XINT_WIDTH(x), R_xintKindName(x),	\
+				XINT_HAS_NA(x) ? "" : ", na = FALSE"); \
+			break;					\
 	}
 	PRINT_V_0;
 }
@@ -468,6 +500,11 @@ static void printNamedRawVectorS(SEXP x, R_xlen_t n, SEXP names)
 		   Rprintf("%*s%s%*s", w - 2, "",
 			   EncodeRaw(RAW_ELT(x, k), ""), R_print.gap,""))
 
+static void printNamedXIntVectorS(SEXP x, R_xlen_t n, SEXP names)
+    PRINT_N_VECTOR_SEXP(formatXIntS(x, 0, n, &w),
+		   Rprintf("%*s%*s", w, R_xintEltRender(x, k),
+			   R_print.gap, ""))
+
 attribute_hidden
 void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 {
@@ -499,6 +536,11 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	case RAWSXP:
 	    printNamedRawVectorS(x, n_pr, names);
 	    break;
+	case XINTSXP:
+	    printNamedXIntVectorS(x, n_pr, names);
+	    break;
+	default:
+	    UNIMPLEMENTED_TYPE("printNamedVector", x);
 	}
 	if(n_pr < n)
 	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",

@@ -308,6 +308,22 @@ static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		                        w[j], quote, right)) );
 }
 
+static void printXIntMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+			     SEXP rl, SEXP cl, const char *rn, const char *cn,
+			     bool print_ij)
+{
+    _PRINT_INIT_rl_rn;
+
+    /* a column's elements are contiguous, so each is one
+       formatXIntS() run */
+    _COMPUTE_W_( formatXIntS(sx, offset + j * (R_xlen_t) r, (R_xlen_t) r,
+			      &w[j]) )
+
+    _PRINT_MATRIX_( , STD_ColumnLabels,
+		   Rprintf("%*s", w[j],
+		   R_xintEltRender(sx, offset + i + j * (R_xlen_t) r)) );
+}
+
 static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 			   SEXP rl, SEXP cl, const char *rn, const char *cn,
 			   bool print_ij)
@@ -373,6 +389,9 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	break;
     case RAWSXP:
 	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
+	break;
+    case XINTSXP:
+	printXIntMatrix  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
@@ -501,6 +520,9 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 		break;
 	    case RAWSXP:
 		printRawMatrix    (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
+		break;
+	    case XINTSXP:
+		printXIntMatrix  (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    }
 	    Rprintf("\n");

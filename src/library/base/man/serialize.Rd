@@ -27,8 +27,17 @@ unserialize(connection, refhook = NULL)
   \item{xdr}{a logical: if a binary representation is used, should a
     big-endian one (\I{XDR}) be used?}
   \item{version}{the workspace format version to use.  \code{NULL}
-    specifies the current default version (3). The only other supported
-    value is 2, the default from \R 1.4.0 to \R 3.5.0.}
+    lets the writer choose: the current default (3), raised to 4 if the
+    object holds something only version 4 can carry, which today means
+    a \code{\link{xinteger}} vector.  \code{serialize} raises it silently;
+    \code{\link{saveRDS}} and \code{\link{save}} announce the raise
+    with a message.  The other supported values are 2, the default
+    from \R 1.4.0 to \R 3.5.0, and 4 itself.  A version named here is
+    used as given, and is an error if it cannot hold the object.  An
+    \I{ALTREP} object from a package is also written in version 4,
+    whether or not it holds an \code{xinteger} vector: what such a class
+    contributes to the stream is known only by asking it, and the
+    writer does not ask twice.}
   \item{refhook}{a hook function for handling reference objects.}
 }
 \details{

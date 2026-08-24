@@ -25,8 +25,13 @@ bitwShiftL(a, n)
 bitwShiftR(a, n)
 }
 \arguments{
-  \item{a, b}{integer vectors; numeric vectors are coerced to integer vectors.}
-  \item{n}{non-negative integer vector of values up to 31.}
+  \item{a, b}{integer vectors; numeric vectors are coerced to integer
+    vectors.  Either may instead be a \code{\link{xinteger}} vector.  The
+    other must then be one of the same width and kind or, for a numeric
+    kind, an integer vector.}
+  \item{n}{non-negative integer vector of values up to 31, or up to one
+    less than the number of bits in an element for an \code{xinteger}
+    vector.}
 }
 \details{
   Each element of an integer vector has 32 bits.
@@ -34,10 +39,20 @@ bitwShiftR(a, n)
   Pairwise operations can result in integer \code{NA}.
 
   Shifting is done assuming the values represent unsigned integers.
+
+  For a \code{\link{xinteger}} vector the operations are applied to the
+  whole element, however wide it is: these are the operations that
+  vector type supports -- masking, bucketing and testing a flag word --
+  and unlike arithmetic they are defined at every width.  A result that
+  lands exactly on the value the
+  vector reserves for \code{NA} becomes \code{NA} with a warning, since
+  that value is not available to hold it; a vector created with
+  \code{na = FALSE} reserves nothing and can hold every bit pattern.
 }
 \value{
-  An integer vector of length the longer of the arguments, or zero
-  length if one is zero-length.
+  A \code{xinteger} vector of the same type as the fixed-width argument,
+  if there is one; otherwise an integer vector.  Its length is that of
+  the longer argument, or zero if either is zero-length.
 
   The output element is \code{NA} if an input is \code{NA} (after
   coercion) or an invalid shift.
@@ -70,6 +85,11 @@ r15 | r7    # 0f
 xor(r15, r7)# 08
 
 bitwShiftR(-1, 1:31) # shifts of 2^32-1 = 4294967295
+
+## masking an IPv6 address down to its /48 prefix
+ip   <- as.xinteger("20010db8000000000000000000000001", 16L)
+mask <- as.xinteger(paste0(strrep("ff", 6), strrep("00", 10)), 16L)
+bitwAnd(ip, mask)
 }
 
 \keyword{logic}

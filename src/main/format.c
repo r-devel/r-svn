@@ -67,6 +67,21 @@ void formatRawS(SEXP x, R_xlen_t n, int *fieldwidth)
     *fieldwidth = 2;
 }
 
+/* Decimal 'xinteger' elements vary in width, so the column is measured
+   rather than computed from the element width; the offset serves the
+   matrix printer, which measures one column at a time. */
+attribute_hidden
+void formatXIntS(SEXP x, R_xlen_t offset, R_xlen_t n, int *fieldwidth)
+{
+    int xmax = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int l = (int) strlen(R_xintEltRender(x, offset + i));
+	if (l > xmax) xmax = l;
+    }
+    *fieldwidth = xmax;
+}
+
 
 attribute_hidden
 void formatString(const SEXP *x, R_xlen_t n, int *fieldwidth, int quote)

@@ -68,7 +68,8 @@ attribute_hidden SEXP do_random1(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP x, a;
     R_xlen_t i, n, na;
     checkArity(op, args);
-    if (!isVector(CAR(args)) || !isNumeric(CADR(args)))
+    if (!isVector(CAR(args)) ||
+	!(isNumeric(CADR(args)) || TYPEOF(CADR(args)) == XINTSXP))
 	invalid(call);
     if (XLENGTH(CAR(args)) == 1) {
 #ifdef LONG_VECTOR_SUPPORT
@@ -149,8 +150,8 @@ attribute_hidden SEXP do_random2(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t i, n, na, nb;
     checkArity(op, args);
     if (!isVector(CAR(args)) ||
-	!isNumeric(CADR(args)) ||
-	!isNumeric(CADDR(args)))
+	!(isNumeric(CADR(args)) || TYPEOF(CADR(args)) == XINTSXP) ||
+	!(isNumeric(CADDR(args)) || TYPEOF(CADDR(args)) == XINTSXP))
 	invalid(call);
     if (XLENGTH(CAR(args)) == 1) {
 #ifdef LONG_VECTOR_SUPPORT
@@ -266,7 +267,9 @@ attribute_hidden SEXP do_random3(SEXP call, SEXP op, SEXP args, SEXP rho)
     args = CDR(args); a = CAR(args);
     args = CDR(args); b = CAR(args);
     args = CDR(args); c = CAR(args);
-    if (!isNumeric(a) || !isNumeric(b) || !isNumeric(c))
+    if (!(isNumeric(a) || TYPEOF(a) == XINTSXP) ||
+	!(isNumeric(b) || TYPEOF(b) == XINTSXP) ||
+	!(isNumeric(c) || TYPEOF(c) == XINTSXP))
 	invalid(call);
     na = XLENGTH(a);
     nb = XLENGTH(b);

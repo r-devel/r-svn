@@ -136,6 +136,7 @@ typedef unsigned int SEXPTYPE;
 #define RAWSXP      24    /* raw bytes */
 #define OBJSXP      25    /* object, non-vector  */
 #define S4SXP       25    /* same as OBJSXP, retained for back compatability */
+#define XINTSXP     26    /* extended-integer vectors */
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -171,6 +172,7 @@ typedef enum {
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
     OBJSXP	= 25,	/* S4 non-vector */
+    XINTSXP	= 26,	/* extended-integer vectors */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */
@@ -303,6 +305,41 @@ int REAL_NO_NA(SEXP x);
 int LOGICAL_NO_NA(SEXP x);
 int STRING_IS_SORTED(SEXP x);
 int STRING_NO_NA(SEXP x);
+
+/* 'xinteger' vectors (XINTSXP): fixed-width integer elements, XLENGTH() of them,
+   each R_xintWidth(x) bytes wide.  The width is a property of the
+   vector rather than of the type, so allocVector(XINTSXP, n) cannot
+   work and R_allocXIntVector() is the way to make one.
+
+   The kind says whether elements are signed or unsigned integers of
+   8*width bits.  They are held in *native* byte order, so ingesting them
+   from another data source is a plain copy.
+
+   R_xintTypeSupported() reports whether R_allocXIntVector() would
+   accept a (width, kind) pair, so that a reader choosing what to map a
+   source column onto can ask before it allocates rather than taking an
+   error.
+
+   hasNA says whether one value of the width is reserved to mean NA
+   (all-0xFF for unsigned, the most negative value for signed).  Pass
+   FALSE when every bit pattern in the source is a
+   legitimate value; operations that would then have to produce NA
+   raise an error instead. */
+#define XINT_UNSIGNED	1
+#define XINT_SIGNED	2
+
+SEXP R_allocXIntVector(R_xlen_t n, int width, int kind, Rboolean hasNA);
+Rboolean R_isXInt(SEXP x);
+Rboolean R_xintTypeSupported(int width, int kind);
+int R_xintWidth(SEXP x);
+int R_xintKind(SEXP x);
+Rboolean R_xintHasNA(SEXP x);
+Rbyte *(XINTEGER)(SEXP x);
+const Rbyte *(XINTEGER_RO)(SEXP x);
+Rbyte *R_xintElt(SEXP x, R_xlen_t i);
+const Rbyte *R_xintEltRO(SEXP x, R_xlen_t i);
+Rboolean R_xintIsNA(SEXP x, R_xlen_t i);
+void R_xintSetNA(SEXP x, R_xlen_t i);
 
 /* List Access Functions */
 /* These also work for ... objects */

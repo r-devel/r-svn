@@ -38,6 +38,14 @@ mean(x, \dots)
   If \code{trim} is non-zero, a symmetrically trimmed mean is computed
   with a fraction of \code{trim} observations deleted from each end
   before the mean is computed.
+
+  For \link{xinteger} vectors the default method returns a
+  double, as every \code{mean} in \R does, but forms it from an exact
+  total: the values are accumulated at a width wider than the type and
+  converted once.  It therefore uses the mathematical sum even where
+  the fixed-width result of \code{\link{sum}} would overflow.
+  Only that final conversion and the division round, rather than every
+  element in turn.
 }
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988}
@@ -52,4 +60,3 @@ xm <- mean(x)
 c(xm, mean(x, trim = 0.10))
 }
 \keyword{univar}
-

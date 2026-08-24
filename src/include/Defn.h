@@ -537,6 +537,145 @@ typedef union {
 
 #endif /* USE_RINTERNALS */
 
+/* XINTSXP: vectors of fixed-width integers.  XLENGTH() is the
+   element count, as for every other vector; the payload is
+   XLENGTH(x) * XINT_WIDTH(x) bytes.  The width lives in gp bits
+   8-15, clear of the low bits that generic vector code uses
+   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
+   gp means it round-trips through serialization for free, since
+   PackFlags() already encodes gp into the flags word.
+
+   This sits outside the USE_RINTERNALS block above because R's own code
+   uses it everywhere and --enable-strict-barrier compiles that code
+   without USE_RINTERNALS: the accessors that touch sxpinfo or the
+   payload are macros when the fields are in reach and out-of-line
+   functions (from memory.c) when they are not, exactly as LENGTH() and
+   the rest of the vector accessors are. */
+
+/* The width field is a whole byte of gp, which is more room than the
+   widths below need.  It is kept that wide so that the serialized
+   encoding does not depend on which widths are currently allowed:
+   PackFlags() writes gp verbatim, so narrowing the field later would
+   change the format.  XINT_MAX_WIDTH is the largest width an element
+   may actually have, and is a separate question from how many bits the
+   field has. */
+#define XINT_WIDTH_SHIFT 8
+#define XINT_WIDTH_MASK ((unsigned short) 0xFF00)
+#define XINT_MAX_WIDTH 16
+
+/* The widths an element may have: 8, 16, 32, 64 and 128 bits.  Every
+   one of them has a C integer type behind it on some platform, and --
+   more to the point -- every operation this type defines works at every
+   one of them, so there is no second tier of widths that can be stored
+   and sorted but not added.  The field above leaves room to relax this
+   if a source of fixed-size columns ever makes the case. */
+#define XINT_WIDTH_OK(w) \
+    ((w) == 1 || (w) == 2 || (w) == 4 || (w) == 8 || (w) == 16)
+
+/* Interpretation of the elements, in gp bits 0-1.  UINT and INT elements
+   are integers of 8*width bits, stored in
+   *native* byte order so that ingest from an external source is a
+   plain memcpy, ordered by value, and rendered as decimal.  Since the
+   order is by value rather than by bytes, it is the same on every
+   platform even though the storage is not.
+
+   These are the names R's own code uses; the values are fixed by the
+   public spellings in Rinternals.h, which package code and the
+   serialized format both depend on. */
+#define XINT_KIND_MASK ((unsigned short) 3)
+#define XINT_UINT   XINT_UNSIGNED
+#define XINT_INT    XINT_SIGNED
+
+/* gp bit 2: this vector declines to reserve a value for NA, so every
+   bit pattern of its width is a legitimate value.  The sense is
+   inverted deliberately -- clear means "has NA" -- so that the default,
+   and anything read from an older file, behaves as before. */
+#define XINT_NONA_MASK ((unsigned short) 4)
+
+/* Index of the i-th most significant byte of a numeric element, in
+   storage order. */
+#if defined(WORDS_BIGENDIAN) || defined(R_XINT_SIMULATE_BIGENDIAN)
+# define XINT_MSB(i, w) (i)
+#else
+# define XINT_MSB(i, w) ((w) - 1 - (i))
+#endif
+
+/* NA patterns.  UINT reserves UINT_MAX.  INT cannot use all-0xFF -- it
+   is -1 in two's complement -- so INT reserves INT_MIN, which is what
+   bit64 does and for the same reason. */
+#define XINT_NA_BYTE 0xFF
+
+#ifdef USE_RINTERNALS
+#define XINT_WIDTH(x) \
+    ((int)(((x)->sxpinfo.gp & XINT_WIDTH_MASK) >> XINT_WIDTH_SHIFT))
+#define SET_XINT_WIDTH(x, w) do {					\
+	SEXP bw__x__ = (x);						\
+	unsigned short bw__w__ = (unsigned short) (w);			\
+	bw__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bw__x__->sxpinfo.gp & ~XINT_WIDTH_MASK) \
+			      | (bw__w__ << XINT_WIDTH_SHIFT));	\
+    } while (0)
+#define XINT_HAS_NA(x) (((x)->sxpinfo.gp & XINT_NONA_MASK) == 0)
+#define SET_XINT_NONA(x, v) do {					\
+	SEXP bn__x__ = (x);						\
+	if (v) bn__x__->sxpinfo.gp |= XINT_NONA_MASK;		\
+	else   bn__x__->sxpinfo.gp &= (unsigned short) ~XINT_NONA_MASK; \
+    } while (0)
+#define XINT_KIND(x) ((int) ((x)->sxpinfo.gp & XINT_KIND_MASK))
+#define SET_XINT_KIND(x, k) do {					\
+	SEXP bk__x__ = (x);						\
+	bk__x__->sxpinfo.gp =						\
+	    (unsigned short) ((bk__x__->sxpinfo.gp & ~XINT_KIND_MASK)	\
+			      | ((unsigned short) (k) & XINT_KIND_MASK)); \
+    } while (0)
+
+/* R's own code reaches the payload through these rather than through
+   DATAPTR(), which deliberately does not know about XINTSXP: refusing an
+   untyped data pointer to elements whose width and kind the caller does
+   not know is what makes package code fail safely (tests/xints-ffi).
+   XINTSXP is never ALTREP, so there is nothing else to consult. */
+#if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
+# define CHKXINT(x) R_CheckXIntVector(x)
+#else
+# define CHKXINT(x) ((void) 0)
+#endif
+#define XINT_DATA(x)	   ((Rbyte *) (CHKXINT(x), STDVEC_DATAPTR(x)))
+#define XINT_DATA_RO(x) ((const Rbyte *) (CHKXINT(x), STDVEC_DATAPTR(x)))
+#else
+attribute_hidden int XINT_WIDTH(SEXP x);
+attribute_hidden void SET_XINT_WIDTH(SEXP x, int w);
+attribute_hidden int XINT_HAS_NA(SEXP x);
+attribute_hidden void SET_XINT_NONA(SEXP x, int v);
+attribute_hidden int XINT_KIND(SEXP x);
+attribute_hidden void SET_XINT_KIND(SEXP x, int k);
+attribute_hidden Rbyte *XINT_DATA(SEXP x);
+attribute_hidden const Rbyte *XINT_DATA_RO(SEXP x);
+#endif /* USE_RINTERNALS */
+
+/* Address of element i; the sole element operation this type needs.
+
+   The payload starts where every other vector's does -- at
+   SEXPREC_ALIGN past the node -- so it has the alignment R gives a
+   double, and an element is at a multiple of the width from there.
+   Widths up to 8 therefore land on their own natural alignment.  Width
+   16 does not: a small vector's node comes out of a page whose data
+   begins sizeof(PAGE_HEADER) into it, so its payload is 8 past a
+   16-byte boundary, while a large one comes straight from malloc() and
+   happens to be 16-aligned.  R makes no 16-byte promise for any type
+   and does not give its own 16-byte Rcomplex one either.
+
+   So a width of 8 or less could be read by casting this address, and
+   package code that has checked the width and kind is told it may.
+   Nothing here does: the kernels are written once for every width, and
+   at width 16 there is neither a portable C type nor the alignment for
+   one.  They copy through memcpy(), which the compiler folds back into
+   an unaligned load where the target has one -- on aarch64 and x86-64
+   at no measurable cost. */
+#define XINT_ELT(x, i) \
+    (XINT_DATA(x) + (R_xlen_t)(i) * XINT_WIDTH(x))
+#define XINT_ELT_RO(x, i) \
+    (XINT_DATA_RO(x) + (R_xlen_t)(i) * XINT_WIDTH(x))
+
 #define INCREMENT_LINKS(x) do {			\
 	SEXP il__x__ = (x);			\
 	INCREMENT_NAMED(il__x__);		\
@@ -743,6 +882,7 @@ int (IS_SCALAR)(SEXP x, int type);
 SEXP ALTREP_DUPLICATE_EX(SEXP x, Rboolean deep);
 SEXP ALTREP_COERCE(SEXP x, int type);
 Rboolean ALTREP_INSPECT(SEXP, int, int, int, void (*)(SEXP, int, int, int));
+bool ALTREP_IS_BASE_CLASS(SEXP);
 SEXP ALTREP_SERIALIZED_CLASS(SEXP);
 SEXP ALTREP_SERIALIZED_STATE(SEXP);
 SEXP ALTREP_UNSERIALIZE_EX(SEXP, SEXP, SEXP, int, int);
@@ -1606,6 +1746,7 @@ extern0 int	R_BrowseLines	INI_as(0);	/* lines/per call in browser :
 						 * options(deparse.max.lines) */
 extern0 int	R_Expressions	INI_as(5000);	/* options(expressions) */
 extern0 int	R_Expressions_keep INI_as(5000);/* options(expressions) */
+extern0 Rboolean R_XIntVectorSeen INI_as(FALSE); /* see R_allocXIntVector() */
 extern0 Rboolean R_KeepSource	INI_as(FALSE);	/* options(keep.source) */
 extern0 Rboolean R_CBoundsCheck	INI_as(FALSE);	/* options(CBoundsCheck) */
 extern0 MATPROD_TYPE R_Matprod	INI_as(MATPROD_DEFAULT);  /* options(matprod) */
@@ -1804,6 +1945,113 @@ SEXP Rf_allocFormalsList4(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4);
 SEXP Rf_allocFormalsList5(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5);
 SEXP Rf_allocFormalsList6(SEXP sym1, SEXP sym2, SEXP sym3, SEXP sym4, SEXP sym5, SEXP sym6);
 SEXP R_allocObject(void);
+/* R_allocXIntVector() and the rest of the 'xinteger' entry points that
+   package code needs are declared in Rinternals.h.  Everything below is
+   R's own, and is hidden: none of it is used outside src/main, and an
+   accidentally exported helper is one packages start depending on. */
+attribute_hidden SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
+attribute_hidden SEXP R_allocVectorLikeUninit(SEXP s, R_xlen_t length);
+attribute_hidden SEXP R_allocXIntVectorUninit(R_xlen_t length, int width,
+					       int kind, Rboolean hasNA);
+attribute_hidden SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol);
+attribute_hidden SEXP R_xintShapeMatrix(SEXP x, int nrow, int ncol);
+attribute_hidden Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind);
+
+/* First-byte short circuit around R_xintEltIsNA(): that function is a
+   real call across translation units, and at two per element it is a
+   visible part of an add or a comparison.  The first byte settles the
+   answer for all but one value in 256, so testing it at the call site
+   leaves only the rare case to the call.  Same answer, one predictable
+   branch instead of a call; for the hot loops. */
+static R_INLINE bool R_xintEltIsNAFast(const Rbyte *p, int w, int kind)
+{
+    if (kind == XINT_INT)
+	return p[XINT_MSB(0, w)] == 0x80 && R_xintEltIsNA(p, w, kind);
+
+    return p[0] == XINT_NA_BYTE && R_xintEltIsNA(p, w, kind);
+}
+
+attribute_hidden void R_xintSetEltNA(Rbyte *p, int width, int kind);
+attribute_hidden int R_xintEltCmp(const Rbyte *a, const Rbyte *b, int width,
+				   int kind);
+attribute_hidden const char *R_xintEltDecimal(const Rbyte *p, int width,
+					       int kind);
+attribute_hidden void R_xintMagNegate(Rbyte *a, int w);
+attribute_hidden bool R_xintMagFits(const Rbyte *v, int w, int kind,
+				     bool negative, bool hasNA);
+/* why one element of text did not convert; SYNTAX and RANGE get
+   different warnings, as they do for as.integer() */
+typedef enum {
+    XINT_PARSE_OK = 0,
+    XINT_PARSE_SYNTAX,
+    XINT_PARSE_RANGE
+} R_xint_parse_t;
+attribute_hidden R_xint_parse_t R_xintEltFromString(Rbyte *out,
+						      const char *s, int w,
+						      int kind, bool hasNA);
+attribute_hidden const char *R_xintEltRender(SEXP x, R_xlen_t i);
+attribute_hidden const char *R_xintTypeName(SEXP x);
+/* longest derived name is width 16 unsigned: "uint128", 7 chars */
+#define XINT_TYPE_NAME_MAX 16
+attribute_hidden const char *R_xintTypeNameOf(int width, int kind);
+attribute_hidden Rboolean R_xintTypeFromName(const char *s, int *width,
+					      int *kind);
+attribute_hidden const char *R_xintKindName(SEXP x);
+attribute_hidden void R_xintWarnReserved(SEXP x);
+attribute_hidden void R_xintWarnReservedCount(R_xlen_t n);
+attribute_hidden void R_xintCopyWithRecycle(SEXP dst, SEXP src,
+					     R_xlen_t dstart, R_xlen_t n,
+					     R_xlen_t nsrc);
+attribute_hidden void R_xintFillMatrixWithRecycle(SEXP dst, SEXP src,
+						   R_xlen_t dstart,
+						   R_xlen_t drows,
+						   R_xlen_t srows,
+						   R_xlen_t cols,
+						   R_xlen_t nsrc);
+attribute_hidden void R_xintSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n,
+				      int w);
+attribute_hidden SEXP R_xintArith(SEXP call, int oper, SEXP x, SEXP y);
+attribute_hidden SEXP R_xintBitwise(SEXP call, int oper, SEXP a, SEXP b);
+attribute_hidden SEXP R_xintUnary(SEXP call, int oper, SEXP x);
+attribute_hidden SEXP R_xintCoerce(SEXP x, SEXPTYPE type);
+attribute_hidden SEXP R_xintSummary(SEXP call, int iop, SEXP args, bool narm);
+attribute_hidden void R_xintSummaryType(SEXP call, int iop, SEXP args,
+					 int *pkind, int *pw, int *phasNA);
+attribute_hidden SEXP R_xintMean(SEXP call, SEXP x);
+attribute_hidden SEXP R_xintCum(SEXP call, int iop, SEXP x);
+attribute_hidden SEXP R_xintParallelMinMax(SEXP call, int iop, SEXP args,
+					    bool narm);
+attribute_hidden SEXP R_xintNarrow(SEXP x, int w, int kind, int hasNA,
+				    SEXP call);
+/* dir[] entry for an operand that is NA where the target type reserves
+   no pattern for one: nonzero like an out-of-range operand, since both
+   are absent from a vector that cannot hold them, but not a direction.
+   Small enough to keep in R_xintParallelMinMax()'s state[]. */
+#define XINT_CMP_NA 2
+attribute_hidden SEXP R_xintNarrowCmp(SEXP x, int w, int kind, int hasNA,
+				       int *dir, SEXP call);
+attribute_hidden SEXP R_xintNarrowMatch(SEXP x, int w, int kind, int hasNA,
+					 int *drop, SEXP call);
+attribute_hidden int R_xintEltCompareReal(const Rbyte *p, int w, int kind,
+					   bool hasNA, double value,
+					   bool *isNA);
+attribute_hidden SEXP R_xintAbs(SEXP call, SEXP x);
+attribute_hidden SEXP R_xintSign(SEXP x);
+attribute_hidden SEXP R_xintSeq(SEXP call, SEXP from, SEXP to);
+attribute_hidden SEXP R_xintConvert(SEXP x, int width, int kind, int hasNA,
+				     SEXP call);
+attribute_hidden SEXP R_xintFromXInt(SEXP x, int w, int kind, int hasNA,
+				       SEXP call);
+attribute_hidden void R_xintMemcpy(Rbyte *dst, const Rbyte *src, size_t n);
+NORET attribute_hidden void R_xintWidthError(int w);
+attribute_hidden void R_xintCheckNA(SEXP x);
+attribute_hidden void R_xintCheckSameNA(SEXP x, SEXP y);
+attribute_hidden void R_xintCheckPair(SEXP call, SEXP x, SEXP y,
+				       const char *verb);
+attribute_hidden void R_xintCheckOperand(SEXP x, SEXP call);
+attribute_hidden void R_xintCheckSameType(SEXP x, SEXP y, const char *fun);
+attribute_hidden void R_CheckXIntVector(SEXP x); /* CHKXINT(), above */
+attribute_hidden double R_xintEltAsReal(const Rbyte *p, int w, int kind);
 SEXP Rf_allocSExp(SEXPTYPE);
 SEXP Rf_arraySubscript(int, SEXP, SEXP, SEXP (*)(SEXP,SEXP),
                        SEXP (*)(SEXP, int), SEXP);
@@ -1888,6 +2136,7 @@ int R_XDRDecodeInteger(void *buf);
 # define DispatchAnyOrEval      Rf_DispatchAnyOrEval
 # define dynamicfindVar		Rf_dynamicfindVar
 # define EncodeChar             Rf_EncodeChar
+# define EncodeXInt            Rf_EncodeXInt
 # define EncodeRaw              Rf_EncodeRaw
 # define EncodeReal2            Rf_EncodeReal2
 # define EncodeString           Rf_EncodeString
@@ -2402,6 +2651,7 @@ typedef enum {
 } Rprt_adj;
 
 int	Rstrlen(SEXP, int);
+const char *EncodeXInt(const Rbyte *, int);
 const char *EncodeRaw(Rbyte, const char *);
 const char *EncodeString(SEXP, int, int, Rprt_adj);
 const char *EncodeReal2(double, int, int, int);
@@ -2413,6 +2663,14 @@ int mbrtoint(int *w, const char *s);
 /* main/sort.c */
 void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
+
+/* main/serialize.c */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version);
+attribute_hidden void R_CheckSerializeVersion(SEXP object, int version);
+attribute_hidden void R_AnnounceSerializeVersion(int from, int to);
+
+/* main/saveload.c */
+attribute_hidden int defaultSaveVersion(void);
 
 /* main/subset.c */
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);

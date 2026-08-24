@@ -23,6 +23,8 @@
 #include <config.h>
 #endif
 
+#include <ctype.h>	/* isdigit, for the 'xinteger' specification parse */
+
 #include <Defn.h>
 #include <Internal.h>
 #include "RBufferUtils.h"
@@ -68,6 +70,104 @@ static bool checkfmt(const char *fmt, const char *pattern)
     if(*p != '%') return true;
     p = findspec(fmt);
     return strcspn(p, pattern) ? true : false;
+}
+
+/* One 'xinteger' element under %d or %i, into 'bit'.
+
+   An element is up to 128 bits wide, which is past every integer type
+   snprintf() takes, so the value is rendered to decimal here and the
+   conversion handed to snprintf() becomes 's'.  Everything in the
+   specification that is about the number rather than about the field
+   is therefore applied to the digits first: a precision, which is a
+   minimum digit count for a number but truncates a string; '0', which
+   pads on the left of the digits and is not a string flag at all; and
+   '+' and ' ', which say how a non-negative number shows its sign.
+   Only '-', '#' and the field width mean the same for both and are
+   passed through.
+
+   NA prints as "NA" with what is left of the specification applied,
+   which is what the integer and double arms do with theirs. */
+static void xintSprintfBit(SEXP x, R_xlen_t i, const char *fmtp, char *bit)
+{
+    int w = XINT_WIDTH(x), kind = XINT_KIND(x);
+    const Rbyte *p = XINT_ELT_RO(x, i);
+    bool na = XINT_HAS_NA(x) && R_xintEltIsNA(p, w, kind);
+
+    /* The ordinary integer arm changes the conversion to %s for NA and
+       otherwise leaves the specification alone.  Do exactly that here:
+       precision zero suppresses it, and this platform's zero flag pads it
+       with zeroes, just as it does for NA_INTEGER. */
+    if (na) {
+	char sfmt[MAXLINE + 1];
+	strcpy(sfmt, fmtp);
+	sfmt[strlen(sfmt) - 1] = 's';
+	int nc = snprintf(bit, MAXLINE + 1, sfmt, "NA");
+	if (nc > MAXLINE)
+	    error(_("required resulting string length %d is greater than maximal %d"),
+		  nc, MAXLINE);
+	return;
+    }
+
+    char flags[8];
+    int nflag = 0, width = 0, prec = -1;
+    bool zero = false, left = false, plus = false, space = false;
+    const char *q = fmtp + 1;
+
+    for (; *q && strchr("-+ #0", *q); q++) {
+	switch (*q) {
+	case '0': zero = true; break;
+	case '+': plus = true; break;
+	case ' ': space = true; break;
+	default:
+	    if (*q == '-') left = true;
+	    if (nflag < (int) sizeof flags - 1) flags[nflag++] = *q;
+	}
+    }
+    flags[nflag] = '\0';
+    /* clamped as they are read: a field wider than the longest string
+       this can return is refused below either way, and letting the
+       running total overflow an int to get there would be undefined */
+    for (; isdigit((int) (unsigned char) *q); q++)
+	if (width <= MAXLINE) width = 10 * width + (*q - '0');
+    if (*q == '.')
+	for (prec = 0, q++; isdigit((int) (unsigned char) *q); q++)
+	    if (prec <= MAXLINE) prec = 10 * prec + (*q - '0');
+
+    char digits[MAXLINE + 1];
+    const char *v = R_xintEltDecimal(p, w, kind);
+    /* '+' wins over ' ', as it does for %d */
+    char sign = (*v == '-') ? '-' : (plus ? '+' : (space ? ' ' : '\0'));
+    if (*v == '-') v++;
+
+    /* A zero value with zero precision has no digits.  The sign, if one
+       was requested, remains: these are the rules %d itself follows. */
+    int nd = prec == 0 && strcmp(v, "0") == 0 ? 0 : (int) strlen(v);
+    int pad = 0;
+    if (prec >= 0) pad = prec - nd;
+    else if (zero && !left) pad = width - nd - (sign ? 1 : 0);
+    if (pad < 0) pad = 0;
+
+    size_t total = (sign ? 1u : 0u) + (size_t) pad + (size_t) nd;
+    if (total >= sizeof digits)
+	error(_("required resulting string length %d is greater than maximal %d"),
+	      (int) total, MAXLINE);
+
+    char *d = digits;
+    if (sign) *d++ = sign;
+    while (pad-- > 0) *d++ = '0';
+    if (nd) memcpy(d, v, (size_t) nd);
+    d[nd] = '\0';
+
+    char sfmt[32];
+    if (width > 0)
+	snprintf(sfmt, sizeof sfmt, "%%%s%ds", flags, width);
+    else
+	snprintf(sfmt, sizeof sfmt, "%%%ss", flags);
+
+    int nc = snprintf(bit, MAXLINE + 1, sfmt, digits);
+    if (nc > MAXLINE)
+	error(_("required resulting string length %d is greater than maximal %d"),
+	      nc, MAXLINE);
 }
 
 #define TRANSLATE_CHAR(_STR_, _i_)  \
@@ -421,6 +521,17 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				}
 				break;
 			    }
+			case XINTSXP:
+			    /* %s reaches this arm as STRSXP and the
+			       double conversions as REALSXP, both
+			       coerced above; only %d and %i are left,
+			       and they need the full width */
+			    if (checkfmt(fmtp, "di"))
+				error(_("invalid format '%s'; %s"), fmtp,
+				      _("use format %d or %i for 'xinteger' objects"));
+			    xintSprintfBit(_this, ns % thislen, fmtp, bit);
+			    break;
+
 			case STRSXP:
 			    /* NA_STRING will be printed as 'NA' */
 			    if (checkfmt(fmtp, "s"))

@@ -14,6 +14,7 @@ test-src-gct = \
 	ok-errors.R \
 	method-dispatch.R \
 	any-all.R \
+	storage-info.R \
 	structure.R
 test-src-strict-1 = \
 	$(test-src-gct) \
@@ -54,6 +55,7 @@ test-src-cond = conditions.R
 test-src-misc-dev = misc-devel.R
 
 test-src-reg-1 = array-subset.R \
+  xinteger.R \
   classes-methods.R \
   reg-tests-1a.R reg-tests-1b.R reg-tests-1c.R reg-tests-1d.R \
   reg-tests-1e.R reg-tests-2.R \
@@ -207,7 +209,8 @@ test-all-basics:
 ## The definitions for Standalone are in Makefile.{in,win}.
 ##  'Packages' slow ==> last
 all-devel-tests = DateTime Docs IsAs Random Demo Primitive Regexp Translation \
-    Internet2 CRANtools Segfault Standalone Conditions Misc-dev Packages
+    Internet2 CRANtools Segfault Standalone Conditions Misc-dev XIntsFFI \
+    XIntsXP Packages
 test-all-devel:
 	@for name in $(all-devel-tests); do \
 	  $(MK) test-$${name} || exit 1; \
@@ -217,6 +220,39 @@ test-Examples:
 	@(cd Examples && $(MK) $@)
 test-Examples-Recommended:
 	@(cd Examples && $(MK) $@)
+
+## Does an ordinary package -- one that has never heard of XINTSXP --
+## fail safely when handed one?  Compiled, so this cannot be one more
+## file in test-src-reg; it is built in the build directory, under a
+## name of its own, so that an in-tree build does not write over the
+## sources it was copied from.
+test-XIntsFFI:
+	@$(ECHO) "running tests of the 'xinteger' C interface"
+	@rm -rf xints-ffi-tests
+	@mkdir xints-ffi-tests
+	@cp $(srcdir)/xints-ffi/pkg.c $(srcdir)/xints-ffi/probe.R xints-ffi-tests
+	@TOP=`cd $(top_builddir) && pwd`; cd xints-ffi-tests && \
+	  ($${TOP}/bin/R CMD SHLIB pkg.c > pkg.log 2>&1 || \
+	   (cat pkg.log; exit 1)) && \
+	  R_LIBS_USER=$${R_LIBS_USER_IN_R_TESTS:-NULL} LANGUAGE=en LC_ALL=C \
+	    R_DEFAULT_PACKAGES= $${TOP}/bin/R --vanilla --no-echo -f probe.R
+
+## The XINTSXP development suites in xintsxp-dev.  These are not
+## test-src-reg files: the gauntlet is long, and endcheck is the one to
+## run on a big-endian machine.  Five of them check the implementation
+## against exact arithmetic computed a different way (bignum.R: decimal
+## digit vectors, schoolbook base 10) rather than against R itself, so
+## that a mistake and its mirror image cannot agree.  Pure R throughout,
+## no external tools.  Every script exits non-zero on failure.
+test-XIntsXP:
+	@$(ECHO) "running the 'xinteger' development suites"
+	@scripts="gauntlet endcheck pcheck archeck realcheck xcheck rxcheck"; \
+	 TOP=`cd $(top_builddir) && pwd`; \
+	 for f in $${scripts}; do \
+	   $(ECHO) "  $${f}.R"; \
+	   LANGUAGE=en LC_ALL=C $${TOP}/bin/R --vanilla --no-echo \
+	     -f $(srcdir)/xintsxp-dev/$${f}.R || exit 1; \
+	 done
 
 test-Specific-strict: $(test-out-strict)
 test-Specific-sloppy: $(test-out-sloppy)

@@ -160,6 +160,22 @@ attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
 			(n1 > 1) ? (int) n1 : (int) n2);
     }
 
+    /* after the length rule above, which is the same rule for every
+       type: an 'xinteger' endpoint longer than one is the mistake it is
+       for a double, and warns rather than erroring. */
+    if (TYPEOF(s1) == XINTSXP && TYPEOF(s2) == XINTSXP) {
+	if (n1 != 1 || n2 != 1) {
+	    SEXP a = PROTECT(R_allocVectorLike(s1, 1));
+	    memcpy(XINT_DATA(a), XINT_ELT_RO(s1, 0), (size_t) XINT_WIDTH(s1));
+	    SEXP b = PROTECT(R_allocVectorLike(s2, 1));
+	    memcpy(XINT_DATA(b), XINT_ELT_RO(s2, 0), (size_t) XINT_WIDTH(s2));
+	    SEXP val = R_xintSeq(call, a, b);
+	    UNPROTECT(2);
+	    return val;
+	}
+	return R_xintSeq(call, s1, s2);
+    }
+
     n1 = asReal(s1);
     n2 = asReal(s2);
     if (ISNAN(n1) || ISNAN(n2))
@@ -226,6 +242,13 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 		RAW(a)[n++] = RAW(s)[i]; \
 	} \
 	break; \
+    case XINTSXP: \
+	for (i = 0; i < nc; i++) { \
+	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
+		memcpy(XINT_ELT(a, n++), XINT_ELT_RO(s, i), \
+		       (size_t) XINT_WIDTH(s)); \
+	} \
+	break; \
     default: \
 	UNIMPLEMENTED_TYPE("rep2", s); \
     }
@@ -265,7 +288,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	ratio = na/nc; // average no of replications
 	if (ratio > 1000U) ni = 1000U;
 	} */
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na));
     n = 0;
     if (TYPEOF(t) == REALSXP)
 	R2_SWITCH_LOOP(REAL(t))
@@ -282,7 +305,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     R_xlen_t i, j;
     SEXP a;
 
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na));
 
     switch (TYPEOF(s)) {
     case LGLSXP:
@@ -313,6 +336,12 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 	MOD_ITERATE1(na, ns, i, j, {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    RAW(a)[i] = RAW(s)[j];
+	});
+	break;
+    case XINTSXP:
+	MOD_ITERATE1(na, ns, i, j, {
+	    memcpy(XINT_ELT(a, i), XINT_ELT_RO(s, j),
+		   (size_t) XINT_WIDTH(s));
 	});
 	break;
     case STRSXP:
@@ -487,7 +516,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     // faster code for common special case
     if (each == 1 && nt == 1) return rep3(x, lx, len);
 
-    PROTECT(a = allocVector(TYPEOF(x), len));
+    PROTECT(a = R_allocVectorLike(x, len));
 
 #define R4_SWITCH_LOOP(itimes)						\
     switch (TYPEOF(x)) {						\
@@ -553,6 +582,16 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	    }								\
 	}								\
 	break;								\
+    case XINTSXP:							\
+	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
+	    for(j = 0, sum = 0; j < each; j++) sum += (R_xlen_t) itimes[k++]; \
+	    for(k3 = 0; k3 < sum; k3++) {				\
+		memcpy(XINT_ELT(a, k2++), XINT_ELT_RO(x, i),	\
+		       (size_t) XINT_WIDTH(x));			\
+		if(k2 == len) goto done;				\
+	    }								\
+	}								\
+	break;								\
     case RAWSXP:							\
 	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 	    /*		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();*/ \
@@ -611,6 +650,14 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	    for(i = 0; i < len; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 		RAW(a)[i] = RAW(x)[(i/each) % lx];
+	    }
+	    break;
+	case XINTSXP:
+	    {
+		size_t w = (size_t) XINT_WIDTH(x);
+		for(i = 0; i < len; i++)
+		    memcpy(XINT_ELT(a, i),
+			   XINT_ELT_RO(x, (i/each) % lx), w);
 	    }
 	    break;
 	default:
@@ -828,9 +875,21 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
     bool
 	miss_from = (from == R_MissingArg),
 	miss_to   = (to   == R_MissingArg);
+    if (!miss_from && !miss_to && TYPEOF(from) == XINTSXP &&
+	TYPEOF(to) == XINTSXP && by == R_MissingArg &&
+	(len == R_MissingArg || len == R_NilValue) &&
+	along == R_MissingArg) {
+	ans = R_xintSeq(call, from, to);
+	goto done;
+    }
     if(One && !miss_from) {
 	int lf = length(from);
-	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP)) {
+	/* a numeric 'xinteger' vector counts here for the same reason it does
+	   in seq.default(), which takes this branch for anything whose
+	   mode() is "numeric": without it seq.int(as.int64(5)) falls to the
+	   length rule below and answers 1 where seq.int(5L) answers 1:5 */
+	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP ||
+		       TYPEOF(from) == XINTSXP)) {
 	    double rfrom = asReal(from);
 	    if (!R_FINITE(rfrom))
 		errorcall(call, _("'%s' must be a finite number"), "from");

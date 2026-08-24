@@ -186,6 +186,20 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
     known <- colClasses %in% c("logical", "integer", "numeric", "complex",
                                "character", "raw")
     what[known] <- lapply(colClasses[known], do.call, list(0))
+    ## An "xinteger" colClass -- "int64" or "uint128" -- names a
+    ## type scan() can read directly, so it joins the known list rather
+    ## than being read as character and converted afterwards, which for
+    ## a column of 64-bit keys would intern one string per row.  The set
+    ## of names is open-ended (any width, two kinds), so rather than
+    ## listing them we ask vector() to make one and check what we got.
+    for (i in which(!known & !is.na(colClasses) &
+                    !(colClasses %in% c("NULL", "factor", "Date", "POSIXct")))) {
+        proto <- tryCatch(vector(colClasses[i], 0L), error = function(e) NULL)
+        if (is.xinteger(proto)) {
+            what[[i]] <- proto
+            known[i] <- TRUE
+        }
+    }
     what[colClasses %in% "NULL"] <- list(NULL)
     keep <- !vapply(what, is.null, NA)
 
@@ -321,4 +335,3 @@ function (file, header = TRUE, sep = "\t", quote = "\"", dec = ",",
     read.table(file = file, header = header, sep = sep,
                quote = quote, dec = dec, fill = fill,
                comment.char = comment.char, ...)
-
