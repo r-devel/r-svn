@@ -121,6 +121,13 @@ local({
 ## when their actual values cannot be represented exactly.
 stopifnot(identical(u + 1, c(2, 3, 4)),
 	  identical(1 + u, c(2, 3, 4)),
+	  identical(u + (1 + 2i), c(2 + 2i, 3 + 2i, 4 + 2i)),
+	  identical((1 + 2i) + u, c(2 + 2i, 3 + 2i, 4 + 2i)),
+	  identical(u / 2L, c(.5, 1, 1.5)),
+	  identical(2L / u, c(2, 1, 2/3)),
+	  identical(u ^ 2L, c(1, 4, 9)),
+	  identical(u ^ u, c(1, 4, 27)),
+	  identical(names(setNames(u, letters[1:3]) + 0), letters[1:3]),
 	  identical(c(u, 4), c(1, 2, 3, 4)),
 	  identical(u < 2.5, c(TRUE, TRUE, FALSE)),
 	  identical(sum(u, 1), 7), identical(max(u, 2.5), 3),
@@ -131,6 +138,28 @@ lost <- as.uint64("9007199254740993")
 stopifnot(grepl("lose precision", conditionMessage(tryCatch(
 	  { withCallingHandlers(lost + 0, warning = function(w) stop(w)); NULL },
 	  warning = identity, error = identity))))
+
+## The type gate still runs before recycling or checked promotion.  In
+## particular, a node on which XLENGTH() is invalid is rejected without a
+## precision warning from the other operand.
+nw <- 0L
+bad <- tryCatch(
+    withCallingHandlers(lost + sum, warning = function(w) {
+	nw <<- nw + 1L
+	invokeRestart("muffleWarning")
+    }),
+    error = identity)
+stopifnot(inherits(bad, "error"), nw == 0L)
+
+## Coercion belongs to the selected arithmetic dispatch arm, after structural
+## checks.  Under warn = 2 a non-conformable array must therefore report
+## its shape error rather than an otherwise irrelevant precision warning.
+ow <- options(warn = 2)
+shape.error <- tryCatch(
+    matrix(rep(lost, 4L), 2L, 2L) + matrix(0, 4L, 1L),
+    error = conditionMessage,
+    finally = options(ow))
+stopifnot(grepl("non-conformable arrays", shape.error, fixed = TRUE))
 
 ## Comparison and matching use the exact binary value of a double; the
 ## fixed-width operand is never rounded to make a logical answer.
