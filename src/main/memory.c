@@ -3024,10 +3024,6 @@ SEXP R_allocXIntVector(R_xlen_t length, int width, int kind,
     if (length > R_XLEN_T_MAX / width)
 	error(_("cannot allocate vector of length %lld"), (long long) length);
 
-    /* Retained for compatibility with the imported branch's serialization
-       preflight.  Genuine ALTREP state is portable in stream version 3. */
-    R_XIntVectorSeen = TRUE;
-
     return R_new_altxint(length, kind, hasNA);
 }
 
@@ -4153,33 +4149,23 @@ attribute_hidden
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v) { SET_TRUELENGTH(CHK2(x), v); }
 int  (IS_LONG_VEC)(SEXP x) { return IS_LONG_VEC(CHK2(x)); }
 
-/* The ALTSXP accessors, for the builds that compile R's own code without
-   USE_RINTERNALS (--enable-strict-barrier); elsewhere Defn.h supplies the
-   macros these wrap.  Each checks the type first, since without it a
-   width read out of some other SEXP's gp field would be taken for real. */
+/* The built-in int64/uint64 accessors.  Width and kind are fixed by the
+   ALTREP class; the per-instance NA policy is ordinary ALTREP data2. */
 attribute_hidden
-int (XINT_WIDTH)(SEXP x) { R_CheckXIntVector(x); return XINT_WIDTH(x); }
-attribute_hidden
-void (SET_XINT_WIDTH)(SEXP x, int w)
+int XINT_WIDTH(SEXP x)
 {
     R_CheckXIntVector(x);
-    SET_XINT_WIDTH(x, w);
+    return (int) ALT_ELEMENT_SIZE(x);
 }
 attribute_hidden
-int (XINT_HAS_NA)(SEXP x) { R_CheckXIntVector(x); return XINT_HAS_NA(x); }
-attribute_hidden
-void (SET_XINT_NONA)(SEXP x, int v)
+int XINT_HAS_NA(SEXP x)
 {
     R_CheckXIntVector(x);
-    SET_XINT_NONA(x, v);
-}
-attribute_hidden
-int (XINT_KIND)(SEXP x) { R_CheckXIntVector(x); return XINT_KIND(x); }
-attribute_hidden
-void (SET_XINT_KIND)(SEXP x, int k)
-{
-    R_CheckXIntVector(x);
-    SET_XINT_KIND(x, k);
+    SEXP metadata = R_altrep_data2(x);
+    if (TYPEOF(metadata) != LGLSXP || XLENGTH(metadata) != 1 ||
+	LOGICAL_ELT(metadata, 0) == NA_LOGICAL)
+	error("invalid int64/uint64 ALTREP metadata");
+    return LOGICAL_ELT(metadata, 0) != FALSE;
 }
 attribute_hidden
 Rbyte *(XINT_DATA)(SEXP x) { return XINT_DATA(CHK(x)); }

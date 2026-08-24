@@ -287,12 +287,6 @@ an active binding.  (For the definition of an `active binding' see the
 header comments in file @file{src/main/envir.c}.)  Bit 15 is used for an
 environment to indicate if it participates in the global cache.
 
-The built-in @code{int64} and @code{uint64} ALTSXP classes use bits 8--15
-for their private element width, bits 0--1 for the integer kind and bit 2
-for whether the vector declines to reserve a value for @code{NA}.  These
-bits are an implementation detail of those base classes, not part of the
-contract for package-defined ALTSXP classes.
-
 @findex ARGSUSED
 @findex SET_ARGUSED
 The macros @code{ARGUSED} and @code{SET_ARGUSED} are used when matching

@@ -272,7 +272,6 @@
  R_XDRDecodeInteger
  R_XDREncodeDouble
  R_XDREncodeInteger
- R_XIntVectorSeen
  R_allocMatrixLike
  R_allocObject
  R_allocVectorLike
@@ -675,9 +674,6 @@
  SET_SYMVALUE
  SET_TRUELENGTH
  SET_UTF8
- SET_XINT_KIND
- SET_XINT_NONA
- SET_XINT_WIDTH
  STDVEC_DATAPTR
  Sys_TempDir
  TRACKREFS

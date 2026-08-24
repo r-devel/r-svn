@@ -538,26 +538,13 @@ typedef union {
 #endif /* USE_RINTERNALS */
 
 /* ALTSXP is the opaque atomic ALTREP base type.  The built-in int64 and
-   uint64 classes use the following private metadata and native-endian raw
-   backing store; these fields are not properties of ALTSXP in general.
-   XLENGTH() is the element count and the backing store is
-   XLENGTH(x) * XINT_WIDTH(x) bytes.  The width lives in gp bits
-   8-15, clear of the low bits that generic vector code uses
-   (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
-   gp means it round-trips through serialization for free, since
-   PackFlags() already encodes gp into the flags word.
+   uint64 classes use a native-endian RAWSXP as data1.  Their ALTREP class
+   fixes the element width and signedness, while data2 is a scalar logical
+   recording whether the instance reserves an NA sentinel.  None of these
+   facts use the SEXP header's gp bits, and none are properties of ALTSXP in
+   general.  XLENGTH() is the element count and the backing store is
+   XLENGTH(x) * XINT_WIDTH(x) bytes. */
 
-   This sits outside the USE_RINTERNALS block above because R's own code
-   uses it everywhere and --enable-strict-barrier compiles that code
-   without USE_RINTERNALS: the accessors that touch sxpinfo or the
-   payload are macros when the fields are in reach and out-of-line
-   functions (from memory.c) when they are not, exactly as LENGTH() and
-   the rest of the vector accessors are. */
-
-/* A whole byte is reserved so later built-in opaque numeric classes can use
-   other fixed widths without changing this private layout. */
-#define XINT_WIDTH_SHIFT 8
-#define XINT_WIDTH_MASK ((unsigned short) 0xFF00)
 #define XINT_MAX_WIDTH 8
 
 /* This prototype intentionally proves only the two motivating types:
@@ -565,22 +552,13 @@ typedef union {
    method, rather than the SEXPTYPE, supplies the eight-byte width. */
 #define XINT_WIDTH_OK(w) ((w) == 8)
 
-/* Interpretation of the elements, in gp bits 0-1.  XINT_UNSIGNED and
-   XINT_SIGNED elements are integers of 8*width bits, stored in
-   *native* byte order so that ingest from an external source is a
+/* XINT_UNSIGNED and XINT_SIGNED elements are integers of 8*width bits,
+   stored in *native* byte order so that ingest from an external source is a
    plain memcpy, ordered by value, and rendered as decimal.  Since the
    order is by value rather than by bytes, it is the same on every
    platform even though the storage is not.
 
-   The values and names are public in Rinternals.h: package code and the
-   serialized format both depend on them. */
-#define XINT_KIND_MASK ((unsigned short) 3)
-
-/* gp bit 2: this vector declines to reserve a value for NA, so every
-   bit pattern of its width is a legitimate value.  The sense is
-   inverted deliberately -- clear means "has NA" -- so that the default,
-   and anything read from an older file, behaves as before. */
-#define XINT_NONA_MASK ((unsigned short) 4)
+   The values and names are public in Rinternals.h. */
 
 /* Index of the i-th most significant byte of a numeric element, in
    storage order. */
@@ -595,34 +573,15 @@ typedef union {
    which is what bit64 does and for the same reason. */
 #define XINT_NA_BYTE 0xFF
 
-#ifdef USE_RINTERNALS
-#define XINT_WIDTH(x) \
-    ((int)(((x)->sxpinfo.gp & XINT_WIDTH_MASK) >> XINT_WIDTH_SHIFT))
-#define SET_XINT_WIDTH(x, w) do {					\
-	SEXP bw__x__ = (x);						\
-	unsigned short bw__w__ = (unsigned short) (w);			\
-	bw__x__->sxpinfo.gp =						\
-	    (unsigned short) ((bw__x__->sxpinfo.gp & ~XINT_WIDTH_MASK) \
-			      | (bw__w__ << XINT_WIDTH_SHIFT));	\
-    } while (0)
-#define XINT_HAS_NA(x) (((x)->sxpinfo.gp & XINT_NONA_MASK) == 0)
-#define SET_XINT_NONA(x, v) do {					\
-	SEXP bn__x__ = (x);						\
-	if (v) bn__x__->sxpinfo.gp |= XINT_NONA_MASK;		\
-	else   bn__x__->sxpinfo.gp &= (unsigned short) ~XINT_NONA_MASK; \
-    } while (0)
-#define XINT_KIND(x) ((int) ((x)->sxpinfo.gp & XINT_KIND_MASK))
-#define SET_XINT_KIND(x, k) do {					\
-	SEXP bk__x__ = (x);						\
-	bk__x__->sxpinfo.gp =						\
-	    (unsigned short) ((bk__x__->sxpinfo.gp & ~XINT_KIND_MASK)	\
-			      | ((unsigned short) (k) & XINT_KIND_MASK)); \
-    } while (0)
+attribute_hidden int XINT_WIDTH(SEXP x);
+attribute_hidden int XINT_HAS_NA(SEXP x);
+attribute_hidden int XINT_KIND(SEXP x);
 
 /* The base int64/uint64 classes use a RAWSXP as ALTREP data1.  This is
    deliberately private representation access: generic DATAPTR() on the
    ALTSXP object remains unavailable, while the class Elt method is the
    representation-independent API. */
+#ifdef USE_RINTERNALS
 #if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
 # define CHKXINT(x) R_CheckXIntVector(x)
 #else
@@ -633,12 +592,6 @@ typedef union {
 #define XINT_DATA_RO(x) \
     ((const Rbyte *) (CHKXINT(x), RAW_RO(R_altrep_data1(x))))
 #else
-attribute_hidden int XINT_WIDTH(SEXP x);
-attribute_hidden void SET_XINT_WIDTH(SEXP x, int w);
-attribute_hidden int XINT_HAS_NA(SEXP x);
-attribute_hidden void SET_XINT_NONA(SEXP x, int v);
-attribute_hidden int XINT_KIND(SEXP x);
-attribute_hidden void SET_XINT_KIND(SEXP x, int k);
 attribute_hidden Rbyte *XINT_DATA(SEXP x);
 attribute_hidden const Rbyte *XINT_DATA_RO(SEXP x);
 #endif /* USE_RINTERNALS */
@@ -1746,7 +1699,6 @@ extern0 int	R_BrowseLines	INI_as(0);	/* lines/per call in browser :
 						 * options(deparse.max.lines) */
 extern0 int	R_Expressions	INI_as(5000);	/* options(expressions) */
 extern0 int	R_Expressions_keep INI_as(5000);/* options(expressions) */
-extern0 Rboolean R_XIntVectorSeen INI_as(FALSE); /* see R_allocXIntVector() */
 extern0 Rboolean R_KeepSource	INI_as(FALSE);	/* options(keep.source) */
 extern0 Rboolean R_CBoundsCheck	INI_as(FALSE);	/* options(CBoundsCheck) */
 extern0 MATPROD_TYPE R_Matprod	INI_as(MATPROD_DEFAULT);  /* options(matprod) */

@@ -115,6 +115,14 @@ SEXP first_byte_of_each(SEXP x)
 SEXP width_of_anything(SEXP x) { return ScalarInteger(R_xintWidth(x)); }
 SEXP xinteger_of_anything(SEXP x) { return ScalarInteger(XINTEGER_RO(x)[0]); }
 
+/* The built-in classes keep their only per-instance type property in the
+   ordinary ALTREP data2 field rather than in SEXP header bits. */
+SEXP xinteger_altrep_metadata(SEXP x)
+{
+    if (!R_isXInt(x)) error("not an 'xinteger' vector");
+    return duplicate(R_altrep_data2(x));
+}
+
 /* ------------------------------------------------------------------
    An ALTREP class whose serialized state carries an 'xinteger' vector.
    Serialization writes that state and never the object's own elements,

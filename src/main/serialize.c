@@ -1284,43 +1284,9 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    }
 	    break;
 	case ALTSXP:
-	{
-	    /* No older R can read this type at all, and the header of a
-	       version 2 or 3 stream names an R that can read the whole
-	       stream -- which would be a promise this breaks. */
-	    if (stream->version < 4)
-		error(_("an '%s' vector needs serialization version 4; this stream is version %d"),
-		      "xinteger", stream->version);
-
-	    /* width and kind ride along in gp, which PackFlags already
-	       encoded, so only the payload is written here */
-	    int w = XINT_WIDTH(s);
-	    len = XLENGTH(s);
-	    WriteLENGTH(stream, s);
-
-	    const void *vmax = vmaxget();
-	    R_xlen_t chunk = CHUNK_SIZE / w;	/* whole elements per pass */
-	    if (chunk < 1) chunk = 1;
-	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
-
-	    for (R_xlen_t done = 0; done < len; ) {
-		IF_IC_R_CheckUserInterrupt();
-		R_xlen_t this = min2(chunk, len - done);
-		R_xintSwapWire(buf, XINT_ELT_RO(s, done), this, w);
-		switch (stream->type) {
-		case R_pstream_xdr_format:
-		case R_pstream_binary_format:
-		    stream->OutBytes(stream, buf, (int) (this * w));
-		    break;
-		default:
-		    for (R_xlen_t ix = 0; ix < this * w; ix++)
-			OutByte(stream, buf[ix]);
-		}
-		done += this;
-	    }
-	    vmaxset(vmax);
-	    break;
-	}
+	    /* Every ALTSXP is a genuine ALTREP object and must have been
+	       handled through its class and Serialized_state above. */
+	    error("cannot serialize ALTSXP without ALTREP class state");
 	case OBJSXP:
 	  break; /* only attributes (i.e., slots) count */
 	default:
@@ -2413,37 +2379,7 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    }
 	    break;
 	case ALTSXP:
-	{
-	    /* UnpackFlags has already given us levs, so the width and
-	       kind are known before the allocation that needs them */
-	    int w = (int) ((levs & XINT_WIDTH_MASK) >> XINT_WIDTH_SHIFT);
-	    int k = (int) (levs & XINT_KIND_MASK);
-	    if (!XINT_WIDTH_OK(w))
-		error(_("ReadItem: invalid 'xinteger' element width %d"), w);
-	    if (k != XINT_UNSIGNED && k != XINT_SIGNED)
-		error(_("ReadItem: invalid 'xinteger' element kind %d"), k);
-	    len = ReadLENGTH(stream);
-	    PROTECT(s = R_allocXIntVector(len, w, k,
-					   (levs & XINT_NONA_MASK)
-					   ? FALSE : TRUE));
-
-	    const void *vmax = vmaxget();
-	    R_xlen_t chunk = CHUNK_SIZE / w;
-	    if (chunk < 1) chunk = 1;
-	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
-
-	    for (R_xlen_t done = 0; done < len; ) {
-		R_xlen_t this = min2(chunk, len - done);
-		if (stream->type == R_pstream_ascii_format)
-		    InBytesHex(stream, buf, this * w);
-		else
-		    stream->InBytes(stream, buf, (int) (this * w));
-		R_xintSwapWire(XINT_ELT(s, done), buf, this, w);
-		done += this;
-	    }
-	    vmaxset(vmax);
-	    break;
-	}
+	    error(_("ReadItem: ALTSXP without ALTREP class state"));
 	case OBJSXP:
 	    PROTECT(s = R_allocObject());
 	    break;

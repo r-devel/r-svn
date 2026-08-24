@@ -2132,6 +2132,14 @@ attribute_hidden Rboolean R_is_altxint(SEXP x)
 	 R_altrep_inherits(x, altuint64_class)));
 }
 
+attribute_hidden int XINT_KIND(SEXP x)
+{
+    R_CheckXIntVector(x);
+    if (R_altrep_inherits(x, altint64_class)) return XINT_SIGNED;
+    if (R_altrep_inherits(x, altuint64_class)) return XINT_UNSIGNED;
+    error("invalid int64/uint64 ALTREP class");
+}
+
 static R_xlen_t altxint_Length(SEXP x)
 {
     return XLENGTH(R_altrep_data1(x)) / 8;
@@ -2169,7 +2177,8 @@ static SEXP altxint_Duplicate(SEXP x, Rboolean deep)
     return ans;
 }
 
-/* State is big-endian bytes plus the two semantic flags.  This keeps ALTREP
+/* State is big-endian bytes plus the per-instance NA policy.  Width and
+   signedness are fixed by the registered ALTREP class.  This keeps ALTREP
    version-3 serialization portable without assigning ALTSXP a standard
    vector payload in the serialization format. */
 static SEXP altxint_Serialized_state(SEXP x)
@@ -2177,28 +2186,26 @@ static SEXP altxint_Serialized_state(SEXP x)
     R_xlen_t n = XLENGTH(x);
     SEXP wire = PROTECT(allocVector(RAWSXP, n * 8));
     R_xintSwapWire(RAW(wire), XINT_DATA_RO(x), n, 8);
-    SEXP state = PROTECT(allocVector(VECSXP, 3));
+    SEXP state = PROTECT(allocVector(VECSXP, 2));
     SET_VECTOR_ELT(state, 0, wire);
-    SET_VECTOR_ELT(state, 1, ScalarInteger(XINT_KIND(x)));
-    SET_VECTOR_ELT(state, 2, ScalarLogical(XINT_HAS_NA(x)));
+    SET_VECTOR_ELT(state, 1, ScalarLogical(XINT_HAS_NA(x)));
     UNPROTECT(2);
     return state;
 }
 
 static SEXP altxint_Unserialize(SEXP class, SEXP state)
 {
-    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 3 ||
+    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 2 ||
 	TYPEOF(VECTOR_ELT(state, 0)) != RAWSXP ||
-	TYPEOF(VECTOR_ELT(state, 1)) != INTSXP ||
-	TYPEOF(VECTOR_ELT(state, 2)) != LGLSXP ||
+	TYPEOF(VECTOR_ELT(state, 1)) != LGLSXP ||
 	XLENGTH(VECTOR_ELT(state, 0)) % 8 != 0)
 	error("invalid serialized int64/uint64 ALTREP state");
 
     SEXP wire = VECTOR_ELT(state, 0);
-    int kind = INTEGER_ELT(VECTOR_ELT(state, 1), 0);
-    int hasNA = LOGICAL_ELT(VECTOR_ELT(state, 2), 0);
-    if ((kind != XINT_SIGNED && kind != XINT_UNSIGNED) ||
-	(hasNA != FALSE && hasNA != TRUE))
+    int kind = class == R_SEXP(altint64_class) ? XINT_SIGNED :
+	class == R_SEXP(altuint64_class) ? XINT_UNSIGNED : 0;
+    int hasNA = LOGICAL_ELT(VECTOR_ELT(state, 1), 0);
+    if (kind == 0 || (hasNA != FALSE && hasNA != TRUE))
 	error("invalid serialized int64/uint64 ALTREP state");
     R_xlen_t n = XLENGTH(wire) / 8;
     SEXP ans = PROTECT(R_new_altxint(n, kind, hasNA ? TRUE : FALSE));
@@ -2324,11 +2331,9 @@ R_new_altxint(R_xlen_t length, int kind, Rboolean hasNA)
     R_altrep_class_t cls = kind == XINT_SIGNED ? altint64_class
 	: altuint64_class;
     SEXP bytes = PROTECT(allocVector(RAWSXP, length * 8));
-    SEXP ans = PROTECT(R_new_altrep(cls, bytes, R_NilValue));
-    SET_XINT_WIDTH(ans, 8);
-    SET_XINT_KIND(ans, kind);
-    SET_XINT_NONA(ans, !hasNA);
-    UNPROTECT(2);
+    SEXP metadata = PROTECT(ScalarLogical(hasNA));
+    SEXP ans = PROTECT(R_new_altrep(cls, bytes, metadata));
+    UNPROTECT(3);
     return ans;
 }
 

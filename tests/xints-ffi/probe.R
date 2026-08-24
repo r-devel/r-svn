@@ -54,6 +54,11 @@ chk2(as.character(made)[2:4],
      "the payload copied in reads back at full precision")
 chk2(.Call("describe", made), c(4L, 8L, 1L, 1L),
      "width, kind and NA-ness are readable from C")
+chk2(.Call("xinteger_altrep_metadata", made), TRUE,
+     "the per-instance NA policy lives in standard ALTREP data2")
+chk2(.Call("xinteger_altrep_metadata",
+           xinteger(1L, 8L, "unsigned", na = FALSE)), FALSE,
+     "data2 also records vectors with no reserved sentinel")
 chk2(.Call("sum_uint64", made), sum(as.numeric(as.character(made)[2:4])),
      "R_xintIsNA() lets a consumer skip missing values")
 chk2(.Call("first_byte_of_each", made), c(255L, 1L, 2L, 3L),

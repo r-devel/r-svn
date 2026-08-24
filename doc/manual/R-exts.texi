@@ -15011,6 +15011,13 @@ for @code{NA} together make up a vector's @dfn{element type}: two
 agree, and the @code{SEXPTYPE} they share says nothing about any of
 them.
 
+The fixed width and signedness are properties of the registered ALTREP
+class, not bits in each object's SEXP header.  The private
+@code{R_altrep_data1} is the raw payload and @code{R_altrep_data2} is a
+scalar logical containing the per-instance @code{NA}-sentinel policy.
+Serialization records that policy with the portable payload in the class's
+ALTREP state.
+
 This prototype accepts only a width of 8.  Code choosing what to map an
 external column onto should nevertheless ask
 @code{R_xintTypeSupported} before it commits rather than let
