@@ -735,7 +735,7 @@ static void xintRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
     for (int pass = 0; pass < w; pass++) {
 	/* Pass 0 is the least significant byte of the native-order value. */
 	int at = XINT_MSB(w - 1 - pass, w);
-	bool top = (pass == w - 1) && (kind == XINT_INT);
+	bool top = (pass == w - 1) && (kind == XINT_SIGNED);
 
 	if (diff[at] == 0)
 	    continue;

@@ -15026,6 +15026,17 @@ widened.
 @apifun R_xintKind
 @apifun R_xintHasNA
 
+At the R interface @code{is.numeric(x)} is true and @code{mode(x)} is
+@code{"numeric"}.  The older package-facing @code{Rf_isNumeric}
+predicate is deliberately unchanged, however: existing callers may assume
+that every object it accepts has one of the long-established logical,
+integer or double layouts.  Package code prepared for this representation
+should test @code{R_isXInt} explicitly.  Also note that
+@code{R_typeToChar(x)} returns the detailed storage name, such as
+@code{"uint64"}, rather than the structural @code{typeof} name
+@code{"xinteger"}; this makes diagnostics identify the representation
+that an operation received.
+
 The @emph{kind} says whether elements are signed or unsigned.
 @code{XINT_UNSIGNED} and @code{XINT_SIGNED} elements are integers of
 @code{8 * width} bits held in the platform's @emph{native}
@@ -15081,10 +15092,11 @@ greatest: there is no standard C integer type of that size, and an
 element is aligned to 8 rather than to 16, so a cast to a 128-bit type
 is not safe.  Copy those with @code{memcpy} in both directions, as the
 example below does.  @code{memcpy} is also the right choice for code
-that wants one path for every width: on a target with unaligned loads
-the compiler turns it back into a single instruction -- at no
-measurable cost even at width 16 -- and on one without it the copy is
-what keeps the code correct.  The payload pointer is a @code{Rbyte *}
+that wants one path for every width: on targets with unaligned loads a
+compiler can turn a fixed-size copy back into a load, and on targets
+without them the copy is what keeps the code correct.  Code for which
+this distinction matters should measure it on the supported targets.
+The payload pointer is a @code{Rbyte *}
 rather than a typed pointer so that the width and kind have to be
 settled before any of this is decided.
 

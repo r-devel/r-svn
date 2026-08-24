@@ -42,7 +42,7 @@ static SEXP binaryLogic2(int code, SEXP s1, SEXP s2);
    the predicate locally rather than changing that global contract. */
 static R_INLINE Rboolean isLogicNumber(SEXP x)
 {
-    return isNumber(x) || TYPEOF(x) == XINTSXP;
+    return isNumberOrXInt(x);
 }
 
 

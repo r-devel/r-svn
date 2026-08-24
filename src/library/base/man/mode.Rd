@@ -44,7 +44,10 @@ storage.mode(x) <- value
   \code{"int64"} is also supported, and is passed to \code{storage.mode<-}
   directly.  \code{"xinteger"} on its own names no complete storage mode
   and is an error --- use \code{\link{as.xinteger}} to choose a width and
-  kind.
+  kind.  Since an \code{xinteger} already has mode \code{"numeric"},
+  assigning \code{mode(x) <- "numeric"} is a no-op and retains its width,
+  kind and sentinel policy.  This differs from assigning that mode to an
+  integer vector, which converts it to double.
 
   \code{storage.mode(x) <- "newmode"} is a more efficient \link{primitive}
   version of \code{mode<-}, which works for \code{"newmode"} which is

@@ -87,8 +87,11 @@ xor(r15, r7)# 08
 bitwShiftR(-1, 1:31) # shifts of 2^32-1 = 4294967295
 
 ## masking an IPv6 address down to its /48 prefix
-ip   <- as.xinteger("20010db8000000000000000000000001", 16L)
-mask <- as.xinteger(paste0(strrep("ff", 6), strrep("00", 10)), 16L)
+uint128 <- xinteger(width = 16L, kind = "unsigned", na = FALSE)
+ip <- readBin(as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 11), 1)),
+              uint128, endian = "big")
+mask <- readBin(as.raw(c(rep(0xff, 6), rep(0, 10))),
+                uint128, endian = "big")
 bitwAnd(ip, mask)
 }
 

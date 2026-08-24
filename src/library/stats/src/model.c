@@ -439,7 +439,7 @@ SEXP modelmatrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    INTEGER(nlevs)[i] = 2;
 	    INTEGER(columns)[i] = ncols(var_i);
 	}
-	else if (isNumeric(var_i) || TYPEOF(var_i) == XINTSXP) {
+	else if (isNumericOrXInt(var_i)) {
 	    /* the design matrix is double, so an 'xinteger' column converts
 	       here with the numeric ones; the coercion warns for a value
 	       above 2^53, which is where a double stops naming it */

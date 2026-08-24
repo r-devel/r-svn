@@ -29,13 +29,13 @@
 ## which would produce NA -- an out-of-range subscript, a join miss,
 ## arithmetic overflow -- become errors rather than missing values.
 
-xinteger <- function(length = 0L, width = 1L,
+xinteger <- function(length = 0L, width,
                   kind = c("unsigned", "signed"), na = TRUE)
     .Internal(xinteger(length, width, match.arg(kind), na))
 
 ## x may be raw (reinterpreted in native byte order), character (parsed
 ## as decimal), or integer/logical (narrowed, as in arithmetic).
-as.xinteger <- function(x, width = 1L,
+as.xinteger <- function(x, width,
                      kind = c("unsigned", "signed"), na = TRUE)
     .Internal(as.xinteger(x, width, match.arg(kind), na))
 

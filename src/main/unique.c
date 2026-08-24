@@ -2311,7 +2311,7 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     for(int i = 0; i < p; i++) {
 	xcol = VECTOR_ELT(x,i);
 	bool xint = TYPEOF(xcol) == XINTSXP;
-	if (!isNumeric(xcol) && !xint)
+	if (!isNumericOrXInt(xcol))
 	    error(_("non-numeric data frame in rowsum"));
 	if (xint) PROTECT(xcol = coerceVector(xcol, REALSXP));
 	switch(TYPEOF(xcol)){

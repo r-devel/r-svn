@@ -1554,8 +1554,7 @@ static SEXP math2(SEXP sa, SEXP sb, double (*f)(double, double),
     double ai, bi, *y;					\
     const double *a, *b;				\
 							\
-    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||	\
-	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP))		\
+    if (!isNumericOrXInt(sa) || !isNumericOrXInt(sb))		\
 	errorcall(lcall, R_MSG_NONNUM_MATH);		\
 							\
     na = XLENGTH(sa);					\
@@ -1998,9 +1997,8 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	else if (ISNAN(a) || ISNAN(b)|| ISNAN(c)) y = R_NaN;
 
 #define SETUP_Math3						\
-    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||		\
-	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||		\
-	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP))		\
+    if (!isNumericOrXInt(sa) || !isNumericOrXInt(sb) ||		\
+	!isNumericOrXInt(sc))					\
 	error(R_MSG_NONNUM_MATH);			        \
 								\
     na = XLENGTH(sa);						\
@@ -2225,10 +2223,8 @@ static SEXP math4(SEXP sa, SEXP sb, SEXP sc, SEXP sd,
     double ai, bi, ci, di, *y;
 
 #define SETUP_Math4							\
-    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||			\
-	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||			\
-	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP) ||			\
-	!(isNumeric(sd) || TYPEOF(sd) == XINTSXP))			\
+    if (!isNumericOrXInt(sa) || !isNumericOrXInt(sb) ||			\
+	!isNumericOrXInt(sc) || !isNumericOrXInt(sd))			\
 	error(R_MSG_NONNUM_MATH);				        \
 									\
     na = XLENGTH(sa);							\
@@ -2400,11 +2396,9 @@ static SEXP math5(SEXP sa, SEXP sb, SEXP sc, SEXP sd, SEXP se, double (*f)())
     double ai, bi, ci, di, ei, *y;
 
 #define SETUP_Math5							\
-    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||			\
-	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||			\
-	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP) ||			\
-	!(isNumeric(sd) || TYPEOF(sd) == XINTSXP) ||			\
-	!(isNumeric(se) || TYPEOF(se) == XINTSXP))			\
+    if (!isNumericOrXInt(sa) || !isNumericOrXInt(sb) ||			\
+	!isNumericOrXInt(sc) || !isNumericOrXInt(sd) ||			\
+	!isNumericOrXInt(se))						\
 	error(R_MSG_NONNUM_MATH);				        \
 									\
     na = XLENGTH(sa);							\

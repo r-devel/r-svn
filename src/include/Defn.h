@@ -579,12 +579,9 @@ typedef union {
    order is by value rather than by bytes, it is the same on every
    platform even though the storage is not.
 
-   These are the names R's own code uses; the values are fixed by the
-   public spellings in Rinternals.h, which package code and the
-   serialized format both depend on. */
+   The values and names are public in Rinternals.h: package code and the
+   serialized format both depend on them. */
 #define XINT_KIND_MASK ((unsigned short) 3)
-#define XINT_UINT   XINT_UNSIGNED
-#define XINT_INT    XINT_SIGNED
 
 /* gp bit 2: this vector declines to reserve a value for NA, so every
    bit pattern of its width is a legitimate value.  The sense is
@@ -1037,6 +1034,20 @@ R_xlen_t  (XTRUELENGTH)(SEXP x);
 #endif
 
 #endif /* USE_RINTERNALS */
+
+/* Rf_isNumeric() predates XINTSXP and is public API, so changing it would
+   make every existing caller accept a representation it may not understand.
+   Internal entry points that have explicitly added XINTSXP support use these
+   predicates instead. */
+static R_INLINE Rboolean isNumericOrXInt(SEXP s)
+{
+    return isNumeric(s) || TYPEOF(s) == XINTSXP;
+}
+
+static R_INLINE Rboolean isNumberOrXInt(SEXP s)
+{
+    return isNumber(s) || TYPEOF(s) == XINTSXP;
+}
 
 const char * Rf_translateCharFP(SEXP);
 const char * Rf_translateCharFP2(SEXP);
@@ -1962,7 +1973,7 @@ attribute_hidden Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind);
    branch instead of a call; for the hot loops. */
 static R_INLINE bool R_xintEltIsNAFast(const Rbyte *p, int w, int kind)
 {
-    if (kind == XINT_INT)
+    if (kind == XINT_SIGNED)
 	return p[XINT_MSB(0, w)] == 0x80 && R_xintEltIsNA(p, w, kind);
 
     return p[0] == XINT_NA_BYTE && R_xintEltIsNA(p, w, kind);

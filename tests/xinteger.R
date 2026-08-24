@@ -454,6 +454,19 @@ stopifnot(as.character(bitwAnd(h, as.xinteger("15", 8L, "unsigned"))) == "15",
 			     error = conditionMessage),
 		    "invalid 'b' argument"))
 
+## The documentation's network-byte-order example must not depend on the
+## host byte order, and character conversion remains decimal rather than hex.
+local({
+    ip.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 11), 1))
+    prefix.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 12)))
+    mask.bytes <- as.raw(c(rep(0xff, 6), rep(0, 10)))
+    proto <- xinteger(width = 16L, kind = "unsigned", na = FALSE)
+    ip <- readBin(ip.bytes, proto, endian = "big")
+    mask <- readBin(mask.bytes, proto, endian = "big")
+    stopifnot(identical(writeBin(bitwAnd(ip, mask), raw(), endian = "big"),
+			prefix.bytes))
+})
+
 ### format() and printing
 
 big2 <- as.xinteger("1234567890123", 8L, "unsigned")
@@ -522,6 +535,19 @@ for (v in list(u, s, un, nn, xinteger(0L, 8L, "unsigned"))) {
 	      infoRDS(f)$version == 4L)
     unlink(f)
 }
+
+## ASCII payload words are exactly two hex digits.  A parser accepting only
+## the valid prefix would hide stream corruption for raw and xinteger alike.
+local({
+    corruptLastWord <- function(x, word) {
+	txt <- rawToChar(serialize(x, NULL, ascii = TRUE))
+	charToRaw(sub(paste0(word, "\\n$"), paste0(word, "junk\\n"), txt))
+    }
+    stopifnot(inherits(tryCatch(unserialize(corruptLastWord(as.raw(0xab), "ab")),
+				 error = identity), "error"),
+	      inherits(tryCatch(unserialize(corruptLastWord(as.uint8(1:2), "02")),
+				 error = identity), "error"))
+})
 
 ## Ordinary objects keep writing the version they wrote before, and
 ## ALTREP is most of them: 1:3 is a compact sequence, as.character() of
@@ -919,7 +945,8 @@ stopifnot(identical(x %in% 1L, c(TRUE, FALSE, FALSE)), identical(1L %in% x, TRUE
 
 ### the constructors take scalars
 
-for (e in list(quote(xinteger(2, width = c(4L, 8L))), quote(xinteger(c(2, 3))),
+for (e in list(quote(xinteger()), quote(xinteger(2)), quote(as.xinteger(2)),
+	       quote(xinteger(2, width = c(4L, 8L))), quote(xinteger(c(2, 3))),
 	       quote(xinteger(2, 4L, "signed", na = c(FALSE, TRUE))),
 	       quote(as.xinteger("1", c(4L, 8L), "signed"))))
     stopifnot(inherits(tryCatch(eval(e), error = identity), "error"))
@@ -928,7 +955,8 @@ for (e in list(quote(xinteger(2, width = c(4L, 8L))), quote(xinteger(c(2, 3))),
 
 x <- as.xinteger(1:3, 8L, "unsigned")
 y <- x; mode(y) <- mode(y)
-stopifnot(identical(x, y))
+z <- x; mode(z) <- "numeric"
+stopifnot(identical(x, y), identical(x, z))
 y <- x; class(y) <- class(y)
 stopifnot(identical(x, y), !is.object(y), is.null(attributes(y)))
 ## An additional class is explicit and the caller means to keep it.
