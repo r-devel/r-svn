@@ -62,11 +62,14 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     should have elements which are one of the atomic
     types listed or \code{NULL}, see section \sQuote{Details} below.
 
-    A \code{\link{xinteger}} prototype -- \code{xinteger(0L, 8L, "signed")},
-    say -- is read as one element of that type per field, so a column
-    of 64-bit identifiers can be read at full precision without going
-    through \code{character}.  Its width, kind and whether it reserves
-    a value for \code{NA} all come from the prototype.}
+    A detailed \code{\link{xinteger}} storage-mode name such as
+    \code{"int64"}, or a prototype such as
+    \code{xinteger(0L, 8L, "signed")}, is read as one element of that
+    type per field.  The same forms may be used as list components.
+    Thus a column of 64-bit identifiers can be read at full precision
+    without going through \code{character}.  A name uses the default
+    \code{NA}-sentinel policy; a prototype also specifies whether the
+    type reserves a value for \code{NA}.}
 
   \item{nmax}{the maximum number of data values to be read, or if
     \code{what} is a list, the maximum number of records to be read.  If

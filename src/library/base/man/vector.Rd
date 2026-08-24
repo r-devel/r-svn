@@ -33,8 +33,9 @@ is.vector(x, mode = "any")
     \code{vector(x, n)} reproduces the element type of \code{x} whatever
     \code{x} is, where \code{vector(typeof(x), n)} can only reproduce
     what a type name can express.  \code{\link{readBin}} and
-    \code{\link{scan}} take a prototype for \code{what} on the same
-    terms, and \code{\link{vapply}} takes one for \code{FUN.VALUE}.
+    \code{\link{scan}} take either a detailed \code{xinteger} name or a
+    prototype for \code{what}, and \code{\link{vapply}} takes a prototype
+    for \code{FUN.VALUE}.
     A character vector of length one remains a mode name, so
     \code{vector("integer", n)} is unchanged and a misspelt name is
     still an error rather than a prototype.

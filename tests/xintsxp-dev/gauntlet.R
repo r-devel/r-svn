@@ -1014,6 +1014,15 @@ ok("scan reads an xinteger prototype",{
     v <- scan(tf, what = xinteger(0L, 8L, "signed"), quiet = TRUE)
     identical(storage.mode(v), "int64") &&
         identical(as.character(v), c("9223372036854775807", "-1", NA, "0")) })
+ok("scan takes a storage-mode name", {
+    v <- scan(tf, what = "int64", quiet = TRUE)
+    identical(storage.mode(v), "int64") &&
+        identical(as.character(v), c("9223372036854775807", "-1", NA, "0")) })
+ok("scan-frame takes names",       { v <- scan(text = "18446744073709551614 7",
+                                                what = list(id = "uint64", value = 0L),
+                                                quiet = TRUE)
+                                      identical(as.character(v$id), "18446744073709551614") &&
+                                          identical(v$value, 7L) })
 ok("na.strings are honoured",     { v <- scan(tf, what = xinteger(0L, 8L, "signed"),
                                               na.strings = c("NA", "-1"), quiet = TRUE)
                                     identical(which(is.na(v)), 2:3) })
