@@ -277,7 +277,7 @@ SEXP R_xintBitwise(SEXP call, int oper, SEXP a, SEXP b)
 
     R_xlen_t m = XLENGTH(a), n = unary ? m : XLENGTH(b);
     R_xlen_t mn = (m && n) ? (m > n ? m : n) : 0;
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(mn, w, k, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(mn, w, k, hasNA ? TRUE : FALSE));
     R_xlen_t i, ia, ib, nOver = 0;
 
     MOD_ITERATE2(mn, m, n, i, ia, ib, {
@@ -428,18 +428,6 @@ SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
     if (TYPEOF(s) == XINTSXP)
 	return R_allocXIntVector(length, XINT_WIDTH(s), XINT_KIND(s),
 				  XINT_HAS_NA(s) ? TRUE : FALSE);
-
-    return allocVector(TYPEOF(s), length);
-}
-
-/* the no-fill R_allocVectorLike(), for callers that overwrite every
-   element; see R_allocXIntVectorUninit() */
-SEXP R_allocVectorLikeUninit(SEXP s, R_xlen_t length)
-{
-    if (TYPEOF(s) == XINTSXP)
-	return R_allocXIntVectorUninit(length, XINT_WIDTH(s),
-					XINT_KIND(s),
-					XINT_HAS_NA(s) ? TRUE : FALSE);
 
     return allocVector(TYPEOF(s), length);
 }
@@ -645,6 +633,9 @@ attribute_hidden SEXP do_xinteger(SEXP call, SEXP op, SEXP args, SEXP env)
 
     SEXP val = PROTECT(R_allocXIntVector(len, width, kind,
 					  hasNA ? TRUE : FALSE));
+    /* R-level atomic constructors promise a zero-filled value. */
+    if (len > 0)
+	memset(XINT_DATA(val), 0, (size_t) len * width);
     UNPROTECT(1);
 
     return val;
@@ -687,8 +678,8 @@ void R_xintWarnReserved(SEXP val)
 static SEXP xintFromString(SEXP x, int width, int kind, int hasNA)
 {
     R_xlen_t n = XLENGTH(x);
-    SEXP val = PROTECT(R_allocXIntVectorUninit(n, width, kind,
-						hasNA ? TRUE : FALSE));
+    SEXP val = PROTECT(R_allocXIntVector(n, width, kind,
+					 hasNA ? TRUE : FALSE));
     R_xlen_t nBad = 0, nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -746,8 +737,8 @@ static SEXP xintFromString(SEXP x, int width, int kind, int hasNA)
 static SEXP xintFromReal(SEXP x, int width, int kind, int hasNA)
 {
     R_xlen_t n = XLENGTH(x);
-    SEXP val = PROTECT(R_allocXIntVectorUninit(n, width, kind,
-						hasNA ? TRUE : FALSE));
+    SEXP val = PROTECT(R_allocXIntVector(n, width, kind,
+					 hasNA ? TRUE : FALSE));
     R_xlen_t nBad = 0, nOver = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -831,8 +822,8 @@ SEXP R_xintConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 	error(_("length of 'x' (%lld) is not a multiple of 'width' (%d)"),
 	      (long long) nbytes, width);
 
-    SEXP val = PROTECT(R_allocXIntVectorUninit(nbytes / width, width, kind,
-						hasNA ? TRUE : FALSE));
+    SEXP val = PROTECT(R_allocXIntVector(nbytes / width, width, kind,
+					 hasNA ? TRUE : FALSE));
     if (nbytes > 0)
 	R_xintMemcpy(XINT_DATA(val), RAW_RO(x), (size_t) nbytes);
 
