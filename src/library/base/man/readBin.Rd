@@ -89,9 +89,11 @@ writeBin(object, con, size = NA_integer_,
   writing and then reading files on the same platform).
 
   \code{what} may also name a \code{\link{xinteger}} type, in which case
-  each record is read as one element of that type: \code{"int64"} and
-  \code{"uint64"} for 64-bit integers, and \code{"int128"} and so on for
-  other widths.  Reading
+  each record is read as one element of that type.  The supported names are
+  \code{"int8"}, \code{"int16"}, \code{"int32"}, \code{"int64"},
+  \code{"int128"}, and their \code{"uint"} counterparts.  A name of this
+  form with another width retains its existing interpretation as a character
+  prototype rather than naming an \code{xinteger} type.  Reading
   \code{integer}s of \code{size = 8} instead narrows each value to
   32 bits, which is silently wrong for anything outside that range;
   \code{"int64"} keeps the value.  Passing a prototype rather than a

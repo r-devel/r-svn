@@ -572,8 +572,8 @@ typedef union {
 #define XINT_WIDTH_OK(w) \
     ((w) == 1 || (w) == 2 || (w) == 4 || (w) == 8 || (w) == 16)
 
-/* Interpretation of the elements, in gp bits 0-1.  UINT and INT elements
-   are integers of 8*width bits, stored in
+/* Interpretation of the elements, in gp bits 0-1.  XINT_UNSIGNED and
+   XINT_SIGNED elements are integers of 8*width bits, stored in
    *native* byte order so that ingest from an external source is a
    plain memcpy, ordered by value, and rendered as decimal.  Since the
    order is by value rather than by bytes, it is the same on every
@@ -597,9 +597,9 @@ typedef union {
 # define XINT_MSB(i, w) ((w) - 1 - (i))
 #endif
 
-/* NA patterns.  UINT reserves UINT_MAX.  INT cannot use all-0xFF -- it
-   is -1 in two's complement -- so INT reserves INT_MIN, which is what
-   bit64 does and for the same reason. */
+/* NA patterns.  XINT_UNSIGNED reserves UINT_MAX.  XINT_SIGNED cannot use
+   all-0xFF -- it is -1 in two's complement -- so it reserves INT_MIN,
+   which is what bit64 does and for the same reason. */
 #define XINT_NA_BYTE 0xFF
 
 #ifdef USE_RINTERNALS
@@ -1999,8 +1999,6 @@ attribute_hidden R_xint_parse_t R_xintEltFromString(Rbyte *out,
 						      int kind, bool hasNA);
 attribute_hidden const char *R_xintEltRender(SEXP x, R_xlen_t i);
 attribute_hidden const char *R_xintTypeName(SEXP x);
-/* longest derived name is width 16 unsigned: "uint128", 7 chars */
-#define XINT_TYPE_NAME_MAX 16
 attribute_hidden const char *R_xintTypeNameOf(int width, int kind);
 attribute_hidden Rboolean R_xintTypeFromName(const char *s, int *width,
 					      int *kind);

@@ -189,17 +189,11 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
     ## An "xinteger" colClass -- "int64" or "uint128" -- names a
     ## type scan() can read directly, so it joins the known list rather
     ## than being read as character and converted afterwards, which for
-    ## a column of 64-bit keys would intern one string per row.  The set
-    ## of names is open-ended (any width, two kinds), so rather than
-    ## listing them we ask vector() to make one and check what we got.
-    for (i in which(!known & !is.na(colClasses) &
-                    !(colClasses %in% c("NULL", "factor", "Date", "POSIXct")))) {
-        proto <- tryCatch(vector(colClasses[i], 0L), error = function(e) NULL)
-        if (is.xinteger(proto)) {
-            what[[i]] <- proto
-            known[i] <- TRUE
-        }
-    }
+    ## a column of 64-bit keys would intern one string per row.  The
+    ## supported names are the closed set recognized by vector().
+    xint <- .isXIntTypeName(colClasses)
+    what[xint] <- lapply(colClasses[xint], vector, length = 0L)
+    known <- known | xint
     what[colClasses %in% "NULL"] <- list(NULL)
     keep <- !vapply(what, is.null, NA)
 

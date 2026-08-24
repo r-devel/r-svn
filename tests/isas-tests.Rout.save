@@ -100,7 +100,6 @@ Type 'q()' to quit R.
 [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.xinteger(res))
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.stepfun(res))
 > res <- try(as.ts( x ), silent = TRUE)
@@ -234,7 +233,6 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error'))
 +    report({if(is.xinteger(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.stepfun(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -367,7 +365,6 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.xinteger( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.xinteger( f )))
-[1] TRUE
 > f <- try(as.dendrogram( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.dendrogram( f )))
 > f <- try(as.dist( x ), silent = TRUE)
@@ -1141,7 +1138,6 @@ In as.dist.default(x) : non-square matrix
 [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.xinteger(res))
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.stepfun(res))
 > res <- try(as.ts( x ), silent = TRUE)
@@ -1277,7 +1273,6 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error'))
 +    report({if(is.xinteger(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.stepfun(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1412,7 +1407,6 @@ IS: [1] TRUE
 [1] TRUE
 > f <- try(as.xinteger( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.xinteger( f )))
-[1] TRUE
 > f <- try(as.dendrogram( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.dendrogram( f )))
 > f <- try(as.dist( x ), silent = TRUE)
@@ -1504,10 +1498,7 @@ IS: [1] TRUE
 > if(!inherits(res, 'try-error')) report(is.vector(res))
 [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 > if(!inherits(res, 'try-error')) report(is.xinteger(res))
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.stepfun(res))
 > res <- try(as.ts( x ), silent = TRUE)
@@ -1640,12 +1631,9 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 IS: [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 > if(!inherits(res, 'try-error'))
 +    report({if(is.xinteger(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.stepfun(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -1797,10 +1785,7 @@ In as.xinteger(x, 1L, "unsigned", na) : NAs introduced by coercion
 >   if(!inherits(f, 'try-error')) report(identical(f, as.vector( f )))
 [1] TRUE
 > f <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 >   if(!inherits(f, 'try-error')) report(identical(f, as.xinteger( f )))
-[1] TRUE
 > f <- try(as.dendrogram( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.dendrogram( f )))
 > f <- try(as.dist( x ), silent = TRUE)
@@ -1892,10 +1877,7 @@ In as.xinteger(x) : NAs introduced by coercion
 > if(!inherits(res, 'try-error')) report(is.vector(res))
 [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 > if(!inherits(res, 'try-error')) report(is.xinteger(res))
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error')) report(is.stepfun(res))
 > res <- try(as.ts( x ), silent = TRUE)
@@ -2028,12 +2010,9 @@ IS: [1] TRUE
 +    } else   !isall.equal(x, res)})
 IS: [1] TRUE
 > res <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 > if(!inherits(res, 'try-error'))
 +    report({if(is.xinteger(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
 +    } else   !isall.equal(x, res)})
-[1] TRUE
 > res <- try(as.stepfun( x ), silent = TRUE)
 > if(!inherits(res, 'try-error'))
 +    report({if(is.stepfun(x)) { cat('IS: ');all.equal(x, res, tolerance=0)
@@ -2183,10 +2162,7 @@ In as.xinteger(x, 1L, "unsigned", na) : NAs introduced by coercion
 >   if(!inherits(f, 'try-error')) report(identical(f, as.vector( f )))
 [1] TRUE
 > f <- try(as.xinteger( x ), silent = TRUE)
-Warning message:
-In as.xinteger(x) : NAs introduced by coercion
 >   if(!inherits(f, 'try-error')) report(identical(f, as.xinteger( f )))
-[1] TRUE
 > f <- try(as.dendrogram( x ), silent = TRUE)
 >   if(!inherits(f, 'try-error')) report(identical(f, as.dendrogram( f )))
 > f <- try(as.dist( x ), silent = TRUE)
