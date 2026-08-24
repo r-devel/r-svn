@@ -29,10 +29,10 @@
       \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
       their own detailed help page.
 
-      \item \code{readBin()} accepts detailed \code{xinteger} names such
-      as \code{"int64"} for \code{what}; \code{scan()} accepts an
-      \code{xinteger} prototype, and \code{read.table()} accepts the names
-      in \code{colClasses}.  The ten names are matched exactly, so the
+      \item \code{readBin()} and \code{scan()} accept detailed
+      \code{xinteger} names such as \code{"int64"}, or prototypes, for
+      \code{what}; \code{read.table()} accepts the names in
+      \code{colClasses}.  The ten names are matched exactly, so the
       previous character interpretation of, e.g., \code{"int24"} is
       unchanged.
 

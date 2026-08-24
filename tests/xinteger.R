@@ -575,6 +575,19 @@ stopifnot(identical(readBin(f, character(1), 2L), c("ab", "cd")),
 	  identical(readBin(f, c("int64", "int64"), 2L), c("ab", "cd")))
 unlink(f)
 
+### scan() accepts the same detailed names as prototypes
+
+v <- scan(text = "9223372036854775807 -1 NA 0", what = "int64", quiet = TRUE)
+d <- scan(text = "18446744073709551614 7",
+          what = list(id = "uint64", value = 0L), quiet = TRUE)
+stopifnot(storage.mode(v) == "int64",
+	  identical(as.character(v), c("9223372036854775807", "-1", NA, "0")),
+	  storage.mode(d$id) == "uint64",
+	  identical(as.character(d$id), "18446744073709551614"),
+	  identical(d$value, 7L),
+	  ## only the ten supported names change meaning
+	  identical(scan(text = "int64", what = "int24", quiet = TRUE), "int64"))
+
 ### vector(), storage.mode<- and mode<-
 
 stopifnot(identical(vector("uint64", 2L), xinteger(2L, 8L, "unsigned")),
