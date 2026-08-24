@@ -28,7 +28,7 @@ bitwShiftR(a, n)
   \item{a, b}{integer vectors; numeric vectors are coerced to integer
     vectors.  Either may instead be a \code{\link{xinteger}} vector.  The
     other must then be one of the same width and kind or, for a numeric
-    kind, an integer vector.}
+    kind, an integer or logical vector.}
   \item{n}{non-negative integer vector of values up to 31, or up to one
     less than the number of bits in an element for an \code{xinteger}
     vector.}

@@ -29,63 +29,37 @@
       \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
       their own detailed help page.
 
-      \item \code{readBin()} and \code{scan()} take the names of the new
-      \code{xinteger} types (\code{"int64"}, \code{"uint16"}, \dots) for
-      \code{what} and \code{what}/
-      \code{colClasses}.  A length-one string that is none of the modes
-      \code{readBin()} knows was previously taken as an object, giving
-      mode \code{"character"}, so \code{readBin(f, "int32", 4L)} used to
-      read four strings and now reads four 32-bit integers.  Such a call
-      was already reading something other than what it named, but it now
-      returns different data rather than visibly wrong strings.  The ten
-      names are matched exactly, so one of the same shape but another
-      width (\code{"int24"}) keeps its previous meaning.
+      \item \code{readBin()} accepts detailed \code{xinteger} names such
+      as \code{"int64"} for \code{what}; \code{scan()} accepts an
+      \code{xinteger} prototype, and \code{read.table()} accepts the names
+      in \code{colClasses}.  The ten names are matched exactly, so the
+      previous character interpretation of, e.g., \code{"int24"} is
+      unchanged.
 
       \item There is a new serialization format version, 4, for streams
-      containing an \code{xinteger} vector; no earlier \R{} can read
-      one, and the stream records 4.7.0 as the least version that can.
-      \code{serialize()}, \code{saveRDS()} and \code{save()} select it
-      automatically, and only for an object that needs it -- an ordinary
-      object is still written in version 3.  \code{saveRDS()} and
-      \code{save()} report the choice with a \code{message()}; an
-      explicitly requested version too low to hold the object is an error
-      raised before the destination is opened, so the file that was
-      there is not lost.  The \code{save()} magic stays \code{RDX3}
-      (or its \abbr{ASCII}/\abbr{XDR} sibling), which now means
-      \dQuote{version 3 or newer}; the version in the stream header that
-      follows is the real one, and is what
-      \code{tools::checkRdaFiles()} now reports.
+      containing an \code{xinteger} vector; it records 4.7.0 as the least
+      version that can read it.  The serialization functions select it
+      automatically when required, or conservatively for some package
+      \I{ALTREP} objects, while ordinary objects remain at version 3.
+      \code{saveRDS()} and \code{save()} report the choice with a
+      \code{message()}; see \code{?serialize}.
     }
   }
 
   \subsection{New Features}{
     \itemize{
       \item There is a new atomic vector type, \code{xinteger}
-      (\code{XINTSXP}), whose elements are a fixed number of bytes wide,
-      with the width and the interpretation (\code{"unsigned"} or
-      \code{"signed"}) properties of the vector rather
-      than of the type.  \code{typeof()} reports the structural type
-      \code{"xinteger"}; \code{storage.mode()} gives the detailed name, such
-      as \code{"uint64"} or \code{"int128"}.  These vectors satisfy
-      \code{is.numeric()}, have mode \code{"numeric"}, and promote to
-      double when an operation requires it, warning on actual precision
-      loss.  Mixed comparisons and matching use a double's exact binary value rather than rounding
-      the integer, and unit-step sequences remain in the fixed-width
-      type.  Created by \code{xinteger()}, \code{as.xinteger()} and semantic
-      constructors such as \code{as.int64()} and \code{as.uint64()}, and
-      by \code{vector()}, \code{as.vector()}, \code{storage.mode<-},
-      \code{readBin()}, \code{scan()} and \code{read.table()} through
-      detailed storage-mode names or prototypes; see \code{?xinteger}.
-      Arithmetic, comparison, bitwise operations, sorting, matching and
-      serialization keep the full width, so a 64-bit identifier survives a
-      round trip that a \code{double} would round.  Widths are 1, 2, 4, 8
-      and 16 bytes and every operation is defined at all of them.  A
-      character operand promotes an \code{xinteger} one, in comparison
-      and matching as in \code{c()}, since the character form is exact
-      and reversible.  \code{get()}, \code{exists()} and \code{mget()}
-      find such a vector under \code{mode = "numeric"}, and under a
-      detailed storage-mode name only if the element type matches
-      exactly.
+      (\code{XINTSXP}), for signed and unsigned integers 1, 2, 4, 8 or
+      16 bytes wide.  \code{typeof()} reports \code{"xinteger"}, while
+      \code{storage.mode()} gives a detailed name such as \code{"uint64"}.
+      The vectors are numeric and retain their width through arithmetic,
+      comparison, bitwise operations, sorting, matching and serialization;
+      promotion to double warns on actual precision loss.  Constructors,
+      conversion, binary and delimited input accept detailed names or
+      prototypes as appropriate; see \code{?xinteger}.  \code{get()},
+      \code{exists()} and \code{mget()} find them under
+      \code{mode = "numeric"}, or by a detailed name matching the width
+      and kind with either \code{NA}-sentinel policy.
 
       \item \code{.storage_info()} reports the storage properties of a
       vector of any type: its \code{typeof()} and \code{storage.mode()},
