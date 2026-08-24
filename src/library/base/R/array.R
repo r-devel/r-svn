@@ -40,6 +40,13 @@ function(data = NA, dim = length(data), dimnames = NULL)
     } else .Internal(array(data, dim, dimnames))
 }
 
+## An array of the same element type as 'x', with the given shape; see
+## .vectorlike().  Only the type comes from 'x' -- array(x, dim) is the
+## spelling that carries its data over.
+.arraylike <-
+function(x, dim = length(x), dimnames = NULL)
+    array(.vectorlike(x, 1L), dim, dimnames)
+
 slice.index <-
 function(x, MARGIN)
 {

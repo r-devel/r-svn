@@ -37,3 +37,16 @@ complex <- function(length.out = 0L,
 
 single <- function(length = 0L)
     structure(vector("double", length), Csingle=TRUE)
+
+## A vector of the same element type as 'x'.  A storage-mode name is not
+## always enough to say what that type is: it carries an 'xinteger'
+## vector's width and kind but not its sentinel policy, so an existing
+## vector has to stand in for the type no name spells.
+.vectorlike <- function(x, length = 0L)
+{
+    if(is.xinteger(x))
+	xinteger(length, xintegerWidth(x), xintegerKind(x),
+		 xintegerHasNA(x))
+    else
+	vector(typeof(x), length)
+}

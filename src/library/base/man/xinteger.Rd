@@ -102,12 +102,13 @@ xintegerRaw(x)
   combined, compared or matched unless one is converted explicitly.
   A storage-mode name identifies the width and kind but not the
   sentinel, so it is not quite the whole type.  Interfaces that need
-  all three, such as \code{\link{readBin}}, \code{\link{scan}} and
-  \code{\link{vector}}, accept an existing vector as a prototype.
-  Thus \code{vector(x, n)} reproduces a vector created with
-  \code{na = FALSE}; \code{vector(storage.mode(x), n)} uses the same
-  width and kind with the default sentinel policy.  The incomplete
-  structural name \code{vector("xinteger", n)} is an error.
+  all three take an existing vector instead of a name:
+  \code{\link{readBin}} and \code{\link{scan}} as a prototype for
+  \code{what}, \code{\link{.vectorlike}} and \code{\link{.arraylike}} in
+  place of a mode.  Thus \code{.vectorlike(x, n)} reproduces a vector
+  created with \code{na = FALSE}; \code{vector(storage.mode(x), n)}
+  uses the same width and kind with the default sentinel policy.  The
+  incomplete structural name \code{vector("xinteger", n)} is an error.
 
   There is no literal for a missing \code{xinteger} value, since the
   sentinel's bit pattern depends on the width and the kind:

@@ -72,7 +72,8 @@ unsigned values.
 
 The detailed storage-mode name contains the kind and width but not the
 sentinel policy. Interfaces that must preserve the complete element
-type accept a prototype vector. For example, `vector(x, n)` preserves
+type accept a prototype vector, or use `.vectorlike()` and `.arraylike()`
+when allocating from R. For example, `.vectorlike(x, n)` preserves
 `xintegerHasNA(x)`, whereas `vector(storage.mode(x), n)` uses the default
 sentinel policy. Plain `"xinteger"` is incomplete and is not accepted as
 a storage mode.

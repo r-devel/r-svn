@@ -1074,7 +1074,7 @@ ok("an unknown class still errs",inherits(tryCatch(utils::read.csv(tc, colClasse
 ok("vector() takes a storage mode", identical(storage.mode(vector("uint128", 3L)),
                                                 "uint128"))
 ok("and zero-fills",             identical(as.character(vector("int64", 2L)), c("0", "0")))
-probe("vector(\"xinteger\") needs a prototype", vector("xinteger", 1L))
+probe("vector(\"xinteger\") needs a complete mode", vector("xinteger", 1L))
 probe("vector(\"int65\")",         vector("int65", 1L))
 ok("as.vector() parses text",    identical(as.character(as.vector("9223372036854775807", "int64")),
                                            "9223372036854775807"))
