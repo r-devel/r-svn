@@ -19,6 +19,11 @@
   This function describes the underlying vector storage; classes and other
   attributes do not affect its result.
 
+  Its dot-prefixed, snake-case name marks it as low-level storage metadata
+  intended principally for code mapping external data into R vectors; the
+  user-facing \code{xinteger} accessors retain their ordinary camel-case
+  names.
+
   Here \code{nullable} means that the element representation has a sentinel
   value which is interpreted as \code{NA}.  It does not say whether \code{x}
   currently contains an \code{NA}; use \code{\link{anyNA}} for that.  For an

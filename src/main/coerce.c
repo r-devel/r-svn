@@ -2240,9 +2240,8 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 */
 
     case 100:		/* is.numeric */
-	LOGICAL0(ans)[0] = TYPEOF(CAR(args)) == XINTSXP ||
-	    (isNumeric(CAR(args)) &&
-	     !isLogical(CAR(args)));  /* isNumeric excludes factors */
+	LOGICAL0(ans)[0] = isNumericOrXInt(CAR(args)) &&
+	    !isLogical(CAR(args));  /* isNumeric excludes factors */
 	break;
     case 101:		/* is.matrix */
 	LOGICAL0(ans)[0] = isMatrix(CAR(args));
@@ -2344,8 +2343,7 @@ attribute_hidden SEXP do_isvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	LOGICAL0(ans)[0] = isVector(x);
     }
     else if (streql(stype, "numeric")) {
-	LOGICAL0(ans)[0] = ((isNumeric(x) && !isLogical(x)) ||
-			    TYPEOF(x) == XINTSXP);
+	LOGICAL0(ans)[0] = isNumericOrXInt(x) && !isLogical(x);
     }
     /* So this allows any type, including undocumented ones such as
        "closure", but not aliases such as "name" and "function". */

@@ -46,7 +46,7 @@
 /* UINT reserves all-0xFF for NA and INT reserves INT_MIN instead. */
 Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind)
 {
-    if (kind == XINT_INT) {
+    if (kind == XINT_SIGNED) {
 	if (p[XINT_MSB(0, width)] != 0x80) return FALSE;
 	for (int i = 1; i < width; i++)
 	    if (p[XINT_MSB(i, width)] != 0x00) return FALSE;
@@ -61,7 +61,7 @@ Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind)
 
 void R_xintSetEltNA(Rbyte *p, int width, int kind)
 {
-    if (kind == XINT_INT) {
+    if (kind == XINT_SIGNED) {
 	memset(p, 0x00, (size_t) width);
 	p[XINT_MSB(0, width)] = 0x80;
 	return;
@@ -77,7 +77,7 @@ void R_xintSetEltNA(Rbyte *p, int width, int kind)
 int R_xintEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind)
 {
     int top = XINT_MSB(0, width);
-    if (kind == XINT_INT) {
+    if (kind == XINT_SIGNED) {
 	signed char sa = (signed char) a[top], sb = (signed char) b[top];
 	if (sa != sb) return sa < sb ? -1 : 1;
     }
@@ -105,7 +105,7 @@ const char *R_xintEltDecimal(const Rbyte *p, int width, int kind)
     for (int i = 0; i < width; i++)
 	tmp[i] = p[XINT_MSB(i, width)];
 
-    if (kind == XINT_INT && (tmp[0] & 0x80)) {
+    if (kind == XINT_SIGNED && (tmp[0] & 0x80)) {
 	negative = true;
 	R_xintMagNegate(tmp, width);
     }
@@ -179,7 +179,7 @@ static R_xint_parse_t parseDecimal(Rbyte *out, const char *s, int w,
 	return XINT_PARSE_SYNTAX;
 
     /* an unsigned element has no negative values, but "-0" is 0 */
-    if (negative && kind == XINT_UINT) {
+    if (negative && kind == XINT_UNSIGNED) {
 	for (int i = 0; i < w; i++)
 	    if (mag[i]) return XINT_PARSE_RANGE;
 	negative = false;
@@ -488,7 +488,7 @@ Rboolean R_isXInt(SEXP x)
 Rboolean R_xintTypeSupported(int width, int kind)
 {
     return (Rboolean) (XINT_WIDTH_OK(width) &&
-		       (kind == XINT_UINT || kind == XINT_INT));
+		       (kind == XINT_UNSIGNED || kind == XINT_SIGNED));
 }
 
 /* One wording for a width outside the set, so that the allocator and
@@ -573,8 +573,8 @@ static int checkKind(SEXP skind)
 
     const char *k = CHAR(asChar(skind));
 
-    if (!strcmp(k, "unsigned")) return XINT_UINT;
-    if (!strcmp(k, "signed"))   return XINT_INT;
+    if (!strcmp(k, "unsigned")) return XINT_UNSIGNED;
+    if (!strcmp(k, "signed"))   return XINT_SIGNED;
 
     error(_("'kind' must be \"unsigned\" or \"signed\""));
 }
@@ -952,8 +952,8 @@ void R_xintFillMatrixWithRecycle(SEXP dst, SEXP src, R_xlen_t dstart,
 const char *R_xintKindName(SEXP x)
 {
     switch (XINT_KIND(x)) {
-    case XINT_UINT: return "unsigned";
-    case XINT_INT:  return "signed";
+    case XINT_UNSIGNED: return "unsigned";
+    case XINT_SIGNED:  return "signed";
     default:           return "invalid";
     }
 }
@@ -1045,14 +1045,14 @@ const char *R_xintTypeNameOf(int w, int kind)
 
     /* every caller is behind a validated width and kind, but this
        indexes an array, so it does not take that on trust */
-    if ((kind != XINT_UINT && kind != XINT_INT) || !XINT_WIDTH_OK(w))
+    if ((kind != XINT_UNSIGNED && kind != XINT_SIGNED) || !XINT_WIDTH_OK(w))
 	return "xinteger";
 
     char *b = names[kind - 1][w];
     if (*b)
 	return b;			/* built on an earlier call */
 
-    if (kind == XINT_UINT)
+    if (kind == XINT_UNSIGNED)
 	snprintf(b, XINT_TYPE_NAME_MAX, "uint%d", 8 * w);
     else
 	snprintf(b, XINT_TYPE_NAME_MAX, "int%d", 8 * w);
@@ -1072,8 +1072,8 @@ Rboolean R_xintTypeFromName(const char *s, int *width, int *kind)
     const char *digits;
     int k;
 
-    if (!strncmp(s, "uint", 4))	     { k = XINT_UINT;   digits = s + 4; }
-    else if (!strncmp(s, "int", 3))  { k = XINT_INT;    digits = s + 3; }
+    if (!strncmp(s, "uint", 4))	     { k = XINT_UNSIGNED;   digits = s + 4; }
+    else if (!strncmp(s, "int", 3))  { k = XINT_SIGNED;    digits = s + 3; }
     else return FALSE;
 
     /* so that "int" and "integer" stay readBin's own names.  A leading

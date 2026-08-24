@@ -331,7 +331,7 @@ attribute_hidden SEXP do_cmathfuns(SEXP call, SEXP op, SEXP args, SEXP env)
 	UNPROTECT(1);
 	return y;
     }
-    else if(isNumeric(x) || TYPEOF(x) == XINTSXP) { /* no complex numbers involved */
+    else if(isNumericOrXInt(x)) { /* no complex numbers involved */
 	n = XLENGTH(x);
 	if(isReal(x)) PROTECT(x);
 	else PROTECT(x = coerceVector(x, REALSXP));

@@ -38,8 +38,7 @@ mode <- function(x) {
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
     ## An 'xinteger' type is named by its width and kind (see
     ## R_xintTypeFromName in src/main/xints.c).  Plain "xinteger" is also
-    ## handled here so that as.xinteger()'s defaults cannot silently pick
-    ## a width while changing mode.
+    ## handled here so that changing mode cannot silently invent a width.
     if(value == "xinteger" || .isXIntTypeName(value)) {
 	storage.mode(x) <- value
 	return(x)

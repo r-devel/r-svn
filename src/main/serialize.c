@@ -395,14 +395,24 @@ static void InWord(R_inpstream_t stream, char * buf, int size)
 
 /* n bytes written as two-digit hex words -- the ascii form of an 'xinteger'
    payload, in either of ReadItem's arms for it */
+static unsigned int hexValue(int c)
+{
+    if (c >= '0' && c <= '9') return (unsigned int) (c - '0');
+    if (c >= 'a' && c <= 'f') return (unsigned int) (c - 'a' + 10);
+    if (c >= 'A' && c <= 'F') return (unsigned int) (c - 'A' + 10);
+    error(_("read error"));
+}
+
 static void InBytesHex(R_inpstream_t stream, Rbyte *p, R_xlen_t n)
 {
     for (R_xlen_t ix = 0; ix < n; ix++) {
 	char word[128];
-	unsigned int i;
 	InWord(stream, word, sizeof(word));
-	if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
-	p[ix] = (Rbyte) i;
+	/* OutByte() writes exactly two digits.  Refuse a valid prefix followed
+	   by junk rather than silently accepting a malformed stream. */
+	if (word[0] == '\0' || word[1] == '\0' || word[2] != '\0')
+	    error(_("read error"));
+	p[ix] = (Rbyte) ((hexValue(word[0]) << 4) | hexValue(word[1]));
     }
 }
 
@@ -1662,6 +1672,20 @@ static bool containsXIntVector(SEXP s, SEXP seen, int version)
     return false;
 }
 
+/* The shared preflight for default version selection and validation of a
+   version the caller supplied. */
+static bool needsSerializeVersion4(SEXP object, int version)
+{
+    if (version >= 4 || !R_XIntVectorSeen)
+	return false;
+
+    SEXP seen = PROTECT(MakeCircleHashTable());
+    bool needs4 = containsXIntVector(object, seen, version);
+    UNPROTECT(1);
+
+    return needs4;
+}
+
 /* message() rather than warning(): the writer choosing a version that
    can hold the object is not a fault, but it does change which R can
    read the result, so it is said out loud -- and suppressMessages()
@@ -1698,21 +1722,7 @@ attribute_hidden void R_AnnounceSerializeVersion(int from, int to)
    Silent, whoever calls it: see announceVersion(). */
 attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
 {
-    if (version >= 4)
-	return version;
-
-    /* Nothing in this session has ever made an 'xinteger' vector, so no
-       object can contain one and there is nothing to look for.  Without
-       this every serialize() and saveRDS() in R would pay for a walk of
-       the object it is about to write. */
-    if (!R_XIntVectorSeen)
-	return version;
-
-    SEXP seen = PROTECT(MakeCircleHashTable());
-    bool needs4 = containsXIntVector(object, seen, version);
-    UNPROTECT(1);
-
-    return needs4 ? 4 : version;
+    return needsSerializeVersion4(object, version) ? 4 : version;
 }
 
 /* Refuse a version the caller named that cannot hold the object.
@@ -1725,14 +1735,7 @@ attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
    previous contents gone. */
 attribute_hidden void R_CheckSerializeVersion(SEXP object, int version)
 {
-    if (version >= 4 || !R_XIntVectorSeen)
-	return;
-
-    SEXP seen = PROTECT(MakeCircleHashTable());
-    bool needs4 = containsXIntVector(object, seen, version);
-    UNPROTECT(1);
-
-    if (needs4)
+    if (needsSerializeVersion4(object, version))
 	error(_("an '%s' vector needs serialization version 4; version %d was requested"),
 	      "xinteger", version);
 }
@@ -2398,13 +2401,7 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    PROTECT(s = allocVector(type, len));
 	    switch (stream->type) {
 	    case R_pstream_ascii_format:
-		for (R_xlen_t ix = 0; ix < len; ix++) {
-		    char word[128];
-		    unsigned int i; // unsigned to avoid compiler warnings
-		    InWord(stream, word, sizeof(word));
-		    if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
-		    RAW(s)[ix] = (Rbyte) i;
-		}
+		InBytesHex(stream, RAW(s), len);
 		break;
 	    default:
 	    {
@@ -2424,7 +2421,7 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    int k = (int) (levs & XINT_KIND_MASK);
 	    if (!XINT_WIDTH_OK(w))
 		error(_("ReadItem: invalid 'xinteger' element width %d"), w);
-	    if (k != XINT_UINT && k != XINT_INT)
+	    if (k != XINT_UNSIGNED && k != XINT_SIGNED)
 		error(_("ReadItem: invalid 'xinteger' element kind %d"), k);
 	    len = ReadLENGTH(stream);
 	    PROTECT(s = R_allocXIntVector(len, w, k,

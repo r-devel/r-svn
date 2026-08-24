@@ -27,10 +27,10 @@
   property of each vector rather than of the underlying atomic type.
 }
 \usage{
-xinteger(length = 0L, width = 1L,
+xinteger(length = 0L, width,
       kind = c("unsigned", "signed"), na = TRUE)
 
-as.xinteger(x, width = 1L,
+as.xinteger(x, width,
          kind = c("unsigned", "signed"), na = TRUE)
 
 as.int8(x, na = TRUE)
@@ -66,6 +66,11 @@ xintegerRaw(x)
 \details{
   Unlike every other vector type, the element size of an \code{xinteger}
   vector is a property of the vector rather than of the type.
+  Consequently \code{width} is required: there is no natural width for
+  the shared structural type, and defaulting to the narrowest one would
+  silently choose the representation most likely to overflow.  The
+  convenience conversion functions such as \code{as.int64} supply both
+  the width and kind.
   \code{\link{length}} counts elements, so a length-100 vector of width
   8 holds 800 bytes.  \code{\link{typeof}} reports \code{"xinteger"} for
   every such vector, closely following the underlying \code{XINTSXP}.
@@ -135,9 +140,9 @@ xintegerRaw(x)
   lies below or above every element, so \code{x > -1L} is \code{TRUE}
   for an unsigned vector rather than \code{NA}, and for \code{match}
   it is neither present nor a match.  \code{\link{min}},
-  \code{\link{max}} and \code{\link{pmin}} refuse the same pairs
-  \code{\link{c}} refuses -- so that \code{\link{range}}, whose answer
-  goes through \code{c}, cannot fail on arguments they accept.
+  \code{\link{max}}, \code{\link{pmin}} and \code{\link{pmax}} refuse
+  the same pairs \code{\link{c}} refuses -- so that \code{\link{range}},
+  whose answer goes through \code{c}, cannot fail on arguments they accept.
   A numeric fixed-width vector is compared with a double using the
   double's exact binary value, without first rounding the integer;
   matching likewise succeeds only for an exactly integral double.
@@ -154,6 +159,13 @@ xintegerRaw(x)
   type, \code{sign} is exact, and double-valued functions use the checked
   conversion described above.
 
+  \code{\link{sum}} and \code{\link{cumsum}} retain the width, kind and
+  sentinel policy of their \code{xinteger} arguments.  Overflow produces
+  \code{NA} with a warning when the type reserves a sentinel, and is an
+  error when it does not.  In contrast, \code{\link{prod}} follows its
+  ordinary return convention and converts an otherwise fixed-width
+  calculation to double before multiplying.
+
   \code{\link{as.integer}}, \code{\link{as.numeric}} and
   \code{\link{as.raw}} convert each kind, behaving as for an integer
   vector when the value
@@ -169,7 +181,12 @@ xintegerRaw(x)
   At the R interface, both kinds are numeric:
   \code{is.numeric} is true, \code{mode} is \code{"numeric"}, and their
   implicit \code{\link{class}} is the semantic type name such as
-  \code{"uint64"}.  \code{\link{get}}, \code{\link{exists}} and
+  \code{"uint64"}.  That implicit class deliberately does not have
+  \code{"numeric"} as a tail: \code{is.numeric} describes the value
+  domain, while S3 dispatch distinguishes widths and kinds.  A method for
+  class \code{"numeric"} therefore does not receive a bare
+  \code{xinteger}; define a method for the detailed class or add an explicit
+  class as described below.  \code{\link{get}}, \code{\link{exists}} and
   \code{\link{mget}} follow that: \code{mode = "numeric"} finds any of
   them, as it finds integer and double vectors, while a detailed
   storage-mode name matches the width and kind, with either sentinel
@@ -198,8 +215,8 @@ xintegerRaw(x)
   hold, exactly as for \code{\link{as.integer}}.  Note that this can
   only judge the double it is given: a literal beyond \eqn{2^{53}}{2^53}
   has already been rounded before \code{as.xinteger} sees it, and
-  \code{as.xinteger(9007199254740993)} is indistinguishable from
-  \code{as.xinteger(9007199254740992)}.  Write such a value as text, which
+  \code{as.xinteger(9007199254740993, 8L)} is indistinguishable from
+  \code{as.xinteger(9007199254740992, 8L)}.  Write such a value as text, which
   is exact at every magnitude.
 
   Another \code{xinteger} vector is converted between widths and kinds,

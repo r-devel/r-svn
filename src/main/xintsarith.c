@@ -139,7 +139,7 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 # define XINT_NATIVE2(UBODY, SBODY, w, kind)			\
     do {							\
 	if (!useNative()) break;				\
-	if ((kind) == XINT_UINT)				\
+	if ((kind) == XINT_UNSIGNED)				\
 	    switch (w) {					\
 	    case 1:  UBODY(uint8_t)				\
 	    case 2:  UBODY(uint16_t)				\
@@ -147,7 +147,7 @@ static bool storeNative(Rbyte *out, const void *v, int w, int kind,
 	    case 8:  UBODY(uint64_t)				\
 	    XINT_NATIVE_W16(UBODY, xint_uint128_t)		\
 	    }							\
-	else if ((kind) == XINT_INT)				\
+	else if ((kind) == XINT_SIGNED)				\
 	    switch (w) {					\
 	    case 1:  SBODY(int8_t)				\
 	    case 2:  SBODY(int16_t)				\
@@ -243,7 +243,7 @@ static bool mulOverflowS128(xint_int128_t a, xint_int128_t b,
 # define XINT_NATIVE_MUL(w, kind)				\
     do {							\
 	if (!useNative()) break;				\
-	if ((kind) == XINT_UINT)				\
+	if ((kind) == XINT_UNSIGNED)				\
 	    switch (w) {					\
 	    case 1:  XINT_MUL_BODY(uint8_t)			\
 	    case 2:  XINT_MUL_BODY(uint16_t)			\
@@ -251,7 +251,7 @@ static bool mulOverflowS128(xint_int128_t a, xint_int128_t b,
 	    case 8:  XINT_MUL_BODY(uint64_t)			\
 	    XINT_NATIVE_W16(XINT_MUL_BODY, xint_uint128_t)	\
 	    }							\
-	else if ((kind) == XINT_INT)				\
+	else if ((kind) == XINT_SIGNED)				\
 	    switch (w) {					\
 	    case 1:  XINT_MUL_BODY(int8_t)			\
 	    case 2:  XINT_MUL_BODY(int16_t)			\
@@ -385,7 +385,7 @@ static bool magFromElt(Rbyte *out, const Rbyte *p, int w, int kind)
 {
     toMSB(out, p, w);
 
-    if (kind == XINT_INT && (out[0] & 0x80)) {
+    if (kind == XINT_SIGNED && (out[0] & 0x80)) {
 	R_xintMagNegate(out, w);
 	return true;
     }
@@ -408,7 +408,7 @@ static bool magFromElt(Rbyte *out, const Rbyte *p, int w, int kind)
 attribute_hidden
 bool R_xintMagFits(const Rbyte *v, int w, int kind, bool negative, bool hasNA)
 {
-    if (kind == XINT_UINT) {
+    if (kind == XINT_UNSIGNED) {
 	/* v is the true magnitude; UINT_MAX is reserved */
 	if (!hasNA) return true;
 	for (int i = 0; i < w; i++)
@@ -454,7 +454,7 @@ static bool eltAdd(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
 	carry = v >> 8;
     }
 
-    if (kind == XINT_UINT) {
+    if (kind == XINT_UNSIGNED) {
 	if (carry) return false;
 	return storeResult(out, R, w, kind, false, hasNA);
     }
@@ -483,7 +483,7 @@ static bool eltSub(Rbyte *out, const Rbyte *a, const Rbyte *b, int w, int kind, 
 	R[i] = (Rbyte) v;
     }
 
-    if (kind == XINT_UINT) {
+    if (kind == XINT_UNSIGNED) {
 	if (borrow) return false;	/* would be negative */
 	return storeResult(out, R, w, kind, false, hasNA);
     }
@@ -609,7 +609,7 @@ static bool eltNeg(Rbyte *out, const Rbyte *a, int w, int kind, bool hasNA)
        about the sign for this kind.  R_xintUnary() refuses unsigned
        before reaching either, but the two kernels are checked against
        each other and must agree without relying on that. */
-    if (kind == XINT_UINT) {
+    if (kind == XINT_UNSIGNED) {
 	if (!eltIsZero(a, w)) return false;
 	memset(out, 0, (size_t) w);	/* -0 is 0, and never the reserved value */
 	return true;
@@ -631,7 +631,7 @@ static bool eltNeg(Rbyte *out, const Rbyte *a, int w, int kind, bool hasNA)
    arithmetic, none of which require the value to fit a native type. */
 static bool eltFromLong(Rbyte *out, long long v, int w, int kind, bool hasNA)
 {
-    if (kind == XINT_UINT && v < 0) return false;
+    if (kind == XINT_UNSIGNED && v < 0) return false;
 
     bool neg = v < 0;
     unsigned long long m = neg
@@ -676,7 +676,7 @@ static bool eltConvert(Rbyte *out, int ow, int ok, bool ohasNA,
 
     /* magFromElt() only reports neg for a nonzero magnitude, so this is
        not rejecting a negative zero */
-    if (neg && ok == XINT_UINT) return false;
+    if (neg && ok == XINT_UNSIGNED) return false;
 
     if (!R_xintMagFits(mag, ow, ok, neg, ohasNA)) return false;
     if (neg) R_xintMagNegate(mag, ow);
@@ -1119,7 +1119,7 @@ SEXP R_xintUnary(SEXP call, int oper, SEXP x)
 	errorcall(call, _("invalid argument to unary operator"));
 
     if (oper == PLUSOP) return x;
-    if (k == XINT_UINT)
+    if (k == XINT_UNSIGNED)
 	errorcall(call, _("unary minus is not defined for unsigned 'xinteger' vectors"));
 
     R_xlen_t n = XLENGTH(x);
@@ -1164,7 +1164,7 @@ attribute_hidden
 SEXP R_xintAbs(SEXP call, SEXP x)
 {
     int k = XINT_KIND(x), w = XINT_WIDTH(x);
-    if (k == XINT_UINT) return x;
+    if (k == XINT_UNSIGNED) return x;
 
     R_xlen_t n = XLENGTH(x), nOver = 0;
     bool hasNA = XINT_HAS_NA(x);
@@ -1316,7 +1316,7 @@ attribute_hidden double R_xintEltAsReal(const Rbyte *p, int w, int kind)
     bool neg = false;
 
     toMSB(A, p, w);
-    if (kind == XINT_INT && (A[0] & 0x80)) {
+    if (kind == XINT_SIGNED && (A[0] & 0x80)) {
 	neg = true;
 	R_xintMagNegate(A, w);
     }
@@ -1364,7 +1364,7 @@ static bool eltLosesAsDouble(const Rbyte *p, int w, int kind)
     Rbyte A[XINT_MAX_WIDTH];
 
     toMSB(A, p, w);
-    if (kind == XINT_INT && (A[0] & 0x80))
+    if (kind == XINT_SIGNED && (A[0] & 0x80))
 	R_xintMagNegate(A, w);
 
     return magLosesAsDouble(A, w);
@@ -1537,7 +1537,7 @@ static bool wideSumStore(Rbyte *out, Rbyte *acc, bool accNeg,
 	if (acc[i]) return false;
     /* nothing unsigned to store a negative total in; R_xintMagFits()
        does not ask about the sign for this kind */
-    if (accNeg && kind == XINT_UINT && !magIsZero(acc + 8, w))
+    if (accNeg && kind == XINT_UNSIGNED && !magIsZero(acc + 8, w))
 	return false;
 
     return storeResult(out, acc + 8, w, kind, accNeg, hasNA);

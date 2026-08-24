@@ -6266,8 +6266,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
   R_Visible = TRUE; \
   NEXT(); \
 } while (0)
-#define isNumericOnly(x) (TYPEOF(x) == XINTSXP || \
-			  (isNumeric(x) && ! isLogical(x)))
+#define isNumericOnly(x) (isNumericOrXInt(x) && ! isLogical(x))
 
 #ifdef BC_PROFILING
 #define NO_CURRENT_OPCODE -1
@@ -6817,7 +6816,7 @@ static R_INLINE void SUBASSIGN_N_PTR(R_bcstack_t *sx, int rank,
 	if (IS_SIMPLE_SCALAR(val, LGLSXP))				\
 	    SETSTACK(-1, ScalarLogical(SCALAR_LVAL(val)));		\
 	else {								\
-	    if (!isNumber(val) && TYPEOF(val) != XINTSXP)		\
+	    if (!isNumberOrXInt(val))				\
 		errorcall(GETCONST(constants, callidx),			\
 			  _("invalid %s type in 'x %s y'"), arg, op);	\
 	    SETSTACK(-1, ScalarLogical(asLogical2(			\

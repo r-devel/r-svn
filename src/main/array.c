@@ -108,7 +108,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	nowarn = (p && StringTrue(p)) ? 1 : 0; // if(nowarn) <error>
     }
     if (!miss_nr) {
-	if (!isNumeric(snr) && TYPEOF(snr) != XINTSXP)
+	if (!isNumericOrXInt(snr))
 	    error(_("non-numeric matrix extent"));
 	nr = asInteger(snr);
 	if (nr == NA_INTEGER)
@@ -117,7 +117,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("invalid 'nrow' value (< 0)"));
     }
     if (!miss_nc) {
-	if (!isNumeric(snc) && TYPEOF(snc) != XINTSXP)
+	if (!isNumericOrXInt(snc))
 	    error(_("non-numeric matrix extent"));
 	nc = asInteger(snc);
 	if (nc == NA_INTEGER)
@@ -1306,8 +1306,8 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    PRIMNAME(op));
     bool sym = isNull(y);
     if (sym && (PRIMVAL(op) > 0)) y = x;
-    if ( !(isNumeric(x) || isComplex(x) || TYPEOF(x) == XINTSXP) ||
-	 !(isNumeric(y) || isComplex(y) || TYPEOF(y) == XINTSXP) )
+    if ( !(isNumericOrXInt(x) || isComplex(x)) ||
+	 !(isNumericOrXInt(y) || isComplex(y)) )
 	errorcall(call, _("requires numeric/complex matrix/vector arguments"));
 
     SEXP xdims = getAttrib(x, R_DimSymbol),

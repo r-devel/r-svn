@@ -35,7 +35,8 @@ writeBin(object, con, size = NA_integer_,
     storage is reserved for \code{n} items.}
   \item{size}{integer.  The number of bytes per element in the byte
     stream.  The default, \code{NA_integer_}, uses the natural size.
-    Size changing is not supported for raw and complex vectors.}
+    Size changing is not supported for raw, complex or \code{xinteger}
+    vectors.}
   \item{signed}{logical.  Only used for integers of sizes 1 and 2,
     when it determines if the quantity on file
     should be regarded as a signed or unsigned integer.}
@@ -99,6 +100,11 @@ writeBin(object, con, size = NA_integer_,
   which matters when every bit pattern in the file is a legitimate
   value.  \code{endian} applies because elements are stored in native
   byte order.  \code{size} must be the width of the type.
+
+  When \code{object} is an \code{xinteger}, \code{writeBin} writes each
+  fixed-width payload element without numeric coercion.  Its \code{size}
+  must likewise be omitted or equal the element width, and \code{endian}
+  controls whether the native-order payload bytes are swapped on output.
 }
 
 \note{

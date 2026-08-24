@@ -41,6 +41,11 @@
   -- and carries no attributes beyond \code{dim} and \code{dimnames}.
   Use \code{array(x, dim)} to carry the contents of \code{x} over instead.
 
+  These functions are dot-prefixed because they are low-level allocation
+  infrastructure.  They are documented so package code that must preserve a
+  complete element type can use them, but ordinary user code will normally
+  use \code{vector}, \code{array} or an \code{xinteger} constructor.
+
   \code{x} must have an atomic, list or expression vector type, so
   \code{.vectorlike(NULL, n)} and \code{.vectorlike(pairlist(), n)} are
   errors.  A character vector is an object like any other and never a

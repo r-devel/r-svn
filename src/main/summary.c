@@ -1083,7 +1083,7 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SEXP call = PROTECT(lang2(install("xtfrm"), sx)); nprot++;
 	PROTECT(sx = eval(call, rho)); nprot++;
     } else
-    if (!isNumeric(sx) && TYPEOF(sx) != XINTSXP) {
+    if (!isNumericOrXInt(sx)) {
 	/* an 'xinteger' vector is scanned in place below: coercing it to
 	   double would round two elements above 2^53 onto the same
 	   value and hand back the index of the wrong one */

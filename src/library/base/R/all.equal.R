@@ -71,7 +71,6 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
                    character = all.equal.character(target, current, check.class=check.class, ...),
                    logical   = ,
                    raw       = all.equal.raw      (target, current, check.class=check.class, ...),
-                   xinteger  = all.equal.xinteger  (target, current, check.class=check.class, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),
                    ## otherwise :
