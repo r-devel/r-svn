@@ -519,7 +519,8 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 #define FIXUP_NULL_AND_CHECK_TYPES(v, vpi) do { \
     switch (TYPEOF(v)) { \
     case NILSXP: REPROTECT(v = allocVector(INTSXP,0), vpi); break; \
-    case CPLXSXP: case REALSXP: case INTSXP: case LGLSXP: break; \
+    case CPLXSXP: case REALSXP: case INTSXP: case LGLSXP: \
+    case XINTSXP: break; \
     default: errorcall(call, _("non-numeric argument to binary operator")); \
     } \
 } while (0)
@@ -534,39 +535,12 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
 
-    /* XINTSXP needs its own initial type handling because integer and
-       logical operands narrow into it, while double and complex operands
-       promote it.  The operation itself is deferred to
-       the dispatch below so that attributes follow the ordinary rules. */
+    /* Besides fixing NULL, this gate has to run before XLENGTH() below:
+       that macro cannot safely inspect every non-vector node. */
+    FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+    FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+
     bool xint = (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP);
-
-    /* FIXUP_NULL_AND_CHECK_TYPES applies whole to an operand that is
-       not 'xinteger'.  Its type gate matters as much as its NULL fixup:
-       the recycling code below takes XLENGTH() of both operands, and
-       on a closure or a builtin that reads a field the node does not
-       have.  Which numeric types combine with an 'xinteger' operand is
-       still R_xintNarrow()'s to say, so the 'xinteger' one is left
-       alone -- and the other is checked first, so that an operation
-       about to be rejected does not also warn about precision on its
-       way out. */
-    if (TYPEOF(x) != XINTSXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-    if (TYPEOF(y) != XINTSXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
-
-    if (xint && (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
-		  TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP ||
-		  oper == DIVOP || oper == POWOP)) {
-	/* XINTSXP follows the ordinary coercion hierarchy.  An
-	   explicit double/complex operand, and the two always-double
-	   operators, therefore promote it through its checked conversion;
-	   that conversion warns only when an actual value loses precision. */
-	SEXPTYPE target = (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
-	    ? CPLXSXP : REALSXP;
-	if (TYPEOF(x) == XINTSXP)
-	    REPROTECT(x = coerceVector(x, target), xpi);
-	if (TYPEOF(y) == XINTSXP)
-	    REPROTECT(y = coerceVector(y, target), ypi);
-	xint = false;
-    }
 
     R_xlen_t
 	nx = XLENGTH(x),
@@ -691,9 +665,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
-    if (xint)
-	val = R_xintArith(call, (int) oper, x, y);
-    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
@@ -702,13 +674,18 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	COERCE_IF_NEEDED(y, CPLXSXP, ypi);
 	val = complex_binary(oper, x, y);
     }
-    else if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP) {
-	/* real_binary can handle REALSXP or INTSXP operand, but not LGLSXP. */
+    else if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	     (xint && (oper == DIVOP || oper == POWOP))) {
+	/* real_binary can handle REALSXP or INTSXP operands, but not
+	   LGLSXP or XINTSXP.  Division and power promote XINTSXP just as
+	   they promote ordinary integer operands. */
 	/* Can get a LGLSXP. In base-Ex.R on 24 Oct '06, got 8 of these. */
 	if (TYPEOF(x) != INTSXP) COERCE_IF_NEEDED(x, REALSXP, xpi);
 	if (TYPEOF(y) != INTSXP) COERCE_IF_NEEDED(y, REALSXP, ypi);
 	val = real_binary(oper, x, y);
     }
+    else if (xint)
+	val = R_xintArith(call, (int) oper, x, y);
     else val = integer_binary(oper, x, y, call);
 
     /* quick return if there are no attributes */
