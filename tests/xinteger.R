@@ -601,16 +601,28 @@ stopifnot(identical(vector("uint64", 2L), xinteger(2L, 8L, "unsigned")),
 ## storage mode carries this type's width and kind but not its sentinel
 ## policy.  Neither is specific to it -- taking every type the same way
 ## is what keeps apply(), diag() and tapply() from having to ask which
-## one they were handed.  Checked against the name form, which also pins
-## the zero fill: allocVector() leaves an atomic payload uninitialized,
-## so a path that skipped vector()'s Memzero would return heap garbage --
-## and would do it only once the heap was dirty enough to notice.
-for (p in list(logical(), integer(), double(), complex(), character(),
-	       raw(), list(), expression()))
-    stopifnot(identical(.vectorlike(p, 3L), vector(typeof(p), 3L)),
-	      identical(.vectorlike(p, 7L), vector(typeof(p), 7L)),
-	      identical(.arraylike(p, c(2L, 3L)),
-		array(vector(typeof(p), 1L), c(2L, 3L))))
+## one they were handed.  Literal expected values pin the fill
+## independently of vector(): allocVector() leaves an atomic payload
+## uninitialized, so a path that skipped vector()'s Memzero would return
+## heap garbage -- and would do it only once the heap was dirty enough
+## to notice.
+ordinary <- list(
+    list(logical(),    c(FALSE, FALSE, FALSE)),
+    list(integer(),    c(0L, 0L, 0L)),
+    list(double(),     c(0, 0, 0)),
+    list(complex(),    c(0+0i, 0+0i, 0+0i)),
+    list(character(),  c("", "", "")),
+    list(raw(),        as.raw(c(0, 0, 0))),
+    list(list(),       list(NULL, NULL, NULL)),
+    list(expression(), expression(NULL, NULL, NULL)))
+for (z in ordinary) {
+    p <- z[[1L]]
+    expected <- z[[2L]]
+    stopifnot(identical(.vectorlike(p, 3L), expected),
+	      identical(.arraylike(p, c(1L, 3L)),
+		array(expected, c(1L, 3L))))
+}
+au <- .arraylike(u)
 stopifnot(identical(.vectorlike(u, 3L), vector(storage.mode(u), 3L)),
 	  identical(.vectorlike(u), xinteger(0L, 8L, "unsigned")),
 	  ## and they carry the one thing a name cannot
@@ -622,6 +634,11 @@ stopifnot(identical(.vectorlike(u, 3L), vector(storage.mode(u), 3L)),
 	  identical(storage.mode(.arraylike(u, c(2L, 3L))), "uint64"),
 	  identical(dimnames(.arraylike(u, 2L, list(c("a", "b")))),
 		    list(c("a", "b"))),
+	  ## with dim omitted, .arraylike() follows array()'s length default
+	  identical(dim(au), length(u)), length(au) == length(u),
+	  storage.mode(au) == "uint64",
+	  ## attributes do not stop a vector from donating its element type
+	  identical(.vectorlike(matrix(1L, 1L, 1L), 2L), c(0L, 0L)),
 	  ## an object is not a mode name, however long it is
 	  inherits(tryCatch(vector(u, 2L), error = identity), "error"),
 	  inherits(tryCatch(vector(b1, 2L), error = identity), "error"),
@@ -635,6 +652,8 @@ stopifnot(identical(.vectorlike(u, 3L), vector(storage.mode(u), 3L)),
 	  inherits(tryCatch(vector("intger", 3L), error = identity), "error"),
 	  ## .vectorlike() wants a vector
 	  inherits(tryCatch(.vectorlike(NULL, 3L), error = identity), "error"),
+	  inherits(tryCatch(.vectorlike(pairlist(1), 3L),
+			    error = identity), "error"),
 	  inherits(tryCatch(.vectorlike(sum, 3L), error = identity), "error"))
 
 ## the callers that no longer have to ask
