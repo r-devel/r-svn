@@ -1543,6 +1543,50 @@ static void dsort(double *x, int *o, int n)
     }
 }
 
+/* The dense rank of an 'xinteger' key: equal elements get equal integers,
+   so ordering by the ranks is ordering by the values.  The counting
+   sorts below are written against a fixed set of C types and a
+   per-vector element width does not fit them, but a rank does -- and
+   it leaves several keys, per-key 'decreasing', na.last and the group
+   stack all working, which is what this sort is asked for. */
+static SEXP xintDenseRank(SEXP x)
+{
+    R_xlen_t n = XLENGTH(x);
+    int w = XINT_WIDTH(x), k = XINT_KIND(x);
+    bool hasNA = XINT_HAS_NA(x);
+    const Rbyte *bx = XINT_DATA_RO(x);
+
+    SEXP ans = PROTECT(allocVector(INTSXP, n));
+    int *r = INTEGER(ans);
+
+    const void *vmax = vmaxget();
+    int *ord = (int *) R_alloc((size_t) n, sizeof(int));
+    for (R_xlen_t i = 0; i < n; i++) ord[i] = (int) i;
+    orderVector1(ord, (int) n, x, TRUE, FALSE, R_NilValue);
+
+    /* NAs sort last, so the running comparison never sees one */
+    const Rbyte *prev = NULL;
+    int rank = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+	R_xlen_t j = ord[i];
+	const Rbyte *p = bx + j * w;
+
+	if (hasNA && R_xintEltIsNA(p, w, k)) {
+	    r[j] = NA_INTEGER;
+	    continue;
+	}
+	if (prev == NULL || R_xintEltCmp(p, prev, w, k) != 0)
+	    rank++;
+	r[j] = rank;
+	prev = p;
+    }
+
+    vmaxset(vmax);
+    UNPROTECT(1);
+
+    return ans;
+}
+
 attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int n = -1, narg = 0, ngrp, tmp, *osub, thisgrpn;
@@ -1590,6 +1634,15 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (XLENGTH(CAR(ap)) != nl)
 	    error(_("argument lengths differ"));
     }
+
+    /* args is this call's own pairlist, and it stays protected, so the
+       ranks below are reachable for as long as the keys they replace.
+       Long vectors are left alone for the check further down to turn
+       away, rather than ranked through an int index first. */
+    for (SEXP ap = (nl <= INT_MAX) ? args : R_NilValue; ap != R_NilValue;
+	 ap = CDR(ap))
+	if (TYPEOF(CAR(ap)) == XINTSXP)
+	    SETCAR(ap, xintDenseRank(CAR(ap)));
 
     if (narg != length(decreasing))
 	error(_("length(decreasing) must match the number of order arguments"));

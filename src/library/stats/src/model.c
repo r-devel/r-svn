@@ -145,6 +145,7 @@ SEXP modelframe(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case CPLXSXP:
 	    case STRSXP:
 	    case RAWSXP:
+	    case XINTSXP:
 		break;
 	    default:
 		error(_("invalid type (%s) for variable '%s'"),
@@ -438,7 +439,10 @@ SEXP modelmatrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    INTEGER(nlevs)[i] = 2;
 	    INTEGER(columns)[i] = ncols(var_i);
 	}
-	else if (isNumeric(var_i)) {
+	else if (isNumeric(var_i) || TYPEOF(var_i) == XINTSXP) {
+	    /* the design matrix is double, so an 'xinteger' column converts
+	       here with the numeric ones; the coercion warns for a value
+	       above 2^53, which is where a double stops naming it */
 	    SET_VECTOR_ELT(variable, i, coerceVector(var_i, REALSXP));
 	    var_i = VECTOR_ELT(variable, i);
 	    LOGICAL(ordered)[i] = 0;

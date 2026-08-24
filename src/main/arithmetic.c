@@ -531,12 +531,42 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     ARITHOP_TYPE oper = (ARITHOP_TYPE) PRIMVAL(op);
     int nprotect = 2; /* x and y */
 
-
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
 
-    FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-    FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+    /* XINTSXP needs its own initial type handling because integer and
+       logical operands narrow into it, while double and complex operands
+       promote it.  The operation itself is deferred to
+       the dispatch below so that attributes follow the ordinary rules. */
+    bool xint = (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP);
+
+    /* FIXUP_NULL_AND_CHECK_TYPES applies whole to an operand that is
+       not 'xinteger'.  Its type gate matters as much as its NULL fixup:
+       the recycling code below takes XLENGTH() of both operands, and
+       on a closure or a builtin that reads a field the node does not
+       have.  Which numeric types combine with an 'xinteger' operand is
+       still R_xintNarrow()'s to say, so the 'xinteger' one is left
+       alone -- and the other is checked first, so that an operation
+       about to be rejected does not also warn about precision on its
+       way out. */
+    if (TYPEOF(x) != XINTSXP) FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
+    if (TYPEOF(y) != XINTSXP) FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+
+    if (xint && (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+		  TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP ||
+		  oper == DIVOP || oper == POWOP)) {
+	/* XINTSXP follows the ordinary coercion hierarchy.  An
+	   explicit double/complex operand, and the two always-double
+	   operators, therefore promote it through its checked conversion;
+	   that conversion warns only when an actual value loses precision. */
+	SEXPTYPE target = (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
+	    ? CPLXSXP : REALSXP;
+	if (TYPEOF(x) == XINTSXP)
+	    REPROTECT(x = coerceVector(x, target), xpi);
+	if (TYPEOF(y) == XINTSXP)
+	    REPROTECT(y = coerceVector(y, target), ypi);
+	xint = false;
+    }
 
     R_xlen_t
 	nx = XLENGTH(x),
@@ -661,7 +691,9 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
-    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (xint)
+	val = R_xintArith(call, (int) oper, x, y);
+    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
@@ -726,6 +758,8 @@ attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 	return real_unary(operation, s1, call);
     case CPLXSXP:
 	return complex_unary(operation, s1, call);
+    case XINTSXP:
+	return R_xintUnary(call, (int) operation, s1);
     default:
 	errorcall(call, _("invalid argument to unary operator"));
     }
@@ -1379,6 +1413,13 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
+    if (TYPEOF(CAR(args)) == XINTSXP) {
+	if (PRIMVAL(op) == 4) return R_xintSign(CAR(args));
+	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+	SETCAR(args, bx);
+	UNPROTECT(1);
+    }
+
     if (isComplex(CAR(args)))
 	return complex_math1(call, op, args, env);
 
@@ -1455,6 +1496,12 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
     check1arg(args, call, "x");
     if (isComplex(CAR(args)))
 	errorcall(call, _("unimplemented complex function"));
+    if (TYPEOF(CAR(args)) == XINTSXP) {
+	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+	SEXP ans = math1(bx, trunc, call);
+	UNPROTECT(1);
+	return ans;
+    }
     return math1(CAR(args), trunc, call);
 }
 
@@ -1474,7 +1521,9 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
-    if (isInteger(x) || isLogical(x)) {
+    if (TYPEOF(x) == XINTSXP)
+	return R_xintAbs(call, x);
+    else if (isInteger(x) || isLogical(x)) {
 	/* integer or logical ==> return integer,
 	   factor was covered by Math.factor. */
 	R_xlen_t i, n = XLENGTH(x);
@@ -1528,7 +1577,8 @@ static SEXP math2(SEXP sa, SEXP sb, double (*f)(double, double),
     double ai, bi, *y;					\
     const double *a, *b;				\
 							\
-    if (!isNumeric(sa) || !isNumeric(sb))		\
+    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||	\
+	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP))		\
 	errorcall(lcall, R_MSG_NONNUM_MATH);		\
 							\
     na = XLENGTH(sa);					\
@@ -1881,6 +1931,11 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (x != R_MissingArg && ! OBJECT(x)) {
 	    if (isComplex(x))
 		res = complex_math1(call, op, args, env);
+	    else if (TYPEOF(x) == XINTSXP) {
+		SEXP bx = PROTECT(coerceVector(x, REALSXP));
+		res = math1(bx, R_log, call);
+		UNPROTECT(1);
+	    }
 	    else
 		res = math1(x, R_log, call);
 	    UNPROTECT(1);
@@ -1919,6 +1974,11 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (! DispatchGroup("Math", call, op, args, env, &res)) {
 	    if (isComplex(CAR(args)))
 		res = complex_math1(call, op, args, env);
+	    else if (TYPEOF(CAR(args)) == XINTSXP) {
+		SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
+		res = math1(bx, R_log, call);
+		UNPROTECT(1);
+	    }
 	    else
 		res = math1(CAR(args), R_log, call);
 	}
@@ -1961,7 +2021,9 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	else if (ISNAN(a) || ISNAN(b)|| ISNAN(c)) y = R_NaN;
 
 #define SETUP_Math3						\
-    if (!isNumeric(sa) || !isNumeric(sb) || !isNumeric(sc))	\
+    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||		\
+	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||		\
+	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP))		\
 	error(R_MSG_NONNUM_MATH);			        \
 								\
     na = XLENGTH(sa);						\
@@ -2186,7 +2248,10 @@ static SEXP math4(SEXP sa, SEXP sb, SEXP sc, SEXP sd,
     double ai, bi, ci, di, *y;
 
 #define SETUP_Math4							\
-    if(!isNumeric(sa)|| !isNumeric(sb)|| !isNumeric(sc)|| !isNumeric(sd))\
+    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||			\
+	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||			\
+	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP) ||			\
+	!(isNumeric(sd) || TYPEOF(sd) == XINTSXP))			\
 	error(R_MSG_NONNUM_MATH);				        \
 									\
     na = XLENGTH(sa);							\
@@ -2358,8 +2423,11 @@ static SEXP math5(SEXP sa, SEXP sb, SEXP sc, SEXP sd, SEXP se, double (*f)())
     double ai, bi, ci, di, ei, *y;
 
 #define SETUP_Math5							\
-    if (!isNumeric(sa) || !isNumeric(sb) || !isNumeric(sc) ||		\
-	!isNumeric(sd) || !isNumeric(se))				\
+    if (!(isNumeric(sa) || TYPEOF(sa) == XINTSXP) ||			\
+	!(isNumeric(sb) || TYPEOF(sb) == XINTSXP) ||			\
+	!(isNumeric(sc) || TYPEOF(sc) == XINTSXP) ||			\
+	!(isNumeric(sd) || TYPEOF(sd) == XINTSXP) ||			\
+	!(isNumeric(se) || TYPEOF(se) == XINTSXP))			\
 	error(R_MSG_NONNUM_MATH);				        \
 									\
     na = XLENGTH(sa);							\

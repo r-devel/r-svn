@@ -20,8 +20,28 @@ is.vector(x, mode = "any")
 \arguments{
   \item{mode}{character string naming an atomic mode or
     \code{"list"} or \code{"expression"} or (except for \code{vector})
-    \code{"any"}.  Currently, \code{is.vector()} allows any type (see
-    \code{\link{typeof}}) for \code{mode}, and when mode is not
+    \code{"any"}.  For a \code{\link{xinteger}} vector a detailed storage
+    mode names the width and kind, as \code{\link{storage.mode}} reports
+    them -- \code{"int64"} or \code{"uint128"}.  Plain
+    \code{"xinteger"}, as \code{\link{typeof}} reports it, does not specify
+    a complete storage mode and is therefore an error for \code{vector}
+    and \code{as.vector}.
+    No name states whether \code{NA} is representable, so \code{vector}
+    also accepts a \emph{prototype}: any vector other than a
+    character vector of length one is taken to stand for its own type,
+    and \code{vector} builds one of that type throughout.  Thus
+    \code{vector(x, n)} reproduces the element type of \code{x} whatever
+    \code{x} is, where \code{vector(typeof(x), n)} can only reproduce
+    what a type name can express.  \code{\link{readBin}} and
+    \code{\link{scan}} take a prototype for \code{what} on the same
+    terms, and \code{\link{vapply}} takes one for \code{FUN.VALUE}.
+    A character vector of length one remains a mode name, so
+    \code{vector("integer", n)} is unchanged and a misspelt name is
+    still an error rather than a prototype.
+    Currently, \code{is.vector()} allows any type (see
+    \code{\link{typeof}}) for \code{mode}.  For an \code{xinteger} vector
+    it also accepts \code{"numeric"} when that is its mode and its
+    detailed storage-mode name.  Otherwise, when mode is not
     \code{"any"}, \code{is.vector(x, mode)} is almost the same as
     \code{typeof(x) == mode}.}% differences: for mode = NA, or mode = "numeric"
   \item{length}{a non-negative integer specifying the desired length.  For

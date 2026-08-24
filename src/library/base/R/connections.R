@@ -268,11 +268,21 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
-    if(!is.character(what) || is.na(what) ||
-       length(what) != 1L || ## hence length(what) == 1:
-       !any(what == c("numeric", "double", "integer", "int", "logical",
-	    "complex", "character", "raw")))
-	what <- typeof(what)
+    ## A length-one character vector naming a mode is the mode; anything
+    ## else is a prototype whose type is the mode -- including a character
+    ## vector of any other length, as documented.  A 'xinteger' prototype is
+    ## passed through whole, as it also says whether NA is representable,
+    ## which a storage-mode name does not.  The detailed 'xinteger' names join
+    ## the list so that readBin(con, "int64") does not fall through to
+    ## typeof(), which is "character", and silently read strings; a name of
+    ## that shape but an unsupported width is left for .Internal to reject.
+    if(!(is.character(what) && length(what) == 1L && !is.na(what) &&
+         (what %in% c("numeric", "double", "integer", "int", "logical",
+                      "complex", "character", "raw") ||
+          .isXIntTypeName(what)))) {
+        if(!is.xinteger(what))
+            what <- typeof(what)
+    }
     .Internal(readBin(con, what, n, size, signed, swap))
 }
 

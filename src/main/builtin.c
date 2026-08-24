@@ -49,14 +49,23 @@ R_xlen_t asVecSize(SEXP x)
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    /* a negative size is the caller's to interpret -- readLines()
+	       reads to the end on n = -1 -- so it is only clamped into
+	       the range the cast below can represent */
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
+	case XINTSXP:
 	{
+	    /* asReal() reads an 'xinteger' element by its width and kind;
+	       a size a double cannot name exactly is past R_XLEN_T_MAX
+	       and turned away here anyway */
 	    double d = asReal(x);
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;	/* as above */
 	    return (R_xlen_t) d;
 	}
 	default:
@@ -547,6 +556,28 @@ static void cat_cleanup(void *data)
 #endif
 }
 
+/* EncodeElement0() returns a shared buffer that cat_newline() may reuse
+   before the element is printed, so each element has to be copied out.
+   Most types encode to a few dozen characters and fit the caller's stack
+   buffer; a wide 'xinteger' element runs to several hundred, and is copied to
+   a buffer sized to what was actually encoded rather than truncated to
+   fit.  That buffer is grown rather than replaced, so a long vector of
+   wide elements costs one allocation per new maximum width, not one per
+   element. */
+static const char *cat_element(SEXP s, R_xlen_t i, char **buf, size_t *buflen)
+{
+    const char *p = EncodeElement0(s, i, 0, OutDec);
+    size_t n = strlen(p);
+
+    if (n >= *buflen) {
+	*buflen = n + 1;
+	*buf = R_alloc(*buflen, 1);
+    }
+    memcpy(*buf, p, n + 1);
+
+    return *buf;
+}
+
 attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     cat_info ci;
@@ -557,7 +588,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     int append;
     int i, iobj, n, nobjs, sepw, lablen, ntot, nlsep, nlines;
     size_t width, pwidth;
-    char buf[512];
+    char sbuf[512], *buf = sbuf;
+    size_t buflen = sizeof sbuf;
     const char *p = "";
 
     checkArity(op, args);
@@ -652,14 +684,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    else if (isSymbol(s)) /* length 1 */
 		p = CHAR(PRINTNAME(s));
 	    else if (isVectorAtomic(s)) {
-		/* Not a string, as that is covered above.
-		   Thus the maximum size is about 60.
-		   The copy is needed as cat_newline might reuse the buffer.
-		   Use strncpy is in case these assumptions change.
-		*/
-		p = EncodeElement0(s, 0, 0, OutDec);
-		strncpy(buf, p, 511); buf[511] = '\0';
-		p = buf;
+		/* Not a string, as that is covered above. */
+		p = cat_element(s, 0, &buf, &buflen);
 	    }
 #ifdef fixed_cat
 	    else if (isVectorList(s)) {
@@ -687,11 +713,8 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    cat_printsep(sepr, ntot);
 		    if (isString(s))
 			p = trChar(STRING_ELT(s, i+1));
-		    else {
-			p = EncodeElement0(s, i+1, 0, OutDec);
-			strncpy(buf, p, 511); buf[511] = '\0';
-			p = buf;
-		    }
+		    else
+			p = cat_element(s, i+1, &buf, &buflen);
 		    w = strlen(p);
 		    cat_sepwidth(sepr, &sepw, ntot);
 		    if (width + w + sepw > pwidth) {
@@ -792,11 +815,56 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(CADR(args)) != 1) error(_("invalid '%s' argument"), "length");
     len = asVecSize(CADR(args));
     if (len < 0) error(_("invalid '%s' argument"), "length");
+    /* A vector stands in for its own type.  This is the only way to
+       name one whose element type is not settled by the SEXPTYPE: a
+       storage-mode name carries an 'xinteger' vector's width and kind
+       but not its sentinel policy, so no string spells the whole type.
+       readBin() and scan() take a prototype for 'what' on the same
+       terms, and vapply() takes one for FUN.VALUE.
+
+       A length-one character vector stays a mode name, as it has always
+       been -- vector("integer", n) cannot start meaning a character
+       vector, and a typo in a computed mode name must still be an error
+       rather than silently becoming a prototype.  Anything else that is
+       a vector is a prototype; each of those was an error before. */
+    SEXP proto = CAR(args);
+    if (isVector(proto) &&
+	!(TYPEOF(proto) == STRSXP && XLENGTH(proto) == 1)) {
+	s = R_allocVectorLike(proto, len);
+	/* allocVector() leaves an atomic payload uninitialized, and
+	   vector() promises a zero-filled one -- which is why the name
+	   path below ends in the same Memzero().  R_allocXIntVector()
+	   fills its own, so XINTSXP is not among these. */
+	switch (TYPEOF(s)) {
+	case LGLSXP:  Memzero(LOGICAL(s), len); break;
+	case INTSXP:  Memzero(INTEGER(s), len); break;
+	case REALSXP: Memzero(REAL(s), len); break;
+	case CPLXSXP: Memzero(COMPLEX(s), len); break;
+	case RAWSXP:  Memzero(RAW(s), len); break;
+	default: break;		/* string and list payloads are filled */
+	}
+	return s;
+    }
+
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
-    mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
-    if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
+    const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
+
+    /* A detailed 'xinteger' storage mode names its width and kind --
+       for example, "int64" or "uint128" -- because those are per-vector
+       properties that a SEXPTYPE cannot carry.  Checked before
+       str2type(), which knows only the incomplete structural name
+       "xinteger". */
+    int bwidth, bkind;
+    if (R_xintTypeFromName(modestr, &bwidth, &bkind))
+	return R_allocXIntVector(len, bwidth, bkind, TRUE);
+
+    mode = str2type(modestr);
+    if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
+    if (mode == XINTSXP)
+	error(_("'%s' does not name a complete storage mode; give a width and a kind, as '%s' does, or supply a prototype"),
+	      "xinteger", "int64");
     switch (mode) {
     case LGLSXP:
     case INTSXP:
@@ -816,7 +884,9 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("vector: cannot make a vector of mode '%s'."),
 	      translateChar(STRING_ELT(s, 0))); /* should be ASCII */
     }
-    if (mode == INTSXP || mode == LGLSXP)
+    if (mode == LGLSXP)
+	Memzero(LOGICAL(s), len);
+    else if (mode == INTSXP)
 	Memzero(INTEGER(s), len);
     else if (mode == REALSXP)
 	Memzero(REAL(s), len);
@@ -846,7 +916,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
-    PROTECT(rval = allocVector(TYPEOF(x), len));
+    PROTECT(rval = R_allocVectorLike(x, len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)
 	names = allocVector(STRSXP, len);
@@ -921,6 +991,22 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    }
 	    else
 		RAW(rval)[i] = (Rbyte) 0;
+	break;
+    case XINTSXP:
+	{
+	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
+	    for (i = 0; i < len; i++)
+		if (i < lenx) {
+		    memcpy(XINT_ELT(rval, i), XINT_ELT_RO(x, i),
+			   (size_t) w);
+		    if (xnames != R_NilValue)
+			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+		}
+		else {
+		    R_xintCheckNA(rval);
+		    R_xintSetEltNA(XINT_ELT(rval, i), w, k);
+		}
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("length<-", x);

@@ -108,7 +108,8 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	nowarn = (p && StringTrue(p)) ? 1 : 0; // if(nowarn) <error>
     }
     if (!miss_nr) {
-	if (!isNumeric(snr)) error(_("non-numeric matrix extent"));
+	if (!isNumeric(snr) && TYPEOF(snr) != XINTSXP)
+	    error(_("non-numeric matrix extent"));
 	nr = asInteger(snr);
 	if (nr == NA_INTEGER)
 	    error(_("invalid 'nrow' value (too large or NA)"));
@@ -116,7 +117,8 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("invalid 'nrow' value (< 0)"));
     }
     if (!miss_nc) {
-	if (!isNumeric(snc)) error(_("non-numeric matrix extent"));
+	if (!isNumeric(snc) && TYPEOF(snc) != XINTSXP)
+	    error(_("non-numeric matrix extent"));
 	nc = asInteger(snc);
 	if (nc == NA_INTEGER)
 	    error(_("invalid 'ncol' value (too large or NA)"));
@@ -172,7 +174,9 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
-    PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
+    /* R_allocMatrixLike: allocMatrix cannot carry a per-vector 'xinteger'
+       width; for every other type it is allocMatrix itself */
+    PROTECT(ans = R_allocMatrixLike(vals, nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
     else { /* fill with NAs */
@@ -205,6 +209,14 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	case RAWSXP:
 	    if (N) memset(RAW(ans), 0, N);
+	    break;
+	case XINTSXP:
+	    {
+		int w = XINT_WIDTH(ans), k = XINT_KIND(ans);
+		if (N) R_xintCheckNA(ans);
+		for (i = 0; i < N; i++)
+		    R_xintSetEltNA(XINT_ELT(ans, i), w, k);
+	    }
 	    break;
 	default:
 	    /* don't fill with anything */
@@ -567,6 +579,7 @@ attribute_hidden SEXP do_lengths(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	case XINTSXP:
 	    break;
 	default:
 	    error(_("'%s' must be a list or atomic vector"), "x");
@@ -1293,7 +1306,8 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    PRIMNAME(op));
     bool sym = isNull(y);
     if (sym && (PRIMVAL(op) > 0)) y = x;
-    if ( !(isNumeric(x) || isComplex(x)) || !(isNumeric(y) || isComplex(y)) )
+    if ( !(isNumeric(x) || isComplex(x) || TYPEOF(x) == XINTSXP) ||
+	 !(isNumeric(y) || isComplex(y) || TYPEOF(y) == XINTSXP) )
 	errorcall(call, _("requires numeric/complex matrix/vector arguments"));
 
     SEXP xdims = getAttrib(x, R_DimSymbol),
@@ -1625,7 +1639,7 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	goto not_matrix;
     PROTECT(dimnamesnames);
-    PROTECT(r = allocVector(TYPEOF(a), len));
+    PROTECT(r = R_allocVectorLike(a, len));
     R_xlen_t i, j, l_1 = len-1;
     switch (TYPEOF(a)) {
     case LGLSXP:
@@ -1666,6 +1680,15 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    RAW(r)[i] = RAW(a)[j];
 	}
 	break;
+    case XINTSXP:
+    {
+	size_t w = (size_t) XINT_WIDTH(a);
+	for (i = 0, j = 0; i < len; i++, j += nrow) {
+	    if (j > l_1) j -= l_1;
+	    memcpy(XINT_ELT(r, i), XINT_ELT_RO(a, j), w);
+	}
+	break;
+    }
     default:
 	UNPROTECT(2); /* r, dimnamesnames */
 	goto not_matrix;
@@ -1792,7 +1815,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     Memzero(iip, n);
 
     R_xlen_t len = XLENGTH(a);
-    SEXP r = PROTECT(allocVector(TYPEOF(a), len));
+    SEXP r = PROTECT(R_allocVectorLike(a, len));
 
     R_xlen_t li, lj;
 
@@ -1858,6 +1881,15 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    CLICKJ;
 	}
 	break;
+    case XINTSXP:
+    {
+	size_t w = (size_t) XINT_WIDTH(a);
+	for (lj = 0, li = 0; li < len; li++) {
+	    memcpy(XINT_ELT(r, li), XINT_ELT_RO(a, lj), w);
+	    CLICKJ;
+	}
+	break;
+    }
 
     default:
 	UNIMPLEMENTED_TYPE("aperm", a);
@@ -1924,7 +1956,16 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (NaRm == NA_LOGICAL) error(_("invalid '%s' argument"), "na.rm");
     bool keepNA = !NaRm;
 
+    int nprotect = 0;
     int type = TYPEOF(x);
+    if (type == XINTSXP) {
+	/* These four operations return double for ordinary integer input.
+	   Numeric fixed-width input follows the same result type through the
+	   checked conversion, including its precision warning above 2^53. */
+	PROTECT(x = coerceVector(x, REALSXP));
+	nprotect++;
+	type = REALSXP;
+    }
     switch (type) {
     case LGLSXP:
     case INTSXP:
@@ -2138,7 +2179,7 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
     }
 
-    UNPROTECT(1);
+    UNPROTECT(1 + nprotect);
     return ans;
 }
 
@@ -2175,6 +2216,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case RAWSXP:
 	case EXPRSXP:
 	case VECSXP:
+	case XINTSXP:
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
@@ -2187,7 +2229,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t nans = dim2total(dims, LENGTH(dims), _("too many elements specified")),
 	lendat = XLENGTH(vals), i;
 
-    PROTECT(ans = allocVector(TYPEOF(vals), nans));
+    PROTECT(ans = R_allocVectorLike(vals, nans));
     switch(TYPEOF(vals)) {
     case LGLSXP:
 	if (nans && lendat)
@@ -2225,6 +2267,16 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    xcopyRawWithRecycle(RAW(ans), RAW(vals), 0, nans, lendat);
 	else
 	    for (i = 0; i < nans; i++) RAW(ans)[i] = 0;
+	break;
+    case XINTSXP:
+	if (nans && lendat)
+	    R_xintCopyWithRecycle(ans, vals, 0, nans, lendat);
+	else {
+	    int w = XINT_WIDTH(ans), k = XINT_KIND(ans);
+	    if (nans) R_xintCheckNA(ans);
+	    for (i = 0; i < nans; i++)
+		R_xintSetEltNA(XINT_ELT(ans, i), w, k);
+	}
 	break;
     case STRSXP:
 	if (nans && lendat)
@@ -2350,6 +2402,22 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
        mk_DIAG((Rbyte) 0);
        break;
    }
+   case XINTSXP:
+   {
+       /* allocMatrix cannot carry a per-vector width, and mk_DIAG
+	  indexes elements by type, so this arm spells both out */
+       PROTECT(ans = R_allocMatrixLike(x, nr, nc));
+
+       size_t w = (size_t) XINT_WIDTH(x);
+       if (NR * nc)
+	   memset(XINT_DATA(ans), 0, (size_t)(NR * nc) * w);
+       R_xlen_t i, i1;
+       MOD_ITERATE1(mn, nx, i, i1, {
+	       memcpy(XINT_ELT(ans, i * (NR + 1)),
+		      XINT_ELT_RO(x, i1), w);
+       });
+       break;
+   }
    default: {
        PROTECT(x = coerceVector(x, REALSXP));
        nprotect++;
@@ -2425,7 +2493,7 @@ attribute_hidden SEXP do_maxcol(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #define ASPLIT_ITERATE( __body__ ) do {			\
 	for(i = 0; i < n2; i++) {			\
-	    PROTECT(e = allocVector(TYPEOF(x), n1));	\
+	    PROTECT(e = R_allocVectorLike(x, n1));	\
 	    for(j = 0; j < n1; j++, k++) {		\
 		__body__ ;				\
 	    }						\
@@ -2484,6 +2552,13 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case RAWSXP:
 	ASPLIT_ITERATE( RAW(e)[j] = RAW(x)[k] );
+	break;
+    case XINTSXP:
+	{
+	    size_t w = (size_t) XINT_WIDTH(x);
+	    ASPLIT_ITERATE( memcpy(XINT_ELT(e, j),
+				   XINT_ELT_RO(x, k), w) );
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("asplit", x);

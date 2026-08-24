@@ -195,7 +195,7 @@ static int defaultSerializeVersion(void)
 	int val = -1;
 	if (valstr != NULL)
 	    val = atoi(valstr);
-	if (val == 2 || val == 3)
+	if (val == 2 || val == 3 || val == 4)
 	    dflt = val;
 	else
 	    dflt = 3; /* the default */
@@ -391,6 +391,19 @@ static void InWord(R_inpstream_t stream, char * buf, int size)
     if (i == size)
 	error(_("read error"));
     buf[i] = 0;
+}
+
+/* n bytes written as two-digit hex words -- the ascii form of an 'xinteger'
+   payload, in either of ReadItem's arms for it */
+static void InBytesHex(R_inpstream_t stream, Rbyte *p, R_xlen_t n)
+{
+    for (R_xlen_t ix = 0; ix < n; ix++) {
+	char word[128];
+	unsigned int i;
+	InWord(stream, word, sizeof(word));
+	if(sscanf(word, "%2x", &i) != 1) error(_("read error"));
+	p[ix] = (Rbyte) i;
+    }
 }
 
 static int InInteger(R_inpstream_t stream)
@@ -750,6 +763,7 @@ static int PackFlags(int type, int levs, int isobj, int hasattr, int hastag)
         case VECSXP:
         case EXPRSXP:
         case RAWSXP:
+        case XINTSXP:
             levs &= ~GROWABLE_MASK;
             break;
         default:
@@ -1259,6 +1273,44 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 		}
 	    }
 	    break;
+	case XINTSXP:
+	{
+	    /* No older R can read this type at all, and the header of a
+	       version 2 or 3 stream names an R that can read the whole
+	       stream -- which would be a promise this breaks. */
+	    if (stream->version < 4)
+		error(_("an '%s' vector needs serialization version 4; this stream is version %d"),
+		      "xinteger", stream->version);
+
+	    /* width and kind ride along in gp, which PackFlags already
+	       encoded, so only the payload is written here */
+	    int w = XINT_WIDTH(s);
+	    len = XLENGTH(s);
+	    WriteLENGTH(stream, s);
+
+	    const void *vmax = vmaxget();
+	    R_xlen_t chunk = CHUNK_SIZE / w;	/* whole elements per pass */
+	    if (chunk < 1) chunk = 1;
+	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
+
+	    for (R_xlen_t done = 0; done < len; ) {
+		IF_IC_R_CheckUserInterrupt();
+		R_xlen_t this = min2(chunk, len - done);
+		R_xintSwapWire(buf, XINT_ELT_RO(s, done), this, w);
+		switch (stream->type) {
+		case R_pstream_xdr_format:
+		case R_pstream_binary_format:
+		    stream->OutBytes(stream, buf, (int) (this * w));
+		    break;
+		default:
+		    for (R_xlen_t ix = 0; ix < this * w; ix++)
+			OutByte(stream, buf[ix]);
+		}
+		done += this;
+	    }
+	    vmaxset(vmax);
+	    break;
+	}
 	case OBJSXP:
 	  break; /* only attributes (i.e., slots) count */
 	default:
@@ -1425,6 +1477,266 @@ static void WriteBC(SEXP s, SEXP ref_table, R_outpstream_t stream)
     UNPROTECT(1);
 }
 
+/* Version 4 is version 3 plus the SEXPTYPEs added since, and no earlier
+   R can read a stream that holds one of them. */
+#define R_V4_MIN_READER     R_Version(4,7,0)
+#define R_V4_MIN_READER_STR "4.7.0"
+
+/* Whether anything reachable from s can only go into a version 4
+   stream -- today, whether an 'xinteger' vector is in there.  The header is
+   written before the first item and a connection cannot be rewound, so
+   the writer has to settle this up front.
+
+   The walk mirrors WriteItem()'s reachability at the version about to
+   be written, and it has to: a gap is not safe in either direction.
+   One that misses a vector leaves WriteItem() to refuse it mid-stream,
+   with the header already written and whatever the file used to hold
+   already gone -- the very thing settling the version up front is meant
+   to prevent.  One that finds a vector the write would not have reached
+   costs a version 4 file where a version 3 one would have done, which
+   is merely stricter.
+
+   The one gap left is a refhook.  Whether it replaces a reference
+   object -- and so whether the write descends into that object at all
+   -- is known only by calling it, and calling it here would call it
+   twice for every object it is offered, which a hook that records what
+   it is asked about would notice.  So the walk descends, and an object
+   whose only 'xinteger' vector a refhook would have externalised is
+   written in version 4 rather than 3.  Stricter, never truncated.
+
+   The reference types are the edges that can cycle -- an environment
+   through its frame or its attributes, an external pointer through its
+   prot field, a weak reference through its attributes -- so a table of
+   the ones already visited is enough to terminate.  WriteItem() adds
+   each of them to its reference table in the same place, for the same
+   reason. */
+static bool containsXIntVector(SEXP s, SEXP seen, int version)
+{
+    R_CheckStack();
+
+    if (TYPEOF(s) == XINTSXP)
+	return true;
+
+    /* a symbol is written as its name alone; nothing else of it, its
+       attribute slot included, goes into the stream */
+    if (TYPEOF(s) == SYMSXP)
+	return false;
+
+    /* An ALTREP object is a class, two data fields and attributes and
+       nothing else, so whatever it is holding is reachable from those
+       -- whether it goes into the stream as its serialized state or,
+       when the class declines to supply one, expanded in the ordinary
+       way.  The two data fields are walked here and the rest is left
+       to the code below, which covers the attributes and, for an
+       ALTREP list, the elements as the ordinary write would see them.
+
+       Calling the class's Serialized_state method would be a closer
+       match to what WriteItem() writes and is not an option: it is
+       package code, need not be pure, and WriteItem() calls it again,
+       so an ordinary serialization would observe it twice.  Reading
+       data1 and data2 asks the class nothing.
+
+       That reasoning does not reach a class from a package, whose
+       state is whatever its method chooses to build and need not be
+       reachable from either field, so such an object is taken to need
+       version 4 without being looked into.  R's own classes cannot be
+       treated that way, because they are what 1:n, a sorted vector's
+       wrapper and a deferred coercion are made of: declaring them
+       opaque would put every ordinary object -- one holding no 'xinteger'
+       vector anywhere in it -- into version 4 for the rest of any
+       session in which an 'xinteger' vector had ever been made. */
+    if (ALTREP(s) && version >= 3) {
+	if (!ALTREP_IS_BASE_CLASS(s))
+	    return true;
+
+	if (containsXIntVector(R_altrep_data1(s), seen, version) ||
+	    containsXIntVector(R_altrep_data2(s), seen, version))
+	    return true;
+    }
+
+
+    /* A cycle can run through a reference object's attributes as
+       readily as through its frame or prot field, so the visit is
+       recorded before anything below it is walked, attributes
+       included. */
+    switch (TYPEOF(s)) {
+    case ENVSXP:
+	/* the environments written by marker or by name take nothing with
+	   them, attributes included; see SaveSpecialHook() and
+	   WriteItem() */
+	if (SaveSpecialHook(s) != 0 || R_IsPackageEnv(s) ||
+	    R_IsNamespaceEnv(s))
+	    return false;
+	/* fall through */
+    case EXTPTRSXP:
+    case WEAKREFSXP:
+	if (AddCircleHash(s, seen))	/* visited already */
+	    return false;
+	break;
+    default:
+	break;
+    }
+
+    /* CHARSXP keeps its cache chain in ATTRIB and is not serialized
+       with one, exactly as WriteItem() has it */
+    if (TYPEOF(s) != CHARSXP && ATTRIB(s) != R_NilValue &&
+	containsXIntVector(ATTRIB(s), seen, version))
+	return true;
+
+    switch (TYPEOF(s)) {
+    case VECSXP:
+    case EXPRSXP:
+	for (R_xlen_t i = 0; i < XLENGTH(s); i++)
+	    if (containsXIntVector(VECTOR_ELT(s, i), seen, version))
+		return true;
+	break;
+    case LISTSXP:
+    case LANGSXP:
+    case DOTSXP:
+	/* WriteItem() walks the CDR chain by tail call and re-dispatches
+	   on whatever node it finds there, so the chain can end in any
+	   object, not only R_NilValue -- an ALTREP serialized state is
+	   CONS(data, metadata), for one.  A tag is usually a symbol, but
+	   nothing enforces that and WriteItem() writes whatever is
+	   there.  And a frame's binding cell can hold an immediate
+	   scalar, which CAR() refuses to read; it can hold no 'xinteger'
+	   vector, so it is skipped rather than expanded the way
+	   WriteItem() has to expand it.  The attributes of the head
+	   cell were taken above. */
+	for (SEXP t = s; t != R_NilValue; t = CDR(t)) {
+	    switch (TYPEOF(t)) {
+	    case LISTSXP:
+	    case LANGSXP:
+	    case DOTSXP:
+		break;
+	    default:
+		return containsXIntVector(t, seen, version);
+	    }
+	    if (t != s && ATTRIB(t) != R_NilValue &&
+		containsXIntVector(ATTRIB(t), seen, version))
+		return true;
+	    if (TAG(t) != R_NilValue &&
+		containsXIntVector(TAG(t), seen, version))
+		return true;
+	    if (!BNDCELL_TAG(t) &&
+		containsXIntVector(CAR(t), seen, version))
+		return true;
+	}
+	break;
+    case CLOSXP:
+	if (containsXIntVector(FORMALS(s), seen, version) ||
+	    containsXIntVector(BODY(s), seen, version) ||
+	    containsXIntVector(CLOENV(s), seen, version))
+	    return true;
+	break;
+    case PROMSXP:
+	if (containsXIntVector(PRVALUE(s), seen, version) ||
+	    containsXIntVector(PRCODE(s), seen, version) ||
+	    containsXIntVector(PRENV(s), seen, version))
+	    return true;
+	break;
+    case ENVSXP:
+	/* the marker-or-name cases and the cycle guard were taken above */
+	if (containsXIntVector(ENCLOS(s), seen, version) ||
+	    containsXIntVector(FRAME(s), seen, version) ||
+	    containsXIntVector(HASHTAB(s), seen, version))
+	    return true;
+	break;
+    case BCODESXP:
+	{
+	    SEXP consts = BCODE_CONSTS(s);
+	    for (R_xlen_t i = 0; i < XLENGTH(consts); i++)
+		if (containsXIntVector(VECTOR_ELT(consts, i), seen, version))
+		    return true;
+	}
+	break;
+    case EXTPTRSXP:
+	if (containsXIntVector(EXTPTR_PROT(s), seen, version) ||
+	    containsXIntVector(EXTPTR_TAG(s), seen, version))
+	    return true;
+	break;
+    default:
+	break;
+    }
+
+    return false;
+}
+
+/* message() rather than warning(): the writer choosing a version that
+   can hold the object is not a fault, but it does change which R can
+   read the result, so it is said out loud -- and suppressMessages()
+   can turn it off, which a warning would make harder.
+
+   Only saveRDS() -- through do_serializeToConn() -- and save() --
+   through do_saveToConn() -- say it, and both say it before their
+   destination has been opened.  Saying it later would mean evaluating
+   R code with the destination already open and truncated, where a
+   handler that unwinds takes the file's previous contents with it; and
+   serialize(), which is how parallel sends every object to a worker,
+   stays silent so as not to say it once per send. */
+attribute_hidden void R_AnnounceSerializeVersion(int from, int to)
+{
+    char buf[256];
+    /* what the writer did and why the file is less portable, rather
+       than what the object contains: an ALTREP object from a package
+       is not looked into, so this is said for one that may hold no
+       'xinteger' vector at all.  See containsXIntVector(). */
+    snprintf(buf, sizeof buf,
+	     _("using serialization version %d rather than the default %d: this object needs the format R %s added for 'xinteger' vectors, which earlier versions cannot read"),
+	     to, from, R_V4_MIN_READER_STR);
+
+    SEXP call = PROTECT(lang2(install("message"), mkString(buf)));
+    eval(call, R_BaseEnv);
+    UNPROTECT(1);
+}
+
+/* The version to write in when the caller did not name one: the
+   default, raised to one that can hold what the object contains.  A
+   version the caller did name is theirs, and R_Serialize() errors if it
+   cannot hold the object rather than quietly writing something else.
+
+   Silent, whoever calls it: see announceVersion(). */
+attribute_hidden int R_SerializeVersionFor(SEXP object, int version)
+{
+    if (version >= 4)
+	return version;
+
+    /* Nothing in this session has ever made an 'xinteger' vector, so no
+       object can contain one and there is nothing to look for.  Without
+       this every serialize() and saveRDS() in R would pay for a walk of
+       the object it is about to write. */
+    if (!R_XIntVectorSeen)
+	return version;
+
+    SEXP seen = PROTECT(MakeCircleHashTable());
+    bool needs4 = containsXIntVector(object, seen, version);
+    UNPROTECT(1);
+
+    return needs4 ? 4 : version;
+}
+
+/* Refuse a version the caller named that cannot hold the object.
+
+   The version is theirs to choose, but the refusal has to come before
+   any of the stream is written: the header goes out ahead of the first
+   item, and by then a file connection has already truncated whatever
+   used to be at the path.  Left to WriteItem(), the same error arrives
+   with a header and a partial object on the file and the caller's
+   previous contents gone. */
+attribute_hidden void R_CheckSerializeVersion(SEXP object, int version)
+{
+    if (version >= 4 || !R_XIntVectorSeen)
+	return;
+
+    SEXP seen = PROTECT(MakeCircleHashTable());
+    bool needs4 = containsXIntVector(object, seen, version);
+    UNPROTECT(1);
+
+    if (needs4)
+	error(_("an '%s' vector needs serialization version 4; version %d was requested"),
+	      "xinteger", version);
+}
+
 void R_Serialize(SEXP s, R_outpstream_t stream)
 {
     int version = stream->version;
@@ -1438,10 +1750,15 @@ void R_Serialize(SEXP s, R_outpstream_t stream)
 	OutInteger(stream, R_Version(2,3,0));
 	break;
     case 3:
+    case 4:
     {
 	OutInteger(stream, version);
 	OutInteger(stream, R_VERSION);
-	OutInteger(stream, R_Version(3,5,0));
+	/* Version 4 is version 3 plus the types added since: a stream
+	   holding one cannot be read by an older R at all, and saying
+	   3.5.0 here would promise that it can. */
+	OutInteger(stream, version == 3 ? R_Version(3,5,0)
+				        : R_V4_MIN_READER);
 	const char *natenc = R_nativeEncoding();
 	int nelen = (int) strlen(natenc);
 	OutInteger(stream, nelen);
@@ -2099,6 +2416,38 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    }
 	    }
 	    break;
+	case XINTSXP:
+	{
+	    /* UnpackFlags has already given us levs, so the width and
+	       kind are known before the allocation that needs them */
+	    int w = (int) ((levs & XINT_WIDTH_MASK) >> XINT_WIDTH_SHIFT);
+	    int k = (int) (levs & XINT_KIND_MASK);
+	    if (!XINT_WIDTH_OK(w))
+		error(_("ReadItem: invalid 'xinteger' element width %d"), w);
+	    if (k != XINT_UINT && k != XINT_INT)
+		error(_("ReadItem: invalid 'xinteger' element kind %d"), k);
+	    len = ReadLENGTH(stream);
+	    PROTECT(s = R_allocXIntVector(len, w, k,
+					   (levs & XINT_NONA_MASK)
+					   ? FALSE : TRUE));
+
+	    const void *vmax = vmaxget();
+	    R_xlen_t chunk = CHUNK_SIZE / w;
+	    if (chunk < 1) chunk = 1;
+	    Rbyte *buf = (Rbyte *) R_alloc((size_t) chunk * w, sizeof(Rbyte));
+
+	    for (R_xlen_t done = 0; done < len; ) {
+		R_xlen_t this = min2(chunk, len - done);
+		if (stream->type == R_pstream_ascii_format)
+		    InBytesHex(stream, buf, this * w);
+		else
+		    stream->InBytes(stream, buf, (int) (this * w));
+		R_xintSwapWire(XINT_ELT(s, done), buf, this, w);
+		done += this;
+	    }
+	    vmaxset(vmax);
+	    break;
+	}
 	case OBJSXP:
 	    PROTECT(s = R_allocObject());
 	    break;
@@ -2266,6 +2615,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     switch (version) {
     case 2: break;
     case 3:
+    case 4:
     {
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)
@@ -2293,7 +2643,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
     PROTECT(ref_table = MakeReadRefTable());
     obj =  ReadItem(ref_table, stream);
 
-    if (version == 3) {
+    if (version >= 3) {
 	if (stream->nat2nat_obj && stream->nat2nat_obj != (void *)-1) {
 	    Riconv_close(stream->nat2nat_obj);
 	    stream->nat2nat_obj = NULL;
@@ -2320,7 +2670,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
 
     /* Read the version numbers */
     version = InInteger(stream);
-    if (version == 3)
+    if (version >= 3)
 	anslen++;
     writer_version = InInteger(stream);
     min_reader_version = InInteger(stream);
@@ -2356,7 +2706,7 @@ attribute_hidden SEXP R_SerializeInfo(R_inpstream_t stream)
     default:
 	error(_("unknown input format"));
     }
-    if (version == 3) {
+    if (version >= 3) {
 	SET_STRING_ELT(names, 4, mkChar("native_encoding"));
 	int nelen = InInteger(stream);
 	if (nelen > R_CODESET_MAX || nelen < 0)
@@ -2636,14 +2986,26 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (ascii) type = R_pstream_ascii_format;
     else type = R_pstream_xdr_format;
 
-    if (CADDDR(args) == R_NilValue)
-	version = defaultSerializeVersion();
+    /* The walk, the announcement and the refusal all run before the
+       connection is opened below: opening truncates, and both the
+       message and the version error can be unwound out of.  saveRDS()
+       hands its connection over unopened for exactly this reason, and
+       this is the one walk 'object' gets. */
+    bool defaulted = (CADDDR(args) == R_NilValue);
+    if (defaulted) {
+	int dflt = defaultSerializeVersion();
+	version = R_SerializeVersionFor(object, dflt);
+	if (version != dflt)
+	    R_AnnounceSerializeVersion(dflt, version);
+    }
     else
 	version = asInteger(CADDDR(args));
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
     if (version < 2)
 	error(_("cannot save to connections in version %d format"), version);
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     fun = CAD4R(args);
     hook = fun != R_NilValue ? CallHook : NULL;
@@ -2801,11 +3163,14 @@ R_serializeb(SEXP object, SEXP icon, SEXP xdr, SEXP Sversion, SEXP fun)
     Rconnection con = getConnection(asInteger(icon));
     int version;
 
-    if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
+    bool defaulted = (Sversion == R_NilValue);
+    if (defaulted)
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     hook = fun != R_NilValue ? CallHook : NULL;
 
@@ -2953,11 +3318,14 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     SEXP (*hook)(SEXP, SEXP);
     int version;
 
-    if (Sversion == R_NilValue)
-	version = defaultSerializeVersion();
+    bool defaulted = (Sversion == R_NilValue);
+    if (defaulted)
+	version = R_SerializeVersionFor(object, defaultSerializeVersion());
     else version = asInteger(Sversion);
     if (version == NA_INTEGER || version <= 0)
 	error(_("bad version value"));
+    if (!defaulted)
+	R_CheckSerializeVersion(object, version);
 
     hook = fun != R_NilValue ? CallHook : NULL;
 
@@ -3367,6 +3735,10 @@ R_lazyLoadDBinsertValue(SEXP value, SEXP file, SEXP ascii,
     int compress = asInteger(compsxp);
     SEXP key;
 
+    /* R_serialize() settles its default quietly.  Leaving that job to it
+       avoids presenting the settled version as caller-supplied, which
+       would make it walk a version-3 object again to validate the answer
+       R_SerializeVersionFor() had just derived. */
     value = R_serialize(value, R_NilValue, ascii, R_NilValue, hook);
     PROTECT_WITH_INDEX(value, &vpi);
     if (compress == 3)

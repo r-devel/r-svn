@@ -686,7 +686,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
     tests1 <- c("eval-etc", "simple-true", "arith-true", "arith", "lm-tests",
                 "ok-errors", "method-dispatch", "array-subset",
                 "p-r-random-tests", "d-p-q-r-tst-2",
-                "any-all", "structure", "d-p-q-r-tests")
+                "any-all", "storage-info", "structure", "d-p-q-r-tests")
     ## "sloppy specific":
     tests2 <- c("complex", "print-tests", "lapack", "datasets", "datetime",
                 "iec60559")
@@ -695,7 +695,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
                 "reg-tests-1e", "reg-tests-2",
                 "reg-examples1", "reg-examples2", "reg-packages",
                 "reg-S4-examples",
-                "classes-methods",
+                "xinteger", "classes-methods",
                 ## reg-translation, reg-ex*3 ... see "devel" below
                 "datetime3",
                 "p-qbeta-strict-tst", "r-strict-tst",
@@ -981,4 +981,3 @@ detachPackages <- function(pkgs, verbose = TRUE)
     if(status) status <- exitstatus
     do_exit(status)
 } ## .Rdiff()
-

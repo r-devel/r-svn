@@ -20,6 +20,7 @@
  ALTREP_COERCE
  ALTREP_DUPLICATE_EX
  ALTREP_INSPECT
+ ALTREP_IS_BASE_CLASS
  ALTREP_SERIALIZED_CLASS
  ALTREP_SERIALIZED_STATE
  ALTREP_SET_TYPEOF
@@ -93,7 +94,6 @@
  IF_PROMSXP_SET_PRVALUE
  INCREMENT_REFCNT
  INIT_BNDCELL
- IF_PROMSXP_SET_PRVALUE
  IS_ACTIVE_BINDING
  IS_ASSIGNMENT_CALL
  IS_BYTES
@@ -126,6 +126,7 @@
  RExitContext
  RSTEP
  RTRACE
+ R_AnnounceSerializeVersion
  R_BCIntActive
  R_BCNodeStackBase
  R_BCProtReset
@@ -138,7 +139,9 @@
  R_BrowseLines
  R_BrowserLastCommand
  R_CBoundsCheck
+ R_CheckSerializeVersion
  R_CheckTimeLimits
+ R_CheckXIntVector
  R_ChooseFile
  R_CollectWarnings
  R_Collected
@@ -233,6 +236,7 @@
  R_SaveToFile
  R_SaveToFileV
  R_SerializeInfo
+ R_SerializeVersionFor
  R_SessionContext
  R_SetMaxNSize
  R_SetMaxVSize
@@ -268,7 +272,12 @@
  R_XDRDecodeInteger
  R_XDREncodeDouble
  R_XDREncodeInteger
+ R_XIntVectorSeen
+ R_allocMatrixLike
  R_allocObject
+ R_allocVectorLike
+ R_allocVectorLikeUninit
+ R_allocXIntVectorUninit
  R_args_enable_refcnt
  R_binary
  R_checkConstants
@@ -396,6 +405,49 @@
  R_wfopen
  R_wopendir
  R_wreaddir
+ R_xintAbs
+ R_xintArith
+ R_xintBitwise
+ R_xintCheckNA
+ R_xintCheckOperand
+ R_xintCheckPair
+ R_xintCheckSameNA
+ R_xintCheckSameType
+ R_xintCoerce
+ R_xintConvert
+ R_xintCopyWithRecycle
+ R_xintCum
+ R_xintEltAsReal
+ R_xintEltCmp
+ R_xintEltCompareReal
+ R_xintEltDecimal
+ R_xintEltFromString
+ R_xintEltIsNA
+ R_xintEltRender
+ R_xintFillMatrixWithRecycle
+ R_xintFromXInt
+ R_xintKindName
+ R_xintMagFits
+ R_xintMagNegate
+ R_xintMean
+ R_xintMemcpy
+ R_xintNarrow
+ R_xintNarrowCmp
+ R_xintNarrowMatch
+ R_xintParallelMinMax
+ R_xintSeq
+ R_xintSetEltNA
+ R_xintShapeMatrix
+ R_xintSign
+ R_xintSummary
+ R_xintSummaryType
+ R_xintSwapWire
+ R_xintTypeFromName
+ R_xintTypeName
+ R_xintTypeNameOf
+ R_xintUnary
+ R_xintWarnReserved
+ R_xintWarnReservedCount
  Rasprintf_malloc
  Rconn_getline
  Rcons_vprintf
@@ -416,6 +468,7 @@
  Rf_EncodeRaw
  Rf_EncodeReal2
  Rf_EncodeString
+ Rf_EncodeXInt
  Rf_EnsureString
  Rf_ErrorMessage
  Rf_ExtractSubset
@@ -498,6 +551,7 @@
  Rf_formatRawS
  Rf_formatString
  Rf_formatStringS
+ Rf_formatXIntS
  Rf_framedepth
  Rf_gamma_cody
  Rf_gammalims
@@ -623,6 +677,9 @@
  SET_SYMVALUE
  SET_TRUELENGTH
  SET_UTF8
+ SET_XINT_KIND
+ SET_XINT_NONA
+ SET_XINT_WIDTH
  STDVEC_DATAPTR
  Sys_TempDir
  TRACKREFS
@@ -638,6 +695,11 @@
  WinCheckUTF8
  WinUTF8out
  WrongArgCount
+ XINT_DATA
+ XINT_DATA_RO
+ XINT_HAS_NA
+ XINT_KIND
+ XINT_WIDTH
  XTRUELENGTH
  _controlify
  _hershey_font_info
@@ -743,6 +805,7 @@
  cpuLimitValue
  csroot_
  dblep0_
+ defaultSaveVersion
  deleditordata
  dim2total
  dispatch_length
@@ -781,15 +844,16 @@
  do_arrangeWindows
  do_array
  do_asCharacterFactor
- do_asplit
  do_asPOSIXct
  do_asPOSIXlt
  do_as_environment
  do_asatomic
  do_ascall
  do_asfunction
+ do_asplit
  do_assign
  do_asvector
+ do_asxinteger
  do_attach
  do_attr
  do_attrgets
@@ -1291,6 +1355,12 @@
  do_writebin
  do_writechar
  do_writelines
+ do_xinteger
+ do_xintegerhasna
+ do_xintegeris
+ do_xintegerkind
+ do_xintegerraw
+ do_xintegerwidth
  do_xtfrm
  dos_wglob
  dos_wglobfree

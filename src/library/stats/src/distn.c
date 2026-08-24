@@ -36,6 +36,11 @@
 #define R_MSG_NA	_("NaNs produced")
 #define R_MSG_NONNUM_MATH _("Non-numeric argument to mathematical function")
 
+static Rboolean isNumericArg(SEXP x)
+{
+    return isNumeric(x) || TYPEOF(x) == XINTSXP;
+}
+
 
 /* Mathematical Functions of Two Numeric Arguments (plus 1 int) */
 
@@ -45,7 +50,7 @@
 	++i)
 
 #define SETUP_Math2					\
-    if (!isNumeric(sa) || !isNumeric(sb))		\
+    if (!isNumericArg(sa) || !isNumericArg(sb))	\
 	error(R_MSG_NONNUM_MATH);			\
 							\
     na = XLENGTH(sa);					\
@@ -167,7 +172,7 @@ DEFMATH2_2(qsignrank)
 	++i)
 
 #define SETUP_Math3						\
-    if (!isNumeric(sa) || !isNumeric(sb) || !isNumeric(sc))	\
+    if (!isNumericArg(sa) || !isNumericArg(sb) || !isNumericArg(sc))\
 	error(R_MSG_NONNUM_MATH);				\
 								\
     na = XLENGTH(sa);						\
@@ -325,7 +330,8 @@ DEFMATH3_2(qwilcox)
 	++i)
 
 #define SETUP_Math4							\
-    if(!isNumeric(sa)|| !isNumeric(sb)|| !isNumeric(sc)|| !isNumeric(sd))\
+    if (!isNumericArg(sa) || !isNumericArg(sb) ||			\
+	!isNumericArg(sc) || !isNumericArg(sd))			\
 	error(R_MSG_NONNUM_MATH);					\
 									\
     na = XLENGTH(sa);							\

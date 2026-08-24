@@ -548,6 +548,7 @@ INLINE_FUN R_len_t length(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case XINTSXP:
 	return LENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -583,6 +584,7 @@ INLINE_FUN R_xlen_t xlength(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case XINTSXP:
 	return XLENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -884,6 +886,7 @@ INLINE_FUN Rboolean isVectorAtomic(SEXP s)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case XINTSXP:
 	return TRUE;
     default: /* including NULL */
 	return FALSE;
@@ -899,6 +902,7 @@ INLINE_FUN Rboolean isVector(SEXP s)/* === isVectorList() or isVectorAtomic() */
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case XINTSXP:
 
     case VECSXP:
     case EXPRSXP:

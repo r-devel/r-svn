@@ -75,11 +75,16 @@ static R_INLINE R_xlen_t resultLength(SEXP lengthArgument) {
     return n;
 }
 
+static R_INLINE Rboolean isNumericArg(SEXP x)
+{
+    return isNumeric(x) || TYPEOF(x) == XINTSXP;
+}
+
 /* random sampling from 1 parameter families. */
 
 static R_INLINE SEXP random1(SEXP sn, SEXP sa, ran1 fn, SEXPTYPE type)
 {
-    if (!isNumeric(sa)) {
+    if (!isNumericArg(sa)) {
 	error(_("invalid arguments"));
     }
     R_xlen_t n = resultLength(sn);
@@ -159,7 +164,7 @@ DEFRAND1_INT(rsignrank)
 
 static R_INLINE SEXP random2(SEXP sn, SEXP sa, SEXP sb, ran2 fn, SEXPTYPE type)
 {
-    if (!isNumeric(sa) || !isNumeric(sb)) {
+    if (!isNumericArg(sa) || !isNumericArg(sb)) {
 	error(_("invalid arguments"));
     }
     R_xlen_t n = resultLength(sn);
@@ -248,7 +253,7 @@ DEFRAND2_REAL(rnbinom_mu)
 static R_INLINE SEXP random3(SEXP sn, SEXP sa, SEXP sb, SEXP sc, ran3 fn,
 			     SEXPTYPE type)
 {
-    if (!isNumeric(sa) || !isNumeric(sb) || !isNumeric(sc)) {
+    if (!isNumericArg(sa) || !isNumericArg(sb) || !isNumericArg(sc)) {
 	error(_("invalid arguments"));
     }
     R_xlen_t n = resultLength(sn);

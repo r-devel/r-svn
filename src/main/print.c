@@ -519,6 +519,27 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
+	    case XINTSXP:
+		/* a single element renders in full, as for the other
+		   atomic types; its storage mode carries the width.
+		   This is the one arm of this switch that prints a value
+		   rather than a summary, so it is also the one that
+		   could outrun pbuf, and a number cut to fit reads as a
+		   smaller number that is simply wrong.  The widest
+		   element there is renders to 39 digits and a sign, so
+		   the fallback cannot fire today; it is what keeps a
+		   later, wider element from printing a wrong number
+		   rather than a summary. */
+		if (LENGTH(s_i) == 1) {
+		    const char *bstr = R_xintEltRender(s_i, 0);
+		    if (strlen(bstr) < 115) {
+			snprintf(pbuf, 115, "%s", bstr);
+			break;
+		    }
+		}
+		snprintf(pbuf, 115, "%s,%d", R_xintTypeName(s_i),
+			 LENGTH(s_i));
+		break;
 	    case LISTSXP:
 	    case VECSXP:
 		snprintf(pbuf, 115, "list,%d", length(s_i));
@@ -690,6 +711,11 @@ static void printList(SEXP s, R_PrintData *data)
 
 	    case RAWSXP:
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
+		break;
+
+	    case XINTSXP:
+		snprintf(pbuf, 100, "%s,%d", R_xintTypeName(CAR(s)),
+			 LENGTH(CAR(s)));
 		break;
 
 	    case LISTSXP:
@@ -915,6 +941,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
+    case XINTSXP:
 	PROTECT(t = getAttrib(s, R_DimSymbol));
 	if (TYPEOF(t) == INTSXP) {
 	    if (LENGTH(t) == 1) {

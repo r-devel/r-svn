@@ -61,6 +61,9 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
 	       }
 	       else all.equal.list(target, current, ...))
     }
+    if(is.xinteger(target))
+	return(all.equal.xinteger(target, current, ...,
+			       check.class = check.class))
     msg <- switch (mode(target),
                    integer   = ,
                    complex   = ,
@@ -68,6 +71,7 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
                    character = all.equal.character(target, current, check.class=check.class, ...),
                    logical   = ,
                    raw       = all.equal.raw      (target, current, check.class=check.class, ...),
+                   xinteger  = all.equal.xinteger  (target, current, check.class=check.class, ...),
 		   ## assumes that slots are implemented as attributes :
 		   S4        = attr.all.equal(target, current, ...),
                    ## otherwise :
@@ -447,6 +451,33 @@ all.equal.raw <-
     else if(sum(ne) == 1L) c(msg, paste("1 element mismatch"))
     else if(sum(ne) > 1L) c(msg, paste(sum(ne), "element mismatches"))
     else msg
+}
+
+all.equal.xinteger <-
+    function(target, current, ..., check.attributes = TRUE, check.class = TRUE)
+{
+    ## The width, the kind and whether NA is reserved are all part of a
+    ## 'xinteger' type, and comparing across them errors rather than
+    ## answering -- so the difference has to be reported here, before
+    ## anything reaches `!=` in all.equal.raw().  Reported whatever
+    ## check.class says, since these are not comparable at all and
+    ## all.equal() must describe a difference rather than stop().
+    tt <- storage.mode(target)
+    if(!is.xinteger(current))
+	return(paste0("target is an xinteger vector (", tt,
+		      "), current has type ", typeof(current),
+		      " and class ", data.class(current)))
+    ct <- storage.mode(current)
+    if(tt != ct)
+	return(paste0("target is ", tt, ", current is ", ct))
+    if(xintegerHasNA(target) != xintegerHasNA(current))
+	return(paste0("target ",
+		      if(xintegerHasNA(target)) "reserves" else "does not reserve",
+		      " a value for NA, current ",
+		      if(xintegerHasNA(current)) "does" else "does not"))
+
+    all.equal.raw(target, current, ..., check.attributes = check.attributes,
+		  check.class = check.class)
 }
 
 

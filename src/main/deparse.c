@@ -158,6 +158,7 @@ static void printtab2buff(int, LocalParseData *);
 static void writeline(LocalParseData *);
 static void vec2buff   (SEXP, LocalParseData *, bool do_names);
 static void vector2buff(SEXP, LocalParseData *);
+static void xint2buff(SEXP, LocalParseData *);
 static void src2buff1(SEXP, LocalParseData *);
 static bool src2buff(SEXP, int, LocalParseData *);
 static void linebreak(bool *lbreak, LocalParseData *);
@@ -1501,6 +1502,9 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     case RAWSXP:
 	vector2buff(s, d);
 	break;
+    case XINTSXP:
+	xint2buff(s, d);
+	break;
     case EXTPTRSXP:
     {
 	char tpb[32]; /* need 12+2+2*sizeof(void*) */
@@ -1621,6 +1625,94 @@ static void deparse2buf_name(SEXP nv, int i, LocalParseData *d) {
 }
 
 // deparse atomic vectors :
+/* There is no literal syntax for an 'xinteger' vector, so it deparses to
+   the call that rebuilds it -- as raw vectors do, which print as
+   as.raw(c(0x01, ...)).
+
+   Elements go out as the decimal text as.character() would give.
+   Writing the raw payload instead would be shorter to produce and much
+   worse to read -- eight
+   hex bytes per element, in storage order, so the deparse of the same
+   vector differed between a little- and a big-endian machine.  Text
+   also lets an NA element deparse to NA_character_ and come back
+   without the warning a reserved bit pattern would have to raise. */
+static void xint2buff(SEXP v, LocalParseData *d)
+{
+    R_xlen_t n = XLENGTH(v);
+    int w = XINT_WIDTH(v), k = XINT_KIND(v);
+    int d_opts_in = d->opts;
+    const char *kind = R_xintKindName(v);
+    char buf[64];
+
+    /* only when it is not the default, so ordinary output stays clean */
+    const char *na = XINT_HAS_NA(v) ? "" : ", na = FALSE";
+
+    SEXP nv = R_NilValue;
+    bool do_names = (bool)(d_opts_in & SHOW_ATTR_OR_NMS);
+    if (do_names) {
+	nv = getAttrib(v, R_NamesSymbol);
+	if (isNull(nv)) do_names = false;
+    }
+    PROTECT(nv);
+
+    /* The call this deparses to is a coercion, and a coercion drops
+       names, so `c(a = "1", ...)` inside it would deparse a named
+       vector into an unnamed one.  Whenever the caller is asking for
+       attributes at all -- dput(), dump(), deparse(control = "all") --
+       the names go through structure() instead, where they survive the
+       round trip.  Under niceNames alone the output is for reading
+       rather than for sourcing, and the tidier form wins, as it does
+       for raw. */
+    bool STR_names = do_names && (d_opts_in & SHOWATTRIBUTES);
+    if (STR_names) d->opts &= ~NICE_NAMES;
+
+    attr_type attr = (d_opts_in & SHOW_ATTR_OR_NMS) ? attr1(v, d) : SIMPLE;
+    if (do_names) do_names = (attr == OK_NAMES || attr == STRUC_ATTR);
+
+    if (n == 0) {
+	snprintf(buf, sizeof buf, "xinteger(0L, %dL, \"%s\"%s)", w, kind, na);
+	print2buff(buf, d);
+    }
+    else {
+	bool need_c = n > 1 || do_names;	/* c(a = *) but not c(1) */
+
+	print2buff("as.xinteger(", d);
+	if (need_c) print2buff("c(", d);
+
+	for (R_xlen_t i = 0; i < n; i++) {
+	    const Rbyte *p = XINT_ELT_RO(v, i);
+
+	    if (do_names) deparse2buf_name(nv, (int) i, d);
+
+	    if (XINT_HAS_NA(v) && R_xintEltIsNA(p, w, k))
+		print2buff("NA_character_", d);
+	    else {
+		/* digits, '-' and hex only, so no escaping is in question */
+		print2buff("\"", d);
+		print2buff(R_xintEltRender(v, i), d);
+		print2buff("\"", d);
+	    }
+
+	    if (i < n - 1) print2buff(", ", d);
+	    /* n > 1 as in vector2buff(): breaking the line for a single
+	       element gains nothing -- there is nothing after it to move
+	       down -- and costs deparse(x)[1L] its whole answer.  A
+	       width-32 element is long enough to reach the cutoff on
+	       its own. */
+	    if (n > 1 && d->len > d->cutoff) writeline(d);
+	    if (!d->active) break;
+	}
+
+	if (need_c) print2buff(")", d);
+	snprintf(buf, sizeof buf, ", %dL, \"%s\"%s)", w, kind, na);
+	print2buff(buf, d);
+    }
+
+    if (attr >= STRUC_ATTR) attr2(v, d, (attr == STRUC_ATTR));
+    if (STR_names) d->opts = d_opts_in;
+    UNPROTECT(1); /* nv */
+}
+
 static void vector2buff(SEXP vector, LocalParseData *d)
 {
     // Known here:  TYPEOF(vector)  is one of the 6 atomic *SXPs

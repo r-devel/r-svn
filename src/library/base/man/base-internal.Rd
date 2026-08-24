@@ -12,6 +12,7 @@
 % removed for R 3.6.
 %\alias{testPlatformEquivalence}
 \alias{.isMethodsDispatchOn}
+\alias{.isXIntTypeName}
 \alias{sys.save.image}
 \alias{sys.load.image}
 \alias{.row_names_info}
@@ -87,6 +88,7 @@
 %testPlatformEquivalence(built, run)
 %
 .isMethodsDispatchOn(onOff = NULL)
+.isXIntTypeName(s)
 
 sys.load.image(name, quiet)
 sys.save.image(name)
@@ -178,6 +180,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   \item{seed}{a length-one integer vector.}
   \item{i, j}{indices.}
   \item{strictly}{logical.}
+  \item{s}{a character vector.}
   \item{obj}{an \R object.}
   \item{xx}{a classless object to be placed into the class.}
   \item{tz}{an optional time zone.}
@@ -223,6 +226,10 @@ lazyLoadDBfetch(key, file, compressed, hook)
   The function \code{.isMethodsDispatchOn()} returns \code{TRUE} if
   the S4 method dispatch has been turned on in the evaluator (usually by
   loading package \pkg{methods}).  It is meant for \R internal use only.
+
+  \code{.isXIntTypeName()} recognizes the syntax of a detailed
+  \link{xinteger} storage-mode name.  It is meant for \R internal use only;
+  the requested width is validated separately by each caller.
 
   \code{sys.save.image} is a system function that is called by \code{q()}
   and its GUI analogs; \code{sys.load.image} is called by the startup code.

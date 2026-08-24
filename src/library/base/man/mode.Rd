@@ -22,13 +22,17 @@ storage.mode(x) <- value
 \arguments{
   \item{x}{any \R object.}
   \item{value}{a character string giving the desired mode or
-    \sQuote{storage mode} (type) of the object.}
+    \sQuote{storage mode} (type) of the object.  For a
+    \code{\link{xinteger}} vector a storage mode names the width and kind:
+    \code{storage.mode(x) <-
+    "int64"}.}
 }
 \details{
-  Both \code{mode} and \code{storage.mode} return a character string
-  giving the (storage) mode of the object --- often the same --- both
-  relying on the output of \code{\link{typeof}(x)}, see the example
-  below.
+  Both \code{mode} and \code{storage.mode} return a character string,
+  and are often the same.  For a \code{\link{xinteger}} vector,
+  \code{typeof} is \code{"xinteger"}, \code{storage.mode} gives the
+  detailed representation such as \code{"int64"}, and \code{mode}
+  is \code{"numeric"}.
 
   \code{mode(x) <- "newmode"} changes the \code{mode} of object \code{x} to
   \code{newmode}.  This is only supported if there is an appropriate
@@ -36,7 +40,11 @@ storage.mode(x) <- value
   \code{"logical"}, \code{"integer"}, \code{"double"}, \code{"complex"},
   \code{"raw"}, \code{"character"}, \code{"list"}, \code{"expression"},
   \code{"name"}, \code{"symbol"} and \code{"function"}.  Attributes are
-  preserved (but see below).
+  preserved (but see below).  A \code{\link{xinteger}} type name such as
+  \code{"int64"} is also supported, and is passed to \code{storage.mode<-}
+  directly.  \code{"xinteger"} on its own names no complete storage mode
+  and is an error --- use \code{\link{as.xinteger}} to choose a width and
+  kind.
 
   \code{storage.mode(x) <- "newmode"} is a more efficient \link{primitive}
   version of \code{mode<-}, which works for \code{"newmode"} which is
@@ -64,6 +72,7 @@ storage.mode(x) <- value
     \code{"function"}.
     \item type \code{"symbol"} is called mode \code{"name"}.
     \item type \code{"language"} is returned as \code{"("} or \code{"call"}.
+    \item type \code{"xinteger"} is returned as \code{"numeric"}.
   }
 }
 \references{

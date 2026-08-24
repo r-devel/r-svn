@@ -42,6 +42,22 @@ static int icmp(int x, int y, bool nalast)
     return 0;
 }
 
+/* Same value order xint_relop() gives. */
+static int bcmp_(const Rbyte *x, const Rbyte *y, int w, int k, bool hasNA,
+		 bool nalast)
+{
+    /* with no reserved value the pattern is an ordinary datum, so the
+       NA branch below must not fire on it */
+    if (!hasNA) return R_xintEltCmp(x, y, w, k);
+
+    int nax = R_xintEltIsNA(x, w, k), nay = R_xintEltIsNA(y, w, k);
+    if (nax && nay)	return 0;
+    if (nax)		return nalast ? 1 : -1;
+    if (nay)		return nalast ? -1 : 1;
+
+    return R_xintEltCmp(x, y, w, k);
+}
+
 static int rcmp(double x, double y, bool nalast)
 {
     int nax = ISNAN(x), nay = ISNAN(y);
@@ -206,6 +222,23 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 			return TRUE;
 	    }
 	    break;
+	case XINTSXP: // compatible with xint_relop() in ./relop.c
+	{
+	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
+	    bool hna = XINT_HAS_NA(x);
+	    if(strictly) {
+		for(i = 0; i+1 < n ; i++)
+		    if(bcmp_(XINT_ELT_RO(x, i),
+			     XINT_ELT_RO(x, i+1), w, k, hna, true) >= 0)
+			return TRUE;
+	    } else {
+		for(i = 0; i+1 < n ; i++)
+		    if(bcmp_(XINT_ELT_RO(x, i),
+			     XINT_ELT_RO(x, i+1), w, k, hna, true) > 0)
+			return TRUE;
+	    }
+	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("isUnsorted", x);
 	}
@@ -630,6 +663,137 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 	}
 }
 
+/* LSD byte radix: one stable counting-sort pass per byte, least
+   significant first.  O(width * n) with no comparisons at all, which
+   is the natural shape for fixed-width elements and the reason this
+   type can sort faster than a comparison sort allows.
+
+   indx holds 0-based element indices, as elsewhere in this file, and
+   the caller has already partitioned NAs out of [lo, hi] -- so the
+   passes never see one.  For the signed kind the most significant byte
+   is biased by 0x80 so that negatives sort first; for a decreasing
+   sort every key is complemented, which reverses the order while
+   keeping the stable index tiebreak that R's comparison path gives.
+
+   A byte position that is the same in every key cannot change the
+   order, so its pass is skipped entirely.  That matters because the
+   width is a property of the vector and not of the data in it: a uint64
+   column of identifiers, timestamps or counters typically varies only
+   in its low three or four bytes, and without the check it would pay
+   for all eight passes.  R's own radix sort (radixsort.c) skips in the
+   same way. */
+static void xintRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
+			    bool decreasing)
+{
+    R_xlen_t n = hi - lo + 1;
+    if (n < 2) return;
+
+    int w = XINT_WIDTH(key), kind = XINT_KIND(key);
+    const Rbyte *x = XINT_DATA_RO(key);
+    int *a = indx + lo;
+    const void *vmax = vmaxget();
+    int *buf = (int *) R_alloc((size_t) n, sizeof(int));
+    /* The pass's key byte for each position, so that the scatter reads
+       it back sequentially instead of gathering from the payload a
+       second time.  This is worth its n bytes: dropping it costs about
+       a quarter of the whole sort on 5e6 width-8 elements, and it is
+       what the passes that CANNOT be skipped below are paying. */
+    Rbyte *pkey = (Rbyte *) R_alloc((size_t) n, sizeof(Rbyte));
+    R_xlen_t count[256];
+    /* diff[c] ORs every key's byte c against the first key's, so it is
+       nonzero exactly where byte position c varies. */
+    Rbyte diff[XINT_MAX_WIDTH];	/* width is 1..XINT_MAX_WIDTH */
+
+    /* Settle all w byte positions in ONE sweep rather than testing
+       inside each pass.  Both skip the same passes, but a pass that
+       discovers its own byte is constant has already paid for a random
+       gather over the payload, and that gather -- not the scatter -- is
+       most of what a pass costs.  The sweep reads each key once, in one
+       contiguous piece, and is cheap next to a pass: sorting 5e6
+       width-8 elements whose every position is constant, so that the
+       sweep runs to the end and no pass runs at all, costs about 3ms
+       more than the same test at width 1.  The periodic test stops it
+       early once every position varies.  Comparing the stored bytes is
+       enough: the sign bias and the decreasing complement below are
+       per-byte bijections, so neither can make a constant position vary
+       or the other way about. */
+    memset(diff, 0, (size_t) w);
+    {
+	const Rbyte *first = x + (R_xlen_t) a[0] * w;
+
+	for (R_xlen_t i = 1; i < n; i++) {
+	    const Rbyte *p = x + (R_xlen_t) a[i] * w;
+
+	    for (int c = 0; c < w; c++)
+		diff[c] |= (Rbyte) (p[c] ^ first[c]);
+
+	    if ((i & 1023) == 0 && memchr(diff, 0, (size_t) w) == NULL)
+		break;
+	}
+    }
+
+    for (int pass = 0; pass < w; pass++) {
+	/* Pass 0 is the least significant byte of the native-order value. */
+	int at = XINT_MSB(w - 1 - pass, w);
+	bool top = (pass == w - 1) && (kind == XINT_INT);
+
+	if (diff[at] == 0)
+	    continue;
+
+	memset(count, 0, sizeof count);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    unsigned int b = x[(R_xlen_t) a[i] * w + at];
+	    if (top) b ^= 0x80u;
+	    if (decreasing) b = 255u - b;
+	    pkey[i] = (Rbyte) b;
+	    count[b]++;
+	}
+
+	for (int c = 0, sum = 0; c < 256; c++) {
+	    R_xlen_t t = count[c];
+	    count[c] = sum;
+	    sum += t;
+	}
+	for (R_xlen_t i = 0; i < n; i++)
+	    buf[count[pkey[i]]++] = a[i];
+
+	memcpy(a, buf, (size_t) n * sizeof(int));
+    }
+
+    vmaxset(vmax);
+}
+
+/* Shell sort over fixed-width blocks.  Elements are moved with memcpy
+   through a scratch buffer rather than assigned, since their size is
+   only known at run time.
+
+   NA is ordered as the value its bit pattern denotes rather than being
+   forced to one end, which is what R_isort2() does with NA_INTEGER and
+   what the radix path in sortVector() below does; sort.int() has removed
+   NAs before either is reached. */
+static void bsort2(SEXP s, R_xlen_t n, bool decreasing)
+{
+    R_xlen_t i, j, h, t;
+    int w = XINT_WIDTH(s), k = XINT_KIND(s);
+    Rbyte *x = XINT_DATA(s);
+    Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
+
+    if (n < 2) error("'n >= 2' is required");
+    for (t = 0; incs[t] > n; t++);
+    for (h = incs[t]; t < NI; h = incs[++t])
+	for (i = h; i < n; i++) {
+	    memcpy(v, x + i * w, (size_t) w);
+	    j = i;
+	    if(decreasing)
+		while (j >= h && R_xintEltCmp(x + (j - h) * w, v, w, k) < 0)
+		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
+	    else
+		while (j >= h && R_xintEltCmp(x + (j - h) * w, v, w, k) > 0)
+		{ memcpy(x + j * w, x + (j - h) * w, (size_t) w); j -= h; }
+	    memcpy(x + j * w, v, (size_t) w);
+	}
+}
+
 /* The meat of sort.int() */
 // Used in envir.c library/utils/src/io.c
 void sortVector(SEXP s, bool decreasing)
@@ -649,6 +813,25 @@ void sortVector(SEXP s, bool decreasing)
 	    break;
 	case STRSXP:
 	    ssort2(STRING_PTR(s), n, decreasing); /* STRING_PTR is safe here */
+	    break;
+	case XINTSXP:
+	    if (n <= INT_MAX) {
+		const void *vmax = vmaxget();
+		int w = XINT_WIDTH(s);
+		int *ord = (int *) R_alloc((size_t) n, sizeof(int));
+		Rbyte *tmp = (Rbyte *) R_alloc((size_t) n * w, sizeof(Rbyte));
+		for (R_xlen_t i = 0; i < n; i++) ord[i] = (int) i;
+		xintRadixOrder(ord, 0, n - 1, s, decreasing);
+		/* R_xintMemcpy(): the snapshot is a whole payload, which
+		   can pass the size macOS mis-copies in one memcpy call */
+		R_xintMemcpy(tmp, XINT_DATA_RO(s), (size_t) n * w);
+		for (R_xlen_t i = 0; i < n; i++)
+		    memcpy(XINT_ELT(s, i), tmp + (R_xlen_t) ord[i] * w,
+			   (size_t) w);
+		vmaxset(vmax);
+	    }
+	    else
+		bsort2(s, n, decreasing);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("sortVector", s);
@@ -715,6 +898,47 @@ static void sPsort2(SEXP *x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 }
 
 
+/* psort_body over fixed-width blocks.  Elements move by memcpy for the
+   reason bsort2() does -- their size is only known at run time -- so the
+   pivot has to be a copy rather than a pointer into the array being
+   permuted.  NA goes last, as psort_body hard-codes it for every other
+   type -- the bit pattern would put it first for the signed kind. */
+static void bPsort2(SEXP s, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
+{
+    const void *vmax = vmaxget();
+    int w = XINT_WIDTH(s), kind = XINT_KIND(s);
+    bool hasNA = XINT_HAS_NA(s);
+    Rbyte *x = XINT_DATA(s);
+    Rbyte *v = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
+    Rbyte *t = (Rbyte *) R_alloc((size_t) w, sizeof(Rbyte));
+    R_xlen_t L, R, i, j;
+
+    for (L = lo, R = hi; L < R; ) {
+	memcpy(v, x + k * w, (size_t) w);
+	for (i = L, j = R; i <= j;) {
+	    while (bcmp_(x + i * w, v, w, kind, hasNA, true) < 0) i++;
+	    while (bcmp_(v, x + j * w, w, kind, hasNA, true) < 0) j--;
+	    if (i <= j) {
+		/* the scans meeting on one element is the common case,
+		   and swapping it with itself would hand memcpy() the
+		   same address twice, which its restrict contract
+		   forbids and valgrind reports */
+		if (i != j) {
+		    memcpy(t, x + i * w, (size_t) w);
+		    memcpy(x + i * w, x + j * w, (size_t) w);
+		    memcpy(x + j * w, t, (size_t) w);
+		}
+		i++; j--;
+	    }
+	}
+	if (j < k) L = i;
+	if (k < i) R = j;
+    }
+
+    vmaxset(vmax);
+}
+
+
 /* Needed for mistaken decision to put these in the API */
 void iPsort(int *x, int n, int k)
 {
@@ -748,6 +972,9 @@ static void Psort(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 	break;
     case STRSXP:
 	sPsort2(STRING_PTR(x), lo, hi, k); /* STRING_PTR is safe here */
+	break;
+    case XINTSXP:
+	bPsort2(x, lo, hi, k);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("Psort", x);
@@ -858,6 +1085,11 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case XINTSXP:
+	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
+		      XINT_WIDTH(x), XINT_KIND(x),
+		      XINT_HAS_NA(x), nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("equal", x);
 	    break;
@@ -896,6 +1128,11 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case XINTSXP:
+	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
+		      XINT_WIDTH(x), XINT_KIND(x),
+		      XINT_HAS_NA(x), nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("greater", x);
 	    break;
@@ -927,6 +1164,11 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case XINTSXP:
+	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
+		      XINT_WIDTH(x), XINT_KIND(x),
+		      XINT_HAS_NA(x), nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
@@ -1024,6 +1266,11 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case XINTSXP:
+	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
+		      XINT_WIDTH(x), XINT_KIND(x),
+		      XINT_HAS_NA(x), nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
@@ -1151,12 +1398,16 @@ void R_orderVector1(int *indx, int n, SEXP x,
 attribute_hidden void
 orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 {
+    /* the indices here are int, so every 'xinteger' offset below is cast:
+       n fits in an int but n * XINT_WIDTH(key) need not */
     int c, i, j, h, t, lo = 0, hi = n-1;
     int itmp, *isna = NULL, numna = 0;
     int *ix = NULL /* -Wall */;
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
     const SEXP *sx = NULL /* -Wall */;
+    const Rbyte *bx = NULL /* -Wall */;
+    int bw = 0, bk = 0 /* -Wall */;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
@@ -1172,6 +1423,11 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	break;
     case CPLXSXP:
 	cx = COMPLEX(key);
+	break;
+    case XINTSXP:
+	bx = XINT_DATA_RO(key);
+	bw = XINT_WIDTH(key);
+	bk = XINT_KIND(key);
 	break;
     }
 
@@ -1192,6 +1448,11 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case XINTSXP:
+	    for (i = 0; i < n; i++)
+		isna[i] = XINT_HAS_NA(key) &&
+		    R_xintEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1204,6 +1465,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case XINTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
@@ -1272,6 +1534,28 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 		sort2_with_index
 #undef less
 	    break;
+	case XINTSXP:
+	    /* The radix has no way to place an NA, so it takes over only
+	       where the pass above has moved them out of [lo, hi] --
+	       which is wherever rho is NULL.  Otherwise the comparison
+	       consults nalast, as it does for the types above. */
+	    if (isNull(rho))
+		xintRadixOrder(indx, lo, hi, key, decreasing);
+	    else if (decreasing)
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      XINT_HAS_NA(key), nalast),		\
+		    c < 0 || (c == 0 && a > b))
+		sort2_with_index
+#undef less
+	    else
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      XINT_HAS_NA(key), nalast),		\
+		    c > 0 || (c == 0 && a > b))
+		sort2_with_index
+#undef less
+	    break;
 	default:  /* only reached from do_rank */
 #define less(a, b) greater(a, b, key, nalast^decreasing, decreasing, rho)
 	    sort2_with_index
@@ -1294,6 +1578,8 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
     Rcomplex *cx = NULL /* -Wall */;
     const SEXP *sx = NULL /* -Wall */;
     R_xlen_t itmp;
+    const Rbyte *bx = NULL /* -Wall */;
+    int bw = 0, bk = 0 /* -Wall */;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
@@ -1309,6 +1595,11 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	break;
     case CPLXSXP:
 	cx = COMPLEX(key);
+	break;
+    case XINTSXP:
+	bx = XINT_DATA_RO(key);
+	bw = XINT_WIDTH(key);
+	bk = XINT_KIND(key);
 	break;
     }
 
@@ -1329,6 +1620,11 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case XINTSXP:
+	    for (i = 0; i < n; i++)
+		isna[i] = XINT_HAS_NA(key) &&
+		    R_xintEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1341,6 +1637,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case XINTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
@@ -1406,6 +1703,28 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 #undef less
 	    else
 #define less(a, b) (c=Scollate(sx[a], sx[b]), c > 0 || (c == 0 && a > b))
+		sort2_with_index
+#undef less
+	    break;
+	case XINTSXP:
+	    /* The pass that moves NAs out of [lo, hi] runs only where rho
+	       is NULL, and do_rank() passes a live environment, so the
+	       comparison consults nalast as it does for every type above.
+	       Where the NAs have gone, bcmp_() finds none and answers as
+	       a bare comparison would.  This is orderVector1()'s
+	       non-radix arm, and has to agree with it. */
+	    if (decreasing)
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      XINT_HAS_NA(key), nalast),		\
+		    c < 0 || (c == 0 && a > b))
+		sort2_with_index
+#undef less
+	    else
+#define less(a, b) (c = bcmp_(bx + (R_xlen_t) (a) * bw,			\
+			      bx + (R_xlen_t) (b) * bw, bw, bk,		\
+			      XINT_HAS_NA(key), nalast),		\
+		    c > 0 || (c == 0 && a > b))
 		sort2_with_index
 #undef less
 	    break;
