@@ -49,7 +49,11 @@ storage.mode(x) <- value
   \code{storage.mode(x) <- "newmode"} is a more efficient \link{primitive}
   version of \code{mode<-}, which works for \code{"newmode"} which is
   one of the internal types (see \code{\link{typeof}}), but not for
-  \code{"single"}.  Attributes are preserved.
+  \code{"single"}.  Attributes are preserved, except when converting a
+  raw vector to an \code{\link{xinteger}} type changes the element count;
+  then names, dimensions and dimension names are removed.  The same
+  exception applies to \code{mode<-}, which uses \code{storage.mode<-}
+  for an \code{xinteger} type name.
 
   As storage mode \code{"single"} is only a pseudo-mode in \R, it will
   not be reported by \code{mode} or \code{storage.mode}: use

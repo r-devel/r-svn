@@ -171,7 +171,8 @@ xintegerRaw(x)
   \code{"uint64"}.  \code{\link{get}}, \code{\link{exists}} and
   \code{\link{mget}} follow that: \code{mode = "numeric"} finds any of
   them, as it finds integer and double vectors, while a detailed
-  storage-mode name matches that element type and no other.  A package wanting its own semantics
+  storage-mode name matches the width and kind, with either sentinel
+  policy.  A package wanting its own semantics
   can add a class -- \code{class(x) <- c("myint", class(x))} --
   which dispatches ahead of the methods for the type and leaves the
   vector working underneath.  S4 dispatch needs the implicit class

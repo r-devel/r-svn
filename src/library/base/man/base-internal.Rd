@@ -227,9 +227,8 @@ lazyLoadDBfetch(key, file, compressed, hook)
   the S4 method dispatch has been turned on in the evaluator (usually by
   loading package \pkg{methods}).  It is meant for \R internal use only.
 
-  \code{.isXIntTypeName()} recognizes the syntax of a detailed
-  \link{xinteger} storage-mode name.  It is meant for \R internal use only;
-  the requested width is validated separately by each caller.
+  \code{.isXIntTypeName()} recognizes the supported detailed
+  \link{xinteger} storage-mode names.  It is meant for \R internal use only.
 
   \code{sys.save.image} is a system function that is called by \code{q()}
   and its GUI analogs; \code{sys.load.image} is called by the startup code.

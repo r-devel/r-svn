@@ -44,10 +44,10 @@ save.image(file = ".RData", version = NULL, ascii = FALSE,
     writes double/complex numbers as binary fractions.}
   \item{version}{the workspace format version to use.  \code{NULL}
     lets the writer choose: the current default format (3), raised to 4
-    -- with a message -- for an object only version 4 can carry, which
-    today means a \code{\link{xinteger}} vector.  Version 1 was the default
-    from \R 0.99.0 to \R 1.3.1 and version 2 from \R 1.4.0 to 3.5.0.
-    Version 3 is supported from \R 3.5.0 and version 4 from \R 4.7.0.}
+    -- with a message -- when required or conservatively selected; see
+    \code{\link{serialize}}.  Version 1 was the default from \R 0.99.0
+    to \R 1.3.1 and version 2 from \R 1.4.0 to 3.5.0.  Version 3 is
+    supported from \R 3.5.0 and version 4 from \R 4.7.0.}
   \item{envir}{environment to search for objects to be saved.}
   \item{compress}{logical or character string specifying whether saving
     to a named file is to use compression.  \code{TRUE} corresponds to
