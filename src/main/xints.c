@@ -43,7 +43,7 @@
 #include <Print.h>  /* R_print.na_string */
 #include <R_ext/Itermacros.h>  /* MOD_ITERATE2 */
 
-/* UINT reserves all-0xFF for NA and INT reserves INT_MIN instead. */
+/* XINT_UNSIGNED reserves all-0xFF for NA; XINT_SIGNED reserves INT_MIN. */
 Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind)
 {
     if (kind == XINT_SIGNED) {
@@ -1022,42 +1022,30 @@ const char *R_xintEltRender(SEXP x, R_xlen_t i)
 /* storage.mode(), implicit classes and diagnostics name a fixed-width
    vector by its (kind, width), while typeof() follows the SEXPTYPE and
    reports the single structural type "xinteger". */
-/* One permanent slot per (kind, width).  The detailed name is a pure
-   function of those two, so it is materialized once and then handed out
-   as a stable pointer -- which is what type2char() does for every other
-   type, only its table is keyed by the SEXPTYPE and can hold just one
-   row for this one.  The width and kind live in the object's gp bits,
-   which type2char() never sees, hence a table of its own.
+/* The closed set of detailed names, in one table for both directions.
+   String literals give R_typeToChar() the stable pointers its diagnostics
+   need without writable storage or lazy initialization. */
+static const struct {
+    int width;
+    const char *names[2];
+} xintTypeNames[] = {
+    { 1, { "uint8",   "int8"   } },
+    { 2, { "uint16",  "int16"  } },
+    { 4, { "uint32",  "int32"  } },
+    { 8, { "uint64",  "int64"  } },
+    {16, { "uint128", "int128" } }
+};
 
-   Keying it this way rather than cycling a few scratch buffers matters
-   because R_typeToChar() returns this for useful diagnostics, and
-   several of R's messages print two type names in one call --
-   "incompatible types (from %s to
-   %s)" and vapply's mismatch report among them.  With shared scratch
-   the second call would overwrite the first and both would print the
-   same name, silently and only for this type.  Here every name has its
-   own storage, so any number may be live at once and none can alias.
-
-   2 * 17 * 16 bytes of BSS, filled lazily. */
 const char *R_xintTypeNameOf(int w, int kind)
 {
-    static char names[2][XINT_MAX_WIDTH + 1][XINT_TYPE_NAME_MAX];
-
-    /* every caller is behind a validated width and kind, but this
-       indexes an array, so it does not take that on trust */
-    if ((kind != XINT_UNSIGNED && kind != XINT_SIGNED) || !XINT_WIDTH_OK(w))
+    if (kind != XINT_UNSIGNED && kind != XINT_SIGNED)
 	return "xinteger";
 
-    char *b = names[kind - 1][w];
-    if (*b)
-	return b;			/* built on an earlier call */
+    for (size_t i = 0; i < sizeof xintTypeNames / sizeof xintTypeNames[0]; i++)
+	if (xintTypeNames[i].width == w)
+	    return xintTypeNames[i].names[kind - 1];
 
-    if (kind == XINT_UNSIGNED)
-	snprintf(b, XINT_TYPE_NAME_MAX, "uint%d", 8 * w);
-    else
-	snprintf(b, XINT_TYPE_NAME_MAX, "int%d", 8 * w);
-
-    return b;
+    return "xinteger";
 }
 
 const char *R_xintTypeName(SEXP x)
@@ -1065,35 +1053,18 @@ const char *R_xintTypeName(SEXP x)
     return R_xintTypeNameOf(XINT_WIDTH(x), XINT_KIND(x));
 }
 
-/* The inverse, for readBin(con, "int64") and friends.  Kept beside the
-   function above so the two spellings of the same rule cannot drift. */
+/* The inverse, for readBin(con, "int64") and friends. */
 Rboolean R_xintTypeFromName(const char *s, int *width, int *kind)
 {
-    const char *digits;
-    int k;
+    for (size_t i = 0; i < sizeof xintTypeNames / sizeof xintTypeNames[0]; i++)
+	for (int k = XINT_UNSIGNED; k <= XINT_SIGNED; k++)
+	    if (!strcmp(s, xintTypeNames[i].names[k - 1])) {
+		*width = xintTypeNames[i].width;
+		*kind = k;
+		return TRUE;
+	    }
 
-    if (!strncmp(s, "uint", 4))	     { k = XINT_UNSIGNED;   digits = s + 4; }
-    else if (!strncmp(s, "int", 3))  { k = XINT_SIGNED;    digits = s + 3; }
-    else return FALSE;
-
-    /* so that "int" and "integer" stay readBin's own names.  A leading
-       zero is rejected so that the names accepted here are exactly the
-       ones R_xintTypeName() produces, rather than "int064" as well. */
-    if (!*digits || (*digits == '0' && digits[1])) return FALSE;
-    for (const char *p = digits; *p; p++)
-	if (!isdigit((int) (unsigned char) *p)) return FALSE;
-
-    /* the whole name is digits, so a value too big for a long is far
-       past any width and strtol()'s saturation answers the same */
-    long n = strtol(digits, NULL, 10);
-    if (n % 8) return FALSE;
-    n /= 8;
-    if (!XINT_WIDTH_OK(n)) return FALSE;
-
-    *width = (int) n;
-    *kind = k;
-
-    return TRUE;
+    return FALSE;
 }
 
 /* xintegerWidth(x) */

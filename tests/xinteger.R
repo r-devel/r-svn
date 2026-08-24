@@ -539,10 +539,10 @@ for (v in list(u, s, un, nn, xinteger(0L, 8L, "unsigned"))) {
 ## ASCII payload words are exactly two hex digits.  A parser accepting only
 ## the valid prefix would hide stream corruption for raw and xinteger alike.
 local({
-    corruptLastWord <- function(x, word) {
-	txt <- rawToChar(serialize(x, NULL, ascii = TRUE))
-	charToRaw(sub(paste0(word, "\\n$"), paste0(word, "junk\\n"), txt))
-    }
+	corruptLastWord <- function(x, word) {
+	    txt <- rawToChar(serialize(x, NULL, ascii = TRUE))
+	    charToRaw(sub(paste0(word, "\n$"), paste0(word, "junk\n"), txt))
+	}
     stopifnot(inherits(tryCatch(unserialize(corruptLastWord(as.raw(0xab), "ab")),
 				 error = identity), "error"),
 	      inherits(tryCatch(unserialize(corruptLastWord(as.uint8(1:2), "02")),
