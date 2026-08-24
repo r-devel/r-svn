@@ -136,7 +136,7 @@ typedef unsigned int SEXPTYPE;
 #define RAWSXP      24    /* raw bytes */
 #define OBJSXP      25    /* object, non-vector  */
 #define S4SXP       25    /* same as OBJSXP, retained for back compatability */
-#define XINTSXP     26    /* extended-integer vectors */
+#define ALTSXP     26    /* opaque ALTREP atomic vectors */
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -172,7 +172,7 @@ typedef enum {
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
     OBJSXP	= 25,	/* S4 non-vector */
-    XINTSXP	= 26,	/* extended-integer vectors */
+    ALTSXP	= 26,	/* opaque ALTREP atomic vectors */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */
@@ -306,14 +306,13 @@ int LOGICAL_NO_NA(SEXP x);
 int STRING_IS_SORTED(SEXP x);
 int STRING_NO_NA(SEXP x);
 
-/* 'xinteger' vectors (XINTSXP): fixed-width integer elements, XLENGTH() of them,
-   each R_xintWidth(x) bytes wide.  The width is a property of the
-   vector rather than of the type, so allocVector(XINTSXP, n) cannot
-   work and R_allocXIntVector() is the way to make one.  As with
-   allocVector() for other atomic types, its payload is uninitialized.
+/* The base int64 and uint64 ALTSXP classes.  These are opaque ALTREP atomic
+   vectors whose elements are eight bytes wide; ALTSXP itself does not imply
+   an integer representation.  allocVector(ALTSXP, n) therefore cannot work,
+   and R_allocXIntVector() constructs one of the two built-in classes.
 
    The kind says whether elements are signed or unsigned integers of
-   8*width bits.  They are held in *native* byte order, so ingesting them
+   64 bits.  They are held in *native* byte order, so ingesting them
    from another data source is a plain copy.
 
    R_xintTypeSupported() reports whether R_allocXIntVector() would
@@ -321,7 +320,8 @@ int STRING_NO_NA(SEXP x);
    source column onto can ask before it allocates rather than taking an
    error.
 
-   hasNA says whether one value of the width is reserved to mean NA
+   The width argument is currently required to be 8.  hasNA says whether
+   one value is reserved to mean NA
    (all-0xFF for unsigned, the most negative value for signed).  Pass
    FALSE when every bit pattern in the source is a
    legitimate value; operations that would then have to produce NA

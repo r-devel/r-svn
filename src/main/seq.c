@@ -163,7 +163,7 @@ attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* after the length rule above, which is the same rule for every
        type: an 'xinteger' endpoint longer than one is the mistake it is
        for a double, and warns rather than erroring. */
-    if (TYPEOF(s1) == XINTSXP && TYPEOF(s2) == XINTSXP) {
+    if (TYPEOF(s1) == ALTSXP && TYPEOF(s2) == ALTSXP) {
 	if (n1 != 1 || n2 != 1) {
 	    SEXP a = PROTECT(R_allocVectorLike(s1, 1));
 	    memcpy(XINT_DATA(a), XINT_ELT_RO(s1, 0), (size_t) XINT_WIDTH(s1));
@@ -242,7 +242,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 		RAW(a)[n++] = RAW(s)[i]; \
 	} \
 	break; \
-    case XINTSXP: \
+    case ALTSXP: \
 	for (i = 0; i < nc; i++) { \
 	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
 		memcpy(XINT_ELT(a, n++), XINT_ELT_RO(s, i), \
@@ -338,7 +338,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 	    RAW(a)[i] = RAW(s)[j];
 	});
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	MOD_ITERATE1(na, ns, i, j, {
 	    memcpy(XINT_ELT(a, i), XINT_ELT_RO(s, j),
 		   (size_t) XINT_WIDTH(s));
@@ -582,7 +582,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	    }								\
 	}								\
 	break;								\
-    case XINTSXP:							\
+    case ALTSXP:							\
 	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 	    for(j = 0, sum = 0; j < each; j++) sum += (R_xlen_t) itimes[k++]; \
 	    for(k3 = 0; k3 < sum; k3++) {				\
@@ -652,7 +652,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 		RAW(a)[i] = RAW(x)[(i/each) % lx];
 	    }
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    {
 		size_t w = (size_t) XINT_WIDTH(x);
 		for(i = 0; i < len; i++)
@@ -875,8 +875,8 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
     bool
 	miss_from = (from == R_MissingArg),
 	miss_to   = (to   == R_MissingArg);
-    if (!miss_from && !miss_to && TYPEOF(from) == XINTSXP &&
-	TYPEOF(to) == XINTSXP && by == R_MissingArg &&
+    if (!miss_from && !miss_to && TYPEOF(from) == ALTSXP &&
+	TYPEOF(to) == ALTSXP && by == R_MissingArg &&
 	(len == R_MissingArg || len == R_NilValue) &&
 	along == R_MissingArg) {
 	ans = R_xintSeq(call, from, to);
@@ -889,7 +889,7 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   mode() is "numeric": without it seq.int(as.int64(5)) falls to the
 	   length rule below and answers 1 where seq.int(5L) answers 1:5 */
 	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP ||
-		       TYPEOF(from) == XINTSXP)) {
+		       TYPEOF(from) == ALTSXP)) {
 	    double rfrom = asReal(from);
 	    if (!R_FINITE(rfrom))
 		errorcall(call, _("'%s' must be a finite number"), "from");

@@ -38,7 +38,7 @@
 
 static Rboolean isNumericArg(SEXP x)
 {
-    return isNumeric(x) || TYPEOF(x) == XINTSXP;
+    return isNumeric(x) || TYPEOF(x) == ALTSXP;
 }
 
 

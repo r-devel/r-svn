@@ -135,6 +135,7 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
 #define ALTCOMPLEX_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altcomplex)
 #define ALTSTRING_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altstring)
 #define ALTLIST_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altlist)
+#define ALT_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, alt)
 
 #define ALTREP_METHODS						\
     R_altrep_UnserializeEX_method_t UnserializeEX;		\
@@ -202,6 +203,20 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altlist_Elt_method_t Elt;                 \
     R_altlist_Set_elt_method_t Set_elt
 
+#define ALT_METHODS                             \
+    ALTVEC_METHODS;                             \
+    R_alt_Element_size_method_t Element_size;  \
+    R_alt_Elt_method_t Elt;                    \
+    R_alt_Set_elt_method_t Set_elt;            \
+    R_alt_Get_region_method_t Get_region;      \
+    R_alt_Binary_op_method_t Binary_op;        \
+    R_alt_Unary_op_method_t Unary_op;          \
+    R_alt_Compare_method_t Compare;            \
+    R_alt_Hash_method_t Hash;                  \
+    R_alt_Format_method_t Format;              \
+    R_alt_Summary_method_t Summary;            \
+    R_alt_Combine_method_t Combine
+
 typedef struct { ALTREP_METHODS; } altrep_methods_t;
 typedef struct { ALTVEC_METHODS; } altvec_methods_t;
 typedef struct { ALTINTEGER_METHODS; } altinteger_methods_t;
@@ -211,6 +226,7 @@ typedef struct { ALTRAW_METHODS; } altraw_methods_t;
 typedef struct { ALTCOMPLEX_METHODS; } altcomplex_methods_t;
 typedef struct { ALTSTRING_METHODS; } altstring_methods_t;
 typedef struct { ALTLIST_METHODS; } altlist_methods_t;
+typedef struct { ALT_METHODS; } alt_methods_t;
 
 /* Macro to extract first element from ... macro argument.
    From Richard Hansen's answer in
@@ -231,6 +247,7 @@ typedef struct { ALTLIST_METHODS; } altlist_methods_t;
 #define ALTCOMPLEX_DISPATCH(fun, ...) DO_DISPATCH(ALTCOMPLEX, fun, __VA_ARGS__)
 #define ALTSTRING_DISPATCH(fun, ...) DO_DISPATCH(ALTSTRING, fun, __VA_ARGS__)
 #define ALTLIST_DISPATCH(fun, ...) DO_DISPATCH(ALTLIST, fun, __VA_ARGS__)
+#define ALT_DISPATCH(fun, ...) DO_DISPATCH(ALT, fun, __VA_ARGS__)
 
 
 /*
@@ -240,6 +257,80 @@ typedef struct { ALTLIST_METHODS; } altlist_methods_t;
 attribute_hidden SEXP ALTREP_COERCE(SEXP x, int type)
 {
     return ALTREP_DISPATCH(Coerce, x, type);
+}
+
+attribute_hidden size_t ALT_ELEMENT_SIZE(SEXP x)
+{
+    return ALT_DISPATCH(Element_size, x);
+}
+
+attribute_hidden void ALT_ELT(SEXP x, R_xlen_t i, void *buf)
+{
+    ALT_DISPATCH(Elt, x, i, buf);
+}
+
+attribute_hidden void ALT_SET_ELT(SEXP x, R_xlen_t i, const void *buf)
+{
+    ALT_DISPATCH(Set_elt, x, i, buf);
+}
+
+attribute_hidden R_xlen_t
+ALT_GET_REGION(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
+{
+    return ALT_DISPATCH(Get_region, x, i, n, buf);
+}
+
+/* Binary methods get a left-to-right opportunity to handle mixed ALTSXP
+   classes.  A NULL result means "not handled".  Calling a shared class only
+   once avoids making commutative operations accidentally run twice. */
+attribute_hidden SEXP
+ALT_BINARY_OP(SEXP x, SEXP y, int op, SEXP call)
+{
+    SEXP ans = NULL;
+    if (TYPEOF(x) == ALTSXP)
+	ans = ALT_DISPATCH(Binary_op, x, x, y, op, call);
+    if (ans == NULL && TYPEOF(y) == ALTSXP &&
+	(TYPEOF(x) != ALTSXP || ALTREP_CLASS(x) != ALTREP_CLASS(y)))
+	ans = ALT_DISPATCH(Binary_op, y, x, y, op, call);
+    return ans;
+}
+
+attribute_hidden SEXP ALT_UNARY_OP(SEXP x, int op, SEXP call)
+{
+    return ALT_DISPATCH(Unary_op, x, op, call);
+}
+
+attribute_hidden SEXP
+ALT_COMPARE(SEXP x, SEXP y, int op, SEXP call)
+{
+    SEXP ans = NULL;
+    if (TYPEOF(x) == ALTSXP)
+	ans = ALT_DISPATCH(Compare, x, x, y, op, call);
+    if (ans == NULL && TYPEOF(y) == ALTSXP &&
+	(TYPEOF(x) != ALTSXP || ALTREP_CLASS(x) != ALTREP_CLASS(y)))
+	ans = ALT_DISPATCH(Compare, y, x, y, op, call);
+    return ans;
+}
+
+attribute_hidden unsigned int ALT_HASH(SEXP x, R_xlen_t i)
+{
+    return ALT_DISPATCH(Hash, x, i);
+}
+
+attribute_hidden SEXP ALT_FORMAT(SEXP x, SEXP options)
+{
+    return ALT_DISPATCH(Format, x, options);
+}
+
+attribute_hidden SEXP
+ALT_SUMMARY(SEXP x, int op, SEXP args, Rboolean narm, SEXP call)
+{
+    return ALT_DISPATCH(Summary, x, op, args, narm, call);
+}
+
+attribute_hidden SEXP ALT_COMBINE(SEXP x, SEXP args, SEXP call)
+{
+    return ALT_DISPATCH(Combine, x, args, call);
 }
 
 static SEXP ALTREP_DUPLICATE(SEXP x, Rboolean deep)
@@ -339,6 +430,9 @@ ALTREP_UNSERIALIZE_EX(SEXP info, SEXP state, SEXP attr, int objf, int levs)
 		    "package '%s'; returning length zero vector",
 		    CHAR(PRINTNAME(csym)), CHAR(PRINTNAME(psym)));
 	    return allocVector(type, 0);
+	case ALTSXP:
+	    error("cannot unserialize ALTSXP object of class '%s' from package '%s': class is unavailable",
+		  CHAR(PRINTNAME(csym)), CHAR(PRINTNAME(psym)));
 	default:
 	    error("cannot unserialize this ALTREP object");
 	}
@@ -878,6 +972,46 @@ static void altlist_Set_elt_default(SEXP x, R_xlen_t i, SEXP v)
     ALTREP_ERROR_IN_CLASS("ALTLIST classes must provide a Set_elt method", x);
 }
 
+static size_t alt_Element_size_default(SEXP x)
+{
+    ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide an Element_size method", x);
+}
+
+static void alt_Elt_default(SEXP x, R_xlen_t i, void *buf)
+{
+    ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide an Elt method", x);
+}
+
+static void alt_Set_elt_default(SEXP x, R_xlen_t i, const void *buf)
+{
+    ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a Set_elt method", x);
+}
+
+static R_xlen_t
+alt_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
+{
+    R_xlen_t size = XLENGTH(x);
+    R_xlen_t ncopy = size - i > n ? n : size - i;
+    size_t elt_size = ALT_ELEMENT_SIZE(x);
+    for (R_xlen_t k = 0; k < ncopy; k++)
+	ALT_ELT(x, i + k, (char *) buf + k * elt_size);
+    return ncopy;
+}
+
+static SEXP alt_Binary_op_default(SEXP dispatch, SEXP x, SEXP y,
+				  int op, SEXP call) { return NULL; }
+static SEXP alt_Unary_op_default(SEXP x, int op, SEXP call) { return NULL; }
+static SEXP alt_Compare_default(SEXP dispatch, SEXP x, SEXP y,
+				int op, SEXP call) { return NULL; }
+static unsigned int alt_Hash_default(SEXP x, R_xlen_t i)
+{
+    ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a Hash method", x);
+}
+static SEXP alt_Format_default(SEXP x, SEXP options) { return NULL; }
+static SEXP alt_Summary_default(SEXP x, int op, SEXP args,
+				Rboolean narm, SEXP call) { return NULL; }
+static SEXP alt_Combine_default(SEXP x, SEXP args, SEXP call) { return NULL; }
+
 static void *altlist_Dataptr_default(SEXP x, Rboolean writable)
 {
     ALTREP_ERROR_IN_CLASS("No Dataptr method found for ALTLIST class", x);
@@ -911,6 +1045,31 @@ static altinteger_methods_t altinteger_default_methods = {
     .Sum = altinteger_Sum_default,
     .Min = altinteger_Min_default,
     .Max = altinteger_Max_default
+};
+
+static alt_methods_t alt_default_methods = {
+    .UnserializeEX = altrep_UnserializeEX_default,
+    .Unserialize = altrep_Unserialize_default,
+    .Serialized_state = altrep_Serialized_state_default,
+    .DuplicateEX = altrep_DuplicateEX_default,
+    .Duplicate = altrep_Duplicate_default,
+    .Coerce = altrep_Coerce_default,
+    .Inspect = altrep_Inspect_default,
+    .Length = altrep_Length_default,
+    .Dataptr = altvec_Dataptr_default,
+    .Dataptr_or_null = altvec_Dataptr_or_null_default,
+    .Extract_subset = altvec_Extract_subset_default,
+    .Element_size = alt_Element_size_default,
+    .Elt = alt_Elt_default,
+    .Set_elt = alt_Set_elt_default,
+    .Get_region = alt_Get_region_default,
+    .Binary_op = alt_Binary_op_default,
+    .Unary_op = alt_Unary_op_default,
+    .Compare = alt_Compare_default,
+    .Hash = alt_Hash_default,
+    .Format = alt_Format_default,
+    .Summary = alt_Summary_default,
+    .Combine = alt_Combine_default
 };
 
 static altreal_methods_t altreal_default_methods = {
@@ -1063,6 +1222,7 @@ make_altrep_class(int type, const char *cname, const char *pname, DllInfo *dll)
     case CPLXSXP: MAKE_CLASS(class, altcomplex); break;
     case STRSXP:  MAKE_CLASS(class, altstring);  break;
     case VECSXP:  MAKE_CLASS(class, altlist);    break;
+    case ALTSXP:  MAKE_CLASS(class, alt);        break;
     default: error("unsupported ALTREP class");
     }
     RegisterClass(class, type, cname, pname, dll);
@@ -1087,6 +1247,7 @@ DEFINE_CLASS_CONSTRUCTOR(altreal, REALSXP)
 DEFINE_CLASS_CONSTRUCTOR(altlogical, LGLSXP)
 DEFINE_CLASS_CONSTRUCTOR(altraw, RAWSXP)
 DEFINE_CLASS_CONSTRUCTOR(altcomplex, CPLXSXP)
+DEFINE_CLASS_CONSTRUCTOR(alt, ALTSXP)
 
 static void reinit_altrep_class(SEXP class)
 {
@@ -1098,6 +1259,7 @@ static void reinit_altrep_class(SEXP class)
     case RAWSXP: INIT_CLASS(class, altraw); break;
     case CPLXSXP: INIT_CLASS(class, altcomplex); break;
     case VECSXP: INIT_CLASS(class, altlist); break;
+    case ALTSXP: INIT_CLASS(class, alt); break;
     default: error("unsupported ALTREP class");
     }
 }
@@ -1164,6 +1326,18 @@ DEFINE_METHOD_SETTER(altstring, No_NA)
 DEFINE_METHOD_SETTER(altlist, Elt)
 DEFINE_METHOD_SETTER(altlist, Set_elt)
 
+DEFINE_METHOD_SETTER(alt, Element_size)
+DEFINE_METHOD_SETTER(alt, Elt)
+DEFINE_METHOD_SETTER(alt, Set_elt)
+DEFINE_METHOD_SETTER(alt, Get_region)
+DEFINE_METHOD_SETTER(alt, Binary_op)
+DEFINE_METHOD_SETTER(alt, Unary_op)
+DEFINE_METHOD_SETTER(alt, Compare)
+DEFINE_METHOD_SETTER(alt, Hash)
+DEFINE_METHOD_SETTER(alt, Format)
+DEFINE_METHOD_SETTER(alt, Summary)
+DEFINE_METHOD_SETTER(alt, Combine)
+
 /**
  ** ALTREP Object Constructor and Utility Functions
  **/
@@ -1208,4 +1382,3 @@ attribute_hidden SEXP do_altrep_class(SEXP call, SEXP op, SEXP args, SEXP env)
     else
 	return R_NilValue;
 }
-

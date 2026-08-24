@@ -47,10 +47,10 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
- int  ans_width; /* XINTSXP element width; 0 until one is seen */
- int  ans_kind;  /* XINTSXP element kind */
- int  ans_nona;  /* XINTSXP: does it decline to reserve an NA? */
- int  ans_clash; /* a second XINTSXP type that does not agree with the
+ int  ans_width; /* ALTSXP element width; 0 until one is seen */
+ int  ans_kind;  /* ALTSXP element kind */
+ int  ans_nona;  /* ALTSXP: does it decline to reserve an NA? */
+ int  ans_clash; /* a second ALTSXP type that does not agree with the
 		    first: 0 none, 1 width, 2 kind, 3 NA reservation */
  int  ans_clashwidth;	/* its width, for the message */
 /* int  deparse_level; Initialize to 1. */
@@ -85,7 +85,7 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	data->ans_flags |= 1;
 	data->ans_length += XLENGTH(x);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* Two 'xinteger' types that do not agree are only a mistake if the
 	   answer is one of them: a list holds its elements by reference
 	   and takes both without losing anything.  So the clash is
@@ -199,7 +199,7 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 
 /* The result type the flags call for.  c(), unlist() and cbind()/rbind()
    all ask the same question, so they ask it in one place: a per-vector
-   property added to XINTSXP is then a change here rather than in three
+   property added to ALTSXP is then a change here rather than in three
    switches that have to be kept in step. */
 static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
 {
@@ -229,7 +229,7 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
 	if (data->ans_flags & ~(1024 | 16 | 2))
 	    errorcall(call,
 		      _("cannot combine 'xinteger' vectors with other types; use an integer operand (1L), or as.numeric() for double arithmetic"));
-	else return XINTSXP;
+	else return ALTSXP;
     }
 
     if      (data->ans_flags & 512) return EXPRSXP;
@@ -250,7 +250,7 @@ static SEXPTYPE BindAnswerMode(struct BindData *data, SEXP call)
 static SEXP BindAnswerAlloc(SEXPTYPE mode, struct BindData *data,
 			    R_xlen_t length)
 {
-    if (mode != XINTSXP)
+    if (mode != ALTSXP)
 	return allocVector(mode, length);
 
     return R_allocXIntVector(length, data->ans_width, data->ans_kind,
@@ -276,7 +276,7 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarRaw(RAW(x)[i]));
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* one length-1 vector per element, keeping the width and kind;
 	   there is no scalar form of an 'xinteger' element */
 	for (i = 0; i < XLENGTH(x); i++) {
@@ -457,7 +457,7 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = REAL(x)[i];
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    SEXP y = PROTECT(coerceVector(x, REALSXP));
 	    for (i = 0; i < XLENGTH(y); i++)
@@ -566,7 +566,7 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
 
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    SEXP y = PROTECT(coerceVector(x, CPLXSXP));
 	    for (i = 0; i < XLENGTH(y); i++)
@@ -599,7 +599,7 @@ XIntAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    XIntAnswer(VECTOR_ELT(x, i), data, call);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    /* one block copy: AnswerType has already agreed the width */
 	    R_xlen_t nx = XLENGTH(x);
@@ -802,7 +802,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	for (i = 0; i < n && nameData->count <= 1; i++)
 	    nameData->count++;
 	break;
@@ -871,7 +871,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	for (i = 0; i < n; i++) {
 	    namei = ItemName(names, i);
 	    namei = NewName(base, namei, ++(nameData->seqno), nameData->count);
@@ -979,6 +979,36 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
        _but_ `recursive' might be the only argument */
     PROTECT(args = c_Extract_opt(args, &recurse, &usenames, call));
 
+    /* Give each distinct opaque class, in argument order, one opportunity
+       to combine the list.  NULL declines, in which case the built-in
+       int64/uint64 path below remains the compatibility fallback. */
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	if (TYPEOF(CAR(a)) == ALTSXP) {
+	    bool seen = false;
+	    for (SEXP b = args; b != a; b = CDR(b))
+		if (TYPEOF(CAR(b)) == ALTSXP &&
+		    ALTREP_CLASS(CAR(b)) == ALTREP_CLASS(CAR(a))) {
+		    seen = true;
+		    break;
+		}
+	    if (seen) continue;
+	    SEXP altans = ALT_COMBINE(CAR(a), args, call);
+	    if (altans != NULL) {
+		PROTECT(altans);
+		UNPROTECT(2); /* altans, args */
+		return altans;
+	    }
+	}
+
+    /* Everything below is the built-in fixed-integer compatibility path;
+       it reads int64/uint64 private metadata.  An unrelated opaque class
+       that declined Combine cannot safely fall into it. */
+    for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	if (TYPEOF(CAR(a)) == ALTSXP && !R_isXInt(CAR(a)))
+	    errorcall(call,
+		      _("combine is not implemented for ALTSXP class '%s'"),
+		      CHAR(PRINTNAME(R_altrep_class_name(CAR(a)))));
+
     /* Determine the type of the returned value. */
     /* The strategy here is appropriate because the */
     /* object being operated on is a pair based list. */
@@ -1031,7 +1061,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
-    else if (mode == XINTSXP)
+    else if (mode == ALTSXP)
 	XIntAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
@@ -1152,7 +1182,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
 	RealAnswer(args, &data, call);
     else if (mode == RAWSXP)
 	RawAnswer(args, &data, call);
-    else if (mode == XINTSXP)
+    else if (mode == ALTSXP)
 	XIntAnswer(args, &data, call);
     else if (mode == LGLSXP)
 	LogicalAnswer(args, &data, call);
@@ -1318,7 +1348,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     case STRSXP:
     case VECSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	break;
 	/* we don't handle expressions: we could, but coercion of a matrix
 	   to an expression is not ideal.
@@ -1438,7 +1468,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    if (mode == XINTSXP)
+    if (mode == ALTSXP)
 	/* allocMatrix cannot carry a per-vector width; the width and kind
 	   are the ones AnswerType already agreed across the arguments */
 	PROTECT(result = R_xintShapeMatrix(
@@ -1470,7 +1500,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
 		case NILSXP:
 		case LANGSXP:
 		case RAWSXP:
-		case XINTSXP:
+		case ALTSXP:
 		case LGLSXP:
 		case INTSXP:
 		case REALSXP:
@@ -1521,7 +1551,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
 	    }
 	}
     }
-    else if (mode == XINTSXP) {
+    else if (mode == ALTSXP) {
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
@@ -1531,7 +1561,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode,
 		   arithmetic rule and rightly refuses it */
 		if (u == R_NilValue)
 		    u = R_allocVectorLike(result, 0);
-		else if (TYPEOF(u) != XINTSXP)
+		else if (TYPEOF(u) != ALTSXP)
 		    u = R_xintNarrow(u, XINT_WIDTH(result),
 				      XINT_KIND(result),
 				      XINT_HAS_NA(result), call);
@@ -1746,7 +1776,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    if (mode == XINTSXP)
+    if (mode == ALTSXP)
 	/* allocMatrix cannot carry a per-vector width; the width and kind
 	   are the ones AnswerType already agreed across the arguments */
 	PROTECT(result = R_xintShapeMatrix(
@@ -1798,7 +1828,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
 	    }
 	}
     }
-    else if (mode == XINTSXP) {
+    else if (mode == ALTSXP) {
 	for (t = args; t != R_NilValue; t = CDR(t)) {
 	    u = PRVALUE(CAR(t));
 	    if (isMatrix(u) || length(u) >= lenmin) {
@@ -1809,7 +1839,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode,
 		   arithmetic rule and rightly refuses it */
 		if (u == R_NilValue)
 		    u = R_allocVectorLike(result, 0);
-		else if (TYPEOF(u) != XINTSXP)
+		else if (TYPEOF(u) != ALTSXP)
 		    u = R_xintNarrow(u, XINT_WIDTH(result),
 				      XINT_KIND(result),
 				      XINT_HAS_NA(result), call);

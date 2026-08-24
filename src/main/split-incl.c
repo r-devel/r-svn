@@ -54,7 +54,7 @@
 	    case RAWSXP:
 		RAW(VECTOR_ELT(vec, j - 1))[k] = RAW(x)[i];
 		break;
-	    case XINTSXP:
+	    case ALTSXP:
 		memcpy(XINT_ELT(VECTOR_ELT(vec, j - 1), k),
 		       XINT_ELT_RO(x, i), (size_t) XINT_WIDTH(x));
 		break;

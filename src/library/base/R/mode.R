@@ -25,7 +25,7 @@ mode <- function(x) {
 		      "call"))
     if(is.name(x)) "name" else
     switch(tx <- typeof(x),
-	   double =, integer =, xinteger = "numeric", # 'real=' dropped, 2000/Jan/14
+	   double =, integer =, alt = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
 	   ## otherwise
 	   tx)
@@ -36,9 +36,8 @@ mode <- function(x) {
     if (storage.mode(x) == value) return(x)
     if (is.xinteger(x) && mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
-    ## An 'xinteger' type is named by its width and kind (see
-    ## R_xintTypeFromName in src/main/xints.c).  Plain "xinteger" is also
-    ## handled here so that changing mode cannot silently invent a width.
+    ## A built-in 64-bit class is named by its kind.  The legacy structural
+    ## name "xinteger" remains an explicit error rather than inventing one.
     if(value == "xinteger" || .isXIntTypeName(value)) {
 	storage.mode(x) <- value
 	return(x)
@@ -72,13 +71,15 @@ storage.mode <- function(x) {
 {
     tx <- typeof(x)
     if(!tx %in% c("logical", "integer", "double", "complex", "character",
-		  "raw", "list", "expression", "xinteger"))
+		  "raw", "list", "expression", "alt"))
 	stop("'x' must be a vector")
 
-    if(tx == "xinteger") {
+    if(tx == "alt" && is.xinteger(x)) {
 	element_size <- xintegerWidth(x)
 	signed <- xintegerKind(x) == "signed"
 	nullable <- xintegerHasNA(x)
+    } else if(tx == "alt") {
+	stop("storage information is not available for this ALTSXP class")
     } else {
 	element_size <- switch(tx,
 		logical =, integer = 4L,

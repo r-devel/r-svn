@@ -697,8 +697,8 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	  case REALSXP:
 	    klass = mkChar("numeric");
 	    break;
-	  case XINTSXP:
-	    klass = mkChar(R_xintTypeName(obj));
+	  case ALTSXP:
+	    klass = PRINTNAME(R_altrep_class_name(obj));
 	    break;
 	  case SYMSXP:
 	    klass = mkChar("name");
@@ -834,7 +834,7 @@ void InitS3DefaultTypes(void)
 		nprotected += 2;
 		break;
 	    case LANGSXP:
-	    case XINTSXP:
+	    case ALTSXP:
 		/* part3 remains R_NilValue: default type cannot be
 		   pre-allocated, as it depends on the object value */
 		break;
@@ -888,17 +888,18 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	    return defaultClass;
 	}
 
-	/* Like LANGSXP, and unlike every other type here, an 'xinteger'
-	   vector's implicit class depends on the object rather than on
-	   its SEXPTYPE alone: the name comes from the kind and width.
+	/* Like LANGSXP, and unlike every other type here, an ALTSXP object's
+	   implicit class depends on the registered ALTREP class rather than on
+	   its SEXPTYPE alone.
 	   It must agree with R_data_class() above, or UseMethod() would
 	   offer methods that class(x) never mentions. */
-	if (t == XINTSXP) {
+	if (t == ALTSXP) {
 	    int I_mat = (n == 2) ? 1 : 0, I_arr = (n > 0) ? 1 : 0, i = 0;
 	    defaultClass = PROTECT(allocVector(STRSXP, 1 + I_mat + I_arr));
 	    if (I_mat) SET_STRING_ELT(defaultClass, i++, mkChar("matrix"));
 	    if (I_arr) SET_STRING_ELT(defaultClass, i++, mkChar("array"));
-	    SET_STRING_ELT(defaultClass, i, mkChar(R_xintTypeName(obj)));
+	    SET_STRING_ELT(defaultClass, i,
+			   PRINTNAME(R_altrep_class_name(obj)));
 	    UNPROTECT(1);
 	    return defaultClass;
 	}

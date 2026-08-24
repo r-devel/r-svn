@@ -25,9 +25,7 @@ fails <- 0L
 chk <- function(l, c) { if (!isTRUE(c)) fails <<- fails + 1L
                         cat(sprintf("%-42s %s\n", l, if (isTRUE(c)) "ok" else "FAIL")) }
 
-for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
-                  list(4L, "unsigned"), list(16L, "unsigned"),
-                  list(2L, "unsigned"), list(16L, "signed"))) {
+for (spec in list(list(8L, "unsigned"), list(8L, "signed"))) {
     w <- spec[[1L]]; k <- spec[[2L]]
 
     ref <- bnRandomValues(w, k, 120L)

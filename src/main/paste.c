@@ -452,6 +452,7 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
     int scikeep = R_print.scipen;
 
     SEXP x = CAR(args), y, l;
+    SEXP format_options = CDR(args);
     if (isEnvironment(x)) {
 	return mkString(EncodeEnvironment(x));
     }
@@ -535,17 +536,19 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	const char *strp;
 	switch (TYPEOF(x)) {
 
-	case XINTSXP:
+	case ALTSXP:
 	    /* hex elements are all the same width; decimal ones are not,
 	       so the common width has to be measured.  Rendered into the
 	       answer as they are measured rather than a second time, and
 	       padded only if there is padding to do -- rendering a
 	       128-bit decimal element is repeated division. */
 	    {
-		PROTECT(y = allocVector(STRSXP, n));
+		y = ALT_FORMAT(x, format_options);
+		if (y == NULL || TYPEOF(y) != STRSXP || XLENGTH(y) != n)
+		    error(_("invalid Format result from ALTSXP class"));
+		PROTECT(y);
 		w = 0;
 		for (i = 0; i < n; i++) {
-		    SET_STRING_ELT(y, i, mkChar(R_xintEltRender(x, i)));
 		    int wi = (int) strlen(CHAR(STRING_ELT(y, i)));
 		    if (wi > w) w = wi;
 		}
@@ -761,10 +764,20 @@ attribute_hidden SEXP do_formatinfo(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	break;
 
-    case XINTSXP:
-	/* measured rather than computed, as in do_format() above:
-	   decimal elements do not all render to the same width */
-	formatXIntS(x, 0, n, &w);
+    case ALTSXP:
+	{
+	    SEXP rendered = ALT_FORMAT(x, CDR(args));
+	    if (rendered == NULL || TYPEOF(rendered) != STRSXP ||
+		XLENGTH(rendered) != n)
+		error(_("invalid Format result from ALTSXP class"));
+	    PROTECT(rendered);
+	    for (R_xlen_t i = 0; i < n; i++)
+		if (STRING_ELT(rendered, i) != NA_STRING) {
+		    int wi = Rstrlen(STRING_ELT(rendered, i), 0);
+		    if (wi > w) w = wi;
+		}
+	    UNPROTECT(1);
+	}
 	break;
 
     default:

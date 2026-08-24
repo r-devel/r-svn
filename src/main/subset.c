@@ -131,7 +131,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
     int mode = TYPEOF(x);
 
     /* protect allocation in case _ELT operations need to allocate */
-    PROTECT(result = (mode == XINTSXP)
+    PROTECT(result = (mode == ALTSXP)
 	    ? R_allocVectorLike(x, n)
 	    : allocVector(mode, n));
     switch(mode) {
@@ -168,7 +168,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 	EXTRACT_SUBSET_LOOP(RAW0(result)[i] = RAW_ELT(x, ii),
 			    RAW0(result)[i] = (Rbyte) 0);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    size_t w = (size_t) XINT_WIDTH(x);
 	    int k = XINT_KIND(x);
@@ -380,7 +380,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	MATRIX_SUBSET_LOOP(RAW0(result)[ij] = RAW_ELT(x, iijj),
 			   RAW0(result)[ij] = (Rbyte) 0);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    size_t w = (size_t) XINT_WIDTH(x);
 	    int k = XINT_KIND(x);
@@ -562,7 +562,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	ARRAY_SUBSET_LOOP(RAW0(result)[i] = RAW_ELT(x, ii),
 			  RAW0(result)[i] = (Rbyte) 0);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    size_t w = (size_t) XINT_WIDTH(x);
 	    int kind = XINT_KIND(x);
@@ -1176,7 +1176,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case RAWSXP:
 	    RAW0(ans)[0] = RAW_ELT(x, offset);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    memcpy(XINT_DATA(ans), XINT_ELT_RO(x, offset),
 		   (size_t) XINT_WIDTH(x));
 	    break;

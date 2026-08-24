@@ -32,31 +32,26 @@
       \item \code{readBin()} and \code{scan()} accept detailed
       \code{xinteger} names such as \code{"int64"}, or prototypes, for
       \code{what}; \code{read.table()} accepts the names in
-      \code{colClasses}.  The ten names are matched exactly, so the
+      \code{colClasses}.  The two names are matched exactly, so the
       previous character interpretation of, e.g., \code{"int24"} is
       unchanged.
 
-      \item There is a new serialization format version, 4, for streams
-      containing an \code{xinteger} vector; it records 4.7.0 as the least
-      version that can read it.  The serialization functions select it
-      automatically when required, or conservatively for some package
-      \I{ALTREP} objects, while ordinary objects remain at version 3.
-      \code{saveRDS()} and \code{save()} report the choice with a
-      \code{message()}; see \code{?serialize}.
     }
   }
 
   \subsection{New Features}{
     \itemize{
-      \item There is a new atomic vector type, \code{xinteger}
-      (\code{XINTSXP}), for signed and unsigned integers 1, 2, 4, 8 or
-      16 bytes wide.  \code{typeof()} reports \code{"xinteger"}, while
-      \code{storage.mode()} gives a detailed name such as \code{"uint64"}.
+      \item There is a new opaque atomic ALTREP type, \code{ALTSXP}, with
+      built-in \code{int64} and \code{uint64} classes.  \code{typeof()}
+      reports \code{"alt"}, while \code{storage.mode()} gives the class's
+      detailed name.
       The vectors are numeric and retain their width through arithmetic,
       comparison, bitwise operations, sorting, matching and serialization;
       promotion to double warns on actual precision loss.  Constructors
       and conversion accept detailed names; binary and delimited input
       also accept prototypes as appropriate; see \code{?xinteger}.
+      Serialization uses portable class state in the existing version-3
+      ALTREP format.
       \code{get()},
       \code{exists()} and \code{mget()} find them under
       \code{mode = "numeric"}, or by a detailed name matching the width

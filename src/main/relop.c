@@ -358,6 +358,10 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	}
     }
 
+  SEXP altans = NULL;
+  if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP)
+      altans = ALT_COMPARE(x, y, PRIMVAL(op), call);
+
   if (nx > 0 && ny > 0) {
 	if(((nx > ny) ? nx % ny : ny % nx) != 0) // mismatch
             warningcall(call, _(
@@ -370,19 +374,16 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
        also what c() and x[i] <- value already do, and having ==,
        match() and %in% disagree with them about the same pair of
        operands is worse than inheriting string collation. */
-    if (isString(x) || isString(y)) {
+    if (altans != NULL) {
+	x = altans;
+    }
+    else if (isString(x) || isString(y)) {
 	REPROTECT(x = coerceVector(x, STRSXP), xpi);
 	REPROTECT(y = coerceVector(y, STRSXP), ypi);
 	x = string_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     }
-    else if ((TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) &&
-	(TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
-	 TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)) {
-	x = xint_numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
-    }
-    else if (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) {
-	x = xint_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
-    }
+    else if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP)
+	errorcall(call, _("comparison of these ALTSXP classes is not implemented"));
     else if (isComplex(x) || isComplex(y)) {
 	REPROTECT(x = coerceVector(x, CPLXSXP), xpi);
 	REPROTECT(y = coerceVector(y, CPLXSXP), ypi);
@@ -411,17 +412,19 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	REPROTECT(y = coerceVector(y, RAWSXP), ypi);
 	x = raw_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     } else errorcall(call, _("comparison of these types is not implemented"));
-  } else { // nx == 0 || ny == 0
-	if (TYPEOF(x) == XINTSXP && TYPEOF(y) == XINTSXP)
+  } else if (altans != NULL) { // nx == 0 || ny == 0
+	x = altans;
+  } else {
+	if (R_isXInt(x) && R_isXInt(y))
 	    /* an empty operand still has a type, and answering
 	       logical(0) for a pair that c(), min() and union() refuse
 	       is the silent divergence these checks exist to prevent */
 	    R_xintCheckPair(call, x, y, "compare");
-	else if (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) {
+	else if (R_isXInt(x) || R_isXInt(y)) {
 	    /* the same rule at length zero as at any other: a pairing
 	       the narrowing refuses is refused here too, without paying
 	       for the narrowing itself */
-	    SEXP o = (TYPEOF(x) == XINTSXP) ? y : x;
+	    SEXP o = R_isXInt(x) ? y : x;
 	    if (TYPEOF(o) == STRSXP)
 		;		/* both go to character; see above */
 	    else if (TYPEOF(o) == REALSXP || TYPEOF(o) == CPLXSXP) {
@@ -430,6 +433,8 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	    }
 	    else R_xintCheckOperand(o, call);
 	}
+	else if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP)
+	    errorcall(call, _("comparison of these ALTSXP classes is not implemented"));
 	x = allocVector(LGLSXP, 0);
   }
 
@@ -515,7 +520,7 @@ static int relopFromCmp(RELOP_TYPE code, int cmp)
 static SEXP xint_numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2,
 				SEXP call)
 {
-    bool left = TYPEOF(s1) == XINTSXP;
+    bool left = TYPEOF(s1) == ALTSXP;
     SEXP b = left ? s1 : s2, o = left ? s2 : s1;
     int w = XINT_WIDTH(b), kind = XINT_KIND(b);
     bool hasNA = XINT_HAS_NA(b);
@@ -762,7 +767,7 @@ static SEXP xint_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     R_xlen_t i, i1, i2, n, n1, n2;
     SEXP ans;
 
-    SEXP b = (TYPEOF(s1) == XINTSXP) ? s1 : s2;
+    SEXP b = (TYPEOF(s1) == ALTSXP) ? s1 : s2;
     int w = XINT_WIDTH(b), k = XINT_KIND(b);
     bool hasNA = XINT_HAS_NA(b);
 
@@ -774,9 +779,9 @@ static SEXP xint_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     PROTECT_INDEX p1, p2;
     PROTECT_WITH_INDEX(s1, &p1);
     PROTECT_WITH_INDEX(s2, &p2);
-    if (TYPEOF(s1) == XINTSXP && TYPEOF(s2) == XINTSXP)
+    if (TYPEOF(s1) == ALTSXP && TYPEOF(s2) == ALTSXP)
 	R_xintCheckPair(call, s1, s2, "compare");
-    else if (TYPEOF(s1) == XINTSXP) {
+    else if (TYPEOF(s1) == ALTSXP) {
 	dir = (int *) R_alloc(XLENGTH(s2) + 1, sizeof(int));
 	REPROTECT(s2 = R_xintNarrowCmp(s2, w, k, XINT_HAS_NA(s1), dir, call), p2);
 	side = 2;
@@ -827,6 +832,15 @@ static SEXP xint_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
     vmaxset(vmax);
 
     return ans;
+}
+
+attribute_hidden SEXP
+R_xintCompare(SEXP call, int oper, SEXP x, SEXP y)
+{
+    if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)
+	return xint_numeric_relop((RELOP_TYPE) oper, x, y, call);
+    return xint_relop((RELOP_TYPE) oper, x, y, call);
 }
 
 static SEXP raw_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
@@ -1047,7 +1061,7 @@ attribute_hidden SEXP do_bitwise(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP ans = R_NilValue; /* -Wall */
 
     /* 'xinteger' vectors use their own width-aware path. */
-    if(TYPEOF(CAR(args)) == XINTSXP || TYPEOF(CADR(args)) == XINTSXP)
+    if(TYPEOF(CAR(args)) == ALTSXP || TYPEOF(CADR(args)) == ALTSXP)
 	return R_xintBitwise(call, PRIMVAL(op), CAR(args), CADR(args));
 
     switch(PRIMVAL(op)) {

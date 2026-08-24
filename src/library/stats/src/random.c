@@ -77,7 +77,7 @@ static R_INLINE R_xlen_t resultLength(SEXP lengthArgument) {
 
 static R_INLINE Rboolean isNumericArg(SEXP x)
 {
-    return isNumeric(x) || TYPEOF(x) == XINTSXP;
+    return isNumeric(x) || TYPEOF(x) == ALTSXP;
 }
 
 /* random sampling from 1 parameter families. */

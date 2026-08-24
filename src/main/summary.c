@@ -551,7 +551,12 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	case INTSXP:  return integer_mean(x);
 	case REALSXP: return real_mean(x);
 	case CPLXSXP: return complex_mean(x);
-	case XINTSXP: return R_xintMean(call, x);
+	case ALTSXP: {
+	    SEXP val = ALT_SUMMARY(x, PRIMVAL(op), args, FALSE, call);
+	    if (val == NULL)
+		errorcall(call, _("summary is not implemented for this ALTSXP class"));
+	    return val;
+	}
 	default:
 	    error(R_MSG_type, R_typeToChar(x));
 	    return R_NilValue; // -Wall on clang 4.2
@@ -582,13 +587,38 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
 
+    /* Give every distinct opaque class first refusal while all operands
+       still have their original types.  Only the built-in int64/uint64
+       classes have a representation-aware fallback below. */
+    bool sawForeignAlt = false;
+    for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	if (TYPEOF(CAR(t)) == ALTSXP) {
+	    bool seen = false;
+	    for (SEXP p = args; p != t; p = CDR(p))
+		if (TYPEOF(CAR(p)) == ALTSXP &&
+		    ALTREP_CLASS(CAR(p)) == ALTREP_CLASS(CAR(t))) {
+		    seen = true;
+		    break;
+		}
+	    if (seen) continue;
+	    SEXP val = ALT_SUMMARY(CAR(t), PRIMVAL(op), args,
+				   narm ? TRUE : FALSE, call);
+	    if (val != NULL) {
+		UNPROTECT(1); /* args */
+		return val;
+	    }
+	    if (!R_isXInt(CAR(t))) sawForeignAlt = true;
+	}
+    if (sawForeignAlt)
+	errorcall(call, _("summary is not implemented for these ALTSXP classes"));
+
     /* As for ordinary integers, the presence of a double or complex
        argument selects that result domain. */
     bool anyXInt = false, anyReal = false, anyComplex = false;
     for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
 	if (TAG(t) == R_NaRmSymbol) continue;
 	switch (TYPEOF(CAR(t))) {
-	case XINTSXP: anyXInt = true; break;
+	case ALTSXP: anyXInt = true; break;
 	case REALSXP: anyReal = true; break;
 	case CPLXSXP: anyComplex = true; break;
 	default: break;
@@ -597,7 +627,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     if (anyXInt && (anyReal || anyComplex)) {
 	SEXPTYPE target = anyComplex ? CPLXSXP : REALSXP;
 	for (SEXP t = args; t != R_NilValue; t = CDR(t))
-	    if (TYPEOF(CAR(t)) == XINTSXP)
+	    if (TYPEOF(CAR(t)) == ALTSXP)
 		SETCAR(t, coerceVector(CAR(t), target));
     }
 
@@ -609,24 +639,15 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     if (PRIMVAL(op) == 4) {
 	anyXInt = false;
 	for (SEXP t = args; t != R_NilValue; t = CDR(t))
-	    if (TYPEOF(CAR(t)) == XINTSXP) { anyXInt = true; break; }
+	    if (TYPEOF(CAR(t)) == ALTSXP) { anyXInt = true; break; }
 
 	if (anyXInt) {
 	    R_xintSummaryType(call, PRIMVAL(op), args, NULL, NULL, NULL);
 	    for (SEXP t = args; t != R_NilValue; t = CDR(t))
-		if (TYPEOF(CAR(t)) == XINTSXP)
+		if (TYPEOF(CAR(t)) == ALTSXP)
 		    SETCAR(t, coerceVector(CAR(t), REALSXP));
 	}
     }
-
-    for (SEXP t = args; t != R_NilValue; t = CDR(t))
-	if (TYPEOF(CAR(t)) == XINTSXP) {
-	    /* args must stay protected: R_xintSummary walks it and
-	       allocates as it goes */
-	    SEXP val = R_xintSummary(call, PRIMVAL(op), args, narm);
-	    UNPROTECT(1); /* args */
-	    return val;
-	}
 
     if (ALTREP(CAR(args)) && CDDR(args) == R_NilValue &&
 	(CDR(args) == R_NilValue || TAG(CDR(args)) == R_NaRmSymbol)) {
@@ -1150,7 +1171,7 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     break;
 
-    case XINTSXP:
+    case ALTSXP:
     {
 	int w = XINT_WIDTH(sx), kind = XINT_KIND(sx);
 	bool hasNA = XINT_HAS_NA(sx);
@@ -1283,7 +1304,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     bool anyXInt = false, anyReal = false, other = false;
     for (SEXP a = args; a != R_NilValue; a = CDR(a))
 	switch(TYPEOF(CAR(a))) {
-	case XINTSXP: anyXInt = true; break;
+	case ALTSXP: anyXInt = true; break;
 	case REALSXP: anyReal = true; break;
 	case NILSXP:
 	case LGLSXP:
@@ -1292,7 +1313,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
     if (anyXInt && anyReal && !other) {
 	for (SEXP a = args; a != R_NilValue; a = CDR(a))
-	    if (TYPEOF(CAR(a)) == XINTSXP)
+	    if (TYPEOF(CAR(a)) == ALTSXP)
 		SETCAR(a, coerceVector(CAR(a), REALSXP));
 	x = CAR(args);
     }
@@ -1302,7 +1323,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
        own path -- but keep the one-input shortcut below, which hands
        back the argument itself */
     for (SEXP a = args; a != R_NilValue; a = CDR(a))
-	if (TYPEOF(CAR(a)) == XINTSXP)
+	if (TYPEOF(CAR(a)) == ALTSXP)
 	    return (CDR(args) == R_NilValue) ? x
 		: R_xintParallelMinMax(call, PRIMVAL(op), args, narm != 0);
 

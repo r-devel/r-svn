@@ -519,7 +519,7 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
-	    case XINTSXP:
+	    case ALTSXP:
 		/* a single element renders in full, as for the other
 		   atomic types; its storage mode carries the width.
 		   This is the one arm of this switch that prints a value
@@ -713,7 +713,7 @@ static void printList(SEXP s, R_PrintData *data)
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
 		break;
 
-	    case XINTSXP:
+	    case ALTSXP:
 		snprintf(pbuf, 100, "%s,%d", R_xintTypeName(CAR(s)),
 			 LENGTH(CAR(s)));
 		break;
@@ -941,7 +941,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	PROTECT(t = getAttrib(s, R_DimSymbol));
 	if (TYPEOF(t) == INTSXP) {
 	    if (LENGTH(t) == 1) {

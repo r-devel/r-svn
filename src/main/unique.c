@@ -315,41 +315,32 @@ static int rawequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 }
 
 /* The whole match/unique/duplicated/table/factor family runs off this
-   one pair.  Equal types have a canonical byte representation, so use
-   FNV-1a over XINT_WIDTH(x) bytes and memcmp to confirm. */
+   pair.  Hash supplies the class's semantic hash; Elt supplies a canonical
+   representation used to resolve collisions.  Classes that expose more
+   than one representation for an equal value must canonicalize in Elt. */
 static hlen xinthash(SEXP x, R_xlen_t indx, HashData *d)
 {
-    const Rbyte *p = XINT_ELT_RO(x, indx);
-    int w = XINT_WIDTH(x);
-    unsigned int h = 2166136261U;
-
-    for (int i = 0; i < w; i++) {
-	h ^= (unsigned int) p[i];
-	h *= 16777619U;
-    }
-
-    return scatter(h, d);
+    return scatter(ALT_HASH(x, indx), d);
 }
 
 static int xintequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (i < 0 || j < 0) return 0;
 
-    int w = XINT_WIDTH(x);
-    /* A backstop.  match5() rejects a width, kind or NA-reservation
-       clash before hashing, xintIncomparables() holds an
-       'incomparables' operand to the same rule, and every other caller
-       compares a vector with itself, so these should not fire; a
-       mismatch that reached here would otherwise memcmp() across two
-       different element widths.  Whether a value is reserved for NA
-       counts as part of the type in the same way: without it a genuine
-       all-0xFF datum would equal an NA. */
-    if (XINT_WIDTH(y) != w) return 0;
-    if (XINT_KIND(y) != XINT_KIND(x)) return 0;
-    if (XINT_HAS_NA(y) != XINT_HAS_NA(x)) return 0;
+    if (ALTREP_CLASS(x) != ALTREP_CLASS(y)) return 0;
+    size_t w = ALT_ELEMENT_SIZE(x);
+    if (ALT_ELEMENT_SIZE(y) != w) return 0;
+    if (w == 0) return 1;
+    if (w > INT_MAX)
+	error("ALTSXP element representation is too large to hash");
 
-    return memcmp(XINT_ELT_RO(x, i), XINT_ELT_RO(y, j),
-		  (size_t) w) == 0;
+    const void *vmax = vmaxget();
+    Rbyte *buf = (Rbyte *) R_alloc(2, (int) w);
+    ALT_ELT(x, i, buf);
+    ALT_ELT(y, j, buf + w);
+    int equal = memcmp(buf, buf + w, w) == 0;
+    vmaxset(vmax);
+    return equal;
 }
 
 static hlen vhash_one(SEXP _this, HashData *d);
@@ -408,7 +399,7 @@ static hlen vhash_one(SEXP _this, HashData *d)
 	    key *= 97;
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* without this the key is the length alone, which makes
 	   unique() and match() over a list of such vectors quadratic */
 	for(i = 0; i < LENGTH(_this); i++) {
@@ -551,7 +542,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	d->nmax = d->M = 256;
 	d->K = 8; /* unused */
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	d->hash = xinthash;
 	d->equal = xintequal;
 	MKsetup(XLENGTH(x), d, nmax);
@@ -1088,7 +1079,7 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	if(TYPEOF(x) == XINTSXP)
+	if(TYPEOF(x) == ALTSXP)
 	    PROTECT(incomp = xintIncomparables(incomp, x));
 	else
 	    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
@@ -1116,7 +1107,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    if(TYPEOF(x) == XINTSXP)
+    if(TYPEOF(x) == ALTSXP)
 	PROTECT(incomp = xintIncomparables(incomp, x));
     else
 	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
@@ -1268,7 +1259,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (LOGICAL_ELT(dup, i) == 0)
 		RAW0(ans)[k++] = RAW_ELT(x, i);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    size_t w = (size_t) XINT_WIDTH(x);
 	    for (i = 0; i < n; i++)
@@ -1453,7 +1444,7 @@ static SEXP xintMatchTable(SEXP o, SEXP b, int **keep, SEXP call)
    refusal. */
 static SEXP xintIncomparables(SEXP incomp, SEXP b)
 {
-    if (TYPEOF(incomp) == XINTSXP) {
+    if (TYPEOF(incomp) == ALTSXP) {
 	R_xintCheckSameType(incomp, b, "incomparables");
 	return incomp;
     }
@@ -1478,14 +1469,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 
     /* before the zero-length short circuits, which would otherwise
        report no match for a pair that is a mistake at any length */
-    if (TYPEOF(ix) == XINTSXP && TYPEOF(itable) == XINTSXP)
+    if (TYPEOF(ix) == ALTSXP && TYPEOF(itable) == ALTSXP)
 	R_xintCheckPair(R_CurrentExpression, ix, itable, "match");
 
     /* Handle zero length arguments -- except with an 'xinteger' operand in
        the pair: its foreign-type refusals live in the type settlement
        below and must apply at every length, so those pairs pass through
        it first and take the same short circuits after it. */
-    bool anyXInt = (TYPEOF(ix) == XINTSXP || TYPEOF(itable) == XINTSXP);
+    bool anyXInt = (TYPEOF(ix) == ALTSXP || TYPEOF(itable) == ALTSXP);
     if (!anyXInt && n == 0) return allocVector(INTSXP, 0);
 
     SEXP ans;
@@ -1533,20 +1524,20 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if((TYPEOF(x) == XINTSXP || TYPEOF(table) == XINTSXP) &&
+    if((TYPEOF(x) == ALTSXP || TYPEOF(table) == ALTSXP) &&
        (TYPEOF(x) == STRSXP || TYPEOF(table) == STRSXP))
 	/* A character operand wins, as it does for every other type and
 	   as it does for == and c(): as.character() of an element is
 	   exact at every width, so nothing is lost, and the alternative
 	   is match() disagreeing with c() about the same pair. */
 	type = STRSXP;
-    else if(TYPEOF(x) == XINTSXP || TYPEOF(table) == XINTSXP) {
+    else if(TYPEOF(x) == ALTSXP || TYPEOF(table) == ALTSXP) {
 	/* SEXPTYPE order would otherwise send this type to STRSXP. */
 	if(TYPEOF(x) != TYPEOF(table)) {
 	    /* the other side narrows, as it does for == and c(); a type
 	       that does not narrow is refused there.  See xintMatchTable(). */
-	    SEXP b = (TYPEOF(x) == XINTSXP) ? x : table;
-	    if(TYPEOF(x) == XINTSXP)
+	    SEXP b = (TYPEOF(x) == ALTSXP) ? x : table;
+	    if(TYPEOF(x) == ALTSXP)
 		REPROTECT(table = xintMatchTable(table, b, &tkeep, R_NilValue),
 			  tbpi);
 	    else {
@@ -1565,7 +1556,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	       make setdiff() and %in% quietly disagree with union(),
 	       intersect() and == on the very same pair of vectors. */
 	    R_xintCheckPair(R_CurrentExpression, x, table, "match");
-	type = XINTSXP;
+	type = ALTSXP;
     }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
@@ -1647,7 +1638,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 		  val = i + 1; break;
 	      }
 	  break; }
-      case XINTSXP: {
+      case ALTSXP: {
 	  /* width, kind and NA reservation already agree: the check above
 	     rejected the alternative rather than reporting no match */
 	  int w = XINT_WIDTH(x);
@@ -1663,7 +1654,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     else { // regular case
 	HashData data = { 0 };
 	if (incomp) {
-	    if (type == XINTSXP)
+	    if (type == ALTSXP)
 		PROTECT(incomp = xintIncomparables(incomp, x));
 	    else
 		PROTECT(incomp = coerceVector(incomp, type));
@@ -2224,7 +2215,7 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     ng = length(uniqueg);
     narm = asLogical(snarm);
     if(narm == NA_LOGICAL) error("'na.rm' must be TRUE or FALSE");
-    if (TYPEOF(x) == XINTSXP) {
+    if (TYPEOF(x) == ALTSXP) {
 	PROTECT(x = coerceVector(x, REALSXP));
 	nprotect++;
     }
@@ -2314,7 +2305,7 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     for(int i = 0; i < p; i++) {
 	xcol = VECTOR_ELT(x,i);
-	bool xint = TYPEOF(xcol) == XINTSXP;
+	bool xint = TYPEOF(xcol) == ALTSXP;
 	if (!isNumericOrXInt(xcol))
 	    error(_("non-numeric data frame in rowsum"));
 	if (xint) PROTECT(xcol = coerceVector(xcol, REALSXP));

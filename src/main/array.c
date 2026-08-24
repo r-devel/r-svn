@@ -210,7 +210,7 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case RAWSXP:
 	    if (N) memset(RAW(ans), 0, N);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    {
 		int w = XINT_WIDTH(ans), k = XINT_KIND(ans);
 		if (N) R_xintCheckNA(ans);
@@ -579,7 +579,7 @@ attribute_hidden SEXP do_lengths(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
-	case XINTSXP:
+	case ALTSXP:
 	    break;
 	default:
 	    error(_("'%s' must be a list or atomic vector"), "x");
@@ -1680,7 +1680,7 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    RAW(r)[i] = RAW(a)[j];
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
     {
 	size_t w = (size_t) XINT_WIDTH(a);
 	for (i = 0, j = 0; i < len; i++, j += nrow) {
@@ -1892,7 +1892,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    CLICKJ;
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
     {
 	size_t w = (size_t) XINT_WIDTH(a);
 	for (lj = 0, li = 0; li < len; li++) {
@@ -1969,7 +1969,7 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     int nprotect = 0;
     int type = TYPEOF(x);
-    if (type == XINTSXP) {
+    if (type == ALTSXP) {
 	/* These four operations return double for ordinary integer input.
 	   Numeric fixed-width input follows the same result type through the
 	   checked conversion, including its precision warning above 2^53. */
@@ -2227,7 +2227,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case RAWSXP:
 	case EXPRSXP:
 	case VECSXP:
-	case XINTSXP:
+	case ALTSXP:
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
@@ -2279,7 +2279,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else
 	    for (i = 0; i < nans; i++) RAW(ans)[i] = 0;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	if (nans && lendat)
 	    R_xintCopyWithRecycle(ans, vals, 0, nans, lendat);
 	else {
@@ -2413,7 +2413,7 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
        mk_DIAG((Rbyte) 0);
        break;
    }
-   case XINTSXP:
+   case ALTSXP:
    {
        /* allocMatrix cannot carry a per-vector width, and mk_DIAG
 	  indexes elements by type, so this arm spells both out */
@@ -2564,7 +2564,7 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
     case RAWSXP:
 	ASPLIT_ITERATE( RAW(e)[j] = RAW(x)[k] );
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    size_t w = (size_t) XINT_WIDTH(x);
 	    ASPLIT_ITERATE( memcpy(XINT_ELT(e, j),

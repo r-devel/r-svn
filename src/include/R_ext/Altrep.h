@@ -60,6 +60,8 @@ R_altrep_class_t
 R_make_altcomplex_class(const char *cname, const char *pname, DllInfo *info);
 R_altrep_class_t
 R_make_altlist_class(const char *cname, const char *pname, DllInfo *info);
+R_altrep_class_t
+R_make_alt_class(const char *cname, const char *pname, DllInfo *info);
 
 Rboolean R_altrep_inherits(SEXP x, R_altrep_class_t);
 
@@ -118,6 +120,52 @@ typedef int (*R_altstring_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altlist_Elt_method_t)(SEXP, R_xlen_t);
 typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
 
+/* ALTSXP classes describe atomic values whose representation and semantics
+   are supplied by the class.  Elt and Set_elt copy one exact element to or
+   from a caller-provided buffer; Element_size says how large that buffer
+   must be.  The remaining methods are deliberately SEXP-valued so classes
+   can negotiate results without first masquerading as an existing atomic
+   SEXPTYPE.  Binary_op and Compare receive (dispatch, x, y, op, call):
+   dispatch is the object whose class is being asked, while x and y always
+   remain in expression order.  Returning NULL from a SEXP-valued semantic
+   method declines the operation. */
+#define R_ALT_BINARY_ADD       1
+#define R_ALT_BINARY_SUBTRACT  2
+#define R_ALT_BINARY_MULTIPLY  3
+#define R_ALT_BINARY_DIVIDE    4
+#define R_ALT_BINARY_POWER     5
+#define R_ALT_BINARY_MODULO    6
+#define R_ALT_BINARY_IDIVIDE   7
+
+#define R_ALT_UNARY_PLUS       1
+#define R_ALT_UNARY_MINUS      2
+
+#define R_ALT_COMPARE_EQUAL          1
+#define R_ALT_COMPARE_NOT_EQUAL      2
+#define R_ALT_COMPARE_LESS           3
+#define R_ALT_COMPARE_LESS_EQUAL     4
+#define R_ALT_COMPARE_GREATER_EQUAL  5
+#define R_ALT_COMPARE_GREATER        6
+
+#define R_ALT_SUMMARY_SUM      0
+#define R_ALT_SUMMARY_MEAN     1
+#define R_ALT_SUMMARY_MIN      2
+#define R_ALT_SUMMARY_MAX      3
+#define R_ALT_SUMMARY_PRODUCT  4
+
+typedef size_t (*R_alt_Element_size_method_t)(SEXP);
+typedef void (*R_alt_Elt_method_t)(SEXP, R_xlen_t, void *);
+typedef void (*R_alt_Set_elt_method_t)(SEXP, R_xlen_t, const void *);
+typedef R_xlen_t
+(*R_alt_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
+typedef SEXP (*R_alt_Binary_op_method_t)(SEXP, SEXP, SEXP, int, SEXP);
+typedef SEXP (*R_alt_Unary_op_method_t)(SEXP, int, SEXP);
+typedef SEXP (*R_alt_Compare_method_t)(SEXP, SEXP, SEXP, int, SEXP);
+typedef unsigned int (*R_alt_Hash_method_t)(SEXP, R_xlen_t);
+typedef SEXP (*R_alt_Format_method_t)(SEXP, SEXP);
+typedef SEXP (*R_alt_Summary_method_t)(SEXP, int, SEXP, Rboolean, SEXP);
+typedef SEXP (*R_alt_Combine_method_t)(SEXP, SEXP, SEXP);
+
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
     R_set_##CNAME##_##MNAME##_method(R_altrep_class_t cls,		\
@@ -171,6 +219,18 @@ DECLARE_METHOD_SETTER(altstring, No_NA)
 
 DECLARE_METHOD_SETTER(altlist, Elt)
 DECLARE_METHOD_SETTER(altlist, Set_elt)
+
+DECLARE_METHOD_SETTER(alt, Element_size)
+DECLARE_METHOD_SETTER(alt, Elt)
+DECLARE_METHOD_SETTER(alt, Set_elt)
+DECLARE_METHOD_SETTER(alt, Get_region)
+DECLARE_METHOD_SETTER(alt, Binary_op)
+DECLARE_METHOD_SETTER(alt, Unary_op)
+DECLARE_METHOD_SETTER(alt, Compare)
+DECLARE_METHOD_SETTER(alt, Hash)
+DECLARE_METHOD_SETTER(alt, Format)
+DECLARE_METHOD_SETTER(alt, Summary)
+DECLARE_METHOD_SETTER(alt, Combine)
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */

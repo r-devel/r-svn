@@ -31,9 +31,7 @@ chk <- function(l, c) {
 ## our NA prints as NA; compare as character so exact 128-bit values survive
 str_ <- function(v) { s <- as.character(v); s[is.na(v)] <- "NA"; s }
 
-COMBOS <- list(list(1L,"signed"), list(1L,"unsigned"), list(2L,"unsigned"),
-               list(4L,"signed"), list(8L,"unsigned"), list(8L,"signed"),
-               list(16L,"unsigned"), list(16L,"signed"))
+COMBOS <- list(list(8L,"unsigned"), list(8L,"signed"))
 NPAIR <- 250L
 
 for (spec in COMBOS) {
@@ -110,8 +108,7 @@ for (spec in COMBOS) {
 AB <- r"---(
 set.seed(99)
 str_ <- function(v) { s <- as.character(v); s[is.na(v)] <- "NA"; s }
-for (spec in list(c(1,"signed"), c(1,"unsigned"), c(2,"unsigned"), c(4,"signed"),
-                  c(8,"unsigned"), c(8,"signed"), c(16,"unsigned"), c(16,"signed"))) {
+for (spec in list(c(8,"unsigned"), c(8,"signed"))) {
     w <- as.integer(spec[1]); k <- spec[2]
     n <- 20000
     ## operands include the reserved pattern often enough to exercise NA

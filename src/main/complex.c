@@ -309,7 +309,7 @@ attribute_hidden SEXP do_cmathfuns(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	}
     }
-    else if(TYPEOF(x) == XINTSXP &&
+    else if(TYPEOF(x) == ALTSXP &&
 		    (PRIMVAL(op) == 2 || PRIMVAL(op) == 4)) {
 	/* Im() is identically zero for a real value, and Arg() needs only
 	   its sign.  Neither operation needs the lossy double conversion

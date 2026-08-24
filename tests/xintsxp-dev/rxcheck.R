@@ -33,8 +33,7 @@ chk <- function(l, c) { if (!isTRUE(c)) fails <<- fails + 1L
                         cat(sprintf("%-38s %s\n", l, if (isTRUE(c)) "ok" else "FAIL")) }
 N <- 400L
 
-for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
-                  list(4L, "unsigned"), list(1L, "signed"), list(2L, "unsigned"))) {
+for (spec in list(list(8L, "unsigned"), list(8L, "signed"))) {
     w <- spec[[1L]]; k <- spec[[2L]]
 
     pool <- bnRandomValues(w, k, 10L)
@@ -76,8 +75,7 @@ for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
 ## which is invisible unless the reference is independent -- so these go
 ## through the same key as everything above.
 cat("\n-- constant byte positions (pass skipping) --\n")
-for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
-                  list(4L, "unsigned"))) {
+for (spec in list(list(8L, "unsigned"), list(8L, "signed"))) {
     w <- spec[[1L]]; k <- spec[[2L]]
     M <- 120L
 

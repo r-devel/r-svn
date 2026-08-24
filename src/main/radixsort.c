@@ -1641,7 +1641,7 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
        away, rather than ranked through an int index first. */
     for (SEXP ap = (nl <= INT_MAX) ? args : R_NilValue; ap != R_NilValue;
 	 ap = CDR(ap))
-	if (TYPEOF(CAR(ap)) == XINTSXP)
+	if (TYPEOF(CAR(ap)) == ALTSXP)
 	    SETCAR(ap, xintDenseRank(CAR(ap)));
 
     if (narg != length(decreasing))

@@ -19,12 +19,12 @@ Type 'q()' to quit R.
 > 
 > info <- .storage_info(as.uint64(1))
 > stopifnot(identical(info,
-+     list(typeof = "xinteger", storage_mode = "uint64", element_size = 8L,
++     list(typeof = "alt", storage_mode = "uint64", element_size = 8L,
 + 	 signed = FALSE, nullable = TRUE)))
 > 
-> info <- .storage_info(as.int16(1, na = FALSE))
+> info <- .storage_info(as.int64(1, na = FALSE))
 > stopifnot(identical(info,
-+     list(typeof = "xinteger", storage_mode = "int16", element_size = 2L,
++     list(typeof = "alt", storage_mode = "int64", element_size = 8L,
 + 	 signed = TRUE, nullable = FALSE)))
 > 
 > stopifnot(

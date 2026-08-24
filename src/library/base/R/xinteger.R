@@ -16,7 +16,7 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-## Vectors of fixed-width integer data.
+## The built-in signed and unsigned 64-bit ALTSXP classes.
 
 ## kind = "unsigned"  : unsigned integers of 8*width bits
 ## kind = "signed"    : two's complement integers of 8*width bits
@@ -49,16 +49,8 @@ xintegerWidth <- function(x) .Internal(xintegerWidth(x))
 
 is.xinteger <- function(x) .Internal(is.xinteger(x))
 
-as.int8   <- function(x, na = TRUE) as.xinteger(x,  1L, "signed",   na)
-as.uint8  <- function(x, na = TRUE) as.xinteger(x,  1L, "unsigned", na)
-as.int16  <- function(x, na = TRUE) as.xinteger(x,  2L, "signed",   na)
-as.uint16 <- function(x, na = TRUE) as.xinteger(x,  2L, "unsigned", na)
-as.int32  <- function(x, na = TRUE) as.xinteger(x,  4L, "signed",   na)
-as.uint32 <- function(x, na = TRUE) as.xinteger(x,  4L, "unsigned", na)
 as.int64  <- function(x, na = TRUE) as.xinteger(x,  8L, "signed",   na)
 as.uint64 <- function(x, na = TRUE) as.xinteger(x,  8L, "unsigned", na)
-as.int128 <- function(x, na = TRUE) as.xinteger(x, 16L, "signed",   na)
-as.uint128 <- function(x, na = TRUE) as.xinteger(x, 16L, "unsigned", na)
 
 ## The detailed 'xinteger' storage modes, which name a width and a kind:
 ## the R-level screen readBin() and `mode<-` need before handing a name
@@ -70,7 +62,6 @@ as.uint128 <- function(x, na = TRUE) as.xinteger(x, 16L, "unsigned", na)
 ## width -- "int24" -- is therefore not one of these, and keeps whatever
 ## meaning it had before this type existed rather than becoming an error
 ## in readBin().
-.XIntTypeNames <-
-    paste0(rep(c("int", "uint"), each = 5L), rep(c(8L, 16L, 32L, 64L, 128L), 2L))
+.XIntTypeNames <- c("int64", "uint64")
 
 .isXIntTypeName <- function(s) s %in% .XIntTypeNames

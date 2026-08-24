@@ -440,7 +440,7 @@ static SEXP coerceToSymbol(SEXP v)
     case RAWSXP:
 	ans = StringFromRaw(RAW_ELT(v, 0), &warn);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* as every other atomic type does: render element 0 and intern
 	   it.  Without this as.name() on an 'xinteger' vector reported an
 	   internal "unimplemented type" from ordinary user code. */
@@ -528,7 +528,7 @@ static SEXP coerceToLogical(SEXP v)
 	    pa[i] = LogicalFromInteger((int)RAW_ELT(v, i), &warn);
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(v), k = XINT_KIND(v);
 	    bool hasNA = XINT_HAS_NA(v);
@@ -844,7 +844,7 @@ static SEXP coerceToString(SEXP v)
 	    SET_STRING_ELT(ans, i, StringFromRaw(RAW_ELT(v, i), &warn));
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    /* R_xintEltRender() is the one place an element's text
 	       form is decided; only the NA spelling differs here */
@@ -904,7 +904,7 @@ static SEXP coerceToExpression(SEXP v)
 	    for (i = 0; i < n; i++)
 		SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* as in coerceToVectorList(): a length-1 vector of the same
 	       width and kind, there being no scalar form of an element */
 	    for (i = 0; i < n; i++) {
@@ -976,7 +976,7 @@ static SEXP coerceToVectorList(SEXP v)
 	    SET_VECTOR_ELT(ans, i, ScalarRaw(RAW_ELT(v, i)));
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* a length-1 vector per element, keeping the width and kind;
 	   there is no scalar form of an 'xinteger' element */
 	for (i = 0; i < n; i++) {
@@ -1036,7 +1036,7 @@ static SEXP coerceToPairList(SEXP v)
 	    SETCAR(ansp, allocVector(RAWSXP, 1));
 	    RAW0(CAR(ansp))[0] = RAW_ELT(v, i);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    SETCAR(ansp, R_allocVectorLike(v, 1));
 	    memcpy(XINT_DATA(CAR(ansp)), XINT_ELT_RO(v, i),
 		   (size_t) XINT_WIDTH(v));
@@ -1284,6 +1284,14 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	UNPROTECT(1); /* v */
     }
 
+    /* There is no representation-independent fallback for an opaque
+       atomic class.  A built-in int64/uint64 object can still use the
+       compatibility code below; every other ALTSXP class must have
+       accepted the conversion in its Coerce method above. */
+    if (TYPEOF(v) == ALTSXP && !R_isXInt(v))
+	error(_("cannot coerce ALTSXP class '%s' to vector of type '%s'"),
+	      CHAR(PRINTNAME(R_altrep_class_name(v))), type2char(type));
+
     /* code to allow classes to extend ENVSXP, SYMSXP, etc */
     if(IS_S4_OBJECT(v) && TYPEOF(v) == OBJSXP) {
 	SEXP vv = R_getS4DataSlot(v, ANYSXP);
@@ -1365,7 +1373,7 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 
 #define COERCE_ERROR_STRING "cannot coerce type '%s' to vector of type '%s'"
 
@@ -1378,16 +1386,16 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	case LGLSXP:
 	    ans = coerceToLogical(v);	    break;
 	case INTSXP:
-	    ans = (TYPEOF(v) == XINTSXP) ? R_xintCoerce(v, INTSXP)
+	    ans = (TYPEOF(v) == ALTSXP) ? R_xintCoerce(v, INTSXP)
 					 : coerceToInteger(v);	break;
 	case REALSXP:
-	    ans = (TYPEOF(v) == XINTSXP) ? R_xintCoerce(v, REALSXP)
+	    ans = (TYPEOF(v) == ALTSXP) ? R_xintCoerce(v, REALSXP)
 					 : coerceToReal(v);	break;
 	case CPLXSXP:
-	    ans = (TYPEOF(v) == XINTSXP) ? xintCoerceToComplex(v)
+	    ans = (TYPEOF(v) == ALTSXP) ? xintCoerceToComplex(v)
 					 : coerceToComplex(v);	break;
 	case RAWSXP:
-	    ans = (TYPEOF(v) == XINTSXP) ? R_xintCoerce(v, RAWSXP)
+	    ans = (TYPEOF(v) == ALTSXP) ? R_xintCoerce(v, RAWSXP)
 					 : coerceToRaw(v);	break;
 	case STRSXP:
 	    if (ATTRIB(v) == R_NilValue)
@@ -1662,11 +1670,11 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
-	/* XINTSXP belongs here for the same reason RAWSXP does: without an
+	/* ALTSXP belongs here for the same reason RAWSXP does: without an
 	   arm of its own it falls through to the CLEAR_ATTRIB() at the end
 	   of this function still aliasing the argument, and so strips the
 	   caller's own vector rather than the result */
-	case XINTSXP:
+	case ALTSXP:
 	    if(ATTRIB(x) == R_NilValue) return x;
 	    ans  = MAYBE_REFERENCED(x) ? duplicate(x) : x;
 	    CLEAR_ATTRIB(ans);
@@ -1930,7 +1938,7 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	    return LogicalFromString(STRING_ELT(x, 0), &warn);
 	case RAWSXP:
 	    return LogicalFromInteger((int)RAW_ELT(x, 0), &warn);
-	case XINTSXP:
+	case ALTSXP:
 	    return xintEltAsLogical(XINT_ELT_RO(x, 0), XINT_WIDTH(x),
 				     XINT_KIND(x), XINT_HAS_NA(x));
 	default:
@@ -2006,7 +2014,7 @@ int asInteger(SEXP x)
 	    res = IntegerFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
-	case XINTSXP:
+	case ALTSXP:
 	    res = IntegerFromReal(xintElt0AsReal(x), &warn);
 	    CoercionWarning(warn);
 	    return res;
@@ -2040,7 +2048,7 @@ R_xlen_t asXLength(SEXP x)
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
-	case XINTSXP:
+	case ALTSXP:
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("asXLength", x);
@@ -2080,7 +2088,7 @@ double asReal(SEXP x)
 	    res = RealFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
-	case XINTSXP:
+	case ALTSXP:
 	    return xintElt0AsReal(x);
 	default:
 	    UNIMPLEMENTED_TYPE("asReal", x);
@@ -2118,7 +2126,7 @@ Rcomplex asComplex(SEXP x)
 	    z = ComplexFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return z;
-	case XINTSXP:
+	case ALTSXP:
 	    z = ComplexFromReal(xintElt0AsReal(x), &warn);
 	    CoercionWarning(warn);
 	    return z;
@@ -2263,7 +2271,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
-	case XINTSXP:
+	case ALTSXP:
 	    LOGICAL0(ans)[0] = 1;
 	    break;
 	default:
@@ -2350,10 +2358,14 @@ attribute_hidden SEXP do_isvector(SEXP call, SEXP op, SEXP args, SEXP rho)
     else if (streql(stype, R_typeToChar(x))) {
 	LOGICAL0(ans)[0] = 1;
     }
-    /* "xinteger" is the structural typeof() of every width and kind;
-       R_typeToChar() gives the finer storage-mode name used above. */
+    /* "alt" is the structural typeof() shared by all opaque classes;
+       R_typeToChar() gives the registered class name used above. */
+    else if (streql(stype, "alt")) {
+	LOGICAL0(ans)[0] = (TYPEOF(x) == ALTSXP);
+    }
+    /* Legacy fixed-integer mode alias. */
     else if (streql(stype, "xinteger")) {
-	LOGICAL0(ans)[0] = (TYPEOF(x) == XINTSXP);
+	LOGICAL0(ans)[0] = R_isXInt(x);
     }
     else
 	LOGICAL0(ans)[0] = 0;
@@ -2503,7 +2515,7 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
 	    bool anyPossible = XINT_HAS_NA(x);
@@ -2591,7 +2603,7 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 	for (i = 0; i < n; i++)
 	    if (STRING_ELT(x, i) == NA_STRING) return true;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
 	    if (!XINT_HAS_NA(x)) break;
@@ -2704,7 +2716,7 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
-    case XINTSXP:
+    case ALTSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -2769,7 +2781,7 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* every bit pattern names a value, so only a reserved NA is not
 	   finite -- the analogue of the integer case above */
 	{
@@ -2843,7 +2855,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
-    case XINTSXP:
+    case ALTSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -3129,7 +3141,7 @@ static classType classTable[] = {
     { "integer",	INTSXP,	   true },
     { "double",		REALSXP,   true },
     { "raw",		RAWSXP,    true },
-    { "xinteger",	XINTSXP,   false },
+    { "alt",		ALTSXP,   false },
     { "complex",	CPLXSXP,   true },
     { "character",	STRSXP,	   true },
     { "expression",	EXPRSXP,   true },
@@ -3203,6 +3215,27 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
     }
     // length(value) >= 1
     const char *valueString = CHAR(asChar(value)); /* ASCII ; the *first* in case of multiple strings */
+
+    /* Reassigning an ALTSXP object's implicit class is an identity.  Unlike
+       ordinary atomic types, the last component is supplied by the ALTREP
+       class/metadata, and arrays therefore have a three-component implicit
+       class such as c("matrix", "array", "uint64"). */
+    if (TYPEOF(obj) == ALTSXP && getAttrib(obj, R_ClassSymbol) == R_NilValue) {
+	int nd = length(getAttrib(obj, R_DimSymbol));
+	int expected = nd == 0 ? 1 : (nd == 2 ? 3 : 2);
+	bool same = length(value) == expected;
+	if (same && nd == 2)
+	    same = !strcmp(CHAR(STRING_ELT(value, 0)), "matrix") &&
+		!strcmp(CHAR(STRING_ELT(value, 1)), "array");
+	else if (same && nd > 0)
+	    same = !strcmp(CHAR(STRING_ELT(value, 0)), "array");
+	if (same)
+	    same = !strcmp(CHAR(STRING_ELT(value, expected - 1)),
+			   CHAR(PRINTNAME(R_altrep_class_name(obj))));
+	if (same)
+	    goto done_set_class;
+    }
+
     if(!strcmp("matrix", valueString)) { // value : just "matrix" or  c("matrix", "<some>" [, ...])
 	if(length(getAttrib(obj, R_DimSymbol)) != 2)
 	    error(_("invalid to set the class to matrix unless the dimension attribute is of length 2 (was %d)"),
@@ -3217,9 +3250,10 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	}
     }
 
-    /* Derived 'xinteger' classes are not represented in classTable. */
-    if(TYPEOF(obj) == XINTSXP && !isArray(obj) && length(value) == 1 &&
-	!strcmp(R_xintTypeName(obj), valueString)) {
+    /* Registered opaque classes are not represented in classTable. */
+    if(TYPEOF(obj) == ALTSXP && length(value) == 1 &&
+	(!strcmp(CHAR(PRINTNAME(R_altrep_class_name(obj))), valueString) ||
+	 !strcmp(type2char(ALTSXP), valueString))) {
 	setAttrib(obj, R_ClassSymbol, R_NilValue);
 	if(IS_S4_OBJECT(obj))
 	    do_unsetS4(obj, value);

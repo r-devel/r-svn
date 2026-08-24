@@ -1,4 +1,4 @@
-/* Stands in for an ordinary package that knows nothing about XINTSXP.
+/* Stands in for an ordinary package that knows nothing about ALTSXP.
    Each function is a shape real package C code actually takes. */
 #include <R.h>
 #include <Rinternals.h>
@@ -125,7 +125,10 @@ SEXP xinteger_of_anything(SEXP x) { return ScalarInteger(XINTEGER_RO(x)[0]); }
 #include <R_ext/Altrep.h>
 
 static R_altrep_class_t xint_state_class;
+static R_altrep_class_t dispatch_left_class;
+static R_altrep_class_t dispatch_right_class;
 static int serialized_state_calls;
+static int binary_dispatch_calls;
 
 static SEXP bsc_Serialized_state(SEXP x)
 {
@@ -172,6 +175,118 @@ static int bsc_Elt(SEXP x, R_xlen_t i)
     return INTEGER_RO(R_altrep_data1(x))[i];
 }
 
+/* Two package ALTSXP classes used to pin binary negotiation.  The left
+   class declines; the right class reports whether it was the left or right
+   operand without changing operand order. */
+static R_xlen_t dispatch_Length(SEXP x) { return XLENGTH(R_altrep_data1(x)); }
+static size_t dispatch_Element_size(SEXP x) { return 1; }
+static void dispatch_Elt(SEXP x, R_xlen_t i, void *buf)
+{
+    *(Rbyte *) buf = RAW_ELT(R_altrep_data1(x), i);
+}
+static void dispatch_Set_elt(SEXP x, R_xlen_t i, const void *buf)
+{
+    SET_RAW_ELT(R_altrep_data1(x), i, *(const Rbyte *) buf);
+}
+static SEXP dispatch_decline_binary(SEXP dispatch, SEXP x, SEXP y,
+				    int op, SEXP call)
+{
+    binary_dispatch_calls++;
+    return NULL;
+}
+static SEXP dispatch_handle_binary(SEXP dispatch, SEXP x, SEXP y,
+				   int op, SEXP call)
+{
+    binary_dispatch_calls++;
+    return ScalarInteger(dispatch == x ? 1 : 2);
+}
+static SEXP dispatch_decline_compare(SEXP dispatch, SEXP x, SEXP y,
+				     int op, SEXP call)
+{
+    return NULL;
+}
+static SEXP dispatch_handle_compare(SEXP dispatch, SEXP x, SEXP y,
+				    int op, SEXP call)
+{
+    return ScalarLogical(dispatch == y);
+}
+
+static SEXP dispatch_unary(SEXP x, int op, SEXP call)
+{
+    return ScalarInteger(10 + op);
+}
+
+static SEXP dispatch_coerce(SEXP x, int type)
+{
+    if (type != INTSXP) return NULL;
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(allocVector(INTSXP, n));
+    for (R_xlen_t i = 0; i < n; i++)
+	INTEGER(ans)[i] = RAW_ELT(R_altrep_data1(x), i);
+    UNPROTECT(1);
+    return ans;
+}
+
+static unsigned int dispatch_hash(SEXP x, R_xlen_t i)
+{
+    return 2166136261U ^ RAW_ELT(R_altrep_data1(x), i);
+}
+
+static SEXP dispatch_format(SEXP x, SEXP options)
+{
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(allocVector(STRSXP, n));
+    char buf[32];
+    for (R_xlen_t i = 0; i < n; i++) {
+	snprintf(buf, sizeof buf, "opaque:%u",
+		 (unsigned int) RAW_ELT(R_altrep_data1(x), i));
+	SET_STRING_ELT(ans, i, mkChar(buf));
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP dispatch_summary(SEXP x, int op, SEXP args,
+			     Rboolean narm, SEXP call)
+{
+    return ScalarInteger(100 + op);
+}
+
+static SEXP dispatch_combine(SEXP x, SEXP args, SEXP call)
+{
+    return ScalarInteger(length(args));
+}
+
+SEXP reset_binary_dispatch_calls(void)
+{
+    binary_dispatch_calls = 0;
+    return R_NilValue;
+}
+
+SEXP get_binary_dispatch_calls(void)
+{
+    return ScalarInteger(binary_dispatch_calls);
+}
+
+SEXP make_dispatch_pair(void)
+{
+    SEXP data = PROTECT(allocVector(RAWSXP, 1));
+    RAW(data)[0] = 1;
+    SEXP left = PROTECT(R_new_altrep(dispatch_left_class, data, R_NilValue));
+    SEXP right = PROTECT(R_new_altrep(dispatch_right_class, data, R_NilValue));
+    SEXP ans = PROTECT(allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(ans, 0, left);
+    SET_VECTOR_ELT(ans, 1, right);
+    UNPROTECT(4);
+    return ans;
+}
+
+SEXP make_dispatch_right(SEXP data)
+{
+    if (TYPEOF(data) != RAWSXP) error("expected raw data");
+    return R_new_altrep(dispatch_right_class, data, R_NilValue);
+}
+
 SEXP init_altrep(void)
 {
     xint_state_class = R_make_altinteger_class("xint_state", "pkg", NULL);
@@ -184,6 +299,32 @@ SEXP init_altrep(void)
     R_set_altvec_Dataptr_or_null_method(xint_state_class,
 					bsc_Dataptr_or_null);
     R_set_altinteger_Elt_method(xint_state_class, bsc_Elt);
+
+    dispatch_left_class = R_make_alt_class("dispatch_left", "pkg", NULL);
+    dispatch_right_class = R_make_alt_class("dispatch_right", "pkg", NULL);
+#define SET_DISPATCH_REP_METHODS(cls) do {                              \
+    R_set_altrep_Length_method(cls, dispatch_Length);                   \
+    R_set_alt_Element_size_method(cls, dispatch_Element_size);          \
+    R_set_alt_Elt_method(cls, dispatch_Elt);                            \
+    R_set_alt_Set_elt_method(cls, dispatch_Set_elt);                    \
+} while (0)
+    SET_DISPATCH_REP_METHODS(dispatch_left_class);
+    SET_DISPATCH_REP_METHODS(dispatch_right_class);
+#undef SET_DISPATCH_REP_METHODS
+    R_set_alt_Binary_op_method(dispatch_left_class,
+				       dispatch_decline_binary);
+    R_set_alt_Binary_op_method(dispatch_right_class,
+				       dispatch_handle_binary);
+    R_set_alt_Compare_method(dispatch_left_class,
+				     dispatch_decline_compare);
+    R_set_alt_Compare_method(dispatch_right_class,
+				     dispatch_handle_compare);
+    R_set_alt_Unary_op_method(dispatch_right_class, dispatch_unary);
+    R_set_altrep_Coerce_method(dispatch_right_class, dispatch_coerce);
+    R_set_alt_Hash_method(dispatch_right_class, dispatch_hash);
+    R_set_alt_Format_method(dispatch_right_class, dispatch_format);
+    R_set_alt_Summary_method(dispatch_right_class, dispatch_summary);
+    R_set_alt_Combine_method(dispatch_right_class, dispatch_combine);
 
     return R_NilValue;
 }
@@ -199,11 +340,8 @@ SEXP make_altrep_with_xint(SEXP payload)
     return ans;
 }
 
-/* the same class with nothing hidden in it.  What a package's class
-   writes is whatever its method builds, and the preflight that settles
-   the serialization version cannot see that without calling the method
-   a second time, so an object of one is version 4 whether or not it is
-   carrying anything. */
+/* The same class with nothing hidden in it.  The outer ALTINTEGER object
+   continues to use the ordinary ALTREP state path. */
 SEXP make_altrep_plain(SEXP payload)
 {
     return R_new_altrep(xint_state_class, payload, R_NilValue);
@@ -234,5 +372,5 @@ SEXP alloc_succeeds(SEXP width, SEXP kind)
 					TRUE));
     UNPROTECT(1);
 
-    return ScalarLogical(TYPEOF(v) == XINTSXP);
+    return ScalarLogical(TYPEOF(v) == ALTSXP);
 }

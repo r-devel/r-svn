@@ -17,7 +17,7 @@
  *  https://www.R-project.org/Licenses/
  *
  *
- *  Arithmetic on XINTSXP vectors of the 'unsigned' and 'signed' kinds.
+ *  Arithmetic on ALTSXP vectors of the 'unsigned' and 'signed' kinds.
  *
  *  Storage is in native byte order, but every kernel here works on a
  *  scratch copy held most-significant-byte first.  That costs a copy
@@ -974,17 +974,17 @@ SEXP R_xintNarrowMatch(SEXP x, int w, int kind, int hasNA, int *drop,
 static void xintBinaryOperands(SEXP call, SEXP *px, SEXP *py, int *pw, int *pk)
 {
     SEXP x = *px, y = *py;
-    SEXP b = (TYPEOF(x) == XINTSXP) ? x : y;
+    SEXP b = (TYPEOF(x) == ALTSXP) ? x : y;
     int kind = XINT_KIND(b), w = XINT_WIDTH(b);
 
-    if (TYPEOF(x) == XINTSXP && TYPEOF(y) == XINTSXP)
+    if (TYPEOF(x) == ALTSXP && TYPEOF(y) == ALTSXP)
 	/* The rule c(), ==, match(), pmin() and subassignment hold to:
 	   the width is part of the type, so a pair that disagrees is a
 	   mistake to report.  Promoting to max(width) here instead would
 	   make arithmetic the one operation that accepts a pair every
 	   other one refuses, which is not what xinteger.Rd describes. */
 	R_xintCheckPair(call, x, y, "combine");
-    else if (TYPEOF(x) == XINTSXP)
+    else if (TYPEOF(x) == ALTSXP)
 	*py = R_xintNarrow(y, w, kind, XINT_HAS_NA(x), call);
     else
 	*px = R_xintNarrow(x, w, kind, XINT_HAS_NA(y), call);
@@ -1474,7 +1474,7 @@ void R_xintSummaryType(SEXP call, int iop, SEXP args,
 	   with max(c(x, 5L)).  It settles nothing about that type,
 	   which the 'xinteger' operands decide between them. */
 	if (TYPEOF(a) == INTSXP || TYPEOF(a) == LGLSXP) continue;
-	if (TYPEOF(a) != XINTSXP)
+	if (TYPEOF(a) != ALTSXP)
 	    errorcall(call, _("cannot mix 'xinteger' vectors with other types"));
 	if (first == NULL) {
 	    first = a;
@@ -1581,7 +1581,7 @@ SEXP R_xintSummary(SEXP call, int iop, SEXP args, bool narm)
 	   still drop them and the diagnostics can name the real cause. */
 	int *dir = NULL;
 	const void *vmax = vmaxget();
-	if (TYPEOF(a) != XINTSXP) {
+	if (TYPEOF(a) != ALTSXP) {
 	    dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
 	    a = R_xintNarrowCmp(a, w, kind, hasNA, dir, call);
 	}
@@ -1935,7 +1935,7 @@ SEXP R_xintParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 	    if (ni > len) len = ni;
 	    continue;
 	}
-	if (TYPEOF(a) != XINTSXP)
+	if (TYPEOF(a) != ALTSXP)
 	    errorcall(call, _("cannot mix 'xinteger' vectors with other types"));
 	if (proto == NULL) {
 	    proto = a;
@@ -1982,7 +1982,7 @@ SEXP R_xintParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 	if (TYPEOF(a) == NILSXP) continue;
 
 	int *dir = NULL;
-	if (TYPEOF(a) != XINTSXP) {
+	if (TYPEOF(a) != ALTSXP) {
 	    dir = (int *) R_alloc(XLENGTH(a) + 1, sizeof(int));
 	    a = R_xintNarrowCmp(a, w, kind, hasNA, dir, call);
 	}

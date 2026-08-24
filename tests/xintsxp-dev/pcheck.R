@@ -23,9 +23,7 @@ bnSelfTest()
 
 set.seed(7)
 fails <- 0L
-combos <- list(list(1L,"signed"), list(2L,"unsigned"), list(4L,"signed"),
-               list(8L,"unsigned"), list(8L,"signed"), list(16L,"unsigned"),
-               list(16L,"signed"))
+combos <- list(list(8L,"unsigned"), list(8L,"signed"))
 
 for (spec in combos) {
     w <- spec[[1L]]; k <- spec[[2L]]

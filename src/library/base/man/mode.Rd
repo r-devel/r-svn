@@ -30,7 +30,7 @@ storage.mode(x) <- value
 \details{
   Both \code{mode} and \code{storage.mode} return a character string,
   and are often the same.  For a \code{\link{xinteger}} vector,
-  \code{typeof} is \code{"xinteger"}, \code{storage.mode} gives the
+  \code{typeof} is \code{"alt"}, \code{storage.mode} gives the
   detailed representation such as \code{"int64"}, and \code{mode}
   is \code{"numeric"}.
 
@@ -79,7 +79,7 @@ storage.mode(x) <- value
     \code{"function"}.
     \item type \code{"symbol"} is called mode \code{"name"}.
     \item type \code{"language"} is returned as \code{"("} or \code{"call"}.
-    \item type \code{"xinteger"} is returned as \code{"numeric"}.
+    \item type \code{"alt"} is returned as \code{"numeric"}.
   }
 }
 \references{

@@ -217,7 +217,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case WEAKREFSXP:	return "WEAKREFSXP";
     case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
-    case XINTSXP:	return "XINTSXP";
+    case ALTSXP:	return "ALTSXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";
     default:		return "<unknown>";
@@ -723,7 +723,7 @@ static R_size_t R_NodesInUse = 0;
   case CPLXSXP: \
   case WEAKREFSXP: \
   case RAWSXP: \
-  case XINTSXP: \
+  case ALTSXP: \
   case OBJSXP: \
     break; \
   case STRSXP: \
@@ -1118,7 +1118,7 @@ static R_INLINE R_size_t getVecSizeInVEC(SEXP s)
     case RAWSXP:
 	size = XLENGTH(s);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	size = XLENGTH(s) * (R_size_t) XINT_WIDTH(s);
 	break;
     case LGLSXP:
@@ -2758,7 +2758,7 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 	actual_size = length;
 #endif
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	error("use R_allocXIntVector() to allocate an 'xinteger' vector");
     case CHARSXP:
 	error("use of allocVector(CHARSXP ...) is defunct\n");
@@ -2996,16 +2996,10 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
     return s;
 }
 
-/* An 'xinteger' vector is allocated as a RAWSXP of the full byte size, so
-   that the standard vector allocator does the size-class selection and
-   heap accounting, then retyped and given its true element count.
-   getVecSizeInVEC() multiplies the width back out, so the GC sees the
-   same byte size both here and at collection time.
-
-   This is here rather than in xints.c because that retyping needs the
-   bare SET_TYPEOF(): the function of that name, which is all the rest of
-   R sees once the write barrier is being checked, whitelists a handful
-   of conversions that deliberately do not include this one. */
+/* The allocator validates the public fixed-integer request, then constructs
+   a genuine ALTSXP ALTREP object.  Its base class keeps the native-endian
+   bytes in a RAWSXP data1 backing store; generic DATAPTR on the outer object
+   remains unavailable. */
 
 /* Width, kind and the NA reservation are all per-vector properties, and
    every one of them has been forgotten at an allocation site at least
@@ -3030,23 +3024,11 @@ SEXP R_allocXIntVector(R_xlen_t length, int width, int kind,
     if (length > R_XLEN_T_MAX / width)
 	error(_("cannot allocate vector of length %lld"), (long long) length);
 
-    /* Read by R_SerializeVersionFor(): with no 'xinteger' vector ever made
-       in this session no object can contain one, and every serialize()
-       and saveRDS() in R can skip the scan that looks for one.  This is
-       the only way to make one, unserializing included, so the flag
-       cannot be missed. */
+    /* Retained for compatibility with the imported branch's serialization
+       preflight.  Genuine ALTREP state is portable in stream version 3. */
     R_XIntVectorSeen = TRUE;
 
-    SEXP val = PROTECT(allocVector(RAWSXP, length * width));
-    SET_TYPEOF(val, XINTSXP);
-    SET_XINT_WIDTH(val, width);
-    SET_XINT_KIND(val, kind);
-    SET_XINT_NONA(val, !hasNA);
-    SET_STDVEC_LENGTH(val, length);
-
-    UNPROTECT(1);
-
-    return val;
+    return R_new_altxint(length, kind, hasNA);
 }
 
 /* For future hiding of allocVector(CHARSXP) */
@@ -4139,7 +4121,7 @@ static int nvec[32] = {
     1,1,1,1,1,1,1,1,
     1,0,0,1,1,0,0,0,
     0,1,1,0,0,1,1,0,
-    0,1,0,1,1,1,1,1	/* 26 = XINTSXP is a vector */
+    0,1,0,1,1,1,1,1	/* 26 = ALTSXP is a vector */
 };
 
 static R_INLINE SEXP CHK2(SEXP x)
@@ -4171,7 +4153,7 @@ attribute_hidden
 void (SET_TRUELENGTH)(SEXP x, R_xlen_t v) { SET_TRUELENGTH(CHK2(x), v); }
 int  (IS_LONG_VEC)(SEXP x) { return IS_LONG_VEC(CHK2(x)); }
 
-/* The XINTSXP accessors, for the builds that compile R's own code without
+/* The ALTSXP accessors, for the builds that compile R's own code without
    USE_RINTERNALS (--enable-strict-barrier); elsewhere Defn.h supplies the
    macros these wrap.  Each checks the type first, since without it a
    width read out of some other SEXP's gp field would be taken for real. */
@@ -4340,10 +4322,10 @@ const Rbyte *(RAW_RO)(SEXP x) {
 /* The payload of an 'xinteger' vector: XLENGTH(x) elements of
    R_xintWidth(x) bytes each, laid out end to end.  This is the only
    door to those bytes -- the untyped DATAPTR family deliberately
-   refuses XINTSXP, since a caller who does not know the width and kind
+   refuses ALTSXP, since a caller who does not know the width and kind
    cannot read them correctly. */
 Rbyte *(XINTEGER)(SEXP x) {
-    if(TYPEOF(x) != XINTSXP)
+    if(!R_isXInt(x))
 	error("%s() can only be applied to a '%s', not a '%s'",
 	      "XINTEGER", "xinteger", R_typeToChar(x));
     CHKZLN(x);
@@ -4351,7 +4333,7 @@ Rbyte *(XINTEGER)(SEXP x) {
 }
 
 const Rbyte *(XINTEGER_RO)(SEXP x) {
-    if(TYPEOF(x) != XINTSXP)
+    if(!R_isXInt(x))
 	error("%s() can only be applied to a '%s', not a '%s'",
 	      "XINTEGER", "xinteger", R_typeToChar(x));
     CHKZLN(x);
@@ -5206,10 +5188,10 @@ SEXP R_duplicateAsResizable(SEXP x)
 	error(_("ALTREP objects cannot be made resizable"));
     if (! isVector(x))
 	error(_("cannot make non-vector objects resizable"));
-    /* isVector() covers XINTSXP, which R_allocResizableVector() cannot
+    /* isVector() covers ALTSXP, which R_allocResizableVector() cannot
        make: its width and kind are not in an allocVector() call.  Half
        an API for the type is worse than none. */
-    if (TYPEOF(x) == XINTSXP)
+    if (TYPEOF(x) == ALTSXP)
 	error(_("cannot make a resizable vector of type '%s'"),
 	      R_typeToChar(x));
     SEXP val = duplicate(x);

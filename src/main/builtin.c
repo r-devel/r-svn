@@ -56,7 +56,7 @@ R_xlen_t asVecSize(SEXP x)
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
-	case XINTSXP:
+	case ALTSXP:
 	{
 	    /* asReal() reads an 'xinteger' element by its width and kind;
 	       a size a double cannot name exactly is past R_XLEN_T_MAX
@@ -822,7 +822,7 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     mode = str2type(modestr);
     if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
-    if (mode == XINTSXP)
+    if (mode == ALTSXP)
 	error(_("'%s' does not name a complete storage mode; give a width "
 		"and a kind, as '%s' does, or use '%s' with an existing vector"),
 	      "xinteger", "int64", ".vectorlike");
@@ -951,7 +951,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    else
 		RAW(rval)[i] = (Rbyte) 0;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
 	    for (i = 0; i < len; i++)

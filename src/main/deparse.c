@@ -1502,7 +1502,7 @@ static void deparse2buff(SEXP s, LocalParseData *d)
     case RAWSXP:
 	vector2buff(s, d);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	xint2buff(s, d);
 	break;
     case EXTPTRSXP:

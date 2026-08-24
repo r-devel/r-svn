@@ -90,8 +90,7 @@ writeBin(object, con, size = NA_integer_,
 
   \code{what} may also name a \code{\link{xinteger}} type, in which case
   each record is read as one element of that type.  The supported names are
-  \code{"int8"}, \code{"int16"}, \code{"int32"}, \code{"int64"},
-  \code{"int128"}, and their \code{"uint"} counterparts.  A name of this
+  \code{"int64"} and \code{"uint64"}.  A name of this
   form with another width retains its existing interpretation as a character
   prototype rather than naming an \code{xinteger} type.  Reading
   \code{integer}s of \code{size = 8} instead narrows each value to

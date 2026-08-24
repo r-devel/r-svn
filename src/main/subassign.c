@@ -220,7 +220,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
 	   assignLeavesGap() reaches R_alloc() and so can collect, which
 	   is why x is protected across it even though every caller that
 	   can get here holds it too. */
-	if (TYPEOF(x) == XINTSXP && !XINT_HAS_NA(x)) {
+	if (TYPEOF(x) == ALTSXP && !XINT_HAS_NA(x)) {
 	    PROTECT(x);
 	    bool gap = assignLeavesGap(assigned, len, newlen, newlen);
 	    UNPROTECT(1);
@@ -266,6 +266,12 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
     }
     else
 	/* sometimes this is called when no expansion is needed */
+	newtruelen = newlen;
+
+    /* ALTREP length is class-defined.  The built-in int64/uint64 classes
+       therefore grow by replacement rather than by exposing spare standard-
+       vector capacity with SETLENGTH/SET_TRUELENGTH. */
+    if (ALTREP(x))
 	newtruelen = newlen;
 
     /**** for now, don't cross the long vector boundary; drop when
@@ -322,7 +328,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen, SEXP assigned)
 	for (R_xlen_t i = len; i < newtruelen; i++)
 	    RAW0(newx)[i] = (Rbyte) 0;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
 	    if (len > 0)
@@ -689,8 +695,8 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
        assignment never wrote -- which an 'xinteger' vector with na = FALSE
        reads back as values it promises the user stored.  So the checks
        the 'xinteger' assignment makes later are made here first. */
-    if (stretch && TYPEOF(*x) == XINTSXP) {
-	if (TYPEOF(*y) == XINTSXP)
+    if (stretch && TYPEOF(*x) == ALTSXP) {
+	if (TYPEOF(*y) == ALTSXP)
 	    XIntAssignWidth(*x, *y, call);
 	if (XLENGTH(*y) == 0)
 	    error(_("replacement has length zero"));
@@ -1905,7 +1911,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 		   the SEXPTYPE alone cannot size one: allocVector() --
 		   which is what coerceVector() reaches for -- refuses
 		   the type outright, and its message is internal */
-		x = (TYPEOF(y) == XINTSXP) ? R_allocVectorLike(y, 0)
+		x = (TYPEOF(y) == ALTSXP) ? R_allocVectorLike(y, 0)
 					   : coerceVector(x, TYPEOF(y));
 	}
     }
@@ -1920,7 +1926,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     case EXPRSXP:
     case VECSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	switch (nsubs) {
 	case 0:
 	    x = VectorAssign(call, rho, x, R_MissingArg, y);

@@ -1,4 +1,4 @@
-## Tests for 'xinteger' vectors (XINTSXP): fixed-width integer vectors.
+## Tests for 'xinteger' vectors (ALTSXP): fixed-width integer vectors.
 ##
 ## Tests should be written to raise an error on test failure.
 
@@ -12,7 +12,7 @@ nn  <- as.xinteger(c("1", "2"), 8L, "unsigned", na = FALSE)
 
 stopifnot(is.xinteger(u), is.xinteger(s),
 	  !is.xinteger(1:3), !is.xinteger(1:3), !is.raw(u),
-	  typeof(u) == "xinteger", typeof(s) == "xinteger",
+	  typeof(u) == "alt", typeof(s) == "alt",
 	  storage.mode(u) == "uint64", storage.mode(s) == "int64",
 	  identical(class(u), "uint64"), identical(class(s), "int64"),
 	  is.atomic(u), is.vector(u), is.vector(u, mode(u)),
@@ -36,14 +36,20 @@ stopifnot(exists("x", e, mode = "numeric"),
 	  exists("x", e, mode = "uint64"),
 	  identical(get("x", e, mode = "uint64"), u),
 	  !exists("x", e, mode = "int64"),	# a kind apart
-	  !exists("x", e, mode = "uint8"),	# a width apart
-	  is.null(mget("x", e, mode = "uint8", ifnotfound = list(NULL))$x))
+	  inherits(tryCatch(exists("x", e, mode = "uint8"),
+			    error = identity), "error"),
+	  inherits(tryCatch(mget("x", e, mode = "uint8",
+				 ifnotfound = list(NULL)), error = identity),
+		   "error"))
 
-## Public constructors describe the values; XINTSXP remains an internal
+## Public constructors describe the values; ALTSXP remains an internal
 ## storage detail.
 stopifnot(identical(as.int64(c("1", "2", "3")), as.xinteger(1:3, 8L, "signed")),
-	  storage.mode(as.uint128("1")) == "uint128",
-	  storage.mode(as.int8(-1L)) == "int8")
+	  storage.mode(as.uint64("1")) == "uint64",
+	  inherits(tryCatch(as.xinteger(-1L, 1L, "signed"),
+			    error = identity), "error"),
+	  inherits(tryCatch(as.xinteger("1", 16L, "unsigned"),
+			    error = identity), "error"))
 
 ## Assigning the structural typeof() back does not install an explicit
 ## class, as for the other atomic types, and leaves the semantic implicit
@@ -96,7 +102,7 @@ local({
     set.seed(1729); r2 <- rchisq(4, 1:4)
     set.seed(1729); r3 <- rnorm(4, xd, 1)
     set.seed(1729); r4 <- rnorm(4, 1:4, 1)
-    set.seed(1729); r5 <- rhyper(4, xd, as.uint8(4:1), as.uint8(2))
+    set.seed(1729); r5 <- rhyper(4, xd, as.uint64(4:1), as.uint64(2))
     set.seed(1729); r6 <- rhyper(4, 1:4, 4:1, 2)
     stopifnot(identical(r1, r2), identical(r3, r4), identical(r5, r6))
 
@@ -205,7 +211,7 @@ want <- c("9223372036854775801", "9223372036854775802",
 ## double and as seq() is for anything whose mode() is "numeric"; the
 ## length rule that answers 1 here is for the operands that are not.
 stopifnot(identical(seq.int(as.int64(5)), 1:5),
-	  identical(seq.int(as.uint8(4)), 1:4),
+	  identical(seq.int(as.uint64(4)), 1:4),
 	  identical(seq(as.int64(5)), 1:5),
 	  identical(seq.int(as.int64(c(5, 6))), 1:2))
 
@@ -232,7 +238,7 @@ mw <- tryCatch({ withCallingHandlers(mean(ends), warning = function(w) stop(w));
 	       warning = identity, error = identity)
 opw <- options(warn = 2)
 quiet.means <- tryCatch(c(mean(as.int64(c(1, 2, 4))),
-			  mean(as.uint128(c("1", "2", "4"))),
+			  mean(as.uint64(c("1", "2", "4"))),
 			  mean(as.uint64(rep("4503599627370497", 3L)))),
                         finally = options(opw))
 stopifnot(grepl("loses precision", conditionMessage(mw)),
@@ -295,14 +301,14 @@ stopifnot(identical(as.character(c(u, u)), rep(c("1", "2", "3"), 2L)),
 
 ## width and kind are part of the type: combining across them is an error,
 ## not a silent promotion
-stopifnot(inherits(tryCatch(c(u, as.xinteger("1", 4L, "unsigned")),
+stopifnot(inherits(tryCatch(as.xinteger("1", 4L, "unsigned"),
 			    error = identity), "error"),
 	  inherits(tryCatch(c(u, s), error = identity), "error"),
 	  inherits(tryCatch(c(u, nn), error = identity), "error"))
 
 ### the empty vector
 
-for (e in list(xinteger(0L, 8L, "unsigned"), xinteger(0L, 4L, "signed"),
+for (e in list(xinteger(0L, 8L, "unsigned"), xinteger(0L, 8L, "signed"),
 	       xinteger(0L, 8L, "signed", na = FALSE))) {
     stopifnot(is.xinteger(e), length(e) == 0L,
 	      identical(unique(e), e), length(duplicated(e)) == 0L,
@@ -354,7 +360,7 @@ stopifnot(identical(x, c(TRUE, TRUE, TRUE)))
 nx <- as.xinteger(c(a = 1L, b = 2L), 8L, "unsigned")
 names(nx) <- c("a", "b")
 stopifnot(is.null(names(as.xinteger(nx, 8L, "unsigned"))),	# no change needed
-	  is.null(names(as.xinteger(nx, 16L, "unsigned"))),	# widened
+	  is.null(names(as.xinteger(nx, 8L, "signed"))),	# kind changed
 	  is.null(names(as.vector(nx, "uint64"))),
 	  { y <- nx; storage.mode(y) <- "uint64"; identical(names(y), c("a","b")) })
 
@@ -420,9 +426,9 @@ stopifnot(as.character(sum(u)) == "6", as.character(prod(u)) == "6",
 ## An out-of-range operand is discarded by na.rm before it becomes NA,
 ## so a successful answer must remain usable under options(warn = 2).
 ow <- options(warn = 2)
-quiet.sum <- tryCatch(sum(as.uint8(1L), 300L, na.rm = TRUE),
+quiet.sum <- tryCatch(sum(as.uint64(1L), -1L, na.rm = TRUE),
 		      finally = options(ow))
-stopifnot(identical(quiet.sum, as.uint8(1L)))
+stopifnot(identical(quiet.sum, as.uint64(1L)))
 
 ## min/max of nothing: every other type warns and returns +/-Inf.  There is
 ## no Inf here, so NA stands in where NA exists, and only where it does not
@@ -450,17 +456,17 @@ stopifnot(as.character(bitwAnd(h, as.xinteger("15", 8L, "unsigned"))) == "15",
 	  ## argument was at fault
 	  grepl("shift out of range",
 		tryCatch(bitwShiftL(nn, 64L), error = conditionMessage)),
-	  identical(tryCatch(bitwShiftL(1L, as.uint8(2L)),
+	  identical(tryCatch(bitwShiftL(1L, as.uint64(2L)),
 			     error = conditionMessage),
 		    "invalid 'b' argument"))
 
 ## The documentation's network-byte-order example must not depend on the
 ## host byte order, and character conversion remains decimal rather than hex.
 local({
-    ip.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 11), 1))
-    prefix.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 12)))
-    mask.bytes <- as.raw(c(rep(0xff, 6), rep(0, 10)))
-    proto <- xinteger(width = 16L, kind = "unsigned", na = FALSE)
+    ip.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1))
+    prefix.bytes <- as.raw(c(0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0))
+    mask.bytes <- as.raw(c(rep(0xff, 4), rep(0, 4)))
+    proto <- xinteger(width = 8L, kind = "unsigned", na = FALSE)
     ip <- readBin(ip.bytes, proto, endian = "big")
     mask <- readBin(mask.bytes, proto, endian = "big")
     stopifnot(identical(writeBin(bitwAnd(ip, mask), raw(), endian = "big"),
@@ -475,7 +481,7 @@ stopifnot(format(big2) == "1234567890123",
 	  nchar(format(big2, width = 20L)) == 20L)
 
 ## cat() must not truncate a wide element
-wide <- as.xinteger("340282366920938463463374607431768211454", 16L, "unsigned")
+wide <- as.uint64("18446744073709551614")
 stopifnot(identical(capture.output(cat(wide)), as.character(wide)))
 
 ## sprintf(): %d keeps the whole width, and every part of the
@@ -502,7 +508,7 @@ stopifnot(identical(sprintf("%d", wide), as.character(wide)),
 ## an explicit request for the ordinary checked conversion to double.
 stopifnot(identical(formatC(wide), as.character(wide)),
 	  identical(formatC(wide, big.mark = ","),
-		    "340,282,366,920,938,463,463,374,607,431,768,211,454"),
+		    "18,446,744,073,709,551,614"),
 	  identical(formatC(s2, width = 6L, flag = "0"),
 		    formatC(c(-1L, 0L, 1L), width = 6L, flag = "0")),
 	  identical(formatC(as.int64(NA), width = 5L, flag = "0"),
@@ -513,90 +519,33 @@ stopifnot(identical(formatC(wide), as.character(wide)),
 
 ### round trips
 
-## serialization version 4: no older R can read this type, and the
-## header of a version 2 or 3 stream promises one that can.  A version
-## the caller did not name is raised to 4; one they did name is an
-## error if it cannot hold the vector.  serialize() raises silently --
-## saveRDS() and save() are the ones that say so, and they say it
-## before they open anything -- so the stream's own header is what the
-## raise is read from here.
+## ALTSXP uses ordinary ALTREP class/state serialization.  The built-in
+## classes put endian-neutral bytes in the state, so stream version 3 is
+## sufficient and no new standard-vector serialization format is needed.
 streamVersion <- function(r) readBin(r[3:6], "integer", 1L, endian = "big")
 for (v in list(u, s, un, nn, xinteger(0L, 8L, "unsigned"))) {
     stopifnot(identical(unserialize(serialize(v, NULL)), v),
-	      identical(unserialize(serialize(v, NULL, version = 4)), v),
+	      identical(unserialize(serialize(v, NULL, version = 3)), v),
 	      identical(eval(parse(text = paste(deparse(v), collapse = ""))), v),
 	      identical(v[seq_along(v)], v),
-	      inherits(tryCatch(serialize(v, NULL, version = 3),
-				error = identity), "error"),
-	      streamVersion(serialize(v, NULL)) == 4L)
+	      streamVersion(serialize(v, NULL)) == 3L)
     f <- tempfile()
-    suppressMessages(saveRDS(v, f))
+    saveRDS(v, f)
     stopifnot(identical(readRDS(f), v),
-	      infoRDS(f)$version == 4L)
+	      infoRDS(f)$version == 3L)
     unlink(f)
 }
 
-## ASCII payload words are exactly two hex digits.  A parser accepting only
-## the valid prefix would hide stream corruption for raw and xinteger alike.
-local({
-	corruptLastWord <- function(x, word) {
-	    txt <- rawToChar(serialize(x, NULL, ascii = TRUE))
-	    charToRaw(sub(paste0(word, "\n$"), paste0(word, "junk\n"), txt))
-	}
-    stopifnot(inherits(tryCatch(unserialize(corruptLastWord(as.raw(0xab), "ab")),
-				 error = identity), "error"),
-	      inherits(tryCatch(unserialize(corruptLastWord(as.uint8(1:2), "02")),
-				 error = identity), "error"))
-})
-
-## Ordinary objects keep writing the version they wrote before, and
-## ALTREP is most of them: 1:3 is a compact sequence, as.character() of
-## one is a deferred conversion, a sorted vector carries a wrapper.
-## R's own classes are walked through their two data fields, which asks
-## the class nothing -- preflight must not call a Serialized_state
-## method that serialization is about to call a second time, so a class
-## from a package is version 4 without being looked into.
+## Nested ALTSXP objects follow the same existing ALTREP path.
 local({
     f <- tempfile()
-    saveRDS(list(as.integer(c(1, 2, 3)), "a"), f)
+    object <- list(sequence = 1:3, value = u,
+		   attributed = structure(1:3, key = s))
+    saveRDS(object, f)
     on.exit(unlink(f))
-    stopifnot(infoRDS(f)$version == 3L,
-	      streamVersion(serialize(list(as.integer(c(1, 2, 3)), "a"), NULL)) == 3L,
-	      streamVersion(serialize(1:3, NULL)) == 3L,
-	      streamVersion(serialize(as.character(1:3), NULL)) == 3L,
-	      streamVersion(serialize(sort(c(3L, 1L, 2L)), NULL)) == 3L,
-	      ## and the walk still reaches one that is there
-	      streamVersion(serialize(list(1:3, u), NULL)) == 4L,
-	      streamVersion(serialize(structure(1:3, key = u), NULL)) == 4L)
-})
-
-## checkRdaFiles() reads the version from the stream, not from the
-## magic: "RDX3" is as high as the magic goes.
-local({
-    f <- tempfile(); g <- tempfile()
-    on.exit(unlink(c(f, g)))
-    suppressMessages(save(list = "u", file = f, envir = environment()))
-    save(list = "nn2", file = g,
-	 envir = list2env(list(nn2 = as.integer(c(1, 2, 3)))))
-    stopifnot(tools::checkRdaFiles(f)$version == 4L,
-	      tools::checkRdaFiles(g)$version == 3L)
-})
-
-## the vector is found wherever serialization would reach it
-local({
-    reach <- list(nested = list(list(u)),
-		  attribute = structure(1:3, key = u),
-		  frame = data.frame(k = u, n = 1:3),
-		  closure = local({ hidden <- u; function() hidden }),
-		  promise = (function(a = u) function() a)())
-    for (nm in names(reach)) {
-	got <- tryCatch(serialize(reach[[nm]], NULL, version = 3),
-			error = identity)
-	if (!inherits(got, "error"))
-	    stop("an 'xinteger' vector was not found in a ", nm)
-	if (streamVersion(serialize(reach[[nm]], NULL)) != 4L)
-	    stop("the version was not raised for an 'xinteger' vector in a ", nm)
-    }
+	stopifnot(infoRDS(f)$version == 3L,
+		  identical(readRDS(f), object),
+		  streamVersion(serialize(object, NULL)) == 3L)
 })
 
 ### readBin()/writeBin()
@@ -741,7 +690,7 @@ for (e in list(quote(as.vector(u, "xinteger")),
 
 ### memory.profile() must have a slot for the type
 
-stopifnot("xinteger" %in% names(memory.profile()))
+stopifnot("alt" %in% names(memory.profile()))
 
 ### storage.mode<- is the one mode that changes the element count
 
@@ -756,15 +705,15 @@ nx <- as.raw(1:16); names(nx) <- letters[1:16]
 storage.mode(nx) <- "uint64"
 stopifnot(length(nx) == 2L, is.null(names(nx)))
 ## but a conversion that keeps the count keeps them
-ny <- as.raw(1:4); names(ny) <- letters[1:4]
-storage.mode(ny) <- "uint8"
+ny <- as.int64(1:4); names(ny) <- letters[1:4]
+storage.mode(ny) <- "uint64"
 stopifnot(identical(names(ny), letters[1:4]))
 
 ### an 'xinteger' right-hand side keeps the destination's attributes
 
 ## every other arm of SubassignTypeFix() coerces through coerceVector(),
 ## which carries them over; this one narrows into a fresh vector
-b <- as.xinteger(9L, 4L, "signed")
+b <- as.int64(9L)
 m <- matrix(1:4, 2, 2); m[1, 1] <- b
 stopifnot(identical(dim(m), c(2L, 2L)))
 v <- c(a = 1L, b = 2L); v[1] <- b
@@ -779,114 +728,32 @@ stopifnot(is.list(z), length(z) == 3L)
 z <- NULL; z[1] <- as.xinteger("7", 8L, "unsigned")
 stopifnot(is.xinteger(z), length(z) == 1L, as.character(z) == "7")
 
-### raising the serialization version must not cost the file
-
-## The raise is announced with a message and a version too low for the
-## object is refused with an error; an exiting handler unwinds out of
-## either.  Both are settled before the writer opens anything, so a
-## file already at the path keeps what it held -- opening for writing
-## would have truncated it first.
-local({
-    f <- tempfile()
-    on.exit(unlink(f))
-    for (write in list(
-	     function() save(list = "b", file = f, compress = FALSE,
-			     envir = globalenv()),
-	     function() save(list = "b", file = f, precheck = FALSE,
-			     envir = globalenv()),
-	     function() saveRDS(b, f),
-	     function() saveRDS(b, f, compress = FALSE))) {
-	writeLines("previous contents", f)
-	prior <- file.size(f)
-	r <- tryCatch(write(), message = function(m) "handled")
-	stopifnot(identical(r, "handled"), file.size(f) == prior)
-	r <- tryCatch(suppressMessages(write()), error = identity)
-	stopifnot(!inherits(r, "error"))
-    }
-
-    ## and the same for a version the caller named that cannot hold it
-    for (write in list(function() save(list = "b", file = f, version = 2,
-				       envir = globalenv()),
-		       function() save(list = "b", file = f, version = 2,
-				       precheck = FALSE,
-				       envir = globalenv()),
-		       function() saveRDS(b, f, version = 2))) {
-	writeLines("previous contents", f)
-	prior <- file.size(f)
-	stopifnot(inherits(tryCatch(write(), error = identity), "error"),
-		  file.size(f) == prior)
-    }
-})
-
-## save.image() passes precheck = FALSE, and used to reach the writer
-## with the workspace file already truncated
-local({
-    f <- tempfile()
-    on.exit(unlink(f))
-    writeLines("previous .RData", f)
-    prior <- file.size(f)
-    stopifnot(inherits(tryCatch(save.image(file = f, version = 2),
-				error = identity), "error"),
-	      file.size(f) == prior,
-	      !file.exists(paste0(f, "Tmp")))
-})
-
+### ALTREP serialization through the ordinary class/state path
 f <- tempfile()
-suppressMessages(save(list = "b", file = f, envir = environment()))
+save(list = "b", file = f, envir = environment(), version = 3)
 e <- new.env(); load(f, envir = e)
 stopifnot(identical(e$b, b))
-unlink(f)
-
-## serialize() is the low-level entry point and says nothing: parallel
-## sends every object to every worker through it, and a raw vector has
-## no reader whose version could matter
-stopifnot(identical(withCallingHandlers(
-    {serialize(b, NULL); "silent"},
-    message = function(m) stop("serialize() announced the version")), "silent"))
-
-## save.to.file() is reached from compiler::cmpfile() and from the
-## embedding API, and was the one entry point that never raised it
-f <- tempfile()
-invisible(.Internal(save.to.file(list(b), f, FALSE, NULL)))
-stopifnot(identical(.Internal(load.from.file(f))[[1L]], b))
-unlink(f)
-
-## An incompatible explicit version is rejected before the destination
-## is opened, preserving anything already at that path.
-f <- tempfile(); prior <- charToRaw("keep")
-writeBin(prior, f)
-got <- tryCatch(.Internal(save.to.file(list(b), f, FALSE, 3L)),
-		error = identity)
-stopifnot(inherits(got, "error"),
-	  identical(readBin(f, "raw", n = length(prior)), prior))
 unlink(f)
 
 ### comparison against a bound the type cannot hold
 
 ## it is not missing: it lies below or above every element, so the
 ## answer is determined and the filter idioms must not go quiet
-u8 <- as.xinteger(c("1", "2", "3"), 1L, "unsigned")
-stopifnot(identical(u8 > -1L, rep(TRUE, 3)), identical(u8 < 1000L, rep(TRUE, 3)),
+u8 <- as.uint64(c("1", "2", "3"))
+stopifnot(identical(u8 > -1L, rep(TRUE, 3)),
 	  identical(-1L < u8, rep(TRUE, 3)),
 	  identical(u8[u8 > -1L], u8), identical(which(u8 > -1L), 1:3),
-	  ## the reserved NA value counts as out of range, in its direction
-	  identical(as.xinteger(c("1", "254"), 1L, "unsigned") < 255L, c(TRUE, TRUE)),
-	  ## and a vector that reserves nothing no longer errors
-	  identical(as.xinteger(c("1", "2"), 1L, "unsigned", na = FALSE) < 1000L,
-		    c(TRUE, TRUE)),
 	  ## an element that really is missing still answers NA
-	  identical(as.xinteger(c("1", NA), 1L, "unsigned") > -1L, c(TRUE, NA)))
+	  identical(as.uint64(c("1", NA)) > -1L, c(TRUE, NA)))
 
 ## min and max only compare, so a bound they cannot hold is ignored
 ## unless it wins outright, when the answer itself is out of range
-stopifnot(as.character(min(u8, 1000L)) == "1", as.character(max(u8, -1L)) == "3",
-	  identical(as.character(pmin(u8, 1000L)), c("1", "2", "3")),
-	  is.na(suppressWarnings(max(u8, 1000L))),
-	  all(is.na(suppressWarnings(pmax(u8, 1000L)))))
+stopifnot(as.character(max(u8, -1L)) == "3",
+	  identical(as.character(pmax(u8, -1L)), c("1", "2", "3")))
 
 ## a width is part of the type, so min() and max() refuse the pairs c()
 ## refuses -- range() goes through c() and must not fail where they work
-a8 <- as.xinteger("10", 8L, "unsigned"); s4 <- as.xinteger("5", 4L, "unsigned")
+a8 <- as.uint64("10"); s4 <- as.int64("5")
 for (e in list(quote(max(a8, s4)), quote(min(a8, s4)), quote(sum(a8, s4)),
 	       quote(pmin(a8, s4)), quote(c(a8, s4))))
     stopifnot(inherits(tryCatch(eval(e), error = identity), "error"))
@@ -918,13 +785,12 @@ stopifnot(suppressWarnings(
 ## Fixed-width types that cannot compare still need a descriptive result.
 a <- as.xinteger(1:3, 8L, "signed")
 stopifnot(isTRUE(all.equal(a, a)),
-	  is.character(all.equal(a, as.xinteger(1:3, 4L, "signed"))),
 	  is.character(all.equal(a, as.xinteger(1:3, 8L, "unsigned"))),
 	  is.character(all.equal(a, as.xinteger(1:3, 8L, "signed", na = FALSE))),
 	  is.character(all.equal(a, 1:3)),
 	  is.character(all.equal(a, structure(1:3, class = "int64"))),
 	  is.character(all.equal(a, as.xinteger(c(1L, 2L, 4L), 8L, "signed"))),
-	  is.character(all.equal(list(k = a), list(k = as.xinteger(1:3, 4L, "signed")))))
+	  is.character(all.equal(list(k = a), list(k = as.uint64(1:3)))))
 
 ### match() narrows an integer operand, as == and c() do
 
@@ -935,12 +801,11 @@ stopifnot(identical(x %in% 1L, c(TRUE, FALSE, FALSE)), identical(1L %in% x, TRUE
 	  ## a value the width cannot hold matches nothing and is matched
 	  ## by nothing; it is dropped rather than given a stand-in, every
 	  ## bit pattern of the width being a value in its own right
-	  identical(u8 %in% c(1L, 1000L), c(TRUE, FALSE, FALSE)),
-	  identical(match(u8, c(1000L, 2L, 1L)), c(3L, 2L, NA)),
-	  identical(match(u8, c(1000L, 2L, 1L), nomatch = 3L), c(3L, 2L, 3L)),
+	  identical(u8 %in% c(1L, -1L), c(TRUE, FALSE, FALSE)),
+	  identical(match(u8, c(-1L, 2L, 1L)), c(3L, 2L, NA)),
+	  identical(match(u8, c(-1L, 2L, 1L), nomatch = 3L), c(3L, 2L, 3L)),
 	  ## two 'xinteger' vectors are still refused on a clash
-	  inherits(tryCatch(as.xinteger(1:2, 4L, "unsigned") %in%
-			    as.xinteger(1:2, 8L, "unsigned"),
+	  inherits(tryCatch(as.int64(1:2) %in% as.uint64(1:2),
 			    error = identity), "error"))
 
 ### the constructors take scalars
@@ -988,7 +853,7 @@ stopifnot(identical(format(x, trim = TRUE, width = 6), c("     1", "     2", "  
 
 ### a list absorbs 'xinteger' vectors that cannot be combined with each other
 
-b4 <- as.xinteger(1:2, 4L, "unsigned"); b8 <- as.xinteger(1:2, 8L, "unsigned")
+b4 <- as.int64(1:2); b8 <- as.uint64(1:2)
 stopifnot(length(c(list(1), b4, b8)) == 5L,
 	  inherits(tryCatch(c(b4, b8), error = identity), "error"))
 
@@ -1042,13 +907,13 @@ local({
 ## does, there is nothing to convert, so out-of-range values about to be
 ## thrown away must not prevent the assignment.
 local({
-    o <- as.xinteger(1:3, 1L, "unsigned", na = FALSE)
+    o <- as.uint64(1:3, na = FALSE)
 
     x <- -1:1; x[1:3] <- o
     stopifnot(identical(as.character(x), as.character(o)))
     x <- c(-1L, 0L, 1L); x[1:3] <- o
-    stopifnot(identical(typeof(x), "xinteger"),
-	      identical(storage.mode(x), "uint8"))
+    stopifnot(identical(typeof(x), "alt"),
+	      identical(storage.mode(x), "uint64"))
     x <- -1:1; x[3:1] <- o
     stopifnot(identical(as.character(x), rev(as.character(o))))
 
@@ -1076,7 +941,7 @@ local({
 	      identical(storage.mode(sum(p)), "uint64"), # sum keeps the type
 	      identical(prod(1:3), 6))		# every other type unchanged
     for (bad in list(quote(prod(p, "a")),
-		     quote(prod(p, as.xinteger("2", 4L, "unsigned")))))
+		     quote(prod(p, as.int64("2")))))
 	if (!inherits(tryCatch(eval(bad), error = identity), "error"))
 	    stop("no error from ", deparse(bad))
 })
@@ -1113,8 +978,6 @@ local({
 		        as.xinteger("4611686018427387904", 8L, "signed")),
 	      identical(as.xinteger(2^63, 8L, "unsigned"),
 		        as.xinteger("9223372036854775808", 8L, "unsigned")),
-	      identical(as.xinteger(2^100, 16L, "signed"),
-		        as.xinteger("1267650600228229401496703205376", 16L, "signed")),
 	      identical(as.xinteger(-2^62, 8L, "signed"),
 		        as.xinteger("-4611686018427387904", 8L, "signed")))
 

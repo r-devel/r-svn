@@ -48,7 +48,7 @@ SEXP fft(SEXP z, SEXP inverse)
     case REALSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
     case CPLXSXP:
@@ -146,7 +146,7 @@ SEXP mvfft(SEXP z, SEXP inverse)
     case REALSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
     case CPLXSXP:

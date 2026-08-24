@@ -520,7 +520,7 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
     switch (TYPEOF(v)) { \
     case NILSXP: REPROTECT(v = allocVector(INTSXP,0), vpi); break; \
     case CPLXSXP: case REALSXP: case INTSXP: case LGLSXP: \
-    case XINTSXP: break; \
+    case ALTSXP: break; \
     default: errorcall(call, _("non-numeric argument to binary operator")); \
     } \
 } while (0)
@@ -540,7 +540,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
     FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
 
-    bool xint = (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP);
+    bool xint = (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP);
 
     R_xlen_t
 	nx = XLENGTH(x),
@@ -663,9 +663,18 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	warningcall(call,
 		    _("longer object length is not a multiple of shorter object length"));
 
-    SEXP val;
+    SEXP val = NULL;
+    /* Opaque classes get first refusal, including for mixed and division
+       operations.  This is what keeps the receiver negotiation in one
+       place instead of baking a promotion rule into TYPEOF dispatch. */
+    if (xint)
+	val = ALT_BINARY_OP(x, y, (int) oper, call);
+
     /* need to preserve object here, as *_binary copies class attributes */
-    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (val != NULL) {
+	/* handled by one of the opaque classes */
+    }
+    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
@@ -677,7 +686,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     else if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
 	     (xint && (oper == DIVOP || oper == POWOP))) {
 	/* real_binary can handle REALSXP or INTSXP operands, but not
-	   LGLSXP or XINTSXP.  Division and power promote XINTSXP just as
+	   LGLSXP or ALTSXP.  Division and power promote ALTSXP just as
 	   they promote ordinary integer operands. */
 	/* Can get a LGLSXP. In base-Ex.R on 24 Oct '06, got 8 of these. */
 	if (TYPEOF(x) != INTSXP) COERCE_IF_NEEDED(x, REALSXP, xpi);
@@ -685,7 +694,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = real_binary(oper, x, y);
     }
     else if (xint)
-	val = R_xintArith(call, (int) oper, x, y);
+	errorcall(call, _("binary operation is not implemented for these ALTSXP classes"));
     else val = integer_binary(oper, x, y, call);
 
     /* quick return if there are no attributes */
@@ -735,8 +744,12 @@ attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 	return real_unary(operation, s1, call);
     case CPLXSXP:
 	return complex_unary(operation, s1, call);
-    case XINTSXP:
-	return R_xintUnary(call, (int) operation, s1);
+    case ALTSXP: {
+	SEXP ans = ALT_UNARY_OP(s1, (int) operation, call);
+	if (ans == NULL)
+	    errorcall(call, _("unary operation is not implemented for this ALTSXP class"));
+	return ans;
+    }
     default:
 	errorcall(call, _("invalid argument to unary operator"));
     }
@@ -1390,7 +1403,7 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
-    if (TYPEOF(CAR(args)) == XINTSXP) {
+    if (TYPEOF(CAR(args)) == ALTSXP) {
 	if (PRIMVAL(op) == 4) return R_xintSign(CAR(args));
 	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
 	SETCAR(args, bx);
@@ -1473,7 +1486,7 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
     check1arg(args, call, "x");
     if (isComplex(CAR(args)))
 	errorcall(call, _("unimplemented complex function"));
-    if (TYPEOF(CAR(args)) == XINTSXP) {
+    if (TYPEOF(CAR(args)) == ALTSXP) {
 	SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
 	SEXP ans = math1(bx, trunc, call);
 	UNPROTECT(1);
@@ -1498,7 +1511,7 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
 
-    if (TYPEOF(x) == XINTSXP)
+    if (TYPEOF(x) == ALTSXP)
 	return R_xintAbs(call, x);
     else if (isInteger(x) || isLogical(x)) {
 	/* integer or logical ==> return integer,
@@ -1907,7 +1920,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (x != R_MissingArg && ! OBJECT(x)) {
 	    if (isComplex(x))
 		res = complex_math1(call, op, args, env);
-	    else if (TYPEOF(x) == XINTSXP) {
+	    else if (TYPEOF(x) == ALTSXP) {
 		SEXP bx = PROTECT(coerceVector(x, REALSXP));
 		res = math1(bx, R_log, call);
 		UNPROTECT(1);
@@ -1950,7 +1963,7 @@ attribute_hidden SEXP do_log_builtin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (! DispatchGroup("Math", call, op, args, env, &res)) {
 	    if (isComplex(CAR(args)))
 		res = complex_math1(call, op, args, env);
-	    else if (TYPEOF(CAR(args)) == XINTSXP) {
+	    else if (TYPEOF(CAR(args)) == ALTSXP) {
 		SEXP bx = PROTECT(coerceVector(CAR(args), REALSXP));
 		res = math1(bx, R_log, call);
 		UNPROTECT(1);

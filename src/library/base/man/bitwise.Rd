@@ -41,9 +41,9 @@ bitwShiftR(a, n)
   Shifting is done assuming the values represent unsigned integers.
 
   For a \code{\link{xinteger}} vector the operations are applied to the
-  whole element, however wide it is: these are the operations that
+  whole 64-bit element: these are the operations that
   vector type supports -- masking, bucketing and testing a flag word --
-  and unlike arithmetic they are defined at every width.  A result that
+  and unlike arithmetic they apply to every bit.  A result that
   lands exactly on the value the
   vector reserves for \code{NA} becomes \code{NA} with a warning, since
   that value is not available to hold it; a vector created with
@@ -86,13 +86,10 @@ xor(r15, r7)# 08
 
 bitwShiftR(-1, 1:31) # shifts of 2^32-1 = 4294967295
 
-## masking an IPv6 address down to its /48 prefix
-uint128 <- xinteger(width = 16L, kind = "unsigned", na = FALSE)
-ip <- readBin(as.raw(c(0x20, 0x01, 0x0d, 0xb8, rep(0, 11), 1)),
-              uint128, endian = "big")
-mask <- readBin(as.raw(c(rep(0xff, 6), rep(0, 10))),
-                uint128, endian = "big")
-bitwAnd(ip, mask)
+## masking the low 32 bits of a 64-bit flag word
+flags <- as.uint64("18446744073709551615", na = FALSE)
+mask <- as.uint64("4294967295", na = FALSE)
+bitwAnd(flags, mask)
 }
 
 \keyword{logic}

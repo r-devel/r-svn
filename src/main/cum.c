@@ -217,7 +217,7 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
     /* cumprod() and cumvar() fall through to the double branch below,
        as their integer counterparts do; cumsum, cummax and cummin stay
        in the type, as their integer versions stay integer. */
-    if (TYPEOF(CAR(args)) == XINTSXP &&
+    if (TYPEOF(CAR(args)) == ALTSXP &&
 	PRIMVAL(op) != 2 && PRIMVAL(op) != 5)
 	return R_xintCum(call, PRIMVAL(op), CAR(args));
     if (isComplex(CAR(args))) {

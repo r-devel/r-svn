@@ -119,7 +119,7 @@ sort.int <-
     ## The internal qsort kernels understand the legacy integer and double
     ## layouts only.  Fixed-width integers have a native value-aware sort,
     ## reached through the shell-method entry point below.
-    if (method == "quick" && typeof(x) == "xinteger")
+    if (method == "quick" && is.xinteger(x))
         method <- "shell"
 
     if(isfact <- is.factor(x)) {

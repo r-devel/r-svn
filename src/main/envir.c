@@ -1512,7 +1512,7 @@ findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, int xwidth, int xkind,
 		UNPROTECT(1);
 	    }
 	    tl = TYPEOF(vl);
-	    if (tl == INTSXP || (tl == XINTSXP && mode == REALSXP))
+	    if (tl == INTSXP || (tl == ALTSXP && mode == REALSXP))
 		tl = REALSXP;
 	    if (tl == FUNSXP || tl ==  BUILTINSXP || tl == SPECIALSXP)
 		tl = CLOSXP;
@@ -1522,7 +1522,7 @@ findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, int xwidth, int xkind,
 			(! wants_S4 && ! IS_S4_OBJECT(vl)))
 			return vl;
 		}
-		else if (tl == XINTSXP) {
+		else if (tl == ALTSXP) {
 		    /* The structural type name has no width or kind, so zero
 		       means there is nothing further to match.  A detailed
 		       mode names both: get(nm, mode = "int64") must no more
@@ -2421,7 +2421,7 @@ static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4,
     }
     else {
 	if (R_xintTypeFromName(modestr, pwidth, pkind))
-	    return XINTSXP;
+	    return ALTSXP;
 
 	SEXPTYPE gmode = str2type(modestr);
 	if(gmode == (SEXPTYPE) (-1))

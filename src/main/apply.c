@@ -126,7 +126,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (commonType != CPLXSXP && commonType != REALSXP &&
 	commonType != INTSXP  && commonType != LGLSXP &&
 	commonType != RAWSXP  && commonType != STRSXP &&
-	commonType != VECSXP  && commonType != XINTSXP)
+	commonType != VECSXP  && commonType != ALTSXP)
 	error(_("type '%s' is not supported"), R_typeToChar(value));
     dim_v = getAttrib(value, R_DimSymbol);
     array_value = (TYPEOF(dim_v) == INTSXP && LENGTH(dim_v) >= 1);
@@ -199,7 +199,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 	       an integer and a double, and nothing below would notice.
 	       R_typeToChar() names them, so the message above still
 	       reads correctly. */
-	    else if (commonType == XINTSXP) {
+	    else if (commonType == ALTSXP) {
 		if (XINT_WIDTH(val) != XINT_WIDTH(value) ||
 		    XINT_KIND(val) != XINT_KIND(value))
 		    error(_("values must be type '%s',\n but FUN(X[[%lld]]) result is type '%s'"),
@@ -226,7 +226,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case RAWSXP:  RAW(ans)    [i] = RAW    (val)[0]; break;
 		case STRSXP:  SET_STRING_ELT(ans, i, STRING_ELT(val, 0)); break;
 		case VECSXP:  SET_VECTOR_ELT(ans, i, VECTOR_ELT(val, 0)); break;
-		case XINTSXP: memcpy(XINT_ELT(ans, i), XINT_DATA_RO(val),
+		case ALTSXP: memcpy(XINT_ELT(ans, i), XINT_DATA_RO(val),
 				     (size_t) XINT_WIDTH(ans)); break;
 		}
 	    } else if (commonLen) { // commonLen > 1
@@ -254,7 +254,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    for (int j = 0; j < commonLen; j++)
 			SET_VECTOR_ELT(ans, common_len_offset + j, VECTOR_ELT(val, j));
 		    break;
-		case XINTSXP:
+		case ALTSXP:
 		    memcpy(XINT_ELT(ans, common_len_offset),
 			   XINT_DATA_RO(val),
 			   (size_t) commonLen * XINT_WIDTH(ans));

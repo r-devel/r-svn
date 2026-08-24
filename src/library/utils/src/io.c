@@ -996,7 +996,7 @@ static bool isna(SEXP x, R_xlen_t indx)
 	rc = COMPLEX(x)[indx];
 	return ISNAN(rc.r) || ISNAN(rc.i);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	return R_xintIsNA(x, indx);
 	break;
     default:

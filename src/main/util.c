@@ -163,16 +163,16 @@ SEXP asChar(SEXP x)
 		return mkChar(EncodeComplex(COMPLEX(x)[0], w, d, e, wi, di, ei, OutDec));
 	    case STRSXP:
 		return STRING_ELT(x, 0);
-	    case XINTSXP:
+	    case ALTSXP:
 	    {
-		/* isVectorAtomic() accepts this type, so without an arm
-		   it reached the default below and every element read
-		   as NA.  Rendered as coerceToString() renders it. */
-		int w = XINT_WIDTH(x), k = XINT_KIND(x);
-		if (XINT_HAS_NA(x) &&
-		    R_xintEltIsNA(XINT_ELT_RO(x, 0), w, k))
-		    return NA_STRING;
-		return mkChar(R_xintEltRender(x, 0));
+		SEXP rendered = ALT_FORMAT(x, R_NilValue);
+		if (rendered == NULL || TYPEOF(rendered) != STRSXP ||
+		    XLENGTH(rendered) != XLENGTH(x))
+		    error("invalid Format result from ALTSXP class");
+		PROTECT(rendered);
+		SEXP ans = PROTECT(STRING_ELT(rendered, 0));
+		UNPROTECT(2);
+		return ans;
 	    }
 	    default:
 		return NA_STRING;
@@ -239,12 +239,13 @@ TypeTable[] = {
     { "bytecode",	BCODESXP   },
     { "weakref",	WEAKREFSXP },
     { "raw",		RAWSXP },
-    { "xinteger",	XINTSXP },
+    { "alt",		ALTSXP },
     { "S4",		S4SXP },
     { "object",		OBJSXP }, /* == S4SXP */
     /* aliases : */
     { "numeric",	REALSXP	   },
     { "name",		SYMSXP	   },
+    { "xinteger",	ALTSXP	   }, /* compatibility allocation-mode alias */
 
     { (char *)NULL,	-1	   }
 };
@@ -355,18 +356,19 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
 #ifdef USE_TYPE2CHAR_2
 const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
     if (t == OBJSXP) return IS_S4_OBJECT(x) ? "S4" : "object";
-    if (t == XINTSXP) return R_xintTypeName(x);
+    if (t == ALTSXP)
+	return CHAR(PRINTNAME(R_altrep_class_name(x)));
     return type2char(t);
 }
 #endif
 
 const char *R_typeToChar(SEXP x) {
     // = type2char() but distinguishing {S4, object} and giving a
-    // detailed storage-mode name for an 'xinteger' vector in diagnostics
+    // registered class name for an opaque atomic ALTREP in diagnostics
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
-    else if(TYPEOF(x) == XINTSXP)
-	return R_xintTypeName(x);
+    else if(TYPEOF(x) == ALTSXP)
+	return CHAR(PRINTNAME(R_altrep_class_name(x)));
     else
 	return type2char(TYPEOF(x));
 }

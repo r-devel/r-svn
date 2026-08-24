@@ -2114,8 +2114,227 @@ attribute_hidden SEXP R_tryUnwrap(SEXP x)
  ** Initialize ALTREP Classes
  **/
 
+/*
+ * Opaque signed and unsigned 64-bit integers.
+ *
+ * The outer object is an ALTSXP ALTREP node.  Its data1 is the base
+ * implementation's native-endian raw backing store; packages see exact
+ * elements through the class methods rather than through DATAPTR().
+ */
+
+static R_altrep_class_t altint64_class;
+static R_altrep_class_t altuint64_class;
+
+attribute_hidden Rboolean R_is_altxint(SEXP x)
+{
+    return (Rboolean) (TYPEOF(x) == ALTSXP && ALTREP(x) &&
+	(R_altrep_inherits(x, altint64_class) ||
+	 R_altrep_inherits(x, altuint64_class)));
+}
+
+static R_xlen_t altxint_Length(SEXP x)
+{
+    return XLENGTH(R_altrep_data1(x)) / 8;
+}
+
+static size_t altxint_Element_size(SEXP x) { return 8; }
+
+static void altxint_Elt(SEXP x, R_xlen_t i, void *buf)
+{
+    memcpy(buf, RAW_RO(R_altrep_data1(x)) + 8 * i, 8);
+}
+
+static void altxint_Set_elt(SEXP x, R_xlen_t i, const void *buf)
+{
+    memcpy(RAW(R_altrep_data1(x)) + 8 * i, buf, 8);
+}
+
+static R_xlen_t
+altxint_Get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
+{
+    R_xlen_t size = XLENGTH(x);
+    R_xlen_t ncopy = size - i > n ? n : size - i;
+    if (ncopy > 0)
+	R_xintMemcpy(buf, RAW_RO(R_altrep_data1(x)) + 8 * i,
+		      (size_t) ncopy * 8);
+    return ncopy;
+}
+
+static SEXP altxint_Duplicate(SEXP x, Rboolean deep)
+{
+    SEXP ans = PROTECT(R_new_altxint(XLENGTH(x), XINT_KIND(x),
+				     XINT_HAS_NA(x) ? TRUE : FALSE));
+    R_xintMemcpy(XINT_DATA(ans), XINT_DATA_RO(x), (size_t) XLENGTH(x) * 8);
+    UNPROTECT(1);
+    return ans;
+}
+
+/* State is big-endian bytes plus the two semantic flags.  This keeps ALTREP
+   version-3 serialization portable without assigning ALTSXP a standard
+   vector payload in the serialization format. */
+static SEXP altxint_Serialized_state(SEXP x)
+{
+    R_xlen_t n = XLENGTH(x);
+    SEXP wire = PROTECT(allocVector(RAWSXP, n * 8));
+    R_xintSwapWire(RAW(wire), XINT_DATA_RO(x), n, 8);
+    SEXP state = PROTECT(allocVector(VECSXP, 3));
+    SET_VECTOR_ELT(state, 0, wire);
+    SET_VECTOR_ELT(state, 1, ScalarInteger(XINT_KIND(x)));
+    SET_VECTOR_ELT(state, 2, ScalarLogical(XINT_HAS_NA(x)));
+    UNPROTECT(2);
+    return state;
+}
+
+static SEXP altxint_Unserialize(SEXP class, SEXP state)
+{
+    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 3 ||
+	TYPEOF(VECTOR_ELT(state, 0)) != RAWSXP ||
+	TYPEOF(VECTOR_ELT(state, 1)) != INTSXP ||
+	TYPEOF(VECTOR_ELT(state, 2)) != LGLSXP ||
+	XLENGTH(VECTOR_ELT(state, 0)) % 8 != 0)
+	error("invalid serialized int64/uint64 ALTREP state");
+
+    SEXP wire = VECTOR_ELT(state, 0);
+    int kind = INTEGER_ELT(VECTOR_ELT(state, 1), 0);
+    int hasNA = LOGICAL_ELT(VECTOR_ELT(state, 2), 0);
+    if ((kind != XINT_SIGNED && kind != XINT_UNSIGNED) ||
+	(hasNA != FALSE && hasNA != TRUE))
+	error("invalid serialized int64/uint64 ALTREP state");
+    R_xlen_t n = XLENGTH(wire) / 8;
+    SEXP ans = PROTECT(R_new_altxint(n, kind, hasNA ? TRUE : FALSE));
+    R_xintSwapWire(XINT_DATA(ans), RAW_RO(wire), n, 8);
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP
+altxint_Binary_op(SEXP dispatch, SEXP x, SEXP y, int op, SEXP call)
+{
+    if ((TYPEOF(x) == ALTSXP && !R_isXInt(x)) ||
+	(TYPEOF(y) == ALTSXP && !R_isXInt(y)) ||
+	TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP ||
+	op == R_ALT_BINARY_DIVIDE || op == R_ALT_BINARY_POWER)
+	return NULL;
+    return R_xintArith(call, op, x, y);
+}
+
+static SEXP altxint_Unary_op(SEXP x, int op, SEXP call)
+{
+    return R_xintUnary(call, op, x);
+}
+
+static SEXP altxint_Compare(SEXP dispatch, SEXP x, SEXP y,
+			   int op, SEXP call)
+{
+    if ((TYPEOF(x) == ALTSXP && !R_isXInt(x)) ||
+	(TYPEOF(y) == ALTSXP && !R_isXInt(y)) ||
+	TYPEOF(x) == STRSXP || TYPEOF(y) == STRSXP)
+	return NULL;
+    return R_xintCompare(call, op, x, y);
+}
+
+static unsigned int altxint_Hash(SEXP x, R_xlen_t i)
+{
+    Rbyte value[8];
+    ALT_ELT(x, i, value);
+    unsigned int h = 2166136261U;
+    for (int j = 0; j < 8; j++) {
+	h ^= value[j];
+	h *= 16777619U;
+    }
+    return h;
+}
+
+static SEXP altxint_Coerce(SEXP x, int type)
+{
+    if (type == RAWSXP || type == INTSXP || type == REALSXP)
+	return R_xintCoerce(x, (SEXPTYPE) type);
+    return NULL;
+}
+
+static SEXP altxint_Format(SEXP x, SEXP options)
+{
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(allocVector(STRSXP, n));
+    int w = XINT_WIDTH(x), kind = XINT_KIND(x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (XINT_HAS_NA(x) && R_xintEltIsNA(XINT_ELT_RO(x, i), w, kind))
+	    SET_STRING_ELT(ans, i, NA_STRING);
+	else
+	    SET_STRING_ELT(ans, i, mkChar(R_xintEltRender(x, i)));
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP altxint_Summary(SEXP x, int op, SEXP args,
+			   Rboolean narm, SEXP call)
+{
+    if (op == R_ALT_SUMMARY_MEAN) return R_xintMean(call, x);
+    if (op == R_ALT_SUMMARY_PRODUCT) return NULL;
+    for (SEXP a = args; a != R_NilValue; a = CDR(a)) {
+	if (TAG(a) == R_NaRmSymbol) continue;
+	SEXPTYPE type = TYPEOF(CAR(a));
+	if (type == REALSXP || type == CPLXSXP)
+	    return NULL; /* ordinary numeric promotion owns the mixed case */
+    }
+    return R_xintSummary(call, op, args, narm != FALSE);
+}
+
+static SEXP altxint_Combine(SEXP x, SEXP args, SEXP call)
+{
+    return NULL; /* base bind.c remains the fallback during the prototype */
+}
+
+static void InitAltXIntClass(void)
+{
+    altint64_class = R_make_alt_class("int64", "base", NULL);
+    altuint64_class = R_make_alt_class("uint64", "base", NULL);
+
+#define SET_ALT_XINT_METHODS(cls) do {                                  \
+    R_set_altrep_Length_method(cls, altxint_Length);                    \
+    R_set_altrep_Duplicate_method(cls, altxint_Duplicate);              \
+    R_set_altrep_Serialized_state_method(cls, altxint_Serialized_state);\
+    R_set_altrep_Unserialize_method(cls, altxint_Unserialize);          \
+    R_set_altrep_Coerce_method(cls, altxint_Coerce);                    \
+    R_set_alt_Element_size_method(cls, altxint_Element_size);           \
+    R_set_alt_Elt_method(cls, altxint_Elt);                             \
+    R_set_alt_Set_elt_method(cls, altxint_Set_elt);                     \
+    R_set_alt_Get_region_method(cls, altxint_Get_region);               \
+    R_set_alt_Binary_op_method(cls, altxint_Binary_op);                 \
+    R_set_alt_Unary_op_method(cls, altxint_Unary_op);                   \
+    R_set_alt_Compare_method(cls, altxint_Compare);                     \
+    R_set_alt_Hash_method(cls, altxint_Hash);                           \
+    R_set_alt_Format_method(cls, altxint_Format);                       \
+    R_set_alt_Summary_method(cls, altxint_Summary);                     \
+    R_set_alt_Combine_method(cls, altxint_Combine);                     \
+} while (0)
+
+    SET_ALT_XINT_METHODS(altint64_class);
+    SET_ALT_XINT_METHODS(altuint64_class);
+#undef SET_ALT_XINT_METHODS
+}
+
+attribute_hidden SEXP
+R_new_altxint(R_xlen_t length, int kind, Rboolean hasNA)
+{
+    if (kind != XINT_SIGNED && kind != XINT_UNSIGNED)
+	error("invalid int64/uint64 ALTREP kind");
+    R_altrep_class_t cls = kind == XINT_SIGNED ? altint64_class
+	: altuint64_class;
+    SEXP bytes = PROTECT(allocVector(RAWSXP, length * 8));
+    SEXP ans = PROTECT(R_new_altrep(cls, bytes, R_NilValue));
+    SET_XINT_WIDTH(ans, 8);
+    SET_XINT_KIND(ans, kind);
+    SET_XINT_NONA(ans, !hasNA);
+    UNPROTECT(2);
+    return ans;
+}
+
 attribute_hidden void R_init_altrep(void)
 {
+    InitAltXIntClass();
     InitCompactIntegerClass();
     InitCompactRealClass();
     InitDefferredStringClass();

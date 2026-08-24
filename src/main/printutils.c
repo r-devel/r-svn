@@ -157,7 +157,7 @@ const char *EncodeRaw(Rbyte x, const char * prefix)
     return buff;
 }
 
-/* one XINTSXP element as lowercase hex; buffer sized for the maximum
+/* one ALTSXP element as lowercase hex; buffer sized for the maximum
    element width (XINT_MAX_WIDTH bytes -> two hex digits each) */
 attribute_hidden
 const char *EncodeXInt(const Rbyte *p, int width)
@@ -890,7 +890,7 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
     case RAWSXP:
 	res = EncodeRaw(RAW_RO(x)[indx], "");
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	res = R_xintEltRender(x, indx);
 	break;
     default:

@@ -4711,7 +4711,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 
     args = CDR(args);
     swhat = CAR(args); args = CDR(args);
-    if(TYPEOF(swhat) == XINTSXP) {
+    if(TYPEOF(swhat) == ALTSXP) {
 	/* the prototype form: it names the same type the string form
 	   would, and additionally says whether NA is representable */
 	bhasNA = R_xintHasNA(swhat);
@@ -4968,7 +4968,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	PROTECT(ans);		/* R_xintWarnReserved() can allocate */
     }
     /* after the truncation, so the count is of what was actually read */
-    if(TYPEOF(ans) == XINTSXP)
+    if(TYPEOF(ans) == ALTSXP)
 	R_xintWarnReserved(ans);
     UNPROTECT(1);
     return ans;
@@ -5095,7 +5095,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(size != 1)
 		error(_("size changing is not supported for raw vectors"));
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    if(size == NA_INTEGER) size = R_xintWidth(object);
 	    if(size != R_xintWidth(object))
 		error(_("size changing is not supported for '%s' vectors"),
@@ -5186,7 +5186,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	case RAWSXP:
 	    memcpy(buf, RAW(object), len); /* size = 1 */
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* the payload as stored in native order, which 'endian' then
 	       converts below if asked.  R_xintMemcpy()
 	       because a whole payload can pass the size macOS has been

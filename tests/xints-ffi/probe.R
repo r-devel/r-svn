@@ -1,4 +1,4 @@
-## Does an ordinary package -- one that has never heard of XINTSXP --
+## Does an ordinary package -- one that has never heard of ALTSXP --
 ## fail safely when handed one?  This is the claim the whole design
 ## rests on, so it is tested against real compiled package code rather
 ## than argued.
@@ -44,7 +44,7 @@ chk2 <- function(got, want, why) {
     if (!good) fails <<- fails + 1L
     cat(sprintf("  %-24s %s   %s\n", "", if (good) "ok  " else "FAIL", why))
 }
-chk2(typeof(made), "xinteger", "R_allocXIntVector() makes a real xinteger vector")
+chk2(typeof(made), "alt", "R_allocXIntVector() makes a genuine ALTSXP vector")
 chk2(storage.mode(made), "uint64", "and its storage mode records uint64")
 chk2(length(made), 4L, "length is the element count, not the byte count")
 chk2(is.na(made), c(TRUE, FALSE, FALSE, FALSE),
@@ -66,11 +66,8 @@ chk("width_of_anything", 42L,  "error", "R_xintWidth() refuses an integer vector
 chk("xinteger_of_anything", 42L,  "error", "XINTEGER_RO() refuses an integer vector")
 chk("width_of_anything", made, 8L, "and works on the real thing")
 
-## An ALTREP object is written as its serialized state and never as its
-## own elements, so an 'xinteger' vector reachable only through that state
-## has to be found there.  The header goes out before the first item
-## and a connection cannot be rewound, so a writer that missed it would
-## discover the type mid-stream, with the file already truncated.
+## Existing ALTREP class/state serialization can carry an ALTSXP object
+## without a new stream version.
 cat("\nan ALTREP class whose serialized state holds an 'xinteger' vector:\n")
 invisible(.Call("init_altrep"))
 alt <- .Call("make_altrep_with_xint", 1:3)
@@ -78,38 +75,56 @@ streamVersion <- function(r) readBin(r[3:6], "integer", 1L, endian = "big")
 chk2(typeof(alt), "integer", "its own type says nothing about its state")
 invisible(.Call("reset_serialized_state_calls"))
 serialized <- serialize(alt, NULL)
-chk2(streamVersion(serialized), 4L,
-     "the version is raised for what the state carries")
+chk2(streamVersion(serialized), 3L,
+     "the existing ALTREP stream version carries the state")
 chk2(.Call("get_serialized_state_calls"), 1L,
      "its serialized-state method is called exactly once")
 chk2(unserialize(serialized)[1:3], 1:3, "and the object round trips")
-chk2(inherits(tryCatch(serialize(alt, NULL, version = 3), error = identity),
-	      "error"), TRUE,
-     "a version too low is refused, not discovered mid-stream")
-local({
-    f <- tempfile()
-    on.exit(unlink(f))
-    writeLines("previous contents", f)
-    prior <- file.size(f)
-    tryCatch(saveRDS(alt, f, version = 3), error = function(e) NULL)
-    chk2(file.size(f), prior, "so the file it refuses to write is left alone")
-})
-## The conservatism is about the method, not about what it returned:
-## an object of this class is version 4 with nothing hidden in it too,
-## because settling that would mean calling the method here and letting
-## serialization call it again.  R's own classes carry their state in
-## the two data fields, which can be read without asking the class
-## anything, so 1:1000 is not dragged along with them.
+chk2(unserialize(serialize(alt, NULL, version = 3))[1:3], 1:3,
+     "an explicitly requested version 3 round trips")
 plain <- .Call("make_altrep_plain", 1:3)
 invisible(.Call("reset_serialized_state_calls"))
-chk2(streamVersion(serialize(plain, NULL)), 4L,
-     "a package's ALTREP selects version 4 holding nothing")
+chk2(streamVersion(serialize(plain, NULL)), 3L,
+     "a package ALTREP also stays on version 3")
 chk2(.Call("get_serialized_state_calls"), 1L,
      "and only the write called its method")
 chk2(streamVersion(serialize(1:1000, NULL)), 3L,
      "while a compact sequence is read and left at version 3")
 
-## isVector() covers XINTSXP, so R_duplicateAsResizable() would take one
+cat("\ntwo-sided ALTSXP semantic dispatch:\n")
+pair <- .Call("make_dispatch_pair")
+left <- pair[[1L]]; right <- pair[[2L]]
+chk2(c(typeof(left), typeof(right)), c("alt", "alt"),
+     "package classes use the opaque SEXPTYPE")
+chk2(c(class(left), class(right)), c("dispatch_left", "dispatch_right"),
+     "their registered ALTREP names are their implicit classes")
+chk2(c(is.xinteger(left), is.xinteger(right)), c(FALSE, FALSE),
+     "they are not mistaken for the built-in integer classes")
+invisible(.Call("reset_binary_dispatch_calls"))
+chk2(left + right, 2L,
+     "the right class handles after the left class declines")
+chk2(.Call("get_binary_dispatch_calls"), 2L,
+     "each distinct class received one opportunity")
+invisible(.Call("reset_binary_dispatch_calls"))
+chk2(right + right, 1L, "a shared class handles from the left")
+chk2(.Call("get_binary_dispatch_calls"), 1L,
+     "a shared class is not called twice")
+chk2(1.5 + right, 2L,
+     "an ALTSXP method gets first refusal over ordinary real promotion")
+chk2(c(left == right, right == left), c(TRUE, FALSE),
+     "Compare fallback preserves operand order and identifies the receiver")
+chk2(-right, 12L, "Unary_op handles opaque unary arithmetic")
+chk2(as.integer(right), 1L, "Coerce owns conversion out of the opaque type")
+chk2(format(right), "opaque:1", "Format supplies the display representation")
+chk2(capture.output(print(right)), "[1] opaque:1",
+     "the default printer also consumes Format")
+chk2(sum(right), 100L, "Summary receives the base summary operation")
+chk2(c(right, right), 2L, "Combine owns concatenation for an opaque class")
+hashed <- .Call("make_dispatch_right", as.raw(c(1L, 1L, 2L)))
+chk2(duplicated(hashed), c(FALSE, TRUE, FALSE),
+     "Hash and canonical Elt support base hashing without private metadata")
+
+## isVector() covers ALTSXP, so R_duplicateAsResizable() would take one
 ## although R_allocResizableVector() has no way to name a width and a
 ## kind and cannot make one.  Both halves have to say the same thing.
 cat("\nthe resizable-vector API:\n")
@@ -124,8 +139,8 @@ cat("\nasking before allocating:\n")
 kinds <- c(unsigned = 1L, signed = 2L)
 supported <- function(w, k) .Call("type_supported", w, k)
 chk2(supported(8L, kinds[["signed"]]), TRUE, "width 8 signed is allocatable")
-chk2(supported(16L, kinds[["unsigned"]]), TRUE, "width 16 unsigned is allocatable")
-chk2(supported(16L, kinds[["unsigned"]]), TRUE, "width 16 is the top of the range")
+chk2(supported(8L, kinds[["unsigned"]]), TRUE, "width 8 unsigned is allocatable")
+chk2(supported(16L, kinds[["unsigned"]]), FALSE, "only 64-bit values are prototyped")
 chk2(supported(3L, kinds[["unsigned"]]), FALSE, "a width outside the set is not")
 chk2(supported(256L, kinds[["unsigned"]]), FALSE, "width 256 is not")
 chk2(supported(0L, kinds[["signed"]]), FALSE, "width 0 is not")

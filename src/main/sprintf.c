@@ -521,7 +521,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				}
 				break;
 			    }
-			case XINTSXP:
+			case ALTSXP:
 			    /* %s reaches this arm as STRSXP and the
 			       double conversions as REALSXP, both
 			       coerced above; only %d and %i are left,

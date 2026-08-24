@@ -145,7 +145,7 @@ SEXP modelframe(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case CPLXSXP:
 	    case STRSXP:
 	    case RAWSXP:
-	    case XINTSXP:
+	    case ALTSXP:
 		break;
 	    default:
 		error(_("invalid type (%s) for variable '%s'"),

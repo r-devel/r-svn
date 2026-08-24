@@ -347,7 +347,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	/* Use memcmp (which is ISO C90) to speed up the comparison */
 	return memcmp((const void *)RAW_RO(x), (const void *)RAW_RO(y),
 		      XLENGTH(x) * sizeof(Rbyte)) == 0 ? TRUE : FALSE;
-    case XINTSXP:
+    case ALTSXP:
 	if (XLENGTH(x) != XLENGTH(y)) return FALSE;
 	if (XINT_WIDTH(x) != XINT_WIDTH(y)) return FALSE;
 	if (XINT_KIND(x) != XINT_KIND(y)) return FALSE;

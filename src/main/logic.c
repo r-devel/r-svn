@@ -267,7 +267,7 @@ static SEXP lunary(SEXP call, SEXP op, SEXP arg)
 	    }
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int *px = LOGICAL(x);
 	    int w = XINT_WIDTH(arg), k = XINT_KIND(arg);

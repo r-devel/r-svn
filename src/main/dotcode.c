@@ -1934,7 +1934,7 @@ attribute_hidden SEXP do_dotCode(SEXP call, SEXP op, SEXP args, SEXP env)
 			    R_typeToChar(s), na + 1);
 	    cargs[na] =  (void*) s;
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* An element is w bytes wide with w known only at run time,
 	       so there is no C type to hand the callee.  Turned away
 	       here because the deprecated default arm below would pass

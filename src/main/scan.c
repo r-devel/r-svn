@@ -552,7 +552,7 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 		expected("a raw", buffer, d);
 	}
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	{
 	    int w = XINT_WIDTH(ans), k = XINT_KIND(ans);
 	    Rbyte *p = XINT_ELT(ans, i);
@@ -700,7 +700,7 @@ static SEXP scanVector(SEXP proto, R_xlen_t maxitems, R_xlen_t maxlines,
 	for (i = 0; i < n; i++)
 	    RAW(bns)[i] = RAW(ans)[i];
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	R_xintMemcpy(XINT_DATA(bns), XINT_DATA_RO(ans),
 		      (size_t) n * XINT_WIDTH(ans));
 	break;
@@ -873,7 +873,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    for (j = 0; j < n; j++)
 		RAW(new)[j] = RAW(old)[j];
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* R_xintMemcpy() and not memcpy(): a whole payload can pass
 	       the size macOS has been seen to mis-copy in one call */
 	    R_xintMemcpy(XINT_DATA(new), XINT_DATA_RO(old),
@@ -1041,7 +1041,7 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
 	ans = scanVector(what, nmax, nlines, flush, stripwhite,
 			 blskip, &data);
 	break;

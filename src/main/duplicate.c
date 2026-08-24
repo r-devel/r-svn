@@ -194,7 +194,7 @@ SEXP lazy_duplicate(SEXP s) {
     case REALSXP:
     case CPLXSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
     case STRSXP:
     case OBJSXP:
 	ENSURE_NAMEDMAX(s);
@@ -349,7 +349,7 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, REAL_RO, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;
-    case XINTSXP:
+    case ALTSXP:
 	/* not DUPLICATE_ATOMIC_VECTOR: the element size is per-vector, so
 	   allocVector(TYPEOF(s), n) cannot reproduce it. */
 	n = XLENGTH(s);
@@ -429,7 +429,7 @@ void copyVector(SEXP s, SEXP t)
     case RAWSXP:
 	xcopyRawWithRecycle(RAW(s), RAW_RO(t), 0, ns, nt);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	R_xintCopyWithRecycle(s, t, 0, ns, nt);
 	break;
     default:
@@ -510,7 +510,7 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		RAW(s)[didx] = RAW(t)[sidx];
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	{
 	    /* unlike the branch below, this one does not go through
 	       copyVector(), so the widths are checked here */

@@ -1108,7 +1108,7 @@ SEXP eval(SEXP e, SEXP rho)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
-    case XINTSXP:
+    case ALTSXP:
     case OBJSXP:
     case SPECIALSXP:
     case BUILTINSXP:
@@ -2882,7 +2882,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 		ALLOC_LOOP_VAR(v, val_type, vpi);
 		SET_SCALAR_BVAL(v, RAW(val)[i]);
 		break;
-	    case XINTSXP:
+	    case ALTSXP:
 		ALLOC_LOOP_VAR_LIKE(v, val, vpi);
 		memcpy(XINT_DATA(v), XINT_ELT_RO(val, i),
 		       (size_t) XINT_WIDTH(val));
@@ -7846,7 +7846,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    GET_VEC_LOOP_VALUE(value);
 	    SET_SCALAR_BVAL(value, RAW(seq)[i]);
 	    break;
-	  case XINTSXP:
+	  case ALTSXP:
 	    GET_VEC_LOOP_VALUE_LIKE(value);
 	    memcpy(XINT_DATA(value), XINT_ELT_RO(seq, i),
 		   (size_t) XINT_WIDTH(seq));

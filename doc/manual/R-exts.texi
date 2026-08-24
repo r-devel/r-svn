@@ -14995,25 +14995,24 @@ have to fully materialize the object.
 @apifun SET_RAW_ELT
 @apifun SET_REAL_ELT
 
-@subsection @code{xinteger} vectors
+@subsection Built-in 64-bit integer ALTSXP classes
 
-A @code{xinteger} vector (@code{XINTSXP}) holds @code{XLENGTH(x)} elements
-of @code{R_xintWidth(x)} bytes each.  Unlike every other vector type
-the element size is a property of the vector rather than of the
-@code{SEXPTYPE}, so @code{Rf_allocVector} cannot make one and there is
-no fixed C type to cast the payload to; use @code{R_allocXIntVector}
-instead.  Like @code{Rf_allocVector} for other atomic vector types,
-@code{R_allocXIntVector} leaves the payload uninitialized; callers must
-fill every element before exposing the result to @R{}.  The width, the
-@emph{kind} and whether a value is reserved
+The base @code{int64} and @code{uint64} classes are opaque ALTREP atomic
+vectors whose @code{SEXPTYPE} is @code{ALTSXP}.  @code{ALTSXP} does not
+itself imply an integer representation: package classes supply their own
+element and semantic methods.  The two base classes hold
+@code{XLENGTH(x)} elements of eight bytes each.  @code{Rf_allocVector}
+cannot make an opaque object; use @code{R_allocXIntVector} for these
+built-in classes.  Its payload is uninitialized, so callers must fill every
+element before exposing the result to @R{}.  The @emph{kind} and whether a
+value is reserved
 for @code{NA} together make up a vector's @dfn{element type}: two
 @code{xinteger} vectors can be combined or compared only if all three
 agree, and the @code{SEXPTYPE} they share says nothing about any of
 them.
 
-The widths are 1, 2, 4, 8 and 16 bytes -- 8, 16, 32, 64 and 128 bits --
-and every operation the type defines works at all of them.  Code that is
-choosing what to map an external column onto should nevertheless ask
+This prototype accepts only a width of 8.  Code choosing what to map an
+external column onto should nevertheless ask
 @code{R_xintTypeSupported} before it commits rather than let
 @code{R_allocXIntVector} refuse: the refusal is an R error, and unwinding
 out of a partly built reader is rarely what such code wants.  Asking also
@@ -15034,12 +15033,12 @@ integer or double layouts.  Package code prepared for this representation
 should test @code{R_isXInt} explicitly.  Also note that
 @code{R_typeToChar(x)} returns the detailed storage name, such as
 @code{"uint64"}, rather than the structural @code{typeof} name
-@code{"xinteger"}; this makes diagnostics identify the representation
+@code{"alt"}; this makes diagnostics identify the representation
 that an operation received.
 
 The @emph{kind} says whether elements are signed or unsigned.
 @code{XINT_UNSIGNED} and @code{XINT_SIGNED} elements are integers of
-@code{8 * width} bits held in the platform's @emph{native}
+64 bits held in the platform's @emph{native}
 byte order, so a value that is already in native order -- a C
 @code{int64_t}, say -- can be copied in verbatim.  A source with a
 fixed external byte order must be converted first, as @code{readBin}
@@ -15066,19 +15065,11 @@ read it correctly.
 @apifun XINTEGER
 @apifun XINTEGER_RO
 
-The payload begins where any other vector's does, and so has the
-alignment @R{} gives a @code{double}; an element is at a multiple of the
-width from there.  Widths up to 8 therefore fall on their own natural
-alignment.  Width 16 does not: @R{} promises no 16-byte alignment for
-any type, and does not give its own 16-byte @code{Rcomplex} one either.
-
-So once the width and kind have been checked, a payload of width 1, 2,
-4 or 8 may be cast to @code{int8_t *}, @code{int16_t *},
-@code{int32_t *} or @code{int64_t *} (or their unsigned counterparts)
-and indexed, exactly as @code{INTEGER} hands back an @code{int *}.  That
-is the usual shape, since the caller has generally coerced with
-@code{as.int64} or a sibling before @code{.Call} and the C code only has
-to confirm what it was given:
+The raw backing store has the usual alignment for an eight-byte element.
+Once the width and kind have been checked, its pointer may be cast to
+@code{int64_t *} (or its unsigned counterpart) and indexed.  A caller has
+generally coerced with @code{as.int64} before @code{.Call} and only has to
+confirm what it was given:
 
 @example
     if (!R_isXInt(x) || R_xintWidth(x) != 8 || R_xintKind(x) != XINT_SIGNED)
@@ -15086,19 +15077,8 @@ to confirm what it was given:
     const int64_t *v = (const int64_t *) XINTEGER_RO(x);
 @end example
 
-@noindent
-Width 16 is the exception, and is the one where the temptation is
-greatest: there is no standard C integer type of that size, and an
-element is aligned to 8 rather than to 16, so a cast to a 128-bit type
-is not safe.  Copy those with @code{memcpy} in both directions, as the
-example below does.  @code{memcpy} is also the right choice for code
-that wants one path for every width: on targets with unaligned loads a
-compiler can turn a fixed-size copy back into a load, and on targets
-without them the copy is what keeps the code correct.  Code for which
-this distinction matters should measure it on the supported targets.
-The payload pointer is a @code{Rbyte *}
-rather than a typed pointer so that the width and kind have to be
-settled before any of this is decided.
+The payload pointer is a @code{Rbyte *} rather than a typed pointer so the
+kind has to be settled before it is interpreted.
 
 Individual elements are best reached through @code{R_xintElt} and
 @code{R_xintEltRO}, which return the address of element @code{i}, and
@@ -15333,6 +15313,57 @@ The function @code{ALTREP_CLASS} is also available but is not likely to
 be needed and may be removed.  The type and contents of the value
 returned by @code{ALTREP_CLASS} are subject to change.
 @eapifun ALTREP_CLASS
+
+Opaque atomic ALTREP classes are created with
+@code{R_make_alt_class}.  Their @code{SEXPTYPE} is @code{ALTSXP}; unlike
+the typed ALTREP classes, it supplies neither a C element type nor default
+scalar semantics.  In addition to @code{Length}, a usable class provides
+@code{Element_size}, @code{Elt} and, if it is mutable, @code{Set_elt}.
+@code{Elt} and @code{Set_elt} copy one exact element between the object and
+a caller-provided buffer of @code{Element_size(x)} bytes.  @code{Get_region}
+does the same for a contiguous range; its default repeatedly calls
+@code{Elt}.  The ordinary ALTREP @code{Dataptr} default deliberately does
+not expose a pointer for @code{ALTSXP}.
+
+The opaque semantic method types are declared in @file{R_ext/Altrep.h}:
+
+@example
+SEXP Binary_op(SEXP dispatch, SEXP x, SEXP y, int op, SEXP call);
+SEXP Unary_op(SEXP x, int op, SEXP call);
+SEXP Compare(SEXP dispatch, SEXP x, SEXP y, int op, SEXP call);
+unsigned int Hash(SEXP x, R_xlen_t i);
+SEXP Format(SEXP x, SEXP options);
+SEXP Summary(SEXP x, int op, SEXP args, Rboolean na_rm, SEXP call);
+SEXP Combine(SEXP x, SEXP args, SEXP call);
+@end example
+
+The @code{R_ALT_BINARY_*}, @code{R_ALT_UNARY_*},
+@code{R_ALT_COMPARE_*} and @code{R_ALT_SUMMARY_*} constants name the
+operation codes.  A @code{SEXP}-valued method returns C @code{NULL} to
+decline an operation.  For a binary operation or comparison, the left
+opaque class is asked first.  If it declines, a distinct right opaque class
+is asked next; a shared class is called only once.  @code{x} and @code{y}
+always remain in expression order, while @code{dispatch} identifies the
+object whose class is currently being asked.  A class method therefore has
+enough information to implement asymmetric operations and explicit mixed
+type promotion.
+
+@code{Hash} supplies a per-element semantic hash for base hashing
+operations.  @code{Elt} is also used to resolve collisions, so it must
+produce a canonical byte representation: elements that are semantically
+equal must have identical @code{Elt} bytes and equal hashes.  @code{Format}
+returns a character vector of the same length.  @code{Summary} sees the
+complete argument list, and @code{Combine} sees the arguments after
+@code{c}'s control arguments have been removed.  The existing ALTREP
+@code{Coerce} method owns conversions out of @code{ALTSXP}; there is no
+representation-independent fallback when a package-defined opaque class
+declines it.
+
+This interface is experimental.  In particular, adding an opaque
+@code{SEXPTYPE} makes previously exhaustive @code{TYPEOF} switches reach
+their default branch, which is intentional but requires the usual audit of
+base and package code.
+@eapifun R_make_alt_class
 
 For some objects it may be possible to very efficiently determine
 whether the object is sorted or contains no @code{NA} values. These

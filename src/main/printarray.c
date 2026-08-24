@@ -390,7 +390,7 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     case RAWSXP:
 	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	printXIntMatrix  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
     default:
@@ -521,7 +521,7 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 	    case RAWSXP:
 		printRawMatrix    (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
-	    case XINTSXP:
+	    case ALTSXP:
 		printXIntMatrix  (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;
 	    }

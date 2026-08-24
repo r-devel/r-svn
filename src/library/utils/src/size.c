@@ -136,7 +136,7 @@ static R_size_t objectsize(SEXP s)
 	vcnt = BYTE2VEC(xlength(s));
 	isVec = true;
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	/* xlength() counts elements here, so the byte count is the one
 	   place this type needs its width */
 	vcnt = BYTE2VEC(xlength(s) * (R_xlen_t) R_xintWidth(s));

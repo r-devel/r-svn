@@ -222,7 +222,7 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 			return TRUE;
 	    }
 	    break;
-	case XINTSXP: // compatible with xint_relop() in ./relop.c
+	case ALTSXP: // compatible with xint_relop() in ./relop.c
 	{
 	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
 	    bool hna = XINT_HAS_NA(x);
@@ -814,7 +814,7 @@ void sortVector(SEXP s, bool decreasing)
 	case STRSXP:
 	    ssort2(STRING_PTR(s), n, decreasing); /* STRING_PTR is safe here */
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    if (n <= INT_MAX) {
 		const void *vmax = vmaxget();
 		int w = XINT_WIDTH(s);
@@ -973,7 +973,7 @@ static void Psort(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
     case STRSXP:
 	sPsort2(STRING_PTR(x), lo, hi, k); /* STRING_PTR is safe here */
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	bPsort2(x, lo, hi, k);
 	break;
     default:
@@ -1085,7 +1085,7 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
 		      XINT_WIDTH(x), XINT_KIND(x),
 		      XINT_HAS_NA(x), nalast);
@@ -1128,7 +1128,7 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
 		      XINT_WIDTH(x), XINT_KIND(x),
 		      XINT_HAS_NA(x), nalast);
@@ -1165,7 +1165,7 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
 		      XINT_WIDTH(x), XINT_KIND(x),
 		      XINT_HAS_NA(x), nalast);
@@ -1267,7 +1267,7 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    c = bcmp_(XINT_ELT_RO(x, i), XINT_ELT_RO(x, j),
 		      XINT_WIDTH(x), XINT_KIND(x),
 		      XINT_HAS_NA(x), nalast);
@@ -1424,7 +1424,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
     case CPLXSXP:
 	cx = COMPLEX(key);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	bx = XINT_DATA_RO(key);
 	bw = XINT_WIDTH(key);
 	bk = XINT_KIND(key);
@@ -1448,7 +1448,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    for (i = 0; i < n; i++)
 		isna[i] = XINT_HAS_NA(key) &&
 		    R_xintEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
@@ -1465,7 +1465,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
-	    case XINTSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
@@ -1534,7 +1534,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 		sort2_with_index
 #undef less
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* The radix has no way to place an NA, so it takes over only
 	       where the pass above has moved them out of [lo, hi] --
 	       which is wherever rho is NULL.  Otherwise the comparison
@@ -1596,7 +1596,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
     case CPLXSXP:
 	cx = COMPLEX(key);
 	break;
-    case XINTSXP:
+    case ALTSXP:
 	bx = XINT_DATA_RO(key);
 	bw = XINT_WIDTH(key);
 	bk = XINT_KIND(key);
@@ -1620,7 +1620,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    for (i = 0; i < n; i++)
 		isna[i] = XINT_HAS_NA(key) &&
 		    R_xintEltIsNA(bx + (R_xlen_t) i * bw, bw, bk);
@@ -1637,7 +1637,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
-	    case XINTSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
@@ -1706,7 +1706,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 		sort2_with_index
 #undef less
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	    /* The pass that moves NAs out of [lo, hi] runs only where rho
 	       is NULL, and do_rank() passes a live environment, so the
 	       comparison consults nalast as it does for every type above.

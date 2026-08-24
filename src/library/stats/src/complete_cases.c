@@ -145,7 +145,7 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
-		    case XINTSXP:
+		    case ALTSXP:
 			if (R_xintIsNA(u, i))
 			    INTEGER(rval)[i % len] = 0;
 			break;
@@ -181,7 +181,7 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
-		    case XINTSXP:
+		    case ALTSXP:
 			if (R_xintIsNA(u, i))
 			    INTEGER(rval)[i % len] = 0;
 			break;
@@ -213,7 +213,7 @@ SEXP compcases(SEXP args)
 		    if (STRING_ELT(u, i) == NA_STRING)
 			INTEGER(rval)[i % len] = 0;
 		    break;
-		case XINTSXP:
+		case ALTSXP:
 		    if (R_xintIsNA(u, i))
 			INTEGER(rval)[i % len] = 0;
 		    break;

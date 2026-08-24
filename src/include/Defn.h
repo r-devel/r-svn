@@ -537,8 +537,10 @@ typedef union {
 
 #endif /* USE_RINTERNALS */
 
-/* XINTSXP: vectors of fixed-width integers.  XLENGTH() is the
-   element count, as for every other vector; the payload is
+/* ALTSXP is the opaque atomic ALTREP base type.  The built-in int64 and
+   uint64 classes use the following private metadata and native-endian raw
+   backing store; these fields are not properties of ALTSXP in general.
+   XLENGTH() is the element count and the backing store is
    XLENGTH(x) * XINT_WIDTH(x) bytes.  The width lives in gp bits
    8-15, clear of the low bits that generic vector code uses
    (S4_OBJECT_MASK is bit 4, GROWABLE_MASK is bit 5).  Storing it in
@@ -552,25 +554,16 @@ typedef union {
    functions (from memory.c) when they are not, exactly as LENGTH() and
    the rest of the vector accessors are. */
 
-/* The width field is a whole byte of gp, which is more room than the
-   widths below need.  It is kept that wide so that the serialized
-   encoding does not depend on which widths are currently allowed:
-   PackFlags() writes gp verbatim, so narrowing the field later would
-   change the format.  XINT_MAX_WIDTH is the largest width an element
-   may actually have, and is a separate question from how many bits the
-   field has. */
+/* A whole byte is reserved so later built-in opaque numeric classes can use
+   other fixed widths without changing this private layout. */
 #define XINT_WIDTH_SHIFT 8
 #define XINT_WIDTH_MASK ((unsigned short) 0xFF00)
-#define XINT_MAX_WIDTH 16
+#define XINT_MAX_WIDTH 8
 
-/* The widths an element may have: 8, 16, 32, 64 and 128 bits.  Every
-   one of them has a C integer type behind it on some platform, and --
-   more to the point -- every operation this type defines works at every
-   one of them, so there is no second tier of widths that can be stored
-   and sorted but not added.  The field above leaves room to relax this
-   if a source of fixed-size columns ever makes the case. */
-#define XINT_WIDTH_OK(w) \
-    ((w) == 1 || (w) == 2 || (w) == 4 || (w) == 8 || (w) == 16)
+/* This prototype intentionally proves only the two motivating types:
+   signed and unsigned 64-bit integers.  A class-specific element-size
+   method, rather than the SEXPTYPE, supplies the eight-byte width. */
+#define XINT_WIDTH_OK(w) ((w) == 8)
 
 /* Interpretation of the elements, in gp bits 0-1.  XINT_UNSIGNED and
    XINT_SIGNED elements are integers of 8*width bits, stored in
@@ -626,18 +619,19 @@ typedef union {
 			      | ((unsigned short) (k) & XINT_KIND_MASK)); \
     } while (0)
 
-/* R's own code reaches the payload through these rather than through
-   DATAPTR(), which deliberately does not know about XINTSXP: refusing an
-   untyped data pointer to elements whose width and kind the caller does
-   not know is what makes package code fail safely (tests/xints-ffi).
-   XINTSXP is never ALTREP, so there is nothing else to consult. */
+/* The base int64/uint64 classes use a RAWSXP as ALTREP data1.  This is
+   deliberately private representation access: generic DATAPTR() on the
+   ALTSXP object remains unavailable, while the class Elt method is the
+   representation-independent API. */
 #if defined(TESTING_WRITE_BARRIER) || defined(COMPILING_R) || defined(COMPILING_MEMORY_C)
 # define CHKXINT(x) R_CheckXIntVector(x)
 #else
 # define CHKXINT(x) ((void) 0)
 #endif
-#define XINT_DATA(x)	   ((Rbyte *) (CHKXINT(x), STDVEC_DATAPTR(x)))
-#define XINT_DATA_RO(x) ((const Rbyte *) (CHKXINT(x), STDVEC_DATAPTR(x)))
+#define XINT_DATA(x) \
+    ((Rbyte *) (CHKXINT(x), RAW(R_altrep_data1(x))))
+#define XINT_DATA_RO(x) \
+    ((const Rbyte *) (CHKXINT(x), RAW_RO(R_altrep_data1(x))))
 #else
 attribute_hidden int XINT_WIDTH(SEXP x);
 attribute_hidden void SET_XINT_WIDTH(SEXP x, int w);
@@ -649,25 +643,8 @@ attribute_hidden Rbyte *XINT_DATA(SEXP x);
 attribute_hidden const Rbyte *XINT_DATA_RO(SEXP x);
 #endif /* USE_RINTERNALS */
 
-/* Address of element i; the sole element operation this type needs.
-
-   The payload starts where every other vector's does -- at
-   SEXPREC_ALIGN past the node -- so it has the alignment R gives a
-   double, and an element is at a multiple of the width from there.
-   Widths up to 8 therefore land on their own natural alignment.  Width
-   16 does not: a small vector's node comes out of a page whose data
-   begins sizeof(PAGE_HEADER) into it, so its payload is 8 past a
-   16-byte boundary, while a large one comes straight from malloc() and
-   happens to be 16-aligned.  R makes no 16-byte promise for any type
-   and does not give its own 16-byte Rcomplex one either.
-
-   So a width of 8 or less could be read by casting this address, and
-   package code that has checked the width and kind is told it may.
-   Nothing here does: the kernels are written once for every width, and
-   at width 16 there is neither a portable C type nor the alignment for
-   one.  They copy through memcpy(), which the compiler folds back into
-   an unaligned load where the target has one -- on aarch64 and x86-64
-   at no measurable cost. */
+/* Address of element i in the built-in classes' private raw data1 store.
+   Package-independent ALTSXP code instead uses the class Elt method. */
 #define XINT_ELT(x, i) \
     (XINT_DATA(x) + (R_xlen_t)(i) * XINT_WIDTH(x))
 #define XINT_ELT_RO(x, i) \
@@ -876,8 +853,20 @@ void (SET_HASHVALUE)(SEXP x, int v);
 
 /* ALTREP internal support */
 int (IS_SCALAR)(SEXP x, int type);
+SEXP R_altrep_class_name(SEXP x);
 SEXP ALTREP_DUPLICATE_EX(SEXP x, Rboolean deep);
 SEXP ALTREP_COERCE(SEXP x, int type);
+size_t ALT_ELEMENT_SIZE(SEXP x);
+void ALT_ELT(SEXP x, R_xlen_t i, void *buf);
+void ALT_SET_ELT(SEXP x, R_xlen_t i, const void *buf);
+R_xlen_t ALT_GET_REGION(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
+SEXP ALT_BINARY_OP(SEXP x, SEXP y, int op, SEXP call);
+SEXP ALT_UNARY_OP(SEXP x, int op, SEXP call);
+SEXP ALT_COMPARE(SEXP x, SEXP y, int op, SEXP call);
+unsigned int ALT_HASH(SEXP x, R_xlen_t i);
+SEXP ALT_FORMAT(SEXP x, SEXP options);
+SEXP ALT_SUMMARY(SEXP x, int op, SEXP args, Rboolean narm, SEXP call);
+SEXP ALT_COMBINE(SEXP x, SEXP args, SEXP call);
 Rboolean ALTREP_INSPECT(SEXP, int, int, int, void (*)(SEXP, int, int, int));
 bool ALTREP_IS_BASE_CLASS(SEXP);
 SEXP ALTREP_SERIALIZED_CLASS(SEXP);
@@ -1035,18 +1024,18 @@ R_xlen_t  (XTRUELENGTH)(SEXP x);
 
 #endif /* USE_RINTERNALS */
 
-/* Rf_isNumeric() predates XINTSXP and is public API, so changing it would
+/* Rf_isNumeric() predates ALTSXP and is public API, so changing it would
    make every existing caller accept a representation it may not understand.
-   Internal entry points that have explicitly added XINTSXP support use these
+   Internal entry points that have explicitly added ALTSXP support use these
    predicates instead. */
 static R_INLINE Rboolean isNumericOrXInt(SEXP s)
 {
-    return isNumeric(s) || TYPEOF(s) == XINTSXP;
+    return isNumeric(s) || R_isXInt(s);
 }
 
 static R_INLINE Rboolean isNumberOrXInt(SEXP s)
 {
-    return isNumber(s) || TYPEOF(s) == XINTSXP;
+    return isNumber(s) || R_isXInt(s);
 }
 
 const char * Rf_translateCharFP(SEXP);
@@ -1961,6 +1950,9 @@ SEXP R_allocObject(void);
    R's own, and is hidden: none of it is used outside src/main, and an
    accidentally exported helper is one packages start depending on. */
 attribute_hidden SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
+attribute_hidden SEXP R_new_altxint(R_xlen_t length, int kind,
+				     Rboolean hasNA);
+attribute_hidden Rboolean R_is_altxint(SEXP x);
 attribute_hidden SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol);
 attribute_hidden SEXP R_xintShapeMatrix(SEXP x, int nrow, int ncol);
 attribute_hidden Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind);
@@ -2017,6 +2009,7 @@ attribute_hidden void R_xintFillMatrixWithRecycle(SEXP dst, SEXP src,
 attribute_hidden void R_xintSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n,
 				      int w);
 attribute_hidden SEXP R_xintArith(SEXP call, int oper, SEXP x, SEXP y);
+attribute_hidden SEXP R_xintCompare(SEXP call, int oper, SEXP x, SEXP y);
 attribute_hidden SEXP R_xintBitwise(SEXP call, int oper, SEXP a, SEXP b);
 attribute_hidden SEXP R_xintUnary(SEXP call, int oper, SEXP x);
 attribute_hidden SEXP R_xintCoerce(SEXP x, SEXPTYPE type);

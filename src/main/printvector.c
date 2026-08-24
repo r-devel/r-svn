@@ -371,9 +371,16 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case RAWSXP:
 	    printRawVectorS(x, n_pr, indx);
 	    break;
-	case XINTSXP:
-	    printXIntVectorS(x, n_pr, indx);
+	case ALTSXP: {
+	    SEXP rendered = ALT_FORMAT(x, R_NilValue);
+	    if (rendered == NULL || TYPEOF(rendered) != STRSXP ||
+		XLENGTH(rendered) != n)
+		error(_("invalid Format result from ALTSXP class"));
+	    PROTECT(rendered);
+	    printStringVectorS(rendered, n_pr, 0, indx);
+	    UNPROTECT(1);
 	    break;
+	}
 	}
 	if(n_pr < n)
 	    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
@@ -388,12 +395,12 @@ attribute_hidden void printVector(SEXP x, int indx, int quote)
 	case CPLXSXP:	Rprintf("complex(0)\n");	break;	\
 	case STRSXP:	Rprintf("character(0)\n");	break;	\
 	case RAWSXP:	Rprintf("raw(0)\n");		break;	\
-	/* "xinteger(0)" would be a valid call producing a different	\
-	   object (width 1, unsigned), where every line above names	\
-	   exactly what it printed; this matches what dput() gives */	\
-	case XINTSXP:	Rprintf("xinteger(0L, %dL, \"%s\"%s)\n",		\
-				XINT_WIDTH(x), R_xintKindName(x),	\
-				XINT_HAS_NA(x) ? "" : ", na = FALSE"); \
+	case ALTSXP:	if (R_isXInt(x))				\
+			    Rprintf("xinteger(0L, %dL, \"%s\"%s)\n", \
+				    XINT_WIDTH(x), R_xintKindName(x), \
+				    XINT_HAS_NA(x) ? "" : ", na = FALSE"); \
+			else Rprintf("%s(0)\n",			\
+				CHAR(PRINTNAME(R_altrep_class_name(x)))); \
 			break;					\
 	}
 	PRINT_V_0;
@@ -536,9 +543,16 @@ void printNamedVector(SEXP x, SEXP names, int quote, const char *title)
 	case RAWSXP:
 	    printNamedRawVectorS(x, n_pr, names);
 	    break;
-	case XINTSXP:
-	    printNamedXIntVectorS(x, n_pr, names);
+	case ALTSXP: {
+	    SEXP rendered = ALT_FORMAT(x, R_NilValue);
+	    if (rendered == NULL || TYPEOF(rendered) != STRSXP ||
+		XLENGTH(rendered) != n)
+		error(_("invalid Format result from ALTSXP class"));
+	    PROTECT(rendered);
+	    printNamedStringVectorS(rendered, n_pr, 0, names);
+	    UNPROTECT(1);
 	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("printNamedVector", x);
 	}

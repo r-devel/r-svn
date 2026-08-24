@@ -37,10 +37,7 @@ big <- function(n, digits) vapply(seq_len(n), function(i)
     paste0(sample(1:9, 1), paste(sample(0:9, digits - 1, TRUE), collapse = "")), "")
 
 total <- 0L; bad <- 0L
-for (spec in list(list(8L, "unsigned", 19), list(8L, "signed", 18),
-                  list(16L, "unsigned", 38), list(16L, "signed", 37),
-                  list(4L, "unsigned", 9), list(2L, "unsigned", 5),
-                  list(1L, "unsigned", 3), list(1L, "signed", 3))) {
+for (spec in list(list(8L, "unsigned", 19), list(8L, "signed", 18))) {
     w <- spec[[1L]]; k <- spec[[2L]]; nd <- spec[[3L]]
     ## the long strings exercise the rounding; the short ones must stay
     ## exact, and a mistake in the sticky bit would show up in both

@@ -17,7 +17,7 @@
  *  https://www.R-project.org/Licenses/
  *
  *
- *  XINTSXP: vectors of fixed-width integers.
+ *  The base int64 and uint64 classes implemented as ALTSXP objects.
  *
  *  An 'xinteger' vector holds n elements of w bytes each, where w is a
  *  per-vector property recorded in the sxpinfo gp field rather than
@@ -72,8 +72,8 @@ void R_xintSetEltNA(Rbyte *p, int width, int kind)
 
 /* Order, ignoring NA (callers handle that).  Compare from the most
    significant byte down, with the top byte read as signed for INT.
-   Working a byte at a time keeps this correct for every width rather
-   than only the ones with a native C type behind them. */
+   Working a byte at a time also keeps the kernel independent of native
+   integer alignment. */
 int R_xintEltCmp(const Rbyte *a, const Rbyte *b, int width, int kind)
 {
     int top = XINT_MSB(0, width);
@@ -249,12 +249,12 @@ SEXP R_xintBitwise(SEXP call, int oper, SEXP a, SEXP b)
 
     /* and, or and xor are commutative, so either operand may be the
        'xinteger' one; a shift count never is */
-    if (!unary && !shift && TYPEOF(a) != XINTSXP) {
+    if (!unary && !shift && !R_isXInt(a)) {
 	SEXP t = a; a = b; b = t;
     }
-    if (shift && TYPEOF(b) == XINTSXP)
+    if (shift && R_isXInt(b))
 	errorcall(call, _("invalid '%s' argument"), "b");
-    if (TYPEOF(a) != XINTSXP)
+    if (!R_isXInt(a))
 	errorcall(call, _("'a' and 'b' must have the same type"));
 
     int w = XINT_WIDTH(a), k = XINT_KIND(a);
@@ -264,7 +264,7 @@ SEXP R_xintBitwise(SEXP call, int oper, SEXP a, SEXP b)
 	if (!isInteger(b)) b = coerceVector(b, INTSXP);
     }
     else if (!unary) {
-	if (TYPEOF(b) != XINTSXP)
+	if (!R_isXInt(b))
 	    b = R_xintNarrow(b, w, k, hasNA, call);
 	else
 	    /* widths are not promoted the way arithmetic promotes them:
@@ -370,7 +370,7 @@ void R_xintCheckNA(SEXP x)
    the check, which is why XINT_DATA() can afford to call it. */
 void R_CheckXIntVector(SEXP x)
 {
-    if (TYPEOF(x) != XINTSXP)
+    if (!R_is_altxint(x))
 	error("cannot get data pointer of '%s' objects", R_typeToChar(x));
 }
 
@@ -379,7 +379,7 @@ void R_CheckXIntVector(SEXP x)
    value or invent a missing one. */
 void R_xintCheckSameNA(SEXP x, SEXP y)
 {
-    if (TYPEOF(x) == XINTSXP && TYPEOF(y) == XINTSXP &&
+    if (R_isXInt(x) && R_isXInt(y) &&
 	XINT_HAS_NA(x) != XINT_HAS_NA(y))
 	error(_("cannot combine 'xinteger' vectors that differ in whether NA is representable"));
 }
@@ -425,7 +425,7 @@ void R_xintCheckSameType(SEXP x, SEXP y, const char *fun)
    generic "another vector like this one" sites go through here */
 SEXP R_allocVectorLike(SEXP s, R_xlen_t length)
 {
-    if (TYPEOF(s) == XINTSXP)
+    if (R_isXInt(s))
 	return R_allocXIntVector(length, XINT_WIDTH(s), XINT_KIND(s),
 				  XINT_HAS_NA(s) ? TRUE : FALSE);
 
@@ -451,7 +451,7 @@ SEXP R_xintShapeMatrix(SEXP x, int nrow, int ncol)
    R_allocVectorLike(), extent guard included */
 SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol)
 {
-    if (TYPEOF(s) != XINTSXP)
+    if (!R_isXInt(s))
 	return allocMatrix(TYPEOF(s), nrow, ncol);
 
     if ((double) nrow * ncol > R_XLEN_T_MAX)
@@ -469,14 +469,14 @@ SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol)
 
 static void checkXInt(SEXP x, const char *what)
 {
-    if (TYPEOF(x) != XINTSXP)
+    if (!R_is_altxint(x))
 	error(_("%s() can only be applied to a '%s', not a '%s'"),
 	      what, "xinteger", R_typeToChar(x));
 }
 
 Rboolean R_isXInt(SEXP x)
 {
-    return TYPEOF(x) == XINTSXP ? TRUE : FALSE;
+    return R_is_altxint(x);
 }
 
 /* Whether R_allocXIntVector() would accept this element type.  A reader
@@ -497,7 +497,7 @@ Rboolean R_xintTypeSupported(int width, int kind)
    than a mistyped argument, and says so. */
 NORET attribute_hidden void R_xintWidthError(int w)
 {
-    error(_("'width' must be 1, 2, 4, 8 or 16 bytes, not %d"), w);
+    error(_("'width' must be 8 bytes, not %d"), w);
 }
 
 int R_xintWidth(SEXP x)
@@ -731,9 +731,7 @@ static SEXP xintFromString(SEXP x, int width, int kind, int hasNA)
 
    Every element goes through the decimal text parser.  A finite double
    has a finite exact decimal expansion, so printing it and parsing that
-   is exact at every width -- including the top half of uint64 and all
-   of int128, which no C integer type this code can count on would
-   hold. */
+   is exact throughout the uint64 domain. */
 static SEXP xintFromReal(SEXP x, int width, int kind, int hasNA)
 {
     R_xlen_t n = XLENGTH(x);
@@ -794,7 +792,7 @@ static SEXP xintFromReal(SEXP x, int width, int kind, int hasNA)
    the integer it looks like; see xintFromReal() above. */
 SEXP R_xintConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 {
-    if (TYPEOF(x) == XINTSXP) {
+    if (R_isXInt(x)) {
 	if (XINT_WIDTH(x) == width && XINT_KIND(x) == kind &&
 	    XINT_HAS_NA(x) == hasNA)
 	    return x;
@@ -874,12 +872,12 @@ void R_xintSwapWire(Rbyte *dst, const Rbyte *src, R_xlen_t n, int w)
     }
 }
 
-/* is.xinteger() follows typeof(): every XINTSXP has the shared structural
-   type, while mode(), is.numeric() and xintegerKind() report its semantics. */
+/* is.xinteger() recognizes the two built-in integer classes, not every
+   package-defined ALTSXP class. */
 attribute_hidden SEXP do_xintegeris(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-    return ScalarLogical(TYPEOF(CAR(args)) == XINTSXP);
+    return ScalarLogical(R_isXInt(CAR(args)));
 }
 
 /* Nothing to recycle from: the copies below stride the source by the
@@ -966,7 +964,7 @@ static SEXP checkXIntArg(SEXP args)
 {
     SEXP x = CAR(args);
 
-    if (TYPEOF(x) != XINTSXP)
+    if (!R_isXInt(x))
 	error(_("'%s' must be an 'xinteger' vector"), "x");
 
     return x;
@@ -1019,9 +1017,8 @@ const char *R_xintEltRender(SEXP x, R_xlen_t i)
     return R_xintEltDecimal(p, w, k);
 }
 
-/* storage.mode(), implicit classes and diagnostics name a fixed-width
-   vector by its (kind, width), while typeof() follows the SEXPTYPE and
-   reports the single structural type "xinteger". */
+/* storage.mode(), implicit classes and diagnostics distinguish the two
+   built-in classes, while typeof() follows the SEXPTYPE and reports "alt". */
 /* The closed set of detailed names, in one table for both directions.
    String literals give R_typeToChar() the stable pointers its diagnostics
    need without writable storage or lazy initialization. */
@@ -1029,11 +1026,7 @@ static const struct {
     int width;
     const char *names[2];
 } xintTypeNames[] = {
-    { 1, { "uint8",   "int8"   } },
-    { 2, { "uint16",  "int16"  } },
-    { 4, { "uint32",  "int32"  } },
-    { 8, { "uint64",  "int64"  } },
-    {16, { "uint128", "int128" } }
+    { 8, { "uint64", "int64" } }
 };
 
 const char *R_xintTypeNameOf(int w, int kind)

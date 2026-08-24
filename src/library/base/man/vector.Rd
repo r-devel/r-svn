@@ -22,8 +22,8 @@ is.vector(x, mode = "any")
     \code{"list"} or \code{"expression"} or (except for \code{vector})
     \code{"any"}.  For a \code{\link{xinteger}} vector a detailed storage
     mode names the width and kind, as \code{\link{storage.mode}} reports
-    them -- \code{"int64"} or \code{"uint128"}.  Plain
-    \code{"xinteger"}, as \code{\link{typeof}} reports it, does not specify
+    them -- \code{"int64"} or \code{"uint64"}.  Plain
+    \code{"xinteger"} does not specify
     a complete storage mode and is therefore an error for \code{vector}
     and \code{as.vector}.
     No name states whether \code{NA} is representable, so no name

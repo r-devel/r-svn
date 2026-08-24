@@ -773,7 +773,7 @@ static int PackFlags(int type, int levs, int isobj, int hasattr, int hastag)
         case VECSXP:
         case EXPRSXP:
         case RAWSXP:
-        case XINTSXP:
+        case ALTSXP:
             levs &= ~GROWABLE_MASK;
             break;
         default:
@@ -1283,7 +1283,7 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 		}
 	    }
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	{
 	    /* No older R can read this type at all, and the header of a
 	       version 2 or 3 stream names an R that can read the whole
@@ -1524,7 +1524,7 @@ static bool containsXIntVector(SEXP s, SEXP seen, int version)
 {
     R_CheckStack();
 
-    if (TYPEOF(s) == XINTSXP)
+    if (TYPEOF(s) == ALTSXP)
 	return true;
 
     /* a symbol is written as its name alone; nothing else of it, its
@@ -1676,14 +1676,13 @@ static bool containsXIntVector(SEXP s, SEXP seen, int version)
    version the caller supplied. */
 static bool needsSerializeVersion4(SEXP object, int version)
 {
-    if (version >= 4 || !R_XIntVectorSeen)
-	return false;
-
-    SEXP seen = PROTECT(MakeCircleHashTable());
-    bool needs4 = containsXIntVector(object, seen, version);
-    UNPROTECT(1);
-
-    return needs4;
+    /* A genuine ALTSXP is serialized through its ALTREP class and state,
+       which has been supported since stream version 3.  The base int64 and
+       uint64 classes put portable, big-endian bytes in that state, so no new
+       global serialization version is required. */
+    (void) object;
+    (void) version;
+    return false;
 }
 
 /* message() rather than warning(): the writer choosing a version that
@@ -2413,7 +2412,7 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    }
 	    }
 	    break;
-	case XINTSXP:
+	case ALTSXP:
 	{
 	    /* UnpackFlags has already given us levs, so the width and
 	       kind are known before the allocation that needs them */
