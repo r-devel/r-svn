@@ -1950,9 +1950,6 @@ SEXP R_allocObject(void);
    R's own, and is hidden: none of it is used outside src/main, and an
    accidentally exported helper is one packages start depending on. */
 attribute_hidden SEXP R_allocVectorLike(SEXP s, R_xlen_t length);
-attribute_hidden SEXP R_allocVectorLikeUninit(SEXP s, R_xlen_t length);
-attribute_hidden SEXP R_allocXIntVectorUninit(R_xlen_t length, int width,
-					       int kind, Rboolean hasNA);
 attribute_hidden SEXP R_allocMatrixLike(SEXP s, int nrow, int ncol);
 attribute_hidden SEXP R_xintShapeMatrix(SEXP x, int nrow, int ncol);
 attribute_hidden Rboolean R_xintEltIsNA(const Rbyte *p, int width, int kind);

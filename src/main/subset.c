@@ -132,7 +132,7 @@ attribute_hidden SEXP ExtractSubset(SEXP x, SEXP indx, SEXP call)
 
     /* protect allocation in case _ELT operations need to allocate */
     PROTECT(result = (mode == XINTSXP)
-	    ? R_allocVectorLikeUninit(x, n)
+	    ? R_allocVectorLike(x, n)
 	    : allocVector(mode, n));
     switch(mode) {
     case LGLSXP:
@@ -342,7 +342,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	error(_("dimensions would exceed maximum size of array"));
     PROTECT(sr);
     PROTECT(sc);
-    result = R_allocVectorLikeUninit(x, (R_xlen_t) nrs * (R_xlen_t) ncs);
+    result = R_allocVectorLike(x, (R_xlen_t) nrs * (R_xlen_t) ncs);
     const int *psr = INTEGER_RO(sr);
     const int *psc = INTEGER_RO(sc);
     PROTECT(result);
@@ -527,7 +527,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	}
 
     /* Transfer the subset elements from "x" to "a". */
-    PROTECT(result = R_allocVectorLikeUninit(x, n));
+    PROTECT(result = R_allocVectorLike(x, n));
     switch (mode) {
     case LGLSXP:
 	ARRAY_SUBSET_LOOP(LOGICAL0(result)[i] = LOGICAL_ELT(x, ii),
@@ -1156,7 +1156,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	RAISE_NAMED(ans, named_x);
 #endif
     } else {
-	ans = PROTECT(R_allocVectorLikeUninit(x, 1));
+	ans = PROTECT(R_allocVectorLike(x, 1));
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	    LOGICAL0(ans)[0] = LOGICAL_ELT(x, offset);

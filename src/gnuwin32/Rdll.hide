@@ -276,8 +276,6 @@
  R_allocMatrixLike
  R_allocObject
  R_allocVectorLike
- R_allocVectorLikeUninit
- R_allocXIntVectorUninit
  R_args_enable_refcnt
  R_binary
  R_checkConstants

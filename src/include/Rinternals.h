@@ -309,7 +309,8 @@ int STRING_NO_NA(SEXP x);
 /* 'xinteger' vectors (XINTSXP): fixed-width integer elements, XLENGTH() of them,
    each R_xintWidth(x) bytes wide.  The width is a property of the
    vector rather than of the type, so allocVector(XINTSXP, n) cannot
-   work and R_allocXIntVector() is the way to make one.
+   work and R_allocXIntVector() is the way to make one.  As with
+   allocVector() for other atomic types, its payload is uninitialized.
 
    The kind says whether elements are signed or unsigned integers of
    8*width bits.  They are held in *native* byte order, so ingesting them

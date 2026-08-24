@@ -15002,7 +15002,10 @@ of @code{R_xintWidth(x)} bytes each.  Unlike every other vector type
 the element size is a property of the vector rather than of the
 @code{SEXPTYPE}, so @code{Rf_allocVector} cannot make one and there is
 no fixed C type to cast the payload to; use @code{R_allocXIntVector}
-instead.  The width, the @emph{kind} and whether a value is reserved
+instead.  Like @code{Rf_allocVector} for other atomic vector types,
+@code{R_allocXIntVector} leaves the payload uninitialized; callers must
+fill every element before exposing the result to @R{}.  The width, the
+@emph{kind} and whether a value is reserved
 for @code{NA} together make up a vector's @dfn{element type}: two
 @code{xinteger} vectors can be combined or compared only if all three
 agree, and the @code{SEXPTYPE} they share says nothing about any of

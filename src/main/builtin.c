@@ -825,8 +825,14 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
        str2type(), which knows only the incomplete structural name
        "xinteger". */
     int bwidth, bkind;
-    if (R_xintTypeFromName(modestr, &bwidth, &bkind))
-	return R_allocXIntVector(len, bwidth, bkind, TRUE);
+    if (R_xintTypeFromName(modestr, &bwidth, &bkind)) {
+	SEXP ans = PROTECT(R_allocXIntVector(len, bwidth, bkind, TRUE));
+	/* vector(), unlike a C-level atomic allocator, zero-fills. */
+	if (len > 0)
+	    memset(XINT_DATA(ans), 0, (size_t) len * bwidth);
+	UNPROTECT(1);
+	return ans;
+    }
 
     mode = str2type(modestr);
     if (mode == -1 && streql(modestr, "double"))

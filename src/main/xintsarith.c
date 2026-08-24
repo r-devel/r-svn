@@ -694,7 +694,7 @@ SEXP R_xintFromXInt(SEXP x, int w, int kind, int hasNA, SEXP call)
     bool sameType = (xw == w && xk == kind);
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kind, hasNA ? TRUE : FALSE));
     R_xlen_t nLost = 0, nReserved = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -758,7 +758,7 @@ SEXP R_xintNarrow(SEXP x, int w, int kind, int hasNA, SEXP call)
     R_xintCheckOperand(x, call);
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kind, hasNA ? TRUE : FALSE));
     R_xlen_t nLost = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -817,7 +817,7 @@ SEXP R_xintNarrowCmp(SEXP x, int w, int kind, int hasNA, int *dir, SEXP call)
     R_xintCheckOperand(x, call);
 
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kind, hasNA ? TRUE : FALSE));
 
     for (R_xlen_t i = 0; i < n; i++) {
 	int v = (t == INTSXP) ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i);
@@ -929,7 +929,7 @@ SEXP R_xintNarrowMatch(SEXP x, int w, int kind, int hasNA, int *drop,
 	errorcall(call, _("'%s' and '%s' cannot be combined for matching"),
 		  "xinteger", R_typeToChar(x));
     R_xlen_t n = XLENGTH(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kind,
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kind,
 					       hasNA ? TRUE : FALSE));
     for (R_xlen_t i = 0; i < n; i++) {
 	double v, im = 0.0;
@@ -1054,7 +1054,7 @@ SEXP R_xintArith(SEXP call, int oper, SEXP x, SEXP y)
     R_xlen_t n = nx > ny ? nx : ny;
 
     bool hasNA = XINT_HAS_NA(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kx, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kx, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     /* Hoisted: the element macros re-read the payload pointer and the
@@ -1124,7 +1124,7 @@ SEXP R_xintUnary(SEXP call, int oper, SEXP x)
 
     R_xlen_t n = XLENGTH(x);
     bool hasNA = XINT_HAS_NA(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, k, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, k, hasNA ? TRUE : FALSE));
     R_xlen_t nOver = 0;
 
     /* R_unary() hands the result straight back to do_arith, so the
@@ -1168,7 +1168,7 @@ SEXP R_xintAbs(SEXP call, SEXP x)
 
     R_xlen_t n = XLENGTH(x), nOver = 0;
     bool hasNA = XINT_HAS_NA(x);
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, k,
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, k,
 					       hasNA ? TRUE : FALSE));
     SHALLOW_DUPLICATE_ATTRIB(ans, x);
     for (R_xlen_t i = 0; i < n; i++) {
@@ -1257,7 +1257,7 @@ SEXP R_xintSeq(SEXP call, SEXP from, SEXP to)
 	distance = distance * 256 + dist[i];
     }
     R_xlen_t n = distance + 1;
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, k,
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, k,
 					       hasNA ? TRUE : FALSE));
     memcpy(XINT_ELT(ans, 0), pf, (size_t) w);
 
@@ -1852,7 +1852,7 @@ SEXP R_xintCum(SEXP call, int iop, SEXP x)
 	errorcall(call, _("'%s' is not defined for 'xinteger' vectors"),
 		  iop == 2 ? "cumprod" : "cumvar");
 
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(n, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(n, w, kind, hasNA ? TRUE : FALSE));
     setAttrib(ans, R_NamesSymbol, getAttrib(x, R_NamesSymbol));
 
     const Rbyte *bx = XINT_DATA_RO(x);	/* hoisted; see R_xintArith */
@@ -1964,7 +1964,7 @@ SEXP R_xintParallelMinMax(SEXP call, int iop, SEXP args, bool narm)
 		break;
 	    }
 
-    SEXP ans = PROTECT(R_allocXIntVectorUninit(len, w, kind, hasNA ? TRUE : FALSE));
+    SEXP ans = PROTECT(R_allocXIntVector(len, w, kind, hasNA ? TRUE : FALSE));
     bool first = true;
 
     /* Per result element: 0 once a representable candidate is in place,
