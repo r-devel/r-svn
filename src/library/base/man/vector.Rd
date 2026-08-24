@@ -26,19 +26,10 @@ is.vector(x, mode = "any")
     \code{"xinteger"}, as \code{\link{typeof}} reports it, does not specify
     a complete storage mode and is therefore an error for \code{vector}
     and \code{as.vector}.
-    No name states whether \code{NA} is representable, so \code{vector}
-    also accepts a \emph{prototype}: any vector other than a
-    character vector of length one is taken to stand for its own type,
-    and \code{vector} builds one of that type throughout.  Thus
-    \code{vector(x, n)} reproduces the element type of \code{x} whatever
-    \code{x} is, where \code{vector(typeof(x), n)} can only reproduce
-    what a type name can express.  \code{\link{readBin}} and
-    \code{\link{scan}} take either a detailed \code{xinteger} name or a
-    prototype for \code{what}, and \code{\link{vapply}} takes a prototype
-    for \code{FUN.VALUE}.
-    A character vector of length one remains a mode name, so
-    \code{vector("integer", n)} is unchanged and a misspelt name is
-    still an error rather than a prototype.
+    No name states whether \code{NA} is representable, so no name
+    describes a complete \code{xinteger} element type;
+    \code{\link{.vectorlike}} builds a vector of the element type of an
+    existing object instead.
     Currently, \code{is.vector()} allows any type (see
     \code{\link{typeof}}) for \code{mode}.  For an \code{xinteger} vector
     it also accepts \code{"numeric"} when that is its mode and its
@@ -165,6 +156,9 @@ is.vector(x, mode = "any")
   \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
+  \code{\link{.vectorlike}}, which is given the element type by an object
+  rather than by name.
+
   \code{\link{c}}, \code{\link{is.numeric}}, \code{\link{is.list}}, etc.
 }
 \examples{

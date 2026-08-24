@@ -593,35 +593,51 @@ stopifnot(storage.mode(v) == "int64",
 stopifnot(identical(vector("uint64", 2L), xinteger(2L, 8L, "unsigned")),
 	  identical(as.vector(u, "int64"), as.xinteger(c("1","2","3"), 8L, "signed")),
 	  inherits(tryCatch(vector("xinteger", 2L), error = identity), "error"),
-	  identical(storage.mode(vector(u, 2L)), "uint64"),
-	  !xintegerHasNA(vector(nn, 2L)))
+	  identical(storage.mode(.vectorlike(u, 2L)), "uint64"),
+	  !xintegerHasNA(.vectorlike(nn, 2L)))
 
-## vector() takes a prototype for any type, not only this one: a vector
-## that is not a length-one character vector stands for its own type.
-## Only this type needs it -- no name spells its sentinel policy -- but
-## having the rule apply throughout is what keeps apply(), diag() and
-## tapply() from having to ask which type they were handed.
-## checked against the name form, which also pins the zero fill:
-## allocVector() leaves an atomic payload uninitialized, so a prototype
-## that skipped vector()'s Memzero would return heap garbage -- and
-## would do it only once the heap was dirty enough to notice.
+## .vectorlike() and .arraylike() name a type by an object rather than by a
+## string, which is the only way to ask for one no string spells: a
+## storage mode carries this type's width and kind but not its sentinel
+## policy.  Neither is specific to it -- taking every type the same way
+## is what keeps apply(), diag() and tapply() from having to ask which
+## one they were handed.  Checked against the name form, which also pins
+## the zero fill: allocVector() leaves an atomic payload uninitialized,
+## so a path that skipped vector()'s Memzero would return heap garbage --
+## and would do it only once the heap was dirty enough to notice.
 for (p in list(logical(), integer(), double(), complex(), character(),
 	       raw(), list(), expression()))
-    stopifnot(identical(vector(p, 3L), vector(typeof(p), 3L)),
-	      identical(vector(p, 7L), vector(typeof(p), 7L)))
-stopifnot(identical(vector(u, 3L), vector(storage.mode(u), 3L)),
-	  ## and it carries the one thing a name cannot
-	  !xintegerHasNA(vector(nn, 1L)), xintegerHasNA(vector(storage.mode(nn), 1L)),
-	  ## a length-one character vector is still a mode name
+    stopifnot(identical(.vectorlike(p, 3L), vector(typeof(p), 3L)),
+	      identical(.vectorlike(p, 7L), vector(typeof(p), 7L)),
+	      identical(.arraylike(p, c(2L, 3L)),
+		array(vector(typeof(p), 1L), c(2L, 3L))))
+stopifnot(identical(.vectorlike(u, 3L), vector(storage.mode(u), 3L)),
+	  identical(.vectorlike(u), xinteger(0L, 8L, "unsigned")),
+	  ## and they carry the one thing a name cannot
+	  !xintegerHasNA(.vectorlike(nn, 1L)),
+	  xintegerHasNA(vector(storage.mode(nn), 1L)),
+	  !xintegerHasNA(.arraylike(nn, c(2L, 3L))),
+	  ## its shape is 'dim'; only the type comes from the object
+	  identical(dim(.arraylike(u, c(2L, 3L))), c(2L, 3L)),
+	  identical(storage.mode(.arraylike(u, c(2L, 3L))), "uint64"),
+	  identical(dimnames(.arraylike(u, 2L, list(c("a", "b")))),
+		    list(c("a", "b"))),
+	  ## an object is not a mode name, however long it is
+	  inherits(tryCatch(vector(u, 2L), error = identity), "error"),
+	  inherits(tryCatch(vector(b1, 2L), error = identity), "error"),
+	  ## and a name is only ever the character vector it is, so
+	  ## .vectorlike() needs no carve-out for one
+	  identical(.vectorlike("uint64", 2L), c("", "")),
+	  ## vector() is otherwise as it was
 	  identical(vector("integer", 3L), integer(3L)),
 	  identical(vector("character", 2L), c("", "")),
 	  identical(vector(), logical()),
 	  inherits(tryCatch(vector("intger", 3L), error = identity), "error"),
-	  ## and a non-vector is still not a mode
-	  inherits(tryCatch(vector(NULL, 3L), error = identity), "error"),
-	  inherits(tryCatch(vector(sum, 3L), error = identity), "error"))
+	  ## .vectorlike() wants a vector
+	  inherits(tryCatch(.vectorlike(NULL, 3L), error = identity), "error"),
+	  inherits(tryCatch(.vectorlike(sum, 3L), error = identity), "error"))
 
-## the callers that used to have to ask
+## the callers that no longer have to ask
 m0 <- matrix(nn, length(nn), 1L)[0L, , drop = FALSE]
 stopifnot(length(apply(m0, 1L, identity)) == 0L,
 	  !xintegerHasNA(diag(m0)),

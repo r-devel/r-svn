@@ -54,9 +54,10 @@
       \code{storage.mode()} gives a detailed name such as \code{"uint64"}.
       The vectors are numeric and retain their width through arithmetic,
       comparison, bitwise operations, sorting, matching and serialization;
-      promotion to double warns on actual precision loss.  Constructors,
-      conversion, binary and delimited input accept detailed names or
-      prototypes as appropriate; see \code{?xinteger}.  \code{get()},
+      promotion to double warns on actual precision loss.  Constructors
+      and conversion accept detailed names; binary and delimited input
+      also accept prototypes as appropriate; see \code{?xinteger}.
+      \code{get()},
       \code{exists()} and \code{mget()} find them under
       \code{mode = "numeric"}, or by a detailed name matching the width
       and kind with either \code{NA}-sentinel policy.
@@ -67,6 +68,15 @@
       or an unsigned integer, and whether the representation reserves an
       \code{NA} sentinel.  Chiefly for package code that has to decide
       what to map an external column onto.
+
+      \item New functions \code{.vectorlike()} and \code{.arraylike()}
+      build a vector or an array whose element type is that of an object
+      handed to them, where \code{vector()} and \code{array()} are told
+      a mode by name.  This is the only way to ask for an element type
+      that no name describes, such as an \code{xinteger} vector
+      reserving no \code{NA} sentinel.  \code{apply()}, \code{diag()},
+      \code{tapply()} and \code{parallel::parApply()} use them to build
+      an empty result of the type they were given.
 
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
       suppresses warnings about \dQuote{notches outside hinges}.

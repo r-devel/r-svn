@@ -815,37 +815,6 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(CADR(args)) != 1) error(_("invalid '%s' argument"), "length");
     len = asVecSize(CADR(args));
     if (len < 0) error(_("invalid '%s' argument"), "length");
-    /* A vector stands in for its own type.  This is the only way to
-       name one whose element type is not settled by the SEXPTYPE: a
-       storage-mode name carries an 'xinteger' vector's width and kind
-       but not its sentinel policy, so no string spells the whole type.
-       readBin() and scan() take a prototype for 'what' on the same
-       terms, and vapply() takes one for FUN.VALUE.
-
-       A length-one character vector stays a mode name, as it has always
-       been -- vector("integer", n) cannot start meaning a character
-       vector, and a typo in a computed mode name must still be an error
-       rather than silently becoming a prototype.  Anything else that is
-       a vector is a prototype; each of those was an error before. */
-    SEXP proto = CAR(args);
-    if (isVector(proto) &&
-	!(TYPEOF(proto) == STRSXP && XLENGTH(proto) == 1)) {
-	s = R_allocVectorLike(proto, len);
-	/* allocVector() leaves an atomic payload uninitialized, and
-	   vector() promises a zero-filled one -- which is why the name
-	   path below ends in the same Memzero().  R_allocXIntVector()
-	   fills its own, so XINTSXP is not among these. */
-	switch (TYPEOF(s)) {
-	case LGLSXP:  Memzero(LOGICAL(s), len); break;
-	case INTSXP:  Memzero(INTEGER(s), len); break;
-	case REALSXP: Memzero(REAL(s), len); break;
-	case CPLXSXP: Memzero(COMPLEX(s), len); break;
-	case RAWSXP:  Memzero(RAW(s), len); break;
-	default: break;		/* string and list payloads are filled */
-	}
-	return s;
-    }
-
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
     const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
@@ -863,8 +832,9 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
     if (mode == XINTSXP)
-	error(_("'%s' does not name a complete storage mode; give a width and a kind, as '%s' does, or supply a prototype"),
-	      "xinteger", "int64");
+	error(_("'%s' does not name a complete storage mode; give a width "
+		"and a kind, as '%s' does, or use '%s' with an existing vector"),
+	      "xinteger", "int64", ".vectorlike");
     switch (mode) {
     case LGLSXP:
     case INTSXP:
@@ -884,9 +854,7 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("vector: cannot make a vector of mode '%s'."),
 	      translateChar(STRING_ELT(s, 0))); /* should be ASCII */
     }
-    if (mode == LGLSXP)
-	Memzero(LOGICAL(s), len);
-    else if (mode == INTSXP)
+    if (mode == INTSXP || mode == LGLSXP)
 	Memzero(INTEGER(s), len);
     else if (mode == REALSXP)
 	Memzero(REAL(s), len);
