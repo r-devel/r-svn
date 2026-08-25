@@ -814,14 +814,12 @@ SEXP R_altsxp_coerce_from(SEXP proto, SEXP from)
 }
 
 /* Can x hold NA?  True for every ordinary vector, and for any ALTSXP that
-   has not deliberately given up its NA.  Keeping this in one place means
-   callers cannot get the polarity wrong for a non-ALTSXP argument. */
+   has not deliberately given up its NA.  The trait is stated negatively so
+   that an empty mask -- what an ordinary vector and a class that declares no
+   traits both produce -- already means nullable. */
 Rboolean R_altsxp_nullable(SEXP x)
 {
-    if (! IS_ALTSXP(x))
-	return TRUE;
-    return (ALTSXP_DISPATCH(Traits, x) & R_ALTREP_TRAITS_NULLABLE)
-	? TRUE : FALSE;
+    return (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_NOT_NULLABLE) ? FALSE : TRUE;
 }
 
 /* An object that cannot be NA must be widened before R can put an NA in it.
@@ -1215,9 +1213,8 @@ static SEXP altsxp_Relop_default(SEXP call, SEXP op, SEXP x, SEXP y)
 
 static unsigned int altsxp_Traits_default(SEXP x)
 {
-    /* Every ordinary R vector can be NA, so that is the default here too; a
-       class clears the bit only when it deliberately gives up NA. */
-    return R_ALTREP_TRAITS_NULLABLE;
+    /* No bits: assume nothing beyond what an ordinary R vector offers. */
+    return 0;
 }
 
 static SEXP altsxp_Coerce_from_default(SEXP proto, SEXP from) { return NULL; }

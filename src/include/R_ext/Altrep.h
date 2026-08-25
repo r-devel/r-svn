@@ -243,29 +243,34 @@ typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
    of the same class, with the same element type, may report different
    traits.
 
-   R_ALTREP_TRAITS_NUMERIC     is.numeric() is TRUE and arithmetic is
-                               meaningful.
+   Every bit asserts something that departs from an ordinary R vector, so an
+   empty mask -- which is both the default method's answer and what
+   ALTREP_TRAITS() reports for anything that is not an ALTSXP -- means
+   "assume nothing special".  That is why the NA bit is stated negatively:
+   with a NULLABLE bit, a plain `traits & bit` test would read as "cannot be
+   NA" for every ordinary vector.
 
-   R_ALTREP_TRAITS_BITWISE_EQ  two non-NA elements are equal exactly when
-                               their bytes are equal, so R may hash and
-                               compare elements generically.  Do not set this
-                               for a floating element type: NaN and signed
-                               zero break it.
+   R_ALTREP_TRAITS_NUMERIC       is.numeric() is TRUE and arithmetic is
+                                 meaningful.
 
-   R_ALTREP_TRAITS_NULLABLE    this object can be NA -- that is, its value
-                               domain includes a missing value, at the cost
-                               of whatever it takes to represent one.  Every
-                               ordinary R vector is nullable, and so is the
-                               default, so a class only clears this bit when
-                               it deliberately gives up NA to gain the whole
-                               width for data: a column read from a source
-                               with no concept of a missing value, say.  R
-                               calls the Na_widen method before storing NA in
-                               an object that is not nullable.
+   R_ALTREP_TRAITS_BITWISE_EQ    two non-NA elements are equal exactly when
+                                 their bytes are equal, so R may hash and
+                                 compare elements generically.  Do not set
+                                 this for a floating element type: NaN and
+                                 signed zero break it.
 
-                               Note the difference from the No_NA method:
-                               this trait is about what an object *can* hold,
-                               No_NA about what it currently *does* hold. */
+   R_ALTREP_TRAITS_NOT_NULLABLE  this object cannot be NA: its value domain
+                                 excludes a missing value, and in exchange
+                                 the whole width is available for data.  A
+                                 class sets this for, say, a column read from
+                                 a source with no concept of a missing value.
+                                 R calls the Na_widen method before storing
+                                 NA in such an object.
+
+                                 Note the difference from the No_NA method:
+                                 this trait is about what an object *can*
+                                 hold, No_NA about what it currently *does*
+                                 hold. */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\

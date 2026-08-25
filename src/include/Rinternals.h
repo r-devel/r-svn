@@ -139,10 +139,13 @@ typedef unsigned int SEXPTYPE;
 #define ALTSXP      26    /* opaque ALTREP vector; element type is a property
 			     of the ALTREP class, not of the SEXPTYPE */
 
-/* What R may assume about an ALTREP object; see R_ext/Altrep.h */
-#define R_ALTREP_TRAITS_NUMERIC     1
-#define R_ALTREP_TRAITS_BITWISE_EQ  2
-#define R_ALTREP_TRAITS_NULLABLE    4
+/* What R may assume about an ALTREP object; see R_ext/Altrep.h.  An empty
+   mask means "assume nothing beyond an ordinary vector", so every bit is an
+   assertion that departs from that -- which is why the NA bit reads
+   NOT_NULLABLE rather than NULLABLE. */
+#define R_ALTREP_TRAITS_NUMERIC       1
+#define R_ALTREP_TRAITS_BITWISE_EQ    2
+#define R_ALTREP_TRAITS_NOT_NULLABLE  4
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
