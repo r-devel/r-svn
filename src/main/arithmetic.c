@@ -1480,6 +1480,17 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP s;
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL) {
+	    if (val != CAR(args)) {
+		PROTECT(val);
+		DUPLICATE_ATTRIB(val, CAR(args));
+		UNPROTECT(1);
+	    }
+	    return val;
+	}
+    }
     // checkArity(op, args); /* is -1 in names.c */
     check1arg(args, call, "x");
     if (isComplex(CAR(args)))
@@ -1822,18 +1833,6 @@ static R_INLINE SEXP match_Math2_dflt_args(SEXP args, SEXP call)
 /* This is a primitive SPECIALSXP with internal argument matching */
 attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
-	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL) {
-	    if (val != CAR(args)) {
-		PROTECT(val);
-		DUPLICATE_ATTRIB(val, CAR(args));
-		UNPROTECT(1);
-	    }
-	    return val;
-	}
-    }
-
     SEXP res, call2;
     int is_signif = (PRIMVAL(op) == 10004) ? true : false;
     double dflt_digits = is_signif ? 6.0 : 0.;
@@ -1872,6 +1871,22 @@ attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 
         if (xlength(CADR(args)) == 0)
             errorcall(call, _("invalid second argument of length 0"));
+
+	/* the arguments are only evaluated above, so this is the first point
+	   at which an opaque vector can be recognised; group dispatch has
+	   already run, so an S3 or S4 method still takes precedence */
+	if (TYPEOF(CAR(args)) == ALTSXP) {
+	    SEXP val = ALTSXP_MATH(call, op, args);
+	    if (val != NULL) {
+		if (val != CAR(args)) {
+		    PROTECT(val);
+		    DUPLICATE_ATTRIB(val, CAR(args));
+		    UNPROTECT(1);
+		}
+		UNPROTECT(1); /* args */
+		return val;
+	    }
+	}
 
         res = do_math2(call, op, args, env);
     }

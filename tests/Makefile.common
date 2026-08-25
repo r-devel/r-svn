@@ -53,7 +53,8 @@ test-src-tz = timezone.R
 test-src-cond = conditions.R
 test-src-misc-dev = misc-devel.R
 
-test-src-reg-1 = array-subset.R \
+test-src-reg-1 = altsxp.R \
+  array-subset.R \
   classes-methods.R \
   reg-tests-1a.R reg-tests-1b.R reg-tests-1c.R reg-tests-1d.R \
   reg-tests-1e.R reg-tests-2.R \

@@ -764,6 +764,7 @@ SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
 unsigned int ALTREP_TRAITS(SEXP x);
 SEXP R_allocVectorLike(SEXP proto, R_xlen_t n);
 SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol);
+SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
 SEXP R_altsxp_na_widen(SEXP x);
 Rboolean R_altsxp_nullable(SEXP x);

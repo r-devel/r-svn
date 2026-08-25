@@ -916,13 +916,39 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	    Rprintf("<%s[%lld]>\n",
 		    CHAR(PRINTNAME(ALTSXP_ELT_TYPE(s))), (long long) n_);
 	    if (fmt != NULL) {
-		PROTECT(fmt);
-		SEXP nms = getAttrib(s, R_NamesSymbol);
-		if (nms != R_NilValue)
-		    printNamedVector(fmt, nms, 0, NULL);
-		else
-		    printVector(fmt, 1, 0);
-		UNPROTECT(1);
+		PROTECT_INDEX fpi;
+		PROTECT_WITH_INDEX(fmt, &fpi);
+		REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE), fpi);
+
+		/* the rendering carries the shape, so an opaque matrix or
+		   array prints as one rather than as a flat vector */
+		PROTECT(t = getAttrib(s, R_DimSymbol));
+		if (TYPEOF(t) == INTSXP && LENGTH(t) > 1) {
+		    SEXP dnms = PROTECT(getAttrib(s, R_DimNamesSymbol));
+		    setAttrib(fmt, R_DimSymbol, t);
+		    setAttrib(fmt, R_DimNamesSymbol, dnms);
+		    UNPROTECT(1); /* dnms */
+		    if (LENGTH(t) == 2) {
+			SEXP rl, cl;
+			const char *rn, *cn;
+			GetMatrixDimnames(fmt, &rl, &cl, &rn, &cn);
+			/* the rendering is numeric-looking, so right-justify */
+			printMatrix(fmt, 0, t, 0, 1, rl, cl, rn, cn);
+		    }
+		    else {
+			SEXP dimnames = PROTECT(GetArrayDimnames(fmt));
+			printArray(fmt, t, 0, 1, dimnames);
+			UNPROTECT(1);
+		    }
+		}
+		else {
+		    SEXP nms = getAttrib(s, R_NamesSymbol);
+		    if (nms != R_NilValue)
+			printNamedVector(fmt, nms, 0, NULL);
+		    else
+			printVector(fmt, 1, 0);
+		}
+		UNPROTECT(2); /* t, fmt */
 	    }
 	}
 	break;

@@ -1475,7 +1475,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     REPROTECT(table = coerceVector(table, type), tbpi);
 
     // special case scalar x -- for speed only :
-    if(XLENGTH(x) == 1 && !incomp) {
+    // (not for ALTSXP: an opaque element has no C type to compare here)
+    if(XLENGTH(x) == 1 && !incomp && type != ALTSXP) {
       int val = nmatch;
       int ntable = LENGTH(table);
       switch (type) {

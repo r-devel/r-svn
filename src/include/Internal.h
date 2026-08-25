@@ -61,6 +61,7 @@ SEXP do_asPOSIXct(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asPOSIXlt(SEXP, SEXP, SEXP, SEXP);
 SEXP do_ascall(SEXP, SEXP, SEXP, SEXP);
 SEXP do_as_environment(SEXP, SEXP, SEXP, SEXP);
+SEXP do_as_int64(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asatomic(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asfunction(SEXP, SEXP, SEXP, SEXP);
 SEXP do_asmatrixdf(SEXP, SEXP, SEXP, SEXP);

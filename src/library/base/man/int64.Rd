@@ -1,0 +1,101 @@
+% File src/library/base/man/int64.Rd
+% Part of the R package, https://www.R-project.org
+% Copyright 2026 R Core Team
+% Distributed under GPL 2 or later
+
+\name{int64}
+\alias{int64}
+\alias{uint64}
+\alias{as.int64}
+\alias{as.uint64}
+\alias{is.int64}
+\alias{is.uint64}
+\title{64-Bit Integer Vectors}
+\description{
+  Create, coerce to, and test for vectors of signed or unsigned 64-bit
+  integers.
+}
+\usage{
+int64(length = 0L)
+uint64(length = 0L)
+
+as.int64(x, na = TRUE)
+as.uint64(x, na = TRUE)
+
+is.int64(x)
+is.uint64(x)
+}
+\arguments{
+  \item{length}{a non-negative integer giving the length of the vector.}
+  \item{x}{object to be coerced or tested.}
+  \item{na}{logical: should the vector be able to represent \code{NA}?  See
+    \sQuote{Details}.}
+}
+\details{
+  These vectors hold exact 64-bit integers, a range that a \code{double}
+  cannot represent without rounding and that an \code{integer} cannot hold
+  at all.
+
+  They are \abbr{ALTREP} objects of the opaque \code{ALTSXP} type, so
+  \code{\link{typeof}} reports \code{"int64"} or \code{"uint64"} rather
+  than any of \R's built-in storage types.  Code that has not been taught
+  about 64-bit integers therefore fails rather than silently reading the
+  payload as something else.
+
+  \code{na = TRUE}, the default, reserves one bit pattern for \code{NA}:
+  \code{-2^63} for \code{int64} and \code{2^64 - 1} for \code{uint64}.
+  \code{na = FALSE} gives that pattern up and makes the whole 64-bit range
+  available for data, which is what a column read from a source with no
+  concept of a missing value wants.  Whether a vector can be \code{NA} is a
+  property of the object, not of the type: two vectors of the same type may
+  differ, and they interoperate.  \R{} reports an error rather than
+  introducing an \code{NA} into a vector that has no room for one.
+
+  Arithmetic between a 64-bit integer vector and a \code{logical},
+  \code{raw} or \code{integer} vector is exact and 64-bit.  A
+  \code{double} operand, and the \code{/} and \code{^} operators, promote
+  the result to \code{double} as they do for \code{integer} arithmetic.
+  \code{int64} and \code{uint64} have no representation in common and
+  cannot be mixed.
+
+  Overflow gives \code{NA} with a warning, or an error for a vector built
+  with \code{na = FALSE}.
+}
+\value{
+  \code{int64} and \code{uint64} return a vector of the given length with
+  every element zero.
+
+  \code{as.int64} and \code{as.uint64} return a 64-bit integer vector.
+  \code{x} may be logical, raw, integer, double, character, or another
+  64-bit integer vector; values outside the representable range become
+  \code{NA} with a warning.  Reading from character is how a value beyond
+  the exact range of a \code{double} is entered.
+
+  \code{is.int64} and \code{is.uint64} return \code{TRUE} or \code{FALSE}.
+}
+\seealso{
+  \code{\link{integer}}, \code{\link{double}},
+  \code{\link{.Machine}} for the range of \R's other numeric types.
+}
+\examples{
+x <- as.int64(c(1, 2, 3))
+typeof(x)
+x * as.int64(1000000000L)
+
+## a value no double can hold exactly
+big <- as.int64("9007199254740993")
+as.character(big)
+as.character(big + as.int64(1L))
+print(2^53 + 1, digits = 17)   # the same value as a double
+
+## other integer types promote, a double demotes the result
+typeof(x + 1L)
+typeof(x + 1.5)
+
+## giving up NA buys the whole range
+n <- as.int64("-9223372036854775808", na = FALSE)
+as.character(n)
+is.na(n)
+}
+\keyword{classes}
+\keyword{arith}

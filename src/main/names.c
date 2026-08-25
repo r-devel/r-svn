@@ -781,6 +781,7 @@ FUNTAB R_FunTab[] =
 {"wrap_meta",	do_wrap_meta,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"tryWrap",	do_tryWrap,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"altrep_class",do_altrep_class, 0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"as.int64",	do_as_int64,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Functions To Interact with the Operating System */
 

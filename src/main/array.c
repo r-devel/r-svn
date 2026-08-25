@@ -2291,11 +2291,13 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	double *plidx = REAL(lidx);
 	for (R_xlen_t i = 0; i < nans; i++)
 	    plidx[i] = lendat ? (double) (i % lendat + 1) : NA_REAL;
-	ans = PROTECT(ExtractSubset(vals, lidx, R_NilValue));
-	ans = dimgets(ans, dims);
+
+	PROTECT_INDEX api;
+	PROTECT_WITH_INDEX(ans = ExtractSubset(vals, lidx, R_NilValue), &api);
+	REPROTECT(ans = dimgets(ans, dims), api);
 	if (!isNull(dimnames) && length(dimnames) > 0)
-	    ans = dimnamesgets(ans, dimnames);
-	UNPROTECT(2); /* ans, lidx */
+	    REPROTECT(ans = dimnamesgets(ans, dimnames), api);
+	UNPROTECT(3); /* ans, lidx, dims */
 	return ans;
     }
 

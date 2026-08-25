@@ -453,7 +453,10 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	SEXP x = CAR(args);
 	SEXP val = ALTSXP_FORMAT(x, 0, XLENGTH(x));
 	if (val != NULL) {
-	    PROTECT(val);
+	    PROTECT_INDEX vpi;
+	    PROTECT_WITH_INDEX(val, &vpi);
+	    REPROTECT(val = R_altsxp_format_common(val,
+					asLogical(CADR(args)) == TRUE), vpi);
 	    SEXP dims = getAttrib(x, R_DimSymbol);
 	    if (dims != R_NilValue) {
 		setAttrib(val, R_DimSymbol, dims);

@@ -157,6 +157,37 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	warning(_("assignment outside vector/list limits (extending from %lld to %lld)"),
 		(long long)len, (long long)newlen);
 
+    /* An opaque vector cannot be allocated from its SEXPTYPE alone, and has
+       no truelength to grow into, so it takes a simple copy-and-pad path.
+       Only the shape methods are used: nothing here knows what an element
+       means. */
+    if (TYPEOF(x) == ALTSXP) {
+	PROTECT(x);
+	PROTECT(newx = R_allocVectorLike(x, newlen));
+
+	size_t esz = ALTSXP_ELT_SIZE(x);
+	R_xlen_t chunk = len < 512 ? len : 512;
+	const void *vmax = vmaxget();
+	void *buf = R_alloc((size_t) (chunk > 0 ? chunk : 1), esz);
+	for (R_xlen_t i = 0; i < len; i += chunk) {
+	    R_xlen_t k = len - i < chunk ? len - i : chunk;
+	    R_altsxp_get_region(x, i, k, buf);
+	    R_altsxp_set_region(newx, i, k, buf);
+	}
+	vmaxset(vmax);
+
+	if (newlen > len)
+	    R_altsxp_set_na_region(newx, len, newlen - len);
+
+	names = getNames(x);
+	if (!isNull(names))
+	    setAttrib(newx, R_NamesSymbol, EnlargeNames(names, len, newlen));
+	copyMostAttrib(x, newx);
+	UNPROTECT(2);
+
+	return newx;
+    }
+
     /* if the vector is not shared, is growable, and has room, then
        increase its length */
     if (! MAYBE_SHARED(x) &&

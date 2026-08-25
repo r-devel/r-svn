@@ -295,6 +295,15 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 		LIST_ASSIGN(lazy_duplicate(VECTOR_ELT(x, i)));
 	}
 	break;
+    case ALTSXP: {
+	/* an opaque element has no ordinary R scalar form, so coerceVector()
+	   boxes each one as a length-one vector of the same class */
+	SEXP v = PROTECT(coerceVector(x, VECSXP));
+	for (i = 0; i < XLENGTH(v); i++)
+	    LIST_ASSIGN(VECTOR_ELT(v, i));
+	UNPROTECT(1);
+	break;
+    }
     case LISTSXP:
 	if (recurse) {
 	    while (x != R_NilValue) {
@@ -458,6 +467,18 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = (int)RAW(x)[i];
 	break;
+    case ALTSXP: {
+	/* an opaque vector has no C element type this loop could read, so
+	   ask the class to coerce first */
+	SEXP v = PROTECT(coerceVector(x, REALSXP));
+	if (TYPEOF(v) != REALSXP)
+	    errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		      R_typeToChar(x), "RealAnswer");
+	for (i = 0; i < XLENGTH(v); i++)
+	    REAL(data->ans_ptr)[data->ans_length++] = REAL(v)[i];
+	UNPROTECT(1);
+	break;
+    }
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
 		  R_typeToChar(x), "RealAnswer");
@@ -538,6 +559,17 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    data->ans_length++;
 	}
 	break;
+    case ALTSXP: {
+	/* as in RealAnswer(): let the class supply an ordinary vector */
+	SEXP v = PROTECT(coerceVector(x, CPLXSXP));
+	if (TYPEOF(v) != CPLXSXP)
+	    errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		      R_typeToChar(x), "ComplexAnswer");
+	for (i = 0; i < XLENGTH(v); i++)
+	    COMPLEX(data->ans_ptr)[data->ans_length++] = COMPLEX(v)[i];
+	UNPROTECT(1);
+	break;
+    }
 
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
@@ -922,8 +954,8 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags & 1024) mode = ALTSXP;
+    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
 
@@ -1053,8 +1085,8 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags & 1024) mode = ALTSXP;
+    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
 
@@ -1253,8 +1285,8 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
-    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags & 1024) mode = ALTSXP;
+    else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
 

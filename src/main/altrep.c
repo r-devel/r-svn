@@ -800,6 +800,44 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
     return val;
 }
 
+/* An opaque class renders one element at a time, so the strings come back
+   unpadded.  format() and print() both want the numeric look -- every
+   element right-justified in a common width, NA spelled out rather than
+   left as NA_STRING -- which is what formatting an integer vector gives.
+   as.character() wants neither, so this is not the Format method's job. */
+attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim)
+{
+    R_xlen_t n = XLENGTH(fmt);
+    int w = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP e = STRING_ELT(fmt, i);
+	int wi = (e == NA_STRING) ? 2 : Rstrlen(e, 0);
+	if (wi > w) w = wi;
+    }
+    if (trim) w = 0;
+
+    SEXP ans = PROTECT(allocVector(STRSXP, n));
+    const void *vmax = vmaxget();
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP e = STRING_ELT(fmt, i);
+	const char *s = (e == NA_STRING) ? "NA" : CHAR(e);
+	int wi = (e == NA_STRING) ? 2 : Rstrlen(e, 0);
+
+	if (wi >= w)
+	    SET_STRING_ELT(ans, i, (e == NA_STRING) ? mkChar(s) : e);
+	else {
+	    char *buf = R_alloc((size_t) w + strlen(s) + 1, 1);
+	    snprintf(buf, (size_t) w + strlen(s) + 1, "%*s%s", w - wi, "", s);
+	    SET_STRING_ELT(ans, i, mkChar(buf));
+	}
+    }
+    vmaxset(vmax);
+    UNPROTECT(1);
+
+    return ans;
+}
+
 unsigned int ALTREP_TRAITS(SEXP x)
 {
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Traits, x) : 0;
