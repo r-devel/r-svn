@@ -1243,8 +1243,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    return allocVector(LGLSXP, 0);
 	/* unique(): an opaque vector cannot be allocated from its SEXPTYPE
 	   alone, so the class makes the empty one */
-	return TYPEOF(x) == ALTSXP ? R_allocVectorLike(x, 0, FALSE)
-	    : allocVector(TYPEOF(x), 0);
+	return R_allocVectorLike(x, 0, FALSE);
     }
 
     if (!isVector(x)) {
@@ -2221,8 +2220,7 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
 
-    PROTECT(ans = (TYPEOF(x) == ALTSXP) ? R_allocMatrixLike(x, ng, p, FALSE)
-	    : allocMatrix(TYPEOF(x), ng, p));
+    PROTECT(ans = R_allocMatrixLike(x, ng, p, FALSE));
 
     switch(TYPEOF(x)){
     case ALTSXP:

@@ -2592,7 +2592,7 @@ attribute_hidden SEXP do_maxcol(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #define ASPLIT_ITERATE( __body__ ) do {			\
 	for(i = 0; i < n2; i++) {			\
-	    PROTECT(e = allocVector(TYPEOF(x), n1));	\
+	    PROTECT(e = R_allocVectorLike(x, n1, FALSE));\
 	    for(j = 0; j < n1; j++, k++) {		\
 		__body__ ;				\
 	    }						\
@@ -2651,6 +2651,10 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case RAWSXP:
 	ASPLIT_ITERATE( RAW(e)[j] = RAW(x)[k] );
+	break;
+    case ALTSXP:
+	/* only the class can move an opaque element */
+	ASPLIT_ITERATE( R_altsxp_copy_region(e, j, x, k, 1) );
 	break;
     default:
 	UNIMPLEMENTED_TYPE("asplit", x);

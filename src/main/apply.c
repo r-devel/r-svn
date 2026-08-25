@@ -133,9 +133,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     array_value = (TYPEOF(dim_v) == INTSXP && LENGTH(dim_v) >= 1);
     /* an opaque vector cannot be allocated from its SEXPTYPE alone, so
        FUN.VALUE is both the type check and the prototype */
-    PROTECT(ans = (commonType == ALTSXP)
-	    ? R_allocVectorLike(value, n*commonLen, FALSE)
-	    : allocVector(commonType, n*commonLen));
+    PROTECT(ans = R_allocVectorLike(value, n*commonLen, FALSE));
     if (useNames) {
 	PROTECT(names = getAttrib(XX, R_NamesSymbol));
 	if (isNull(names) && TYPEOF(XX) == STRSXP) {

@@ -1253,6 +1253,16 @@ local({
                         c(1, 4)))
     a <- apply(matrix(as.int64(integer()), 0L, 3L), 1L, sum)
     stopifnot(typeof(a) == "int64", length(a) == 0L)
+
+    ## asplit() allocated each piece with allocVector(TYPEOF(x), .), which
+    ## an opaque vector has no answer for
+    for (mar in 1:2) {
+        got <- asplit(matrix(as.int64(1:6), 2L, 3L), mar)
+        want <- asplit(matrix(1:6, 2L, 3L), mar)
+        stopifnot(length(got) == length(want),
+                  typeof(got[[1L]]) == "int64",
+                  identical(lapply(got, as.double), lapply(want, as.double)))
+    }
     stopifnot(identical(as.double(apply(matrix(as.int64(1:6), 2L, 3L), 1L, sum)),
                         c(9, 12)))
 })
