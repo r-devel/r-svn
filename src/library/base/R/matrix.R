@@ -26,8 +26,8 @@ matrix <- function(data=NA, nrow=1, ncol=1, byrow=FALSE, dimnames=NULL)
                      missing(nrow), missing(ncol)))
 }
 
-## matrix() with an example object in place of the data, for the same
-## reason .allocVectorLike() exists; see there for how it is filled.
+## matrix() with an example object in place of the data; see
+## .allocVectorLike() for why.
 .allocMatrixLike <- function(x, nrow = 1L, ncol = 1L)
     .Internal(allocMatrixLike(x, nrow, ncol))
 

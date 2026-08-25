@@ -290,12 +290,10 @@ SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol)
     return s;
 }
 
-/* R_allocVectorLike() for .Internal(allocVectorLike()) and
-   .Internal(allocMatrixLike()) below, filled the way vector() fills one:
-   R_allocVectorLike() leaves an opaque payload uninitialised, and
-   uninitialised memory must not reach R.  An opaque element type has no
-   zero R could name, so its elements are NA instead -- which is also what
-   array() already gives when it is handed no data to recycle. */
+/* R_allocVectorLike() filled the way vector() fills a vector: neither it nor
+   allocVector() initialises what it returns, and that must not reach R.  An
+   opaque element type is zeroed through Set_region, so this needs nothing of
+   a class beyond the shape methods. */
 static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
 {
     if (!isVector(proto))
@@ -303,9 +301,24 @@ static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
 
     if (TYPEOF(proto) == ALTSXP) {
 	SEXP ans = PROTECT(R_allocVectorLike(proto, n));
-	if (n > 0 && R_altsxp_set_na_region(ans, 0, n) != n)
-	    errorcall(call, _("'%s' method reported too few elements"),
-		      "Set_na_region");
+
+	if (n > 0) {
+	    size_t esz = ALTSXP_ELT_SIZE(ans);
+	    R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
+	    const void *vmax = vmaxget();
+	    void *buf = R_alloc((size_t) nb, esz);
+
+	    memset(buf, 0, (size_t) nb * esz);
+	    for (R_xlen_t i = 0; i < n; ) {
+		R_xlen_t k = n - i > nb ? nb : n - i;
+		k = R_altsxp_set_region(ans, i, k, buf);
+		if (k <= 0)
+		    errorcall(call, _("'%s' method reported no elements"),
+			      "Set_region");
+		i += k;
+	    }
+	    vmaxset(vmax);
+	}
 	UNPROTECT(1);
 
 	return ans;
@@ -324,11 +337,9 @@ static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
     return ans;
 }
 
-/* vector() and matrix() name the type they build, which an opaque vector
-   cannot supply: its element type is a property of its ALTREP class, not of
-   its SEXPTYPE.  These two take an example object in place of the name --
-   the R-level counterparts of R_allocVectorLike() and R_allocMatrixLike(),
-   and what base code that used to write vector(typeof(x), n) needs. */
+/* The R-level counterparts of R_allocVectorLike() and R_allocMatrixLike():
+   vector() and matrix() name the type they build, which an opaque vector
+   cannot supply, so these take an example object instead. */
 attribute_hidden SEXP do_allocvectorlike(SEXP call, SEXP op, SEXP args,
 					 SEXP rho)
 {

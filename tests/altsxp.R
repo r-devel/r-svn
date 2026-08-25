@@ -1200,17 +1200,26 @@ local({
               identical(.allocVectorLike(list(), 3L), vector("list", 3L)),
               identical(.allocMatrixLike(1L, 2L, 3L), matrix(0L, 2L, 3L)))
 
-    ## an opaque element type has no zero R could name, so its elements are
-    ## NA -- and never the uninitialised payload New() hands back
+    ## an opaque element type is zeroed too, as vector() zeroes every
+    ## fixed-width type it knows -- and never left as the uninitialised
+    ## payload New() hands back
     v <- .allocVectorLike(as.int64(1L), 3L)
-    stopifnot(typeof(v) == "int64", length(v) == 3L, all(is.na(v)))
+    stopifnot(typeof(v) == "int64", length(v) == 3L, !anyNA(v),
+              identical(as.double(v), c(0, 0, 0)))
     m <- .allocMatrixLike(as.int64(1L), 2L, 3L)
     stopifnot(typeof(m) == "int64", identical(dim(m), c(2L, 3L)),
-              all(is.na(m)))
+              identical(as.double(m), numeric(6L)))
+    stopifnot(identical(as.double(.allocVectorLike(as.uint64(1L), 2L)),
+                        c(0, 0)))
+    ## more elements than the staging buffer holds at once
+    stopifnot(identical(as.double(.allocVectorLike(as.int64(1L), 1000L)),
+                        numeric(1000L)))
 
-    ## the prototype's NA domain rides along, so a vector that gave up its
-    ## NA has no element R could invent -- unless none is wanted
-    assertError(.allocVectorLike(as.int64(1L, na = FALSE), 3L))
+    ## zero needs no NA to spare, so a vector that gave up its own
+    ## allocates like any other
+    w <- .allocVectorLike(as.int64(1L, na = FALSE), 3L)
+    stopifnot(typeof(w) == "int64", !anyNA(w),
+              identical(as.double(w), c(0, 0, 0)))
     e <- .allocVectorLike(as.int64(1L, na = FALSE))
     stopifnot(typeof(e) == "int64", length(e) == 0L)
 
