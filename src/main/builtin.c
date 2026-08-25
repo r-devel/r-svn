@@ -877,7 +877,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	   for storage; copying and NA filling are then generic operations
 	   that need no knowledge of the element type. */
 	R_xlen_t ncopy = lenx < len ? lenx : len;
-	PROTECT(rval = R_allocVectorLike(x, len));
+	PROTECT(rval = R_allocVectorLike(x, len, FALSE));
 	R_altsxp_copy_region(rval, 0, x, 0, ncopy);
 	if (len > ncopy)
 	    R_altsxp_set_na_region(rval, ncopy, len - ncopy);

@@ -1472,7 +1472,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (anstype != ALTSXP) return allocVector(anstype, 0);
 	for(a = args; a != R_NilValue; a = CDR(a))
 	    if (TYPEOF(CAR(a)) == ALTSXP)
-		return R_allocVectorLike(CAR(a), 0);
+		return R_allocVectorLike(CAR(a), 0, FALSE);
     }
     /* Check for fractional recycling (added in 2.14.0) */
     for(a = args; a != R_NilValue; a = CDR(a)) {
@@ -1500,7 +1500,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 		proto = u;
 	}
 
-	PROTECT(ans = R_allocVectorLike(proto, len));
+	PROTECT(ans = R_allocVectorLike(proto, len, FALSE));
 
 	PROTECT(x = PmaxAltsxpArg(proto, CAR(args), call));
 	R_altsxp_recycle_region(ans, 0, x, len);

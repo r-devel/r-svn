@@ -4754,7 +4754,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    warning(_("'%s' is not used for '%s': the sign is part of the type"),
 		    "signed", R_typeToChar(swhat));
 
-	PROTECT(ans = R_allocVectorLike(swhat, n));
+	PROTECT(ans = R_allocVectorLike(swhat, n, FALSE));
 	const void *vmax = vmaxget();
 	R_xlen_t nb = (n > 0 && n < BLOCK) ? n : BLOCK;
 	char *buf = R_alloc((size_t) nb, esz);

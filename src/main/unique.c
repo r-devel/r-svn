@@ -1243,7 +1243,7 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    return allocVector(LGLSXP, 0);
 	/* unique(): an opaque vector cannot be allocated from its SEXPTYPE
 	   alone, so the class makes the empty one */
-	return TYPEOF(x) == ALTSXP ? R_allocVectorLike(x, 0)
+	return TYPEOF(x) == ALTSXP ? R_allocVectorLike(x, 0, FALSE)
 	    : allocVector(TYPEOF(x), 0);
     }
 
@@ -2221,7 +2221,7 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
 
-    PROTECT(ans = (TYPEOF(x) == ALTSXP) ? R_allocMatrixLike(x, ng, p)
+    PROTECT(ans = (TYPEOF(x) == ALTSXP) ? R_allocMatrixLike(x, ng, p, FALSE)
 	    : allocMatrix(TYPEOF(x), ng, p));
 
     switch(TYPEOF(x)){
@@ -2359,7 +2359,7 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 		rowsum_group_order(pmatches, n, ng, perm, start);
 	    }
 
-	    PROTECT(col = R_allocVectorLike(xcol, ng));
+	    PROTECT(col = R_allocVectorLike(xcol, ng, FALSE));
 	    altsxp_rowsum(col, 0, xcol, 0, ng, perm, start, (Rboolean) narm);
 	    SET_VECTOR_ELT(ans, i, col);
 	    UNPROTECT(1);

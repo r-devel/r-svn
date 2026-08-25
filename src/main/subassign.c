@@ -163,7 +163,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
        means. */
     if (TYPEOF(x) == ALTSXP) {
 	PROTECT(x);
-	PROTECT(newx = R_allocVectorLike(x, newlen));
+	PROTECT(newx = R_allocVectorLike(x, newlen, FALSE));
 
 	R_altsxp_copy_region(newx, 0, x, 0, len);
 
@@ -1895,7 +1895,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(isNull(x))
 		/* an opaque vector has no allocator keyed by SEXPTYPE, so
 		   the RHS itself is the prototype */
-		x = (TYPEOF(y) == ALTSXP) ? R_allocVectorLike(y, 0)
+		x = (TYPEOF(y) == ALTSXP) ? R_allocVectorLike(y, 0, FALSE)
 					  : coerceVector(x, TYPEOF(y));
 	}
     }

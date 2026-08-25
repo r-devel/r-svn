@@ -2877,7 +2877,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case ALTSXP:
 		/* an opaque vector cannot be allocated from its SEXPTYPE
 		   alone, and only the class can move an element */
-		ALLOC_LOOP_VAR_LIKE(v, R_allocVectorLike(val, 1), vpi);
+		ALLOC_LOOP_VAR_LIKE(v, R_allocVectorLike(val, 1, FALSE), vpi);
 		R_altsxp_copy_region(v, 0, val, i, 1);
 		break;
 	    default:
@@ -7730,7 +7730,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    BCNPUSH_NLNK(value);
 	    break;
 	case ALTSXP:
-	    value = R_allocVectorLike(seq, 1);
+	    value = R_allocVectorLike(seq, 1, FALSE);
 	    INCREMENT_NAMED(value);
 	    BCNPUSH_NLNK(value);
 	    break;
@@ -7835,7 +7835,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  case ALTSXP:
 	    /* as in do_for(): only the class can make the box and move the
 	       element into it */
-	    GET_VEC_LOOP_VALUE_LIKE(value, R_allocVectorLike(seq, 1));
+	    GET_VEC_LOOP_VALUE_LIKE(value, R_allocVectorLike(seq, 1, FALSE));
 	    R_altsxp_copy_region(value, 0, seq, i, 1);
 	    break;
 	  case EXPRSXP:

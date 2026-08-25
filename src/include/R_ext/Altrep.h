@@ -146,12 +146,28 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  symbol promise the same in-memory representation, so a
  *                  consumer may cast a data pointer to the matching C type.
  *   Elt_size       sizeof() that C type.
- *   New            allocate a new, uninitialised object of this class with
- *                  the given length.  The first argument is normally an
- *                  existing instance to use as a prototype, but is the class
- *                  object itself when called from the default Unserialize
- *                  method, where no instance exists yet; a class that cares
- *                  can tell the two apart with ALTREP().
+ *   New            allocate a new object of this class with the given
+ *                  length.  The first argument is normally an existing
+ *                  instance to use as a prototype, but is the class object
+ *                  itself when called from the default Unserialize method,
+ *                  where no instance exists yet; a class that cares can tell
+ *                  the two apart with ALTREP().
+ *
+ *                  The last argument asks for the elements to be set to this
+ *                  class's zero -- whatever that is for its representation,
+ *                  which is why the decision belongs here and not to R.  For
+ *                  a two's complement integer or an IEEE float that is a
+ *                  memset of the payload; for something with a bias or a
+ *                  tag it is not, and a class with no meaningful zero should
+ *                  refuse rather than invent one.  A class with no
+ *                  contiguous payload can fill through its own Set_region.
+ *
+ *                  When it is FALSE the elements are left uninitialised, and
+ *                  the caller must write every one of them before the object
+ *                  is visible to R.  Note that NA is not on offer here: an
+ *                  object's NA domain is a trait R has to negotiate (see
+ *                  R_ALTREP_TRAITS_NOT_NULLABLE and Na_widen), so R asks for
+ *                  NA through Set_na_region, where a refusal can be handled.
  *   Get_region     copy n elements starting at i into buf.
  *   Set_region     copy n elements from buf into positions i..i+n-1.
  *   Set_na_region  set positions i..i+n-1 to the class's NA element.
@@ -246,7 +262,7 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  */
 typedef SEXP (*R_altsxp_Elt_type_method_t)(SEXP);
 typedef size_t (*R_altsxp_Elt_size_method_t)(SEXP);
-typedef SEXP (*R_altsxp_New_method_t)(SEXP, R_xlen_t);
+typedef SEXP (*R_altsxp_New_method_t)(SEXP, R_xlen_t, Rboolean);
 typedef R_xlen_t
 (*R_altsxp_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
 typedef R_xlen_t
@@ -402,8 +418,8 @@ DECLARE_METHOD_SETTER(altsxp, Deparse)
 SEXP ALTSXP_ELT_TYPE(SEXP x);
 size_t ALTSXP_ELT_SIZE(SEXP x);
 unsigned int ALTREP_TRAITS(SEXP x);
-SEXP R_allocVectorLike(SEXP proto, R_xlen_t n);
-SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol);
+SEXP R_allocVectorLike(SEXP proto, R_xlen_t n, Rboolean zeroinit);
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol, Rboolean zeroinit);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
 Rboolean R_altsxp_nullable(SEXP x);
 SEXP R_altsxp_na_widen(SEXP x);
@@ -416,7 +432,7 @@ R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
 R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
 R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
 			      R_xlen_t n);
-SEXP R_altsxp_new(SEXP proto, R_xlen_t n);
+SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit);
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */

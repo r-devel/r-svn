@@ -950,7 +950,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = mode == ALTSXP
-	    ? R_allocVectorLike(data.ans_proto, data.ans_length)
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length, FALSE)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1080,7 +1080,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = mode == ALTSXP
-	    ? R_allocVectorLike(data.ans_proto, data.ans_length)
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length, FALSE)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1404,7 +1404,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_rnames = true;
 
     PROTECT(result = mode == ALTSXP
-	    ? R_allocMatrixLike(proto, rows, cols)
+	    ? R_allocMatrixLike(proto, rows, cols, FALSE)
 	    : allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
@@ -1715,7 +1715,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_cnames = true;
 
     PROTECT(result = mode == ALTSXP
-	    ? R_allocMatrixLike(proto, rows, cols)
+	    ? R_allocMatrixLike(proto, rows, cols, FALSE)
 	    : allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;

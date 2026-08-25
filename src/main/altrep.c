@@ -23,6 +23,7 @@
 
 #include <Defn.h>
 #include <Print.h>	/* for R_print, in the shared formatter */
+#include <R_ext/RS.h>	/* for Memzero */
 #include <R_ext/Altrep.h>
 
 
@@ -689,19 +690,36 @@ size_t ALTSXP_ELT_SIZE(SEXP x)
 /* Allocate a vector of the same kind as proto: an ordinary vector of the
    same SEXPTYPE, or -- because an ALTSXP cannot be allocated from its type
    alone -- a new object of proto's own ALTSXP class.  This is the shape that
-   generic code wants when it is building a result "like" its input. */
-SEXP R_allocVectorLike(SEXP proto, R_xlen_t n)
+   generic code wants when it is building a result "like" its input.
+
+   With zeroinit the elements come back as the type's zero, which is what
+   vector() gives; without it they are uninitialised and the caller must
+   write every one before the object is visible to R.  For an ALTSXP the
+   class decides what its zero is, since only it knows the representation. */
+SEXP R_allocVectorLike(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
     if (TYPEOF(proto) == ALTSXP)
-	return R_altsxp_new(proto, n);
-    return allocVector(TYPEOF(proto), n);
+	return R_altsxp_new(proto, n, zeroinit);
+
+    SEXP ans = allocVector(TYPEOF(proto), n);
+    if (zeroinit)
+	switch (TYPEOF(proto)) {   /* as in do_makevector() */
+	case LGLSXP:
+	case INTSXP: Memzero(INTEGER(ans), n); break;
+	case REALSXP: Memzero(REAL(ans), n); break;
+	case CPLXSXP: Memzero(COMPLEX(ans), n); break;
+	case RAWSXP: Memzero(RAW(ans), n); break;
+	default: break;   /* string, list and expression elements are set */
+	}
+
+    return ans;
 }
 
-SEXP R_altsxp_new(SEXP proto, R_xlen_t n)
+SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
     if (! IS_ALTSXP(proto))
 	error("%s can only be applied to an ALTSXP object", "R_altsxp_new");
-    return ALTSXP_DISPATCH(New, proto, n);
+    return ALTSXP_DISPATCH(New, proto, n, zeroinit);
 }
 
 R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
@@ -1249,7 +1267,7 @@ static size_t altsxp_Elt_size_default(SEXP x)
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide an Elt_size method", x);
 }
 
-static SEXP altsxp_New_default(SEXP proto, R_xlen_t n)
+static SEXP altsxp_New_default(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a New method", proto);
 }
@@ -1415,7 +1433,7 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
     altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     size_t esz = m->Elt_size(x);
 
-    SEXP ans = PROTECT(m->New(x, n));
+    SEXP ans = PROTECT(m->New(x, n, FALSE));
 
     const char *src = (const char *) ALTVEC_DATAPTR_OR_NULL(x);
     char *dst = (src == NULL) ? NULL : (char *) ALTVEC_DATAPTR(ans);
@@ -1462,7 +1480,7 @@ static SEXP altsxp_Duplicate_default(SEXP x, Rboolean deep)
     altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     R_xlen_t n = ALTREP_LENGTH(x);
 
-    SEXP ans = PROTECT(m->New(x, n));
+    SEXP ans = PROTECT(m->New(x, n, FALSE));
     R_altsxp_copy_region(ans, 0, x, 0, n);
     UNPROTECT(1);
 
@@ -1528,7 +1546,7 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
 
     /* New() is passed the class object here rather than an instance; see
        the note on the New method in R_ext/Altrep.h. */
-    SEXP ans = PROTECT(m->New(class, n));
+    SEXP ans = PROTECT(m->New(class, n, FALSE));
 
     SEXP want = m->Elt_type(ans);
     SEXP got = installTrChar(STRING_ELT(eltname, 0));

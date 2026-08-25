@@ -134,7 +134,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* an opaque vector cannot be allocated from its SEXPTYPE alone, so
        FUN.VALUE is both the type check and the prototype */
     PROTECT(ans = (commonType == ALTSXP)
-	    ? R_allocVectorLike(value, n*commonLen)
+	    ? R_allocVectorLike(value, n*commonLen, FALSE)
 	    : allocVector(commonType, n*commonLen));
     if (useNames) {
 	PROTECT(names = getAttrib(XX, R_NamesSymbol));

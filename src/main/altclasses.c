@@ -2212,13 +2212,17 @@ static R_altrep_class_t i64_class_of(SEXP proto)
     return (proto == R_SEXP(uint64_class)) ? uint64_class : int64_class;
 }
 
-/* returns an unprotected object; PROTECT at the call site */
-static SEXP i64_alloc(SEXP proto, R_xlen_t n)
+/* returns an unprotected object; PROTECT at the call site.  zeroinit gives
+   the elements this class's zero, which for a two's complement integer is a
+   memset of the payload -- allocVector() does not zero a RAWSXP. */
+static SEXP i64_alloc(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
     if (n < 0 || n > R_XLEN_T_MAX / (R_xlen_t) sizeof(int64_t))
 	error(_("invalid length for a 64-bit integer vector"));
 
     SEXP data = PROTECT(allocVector(RAWSXP, n * (R_xlen_t) sizeof(int64_t)));
+    if (zeroinit && n > 0)
+	memset(RAW(data), 0, (size_t) n * sizeof(int64_t));
     SEXP meta = PROTECT(allocVector(INTSXP, I64_META_N));
     INTEGER(meta)[I64_SORTED] = UNKNOWN_SORTEDNESS;
     INTEGER(meta)[I64_NO_NA] = 0;
@@ -2338,7 +2342,7 @@ static SEXP i64_materialize(SEXP x, int uns, int nullable)
 static SEXP i64_from(SEXP x, int uns, int nullable)
 {
     R_xlen_t n = xlength(x);
-    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n));
+    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = nullable;
 
     int64_t *out = i64_data(ans);
@@ -2655,7 +2659,7 @@ static SEXP i64_Unserialize(SEXP class, SEXP state)
 
     /* i64_alloc() is passed the class object here rather than an instance;
        see the note on the New method in R_ext/Altrep.h. */
-    SEXP ans = PROTECT(i64_alloc(class, n));
+    SEXP ans = PROTECT(i64_alloc(class, n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] =
 	asLogical(VECTOR_ELT(state, 1)) == TRUE;
     if (n > 0)
@@ -2675,9 +2679,9 @@ static size_t i64_Elt_size(SEXP x)
     return sizeof(int64_t);
 }
 
-static SEXP i64_New(SEXP proto, R_xlen_t n)
+static SEXP i64_New(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
-    return i64_alloc(proto, n);
+    return i64_alloc(proto, n, zeroinit);
 }
 
 static R_xlen_t i64_Set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
@@ -2748,7 +2752,7 @@ static SEXP i64_Na_widen(SEXP x)
 	    error(_("cannot introduce NA into this %s vector: it uses the whole 64-bit range, including the value reserved for NA"),
 		  i64_name(x));
 
-    SEXP ans = PROTECT(i64_alloc(x, n));
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = TRUE;
     memcpy(i64_data(ans), p, (size_t) n * sizeof(int64_t));
     UNPROTECT(1);
@@ -2836,7 +2840,7 @@ static SEXP i64_reduce(SEXP x, Rboolean narm, int what)
        able to report its own extreme value, and in exchange a reduction
        that cannot produce a number is an error rather than an NA -- the
        same trade the arithmetic operators make. */
-    SEXP ans = PROTECT(i64_alloc(x, 1));
+    SEXP ans = PROTECT(i64_alloc(x, 1, FALSE));
     int nullable = I64_NULLABLE(ans);
     int64_t nav = i64_na(ans);
     int64_t acc = 0;
@@ -2988,7 +2992,7 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
 
     if (nx == 0 || ny == 0) {
-	SEXP z = i64_alloc(I64_PROTO(uns), 0);
+	SEXP z = i64_alloc(I64_PROTO(uns), 0, FALSE);
 	UNPROTECT(2);
 	return z;
     }
@@ -3006,7 +3010,7 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
     int64_t nav = uns ? (int64_t) NA_UINT64 : NA_INT64;
     R_xlen_t n = nx > ny ? nx : ny;
 
-    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n));
+    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = has_na;
     const int64_t *pa = i64_data(p1), *pb = i64_data(p2);
     int64_t *out = i64_data(ans);
@@ -3110,7 +3114,7 @@ static SEXP i64_unary(SEXP call, const char *op, SEXP x)
     int has_na;
     int64_t na = i64_na_test(x, &has_na);
 
-    SEXP ans = PROTECT(i64_alloc(x, n));
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int64_t *out = i64_data(ans);
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -3264,7 +3268,7 @@ static SEXP i64_cumulate(SEXP call, const char *op, SEXP x)
     /* as in i64_reduce(): the result keeps the input's NA domain, so a
        whole-range vector reports its own extreme value and an overflow
        there is an error rather than a silent NA */
-    SEXP ans = PROTECT(i64_alloc(x, n));
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int nullable = I64_NULLABLE(ans);
     int64_t *out = i64_data(ans), acc = 0;
     int seen_na = FALSE, overflow = FALSE;
@@ -3324,7 +3328,7 @@ static SEXP i64_absolute(SEXP call, const char *op, SEXP x)
     int64_t na = i64_na_test(x, &has_na);
     int sign = !strcmp(op, "sign");
 
-    SEXP ans = PROTECT(i64_alloc(x, n));
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int64_t *out = i64_data(ans);
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -3390,7 +3394,7 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
     int has_na, uns = i64_unsigned(x);
     int64_t na = i64_na_test(x, &has_na);
 
-    SEXP ans = PROTECT(i64_alloc(x, n));
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int64_t *out = i64_data(ans);
     int overflow = FALSE;
 

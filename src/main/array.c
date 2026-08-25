@@ -276,11 +276,12 @@ SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
 /* allocMatrix() for a prototype rather than a type: an ALTSXP cannot be
    allocated from its SEXPTYPE alone, so the result takes its class from
    proto.  The matrix counterpart of R_allocVectorLike(). */
-SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol)
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol, Rboolean zeroinit)
 {
     SEXP s, t;
 
-    PROTECT(s = R_allocVectorLike(proto, matrix_length(nrow, ncol)));
+    PROTECT(s = R_allocVectorLike(proto, matrix_length(nrow, ncol),
+				  zeroinit));
     PROTECT(t = allocVector(INTSXP, 2));
     INTEGER(t)[0] = nrow;
     INTEGER(t)[1] = ncol;
@@ -290,51 +291,15 @@ SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol)
     return s;
 }
 
-/* R_allocVectorLike() filled the way vector() fills a vector: neither it nor
-   allocVector() initialises what it returns, and that must not reach R.  An
-   opaque element type is zeroed through Set_region, so this needs nothing of
-   a class beyond the shape methods. */
+/* These build a vector, so they ask for a zeroed one: what vector() gives,
+   and never the uninitialised payload R_allocVectorLike() hands back
+   otherwise. */
 static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
 {
     if (!isVector(proto))
 	errorcall(call, _("'%s' must be a vector"), "x");
 
-    if (TYPEOF(proto) == ALTSXP) {
-	SEXP ans = PROTECT(R_allocVectorLike(proto, n));
-
-	if (n > 0) {
-	    size_t esz = ALTSXP_ELT_SIZE(ans);
-	    R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
-	    const void *vmax = vmaxget();
-	    void *buf = R_alloc((size_t) nb, esz);
-
-	    memset(buf, 0, (size_t) nb * esz);
-	    for (R_xlen_t i = 0; i < n; ) {
-		R_xlen_t k = n - i > nb ? nb : n - i;
-		k = R_altsxp_set_region(ans, i, k, buf);
-		if (k <= 0)
-		    errorcall(call, _("'%s' method reported no elements"),
-			      "Set_region");
-		i += k;
-	    }
-	    vmaxset(vmax);
-	}
-	UNPROTECT(1);
-
-	return ans;
-    }
-
-    SEXP ans = allocVector(TYPEOF(proto), n);
-    switch (TYPEOF(proto)) {	/* as in do_makevector() */
-    case LGLSXP:
-    case INTSXP: Memzero(INTEGER(ans), n); break;
-    case REALSXP: Memzero(REAL(ans), n); break;
-    case CPLXSXP: Memzero(COMPLEX(ans), n); break;
-    case RAWSXP: Memzero(RAW(ans), n); break;
-    default: break;	/* string, list and expression elements are set */
-    }
-
-    return ans;
+    return R_allocVectorLike(proto, n, TRUE);
 }
 
 /* The R-level counterparts of R_allocVectorLike() and R_allocMatrixLike():
