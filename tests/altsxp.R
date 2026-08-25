@@ -752,10 +752,6 @@ assertError(format(as.int64(1L), trim = NA))
 ## code that rebuilds the object -- including its NA domain, which is part
 ## of what the object is
 local({
-    rt <- function(x) {
-        y <- eval(parse(text = paste(deparse(x), collapse = "")))
-        stopifnot(identical(x, y))
-    }
     for (v in list(as.int64(1:3), as.uint64(1:3), as.int64(integer()),
                    as.int64(c(1L, NA, 3L)), as.int64(c(-5L, 5L)),
                    ## outside the integer range, so written as character
@@ -773,8 +769,10 @@ local({
                    c(a = as.int64(1L), b = as.int64(2L)),
                    structure(as.int64(1:2), units = "m"),
                    matrix(as.int64(1:6), 2L, 3L),
-                   structure(as.int64(1:2), class = "money")))
-        rt(v)
+                   structure(as.int64(1:2), class = "money"))) {
+        y <- eval(parse(text = paste(deparse(v), collapse = "")))
+        stopifnot(identical(v, y))
+    }
 
     stopifnot(identical(capture.output(dput(as.int64(1:3))), "as.int64(1:3)"),
               identical(capture.output(dput(list(a = as.int64(1L)))),
@@ -822,6 +820,246 @@ local({
     writeLines(c("id", "123 ", " 456"), f)
     stopifnot(identical(as.character(read.csv(f, colClasses = "int64")$id),
                         c("123", "456")))
+})
+
+## --- review round: one block per bug ---------------------------------
+
+## x[i] <- v follows the same promotion ladder as c(): the opaque type
+## subsumes the R integer types but loses to double, complex, character and
+## list, so the *left* side widens.  It used to coerce the RHS into the
+## opaque type unconditionally and silently drop a fraction.
+local({
+    v <- as.int64(1:3); v[1] <- 1.5
+    stopifnot(typeof(v) == "double", identical(v, c(1.5, 2, 3)))
+    v <- as.int64(1:3); v[[1]] <- 1.5
+    stopifnot(typeof(v) == "double")
+    v <- as.int64(1:3); v[1] <- 1i
+    stopifnot(typeof(v) == "complex")
+    v <- as.int64(1:3); v[1] <- "a"
+    stopifnot(typeof(v) == "character")
+    v <- as.int64(1:3); v[[1]] <- list(1)
+    stopifnot(typeof(v) == "list")
+    m <- matrix(as.int64(1:4), 2L); m[1, 1] <- 1.5
+    stopifnot(typeof(m) == "double", identical(dim(m), c(2L, 2L)))
+    ## and quantile(), which assigns a double into its working vector
+    stopifnot(identical(unname(quantile(as.int64(c(3, 1, 2)))),
+                        unname(quantile(c(3, 1, 2)))))
+    ## an opaque RHS still wins over the integer types
+    w <- 1:3; w[1] <- as.int64(9)
+    stopifnot(typeof(w) == "int64")
+    ## NULL is a zero-length replacement, as it is for the base types
+    v <- as.int64(1:3)
+    assertError(v[1] <- NULL)
+    v[integer()] <- NULL
+    stopifnot(identical(v, as.int64(1:3)))
+})
+
+## the two sides of a subassignment must agree on what the NA pattern means
+## before whole elements move: a raw copy used to launder an NA into a
+## vector with no room for one, and an extreme value into NA
+local({
+    a <- as.int64(1:3, na = FALSE)
+    a[1] <- as.int64(NA_integer_)
+    stopifnot(is.na(a[1]))               # widened, not reinterpreted
+    ## the same, without losing the names
+    b <- as.int64(1:3, na = FALSE); names(b) <- c("a", "b", "c")
+    b[1] <- as.int64(NA_integer_)
+    stopifnot(identical(names(b), c("a", "b", "c")))
+    ## the other direction: a whole-range value that collides with the
+    ## target's NA is an error, as it is for c()
+    x <- as.int64(1:3)
+    y <- as.int64("-9223372036854775808", na = FALSE)
+    assertError(x[1] <- y)
+    ## an ordinary RHS is rendered into the target's domain, which stays
+    z <- as.int64(1:3, na = FALSE); z[1] <- 9L
+    stopifnot(!is.na(z[1]))
+})
+
+## c() and unlist() name one element per element, not one per argument,
+## and honour an argument's own names
+stopifnot(identical(names(c(a = as.int64(1:2), b = as.int64(3:4))),
+                    c("a1", "a2", "b1", "b2")),
+          identical(names(unlist(list(a = as.int64(1:2)))), c("a1", "a2")),
+          identical(names(c(setNames(as.int64(1:3), c("a", "b", "c")), d = 4L)),
+                    c("a", "b", "c", "d")))
+
+## cbind() splits an opaque argument into elements when the result is a
+## list, as rbind() already did; it used to replicate the whole vector
+local({
+    m <- cbind(as.int64(1:2), as.uint64(3:4))
+    stopifnot(identical(dim(m), c(2L, 2L)), typeof(m) == "list",
+              identical(vapply(m, length, 1L), rep(1L, 4L)),
+              identical(as.double(unlist(m)), c(1, 2, 3, 4)))
+    stopifnot(identical(as.double(unlist(cbind(as.int64(1:2), list(1, 2)))),
+                        c(1, 2, 1, 2)))
+})
+
+## sort(method = "quick") reaches .Internal(qsort), which has no opaque
+## arm and would round through double
+local({
+    v <- as.int64(c("9007199254740993", "9007199254740992"))
+    s <- sort(v, method = "quick")
+    stopifnot(typeof(s) == "int64",
+              identical(as.character(s),
+                        c("9007199254740992", "9007199254740993")))
+})
+
+## as.list() keeps the names, and is.na() sees through the boxes it makes
+local({
+    x <- setNames(as.int64(1:2), c("a", "b"))
+    stopifnot(identical(names(as.list(x)), c("a", "b")),
+              identical(names(lapply(x, function(z) 1L)), c("a", "b")))
+    stopifnot(identical(is.na(as.list(as.int64(c(1L, NA)))), c(FALSE, TRUE)))
+})
+
+## a binary operator merges both operands' attributes, as every *_binary()
+## does -- the right one used to be dropped whenever the left had any
+stopifnot(identical(sort(names(attributes(structure(as.int64(1:3), units = "m") +
+                                          structure(as.int64(1:3), foo = "bar")))),
+                    c("foo", "units")))
+
+## 10^19 is past INT64_MAX but still divides a 64-bit value exactly, so it
+## decides between zero and an overflow rather than being one
+stopifnot(as.character(round(as.uint64("9000000000000000000"), -19)) ==
+              "10000000000000000000",
+          as.character(round(as.int64("4000000000000000000"), -19)) == "0",
+          as.character(round(as.uint64("10000000000000000000"), -19)) ==
+              "10000000000000000000")
+assertWarning(round(as.int64("9000000000000000000"), -19))  # 1e19: no int64
+stopifnot(is.na(suppressWarnings(round(as.int64("9000000000000000000"), -19))))
+
+## the opaque operand relaxes the numeric check for the *other* operand's
+## type, but not for something that is not a vector at all: XLENGTH() would
+## read the wrong union member of a symbol or a closure
+assertError(as.int64(1:3) + quote(a))
+assertError(as.int64(1:3) + sum)
+assertError(as.int64(1:3) + new.env())
+
+## %% and %/% by zero are NA, quietly: that is not an overflow
+stopifnot(is.na(as.int64(5L) %% as.int64(0L)),
+          is.na(as.int64(5L) %/% as.int64(0L)))
+local({
+    ## a vector with no NA to fall back on says which cause it is
+    e <- tryCatch(as.int64(5L, na = FALSE) %/% as.int64(0L, na = FALSE),
+                  error = conditionMessage)
+    stopifnot(grepl("division by zero", e))
+})
+
+## unique() of an empty opaque vector: allocVector(ALTSXP, 0) has no meaning
+stopifnot(identical(unique(int64()), int64()),
+          identical(unique(as.int64(integer())), int64()),
+          identical(duplicated(int64()), logical()),
+          anyDuplicated(int64()) == 0L)
+
+## a classed non-atomic object with an xtfrm method still reaches
+## sort.list()'s radix path; the opaque storage test must not gate it
+local({
+    xtfrm.altsxpTest <- function(x) unlist(unclass(x))
+    length.altsxpTest <- function(x) length(unclass(x))
+    ## register them where sort.list() will find them
+    environment(xtfrm.altsxpTest) <- environment(length.altsxpTest) <-
+        globalenv()
+    assign("xtfrm.altsxpTest", xtfrm.altsxpTest, globalenv())
+    assign("length.altsxpTest", length.altsxpTest, globalenv())
+    on.exit(rm(list = c("xtfrm.altsxpTest", "length.altsxpTest"),
+               envir = globalenv()))
+    a <- structure(list(3, 1, 2), class = "altsxpTest")
+    stopifnot(identical(sort.list(a), c(2L, 3L, 1L)))
+})
+
+## complex outranks an opaque element type, as it does in c(), so a complex
+## operand promotes rather than erroring
+stopifnot(identical(as.int64(1L) + 1i, 1+1i),
+          identical(as.int64(1L) == 1+0i, TRUE),
+          typeof(c(as.int64(1L), 1i)) == "complex")
+
+## for() over an opaque vector, in both interpreters
+local({
+    f <- function(v) { s <- character(); for (e in v) s <- c(s, format(e)); s }
+    stopifnot(identical(f(as.int64(1:3)), c("1", "2", "3")),
+              identical(f(as.uint64(1:2)), c("1", "2")))
+    g <- compiler::cmpfun(f)
+    stopifnot(identical(g(as.int64(1:3)), c("1", "2", "3")))
+    ## the loop variable is a length-one vector of the same class
+    for (e in as.int64(1:2)) NULL
+    stopifnot(typeof(e) == "int64", length(e) == 1L)
+})
+
+## format() gives the atomic fall-through the same prettyNum() the numeric
+## arm gets, so big.mark and friends are honoured rather than dropped
+stopifnot(identical(format(as.int64(1234567), big.mark = ","), "1,234,567"),
+          identical(format(as.int64(1:3), width = 5L), format(1:3, width = 5L)))
+
+## is.finite() and friends: all R knows about an opaque element is whether
+## the class calls it NA, and range(finite = TRUE) depends on them
+stopifnot(identical(is.finite(as.int64(c(1L, NA))), c(TRUE, FALSE)),
+          identical(is.infinite(as.int64(c(1L, NA))), c(FALSE, FALSE)),
+          identical(is.nan(as.int64(c(1L, NA))), c(FALSE, FALSE)),
+          identical(as.double(range(as.int64(c(3L, 1L, 2L)), finite = TRUE)),
+                    c(1, 3)))
+
+## min() and max() over several arguments compare the arguments' own
+## reductions, so an argument that gave up its NA keeps the whole range
+local({
+    s <- as.int64("-9223372036854775808", na = FALSE)
+    stopifnot(as.character(max(s, as.int64(1L))) == "1",
+              as.character(min(s, as.int64(1L))) == "-9223372036854775808",
+              as.character(max(as.int64(5L), 7L)) == "7",
+              as.character(max(as.int64(5L), int64())) == "5",
+              is.na(max(as.int64(NA_integer_), as.int64(1L))),
+              as.character(max(as.int64(NA_integer_), as.int64(1L),
+                               na.rm = TRUE)) == "1")
+    ## nothing to reduce warns, as it does for the base types
+    assertWarning(min(int64()))
+    stopifnot(is.na(suppressWarnings(min(int64()))))
+})
+
+## prod(), pmin() and pmax() reach an opaque vector
+stopifnot(identical(prod(as.int64(1:4)), 24),
+          identical(as.double(pmax(as.int64(1:3), as.int64(3:1))), c(3, 2, 3)),
+          identical(as.double(pmin(as.int64(1:3), 2L)), c(1, 2, 2)),
+          typeof(pmin(as.int64(1:3), 2L)) == "int64",
+          ## a double argument promotes, as it does in c()
+          typeof(pmax(as.int64(1:3), 2.5)) == "double",
+          identical(as.double(pmin(as.int64(c(1L, NA, 3L)), as.int64(2L))),
+                    c(1, NA, 2)),
+          identical(as.double(pmin(as.int64(c(1L, NA, 3L)), as.int64(2L),
+                                   na.rm = TRUE)), c(1, 2, 2)))
+
+## rowsum() sums opaque columns exactly rather than dying in allocMatrix()
+stopifnot(identical(as.double(rowsum(as.int64(1:3), c(1, 1, 2))), c(3, 3)),
+          identical(as.double(rowsum(matrix(as.int64(1:6), 3L), c(1, 1, 2))),
+                    c(3, 3, 9, 6)),
+          identical(as.double(rowsum(data.frame(a = as.int64(1:3)),
+                                     c(1, 1, 2))$a), c(3, 3)))
+
+## psort() partially sorts an opaque vector rather than sorting all of it;
+## every requested position must still hold the fully sorted value
+local({
+    set.seed(11)
+    v <- sample(-50:50, 200L, replace = TRUE)
+    ind <- c(3L, 100L, 197L)
+    got <- .Internal(psort(as.int64(v), ind))
+    stopifnot(identical(as.double(got)[ind], as.double(sort(v)[ind])))
+    stopifnot(identical(as.double(median(as.int64(v))), median(as.double(v))))
+})
+
+## which.min()/which.max() test the sign of the comparison, which is all a
+## Compare method promises
+stopifnot(identical(which.min(as.int64(c(3L, 1L, 2L))), 2L),
+          identical(which.max(as.int64(c(3L, 1L, 2L))), 1L))
+
+## print() names the element type on its own line, and survives a class
+## that reports none
+stopifnot(identical(capture.output(print(as.int64(1:2))),
+                    c("<int64[2]>", "[1] 1 2")))
+
+## the shared formatter honours options(na.print=), rather than spelling
+## NA out itself
+local({
+    op <- options(na.print = "...")
+    on.exit(options(op))
+    stopifnot(identical(format(as.int64(c(1L, NA))), format(c(1L, NA))))
 })
 
 cat("altsxp tests OK\n")

@@ -518,13 +518,15 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 
 /* 'lax' is set when the other operand is an opaque vector: what its class
    accepts is the class's decision, so the check is left to the dispatch
-   below, which reports the same error when the class declines. */
+   below, which reports the same error when the class declines.  A non-vector
+   is still rejected here, because R_binary() goes on to take its XLENGTH()
+   -- which for a symbol or an environment reads the wrong union member. */
 #define FIXUP_NULL_AND_CHECK_TYPES(v, vpi, lax) do { \
     switch (TYPEOF(v)) { \
     case NILSXP: REPROTECT(v = allocVector(INTSXP,0), vpi); break; \
     case CPLXSXP: case REALSXP: case INTSXP: case LGLSXP: break; \
     default: \
-	if (!(lax)) \
+	if (!(lax) || !isVector(v)) \
 	    errorcall(call, _("non-numeric argument to binary operator")); \
     } \
 } while (0)
@@ -666,28 +668,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
-    if (altsxp) {
-	/* An ALTSXP has no base type to fall back on, so the class computes
-	   the result.  Dispatching here rather than at the top of R_binary()
-	   means the conformability, recycling and attribute rules above and
-	   below apply to it as they do to the base types; group dispatch has
-	   already run in do_arith()/cmp_arith2(), so an S3 or S4 method
-	   still takes precedence. */
-	val = ALTSXP_ARITH(call, op, x, y);
-	if (val == NULL)
-	    errorcall(call, _("non-numeric argument to binary operator"));
-
-	/* *_binary() gets this from R_allocOrReuseVector(), which hands back
-	   an operand of the right length along with its attributes */
-	SEXP proto = (xattr && XLENGTH(val) == nx) ? x
-	    : ((yattr && XLENGTH(val) == ny) ? y : NULL);
-	if (proto != NULL && proto != val) {
-	    PROTECT(val);
-	    copyMostAttrib(proto, val);
-	    UNPROTECT(1);
-	}
-    }
-    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
@@ -695,6 +676,28 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 	COERCE_IF_NEEDED(x, CPLXSXP, xpi);
 	COERCE_IF_NEEDED(y, CPLXSXP, ypi);
 	val = complex_binary(oper, x, y);
+    }
+    else if (altsxp) {
+	/* An ALTSXP has no base type to fall back on, so the class computes
+	   the result.  Dispatching here rather than at the top of R_binary()
+	   means the conformability, recycling and attribute rules above and
+	   below apply to it as they do to the base types; group dispatch has
+	   already run in do_arith()/cmp_arith2(), so an S3 or S4 method
+	   still takes precedence.  It sits below the complex arm because an
+	   opaque element type ranks below complex, exactly as in c(). */
+	val = ALTSXP_ARITH(call, op, x, y);
+	if (val == NULL)
+	    errorcall(call, _("non-numeric argument to binary operator"));
+
+	/* *_binary() ends by copying from both operands, s2 first so that s1
+	   wins a tie; each gets its attributes from R_allocOrReuseVector(),
+	   which hands back an operand of the right length. */
+	PROTECT(val);
+	if (val != y && XLENGTH(val) == ny && yattr)
+	    copyMostAttrib(y, val);
+	if (val != x && XLENGTH(val) == nx && xattr)
+	    copyMostAttrib(x, val);
+	UNPROTECT(1);
     }
     else if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP) {
 	/* real_binary can handle REALSXP or INTSXP operand, but not LGLSXP. */

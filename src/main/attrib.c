@@ -25,6 +25,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 
 #ifdef Win32
 #include <trioremap.h> /* for %lld */

@@ -35,6 +35,10 @@
 #include <trioremap.h> /* for %lld */
 #endif
 
+/* as in arithmetic.c and relop.c: how often a long element loop stops to
+   let the user interrupt it */
+#define NINTERRUPT 10000000
+
 
 /***
  *** ALTREP Concrete Class Implementations
@@ -2998,11 +3002,25 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
     R_xlen_t ia = 0, ib = 0;
 
     for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	if (ia == nx) ia = 0;
 	if (ib == ny) ib = 0;
 
 	int64_t a = pa[ia], b = pb[ib], r = 0;
 	if (has_na && (a == nav || b == nav)) {
+	    out[i] = nav;
+	    continue;
+	}
+
+	/* base R's integer %% and %/% give NA for a zero divisor and say
+	   nothing about it; an object with no NA to fall back on has to
+	   report that, rather than blaming an overflow that did not happen */
+	if (b == 0 && (code == I64_IDIV || code == I64_MOD)) {
+	    if (!has_na) {
+		UNPROTECT(3);
+		errorcall(call, _("division by zero, and this %s vector cannot represent NA"),
+			  uns ? "uint64" : "int64");
+	    }
 	    out[i] = nav;
 	    continue;
 	}
@@ -3014,8 +3032,8 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 	    case I64_ADD:  bad = u64_add(ua, ub, &ur); break;
 	    case I64_SUB:  bad = u64_sub(ua, ub, &ur); break;
 	    case I64_MUL:  bad = u64_mul(ua, ub, &ur); break;
-	    case I64_IDIV: if (!(bad = (ub == 0))) ur = ua / ub; break;
-	    default:       if (!(bad = (ub == 0))) ur = ua % ub; break;
+	    case I64_IDIV: ur = ua / ub; break;
+	    default:       ur = ua % ub; break;
 	    }
 	    r = (int64_t) ur;
 	}
@@ -3025,14 +3043,14 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 	    case I64_SUB: bad = i64_sub(a, b, &r); break;
 	    case I64_MUL: bad = i64_mul(a, b, &r); break;
 	    case I64_IDIV:
-		bad = (b == 0) || (a == INT64_MIN && b == -1);
+		bad = (a == INT64_MIN && b == -1);
 		if (!bad) {
 		    r = a / b;
 		    if (a % b != 0 && (a < 0) != (b < 0)) r--;
 		}
 		break;
 	    default:
-		bad = (b == 0) || (a == INT64_MIN && b == -1);
+		bad = (a == INT64_MIN && b == -1);
 		if (!bad) {
 		    r = a % b;
 		    if (r != 0 && (r < 0) != (b < 0)) r += b;
@@ -3183,6 +3201,7 @@ static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
     R_xlen_t ia = 0, ib = 0;
 
     for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	if (ia == nx) ia = 0;
 	if (ib == ny) ib = 0;
 
@@ -3209,6 +3228,11 @@ static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
 
 static SEXP i64_cumulate(SEXP call, const char *op, SEXP x)
 {
+    /* resolved once rather than per element; i64_Math() sends nothing else */
+    enum { CUM_SUM, CUM_MAX, CUM_MIN } code =
+	!strcmp(op, "cumsum") ? CUM_SUM
+	: (!strcmp(op, "cummax") ? CUM_MAX : CUM_MIN);
+
     R_xlen_t n = i64_length(x);
     const int64_t *p = i64_data(x);
     int has_na, uns = i64_unsigned(x);
@@ -3234,17 +3258,16 @@ static SEXP i64_cumulate(SEXP call, const char *op, SEXP x)
 	int bad = FALSE;
 	if (i == 0)
 	    acc = v;
-	else if (!strcmp(op, "cumsum"))
+	else switch (code) {
+	case CUM_SUM:
 	    bad = uns ? u64_acc(&acc, v) : i64_add(acc, v, &acc);
-	else if (!strcmp(op, "cummax")) {
+	    break;
+	case CUM_MAX:
 	    if (i64_cmp(v, acc, uns) > 0) acc = v;
-	}
-	else if (!strcmp(op, "cummin")) {
+	    break;
+	default: /* CUM_MIN */
 	    if (i64_cmp(v, acc, uns) < 0) acc = v;
-	}
-	else {
-	    UNPROTECT(1);
-	    errorcall(call, _("'%s' is not defined for %s"), op, i64_name(x));
+	    break;
 	}
 
 	if (!bad && nullable && acc == nav)
@@ -3304,13 +3327,16 @@ static SEXP i64_absolute(SEXP call, const char *op, SEXP x)
     return ans;
 }
 
-/* 10^k as an int64, or 0 when that is out of range. */
-static int64_t i64_pow10(int k)
+/* 10^k as a uint64, or 0 when that is out of range, i.e. for k > 19.  The
+   divisor can be wider than the type being rounded: 10^19 is past INT64_MAX
+   but still divides an int64 exactly, and the quotient decides whether the
+   result is zero or an overflow. */
+static uint64_t i64_pow10(int k)
 {
-    int64_t p = 1;
+    uint64_t p = 1;
 
     for (int i = 0; i < k; i++) {
-	if (p > INT64_MAX / 10)
+	if (p > UINT64_MAX / 10)
 	    return 0;
 	p *= 10;
     }
@@ -3369,29 +3395,36 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 	else
 	    k = -digits;
 
-	int64_t pow = i64_pow10(k);
-	if (pow == 0) { /* more places than any 64-bit value has */
+	uint64_t pow = i64_pow10(k);
+	if (pow == 0) {
+	    /* 10^k is past UINT64_MAX and so more than twice any magnitude
+	       this type holds: everything rounds to zero */
 	    out[i] = 0;
 	    continue;
 	}
 
-	/* v / pow rounded half to even, then scaled back, all exactly */
+	/* |v| / pow rounded half to even, then scaled back, all exactly.  The
+	   halfway test is a subtraction because 2 * ur overflows once pow is
+	   above 2^63. */
+	uint64_t uv = uns ? (uint64_t) v
+	    : (uint64_t) (v < 0 ? -(uint64_t) v : (uint64_t) v);
+	uint64_t uq = uv / pow, ur = uv % pow, ures = 0;
+	if (ur > pow - ur || (ur == pow - ur && (uq & 1)))
+	    uq++;
+
 	int64_t res = 0;
-	int bad;
-	if (uns) {
-	    uint64_t uv = (uint64_t) v, up = (uint64_t) pow;
-	    uint64_t uq = uv / up, ur = uv % up, ures = 0;
-	    if (ur * 2 > up || (ur * 2 == up && (uq & 1)))
-		uq++;
-	    bad = u64_mul(uq, up, &ures);
-	    res = (int64_t) ures;
-	}
-	else {
-	    int64_t q = v / pow, r = v % pow;
-	    int64_t ar = r < 0 ? -r : r;
-	    if (ar * 2 > pow || (ar * 2 == pow && (q & 1)))
-		q += (v < 0) ? -1 : 1;
-	    bad = i64_mul(q, pow, &res);
+	int bad = u64_mul(uq, pow, &ures);
+	if (!bad) {
+	    if (uns)
+		res = (int64_t) ures;
+	    else if (v < 0) {
+		bad = ures > (uint64_t) INT64_MAX + 1; /* -2^63 is a value */
+		res = (int64_t) (0 - ures);
+	    }
+	    else {
+		bad = ures > (uint64_t) INT64_MAX;
+		res = (int64_t) ures;
+	    }
 	}
 
 	if (!bad && has_na && res == na)

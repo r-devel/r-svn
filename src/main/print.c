@@ -64,6 +64,7 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include "Print.h"
 #include "Fileio.h"
 #include "Rconnections.h"
@@ -917,8 +918,10 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	       allocate, and fmt is not reachable from anywhere else */
 	    PROTECT_INDEX fpi;
 	    PROTECT_WITH_INDEX(fmt == NULL ? R_NilValue : fmt, &fpi);
+	    SEXP et = ALTSXP_ELT_TYPE(s);
 	    Rprintf("<%s[%lld]>\n",
-		    CHAR(PRINTNAME(ALTSXP_ELT_TYPE(s))), (long long) n_);
+		    et == R_NilValue ? "altrep" : CHAR(PRINTNAME(et)),
+		    (long long) n_);
 	    if (fmt != NULL) {
 		REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
 

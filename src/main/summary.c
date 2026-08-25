@@ -588,6 +588,95 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
 
+    /* prod() answers with a double even for integers, and no class has a
+       product method, so an opaque argument is worth what its class says it
+       is worth as a double -- the same trade mean() makes above. */
+    if (PRIMVAL(op) == 4)
+	for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	    if (TYPEOF(CAR(a)) == ALTSXP)
+		SETCAR(a, coerceVector(CAR(a), REALSXP));
+
+    /* min() and max() build no new value: one of the arguments is the
+       answer.  When the opaque element type wins the promotion -- every
+       argument is of it, or of a type it subsumes -- each argument is
+       reduced on its own and the winners compared, so an argument that gave
+       up its NA keeps the whole range of its element type.  The c() path
+       below has to pick a single domain for the vector it builds, and would
+       have to widen such an argument.  sum() does build a value, so it keeps
+       that path. */
+    if (CDR(args) != R_NilValue && (PRIMVAL(op) == 2 || PRIMVAL(op) == 3)) {
+	SEXP proto = NULL;
+	bool foldable = true;
+	for (SEXP a = args; a != R_NilValue && foldable; a = CDR(a)) {
+	    if (TAG(a) == R_NaRmSymbol)
+		continue;
+	    switch (TYPEOF(CAR(a))) {
+	    case RAWSXP: case LGLSXP: case INTSXP:
+		break;
+	    case ALTSXP:
+		if (proto == NULL)
+		    proto = CAR(a);
+		else if (ALTSXP_ELT_TYPE(CAR(a)) != ALTSXP_ELT_TYPE(proto))
+		    foldable = false;
+		break;
+	    default:
+		foldable = false;
+	    }
+	}
+
+	if (foldable && proto != NULL) {
+	    int want = (PRIMVAL(op) == 2) ? -1 : 1;
+	    SEXP best = R_NilValue;
+	    PROTECT_INDEX bpi;
+	    PROTECT_WITH_INDEX(best, &bpi);
+
+	    for (SEXP a = args; a != R_NilValue; a = CDR(a)) {
+		SEXP v = CAR(a);
+		if (TAG(a) == R_NaRmSymbol || xlength(v) == 0)
+		    continue;	/* an empty argument contributes nothing */
+		if (TYPEOF(v) != ALTSXP) {
+		    v = R_altsxp_coerce_from(proto, v);
+		    if (v == NULL) {
+			foldable = false;
+			break;
+		    }
+		}
+		PROTECT(v);
+		SEXP one = (want < 0) ? ALTSXP_MIN(v, narm)
+		    : ALTSXP_MAX(v, narm);
+		UNPROTECT(1); /* v */
+		if (one == NULL) {
+		    foldable = false;	/* the class declines to reduce */
+		    break;
+		}
+		PROTECT(one);
+
+		int na;
+		R_altsxp_is_na_region(one, 0, 1, &na);
+		if (na) {
+		    if (!narm) {
+			/* an NA anywhere is the answer, as for the base
+			   types; with na.rm this argument had nothing */
+			REPROTECT(best = one, bpi);
+			UNPROTECT(1);
+			break;
+		    }
+		}
+		else if (best == R_NilValue ||
+			 (want < 0 ? ALTSXP_COMPARE(one, 0, best, 0) < 0
+			           : ALTSXP_COMPARE(one, 0, best, 0) > 0))
+		    REPROTECT(best = one, bpi);
+		UNPROTECT(1); /* one */
+	    }
+
+	    if (foldable && best != R_NilValue) {
+		UNPROTECT(2); /* best, args */
+		return best;
+	    }
+	    UNPROTECT(1); /* best */
+	}
+    }
+
     /* The accumulator below works on R's own storage types, so it has no way
        to add up opaque elements.  Several arguments are combined first --
        with the rules c() already implements, which is where the promotion
@@ -659,6 +748,20 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	}
 	if(toret != NULL) {
+	    /* With nothing to reduce base R warns and returns +/-Inf; an
+	       exact element type has no infinity, so NA it is -- but the
+	       warning still belongs here, where the whole call is in view.
+	       With na.rm an NA answer means every element was missing, since
+	       min() and max() return one of their inputs. */
+	    if (TYPEOF(vec) == ALTSXP &&
+		(PRIMVAL(op) == 2 || PRIMVAL(op) == 3)) {
+		int empty = XLENGTH(vec) == 0;
+		if (!empty && narm && TYPEOF(toret) == ALTSXP)
+		    R_altsxp_is_na_region(toret, 0, 1, &empty);
+		if (empty)
+		    warning(_("no non-missing arguments to %s; returning NA"),
+			    PRIMVAL(op) == 2 ? "min" : "max");
+	    }
 	    UNPROTECT(1); /* args */
 	    return toret;
 	}
@@ -1162,7 +1265,13 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    int na;
 	    R_altsxp_is_na_region(sx, i, 1, &na);
 	    if (na) continue;
-	    if (indx == -1 || ALTSXP_COMPARE(sx, i, sx, indx) == want)
+	    if (indx == -1) {
+		indx = i;
+		continue;
+	    }
+	    /* the method promises only the sign of the comparison */
+	    int cmp = ALTSXP_COMPARE(sx, i, sx, indx);
+	    if (want < 0 ? cmp < 0 : cmp > 0)
 		indx = i;
 	}
     }
@@ -1266,6 +1375,44 @@ attribute_hidden SEXP do_which(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
+/* pmin() and pmax() promote by the same ranking c() uses: an opaque element
+   type subsumes the R integer types and loses to double and character.  The
+   SEXPTYPE order the base types rely on would put ALTSXP above all of them,
+   since it was added last. */
+static int pm_rank(SEXPTYPE t)
+{
+    switch (t) {
+    case NILSXP:  case LGLSXP: return 0;
+    case INTSXP:  return 1;
+    case ALTSXP:  return 2;
+    case REALSXP: return 3;
+    default:      return 4;	/* STRSXP */
+    }
+}
+
+/* One argument of an opaque pmin()/pmax(), in the result's representation:
+   an ordinary vector is rendered by the class, and an opaque one is widened
+   if the result can be NA and it cannot -- the rules AltsxpArg() applies for
+   c(), because a single result vector is being built here too. */
+static SEXP PmaxAltsxpArg(SEXP proto, SEXP u, SEXP call)
+{
+    if (TYPEOF(u) == ALTSXP) {
+	if (ALTSXP_ELT_TYPE(u) != ALTSXP_ELT_TYPE(proto))
+	    errorcall(call, _("arguments have no element type in common"));
+	if (! R_altsxp_nullable(proto) || R_altsxp_nullable(u))
+	    return u;
+	SEXP w = R_altsxp_na_widen(u);
+	if (w == NULL)
+	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(u));
+	return w;
+    }
+
+    SEXP v = R_altsxp_coerce_from(proto, u);
+    if (v == NULL)
+	errorcall(call, _("invalid input type"));
+    return v;
+}
+
 /* op = 0 is pmin, op = 1 is pmax
    NULL and logicals are handled as if they had been coerced to integer.
  */
@@ -1285,6 +1432,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
     case INTSXP:
     case REALSXP:
     case STRSXP:
+    case ALTSXP:
 	break;
     default:
 	error(_("invalid input type"));
@@ -1303,11 +1451,12 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case INTSXP:
 	case REALSXP:
 	case STRSXP:
+	case ALTSXP:
 	    break;
 	default:
 	    error(_("invalid input type"));
 	}
-	if(type > anstype) anstype = type;
+	if(pm_rank(type) > pm_rank(anstype)) anstype = type;
 	n = xlength(x);
 	if ((len > 0) ^ (n > 0)) {
 	    // till 2.15.0:  error(_("cannot mix 0-length vectors with others"));
@@ -1317,7 +1466,12 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	len = imax2(len, n);
     }
     if(anstype < INTSXP) anstype = INTSXP;
-    if(len == 0) return allocVector(anstype, 0);
+    if(len == 0) {
+	if (anstype != ALTSXP) return allocVector(anstype, 0);
+	for(a = args; a != R_NilValue; a = CDR(a))
+	    if (TYPEOF(CAR(a)) == ALTSXP)
+		return R_allocVectorLike(CAR(a), 0);
+    }
     /* Check for fractional recycling (added in 2.14.0) */
     for(a = args; a != R_NilValue; a = CDR(a)) {
 	n = xlength(CAR(a));
@@ -1327,7 +1481,52 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
     }
 
-    SEXP ans = PROTECT(allocVector(anstype, len));
+    SEXP ans;
+    if (anstype == ALTSXP) {
+	/* An opaque element has no C type this switch could read, so the
+	   class moves whole elements and answers the comparisons; the NA
+	   tests below are the base arms', with Is_na_region in place of the
+	   type's own sentinel. */
+	SEXP proto = NULL;
+	for(a = args; a != R_NilValue; a = CDR(a)) {
+	    SEXP u = CAR(a);
+	    if (TYPEOF(u) != ALTSXP)
+		continue;
+	    /* the result must be able to hold NA if any argument can */
+	    if (proto == NULL ||
+		(! R_altsxp_nullable(proto) && R_altsxp_nullable(u)))
+		proto = u;
+	}
+
+	PROTECT(ans = R_allocVectorLike(proto, len));
+
+	PROTECT(x = PmaxAltsxpArg(proto, CAR(args), call));
+	R_altsxp_recycle_region(ans, 0, x, len);
+	UNPROTECT(1);
+
+	for(a = CDR(args); a != R_NilValue; a = CDR(a)) {
+	    PROTECT(x = PmaxAltsxpArg(proto, CAR(a), call));
+	    n = XLENGTH(x);
+	    for(i = 0, i1 = 0; i < len; i++, i1++) {
+		if (i1 == n) i1 = 0;
+		int na_ans, na_x;
+		R_altsxp_is_na_region(ans, i, 1, &na_ans);
+		R_altsxp_is_na_region(x, i1, 1, &na_x);
+		int cmp = (na_ans || na_x) ? 0 : ALTSXP_COMPARE(x, i1, ans, i);
+		if ((narm && na_ans) ||
+		    (!na_ans && !na_x &&
+		     (PRIMVAL(op) == 1 ? cmp > 0 : cmp < 0)) ||
+		    (!narm && na_x))
+		    R_altsxp_copy_region(ans, i, x, i1, 1);
+	    }
+	    UNPROTECT(1);
+	}
+
+	UNPROTECT(1); /* ans */
+	return ans;
+    }
+
+    PROTECT(ans = allocVector(anstype, len));
     switch(anstype) {
     case INTSXP:
     {

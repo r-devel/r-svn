@@ -734,6 +734,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case ALTSXP:
 	for (i = 0; i < n && nameData->count <= 1; i++)
 	    nameData->count++;
 	break;
@@ -802,6 +803,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case ALTSXP:
 	for (i = 0; i < n; i++) {
 	    namei = ItemName(names, i);
 	    namei = NewName(base, namei, ++(nameData->seqno), nameData->count);
@@ -1426,11 +1428,8 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t k = XLENGTH(uu);
 		if (k > 0) {
 		    R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		    R_xlen_t i, i1;
-		    MOD_ITERATE1(idx, k, i, i1, {
-			R_altsxp_copy_region(result, n, uu, i1, 1);
-			n++;
-		    });
+		    R_altsxp_recycle_region(result, n, uu, idx);
+		    n += idx;
 		}
 		UNPROTECT(1);
 	    }
@@ -1453,6 +1452,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		case STRSXP:
 		case VECSXP:
 		case LISTSXP:
+		case ALTSXP:
 		    PROTECT(u = coerceVector(u, mode));
 		    R_xlen_t k = XLENGTH(u);
 		    if (k > 0) {

@@ -1186,6 +1186,12 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
 	    REAL(idx)[0] = (double) (i + 1);
 	    SET_VECTOR_ELT(ans, i, ExtractSubset(v, idx, R_NilValue));
 	}
+	if (type == VECSXP) {
+	    /* as coerceToVectorList() ends; coerceToExpression() does not */
+	    SEXP nms = getAttrib(v, R_NamesSymbol);
+	    if (nms != R_NilValue)
+		setAttrib(ans, R_NamesSymbol, nms);
+	}
 	UNPROTECT(2);
 	return ans;
     }
@@ -1793,6 +1799,26 @@ attribute_hidden SEXP do_ascall(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
+/* The first element of an opaque vector as a length-one vector of 'type'.
+   The as*() accessors below have no C type to read an opaque payload as, so
+   the class renders the element; only the one element, since these are
+   reached with a whole vector too (asReal(x) for `if (x)`, say). */
+static SEXP altsxp_first_as(SEXP x, SEXPTYPE type)
+{
+    SEXP one = x;
+    if (XLENGTH(x) != 1) {
+	SEXP idx = PROTECT(ScalarReal(1));
+	one = ExtractSubset(x, idx, R_NilValue);
+	UNPROTECT(1);
+    }
+
+    PROTECT(one);
+    SEXP ans = coerceVector(one, type);
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* return int, not Rboolean, for NA_LOGICAL : */
 attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 {
@@ -1817,6 +1843,8 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	    return LogicalFromString(STRING_ELT(x, 0), &warn);
 	case RAWSXP:
 	    return LogicalFromInteger((int)RAW_ELT(x, 0), &warn);
+	case ALTSXP:
+	    return LOGICAL_ELT(altsxp_first_as(x, LGLSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asLogical", x);
 	}
@@ -1890,6 +1918,8 @@ int asInteger(SEXP x)
 	    res = IntegerFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case ALTSXP:
+	    return INTEGER_ELT(altsxp_first_as(x, INTSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asInteger", x);
 	}
@@ -1920,6 +1950,7 @@ R_xlen_t asXLength(SEXP x)
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
+	case ALTSXP:	/* asReal() below asks the class */
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("asXLength", x);
@@ -1959,6 +1990,8 @@ double asReal(SEXP x)
 	    res = RealFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case ALTSXP:
+	    return REAL_ELT(altsxp_first_as(x, REALSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asReal", x);
 	}
@@ -1995,6 +2028,8 @@ Rcomplex asComplex(SEXP x)
 	    z = ComplexFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return z;
+	case ALTSXP:
+	    return COMPLEX_ELT(altsxp_first_as(x, CPLXSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asComplex", x);
 	}
@@ -2290,6 +2325,14 @@ static R_INLINE void copyDimAndNames(SEXP x, SEXP ans)
     }
 }
 
+/* The NA flags of x[0..n-1] in one call, insisting the class report them
+   all: a short answer would leave the tail of buf uninitialised. */
+static void altsxp_na_flags(SEXP x, R_xlen_t n, int *buf)
+{
+    if (n > 0 && R_altsxp_is_na_region(x, 0, n, buf) != n)
+	error(_("'%s' method reported too few elements"), "Is_na_region");
+}
+
 attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, x;
@@ -2313,7 +2356,7 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     int *pa = LOGICAL(ans);
     switch (TYPEOF(x)) {
     case ALTSXP:
-	R_altsxp_is_na_region(x, 0, n, pa);
+	altsxp_na_flags(x, n, pa);
 	break;
     case LGLSXP:
        for (i = 0; i < n; i++)
@@ -2359,6 +2402,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 			Rcomplex v = COMPLEX_ELT(s, 0);			\
 			pa[i] = (ISNAN(v.r) || ISNAN(v.i));		\
 		    }							\
+		    break;						\
+		case ALTSXP:						\
+		    R_altsxp_is_na_region(s, 0, 1, &pa[i]);		\
 		    break;						\
 		default:						\
 		    pa[i] = 0;						\
@@ -2430,11 +2476,14 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 	R_xlen_t nb = n > 512 ? 512 : n;
 	const void *vmax = vmaxget();
 	int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
-	for (R_xlen_t i = 0; i < n; i += nb) {
+	for (R_xlen_t i = 0; i < n; ) {
 	    R_xlen_t k = n - i > nb ? nb : n - i;
-	    R_altsxp_is_na_region(x, i, k, buf);
+	    k = R_altsxp_is_na_region(x, i, k, buf);
+	    if (k <= 0)
+		error(_("'%s' method reported no elements"), "Is_na_region");
 	    for (R_xlen_t j = 0; j < k; j++)
 		if (buf[j]) { vmaxset(vmax); return true; }
+	    i += k;
 	}
 	vmaxset(vmax);
 	return false;
@@ -2584,6 +2633,11 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    /* All R knows about an opaque element is whether the class calls it NA:
+       there is no generic notion of an infinity or a NaN, so an exact type
+       is assumed.  A class whose elements do have non-finite values defines
+       an S3 method, which DispatchOrEval() above reaches first. */
+    case ALTSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -2648,6 +2702,12 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
+    case ALTSXP:
+	/* as in is.nan(): an opaque element is finite unless it is NA */
+	altsxp_na_flags(x, n, pa);
+	for (i = 0; i < n; i++)
+	    pa[i] = !pa[i];
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = R_FINITE(REAL_ELT(x, i));
@@ -2711,6 +2771,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case ALTSXP:	/* as in is.nan() */
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;

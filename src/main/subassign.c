@@ -391,6 +391,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
 
     case 1014:	/* logical    <- real	    */
     case 1314:	/* integer    <- real	    */
+    case 2614:	/* opaque vector <- real    */
 
 	*x = coerceVector(*x, REALSXP);
 	break;
@@ -398,6 +399,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1015:	/* logical    <- complex    */
     case 1315:	/* integer    <- complex    */
     case 1415:	/* real	      <- complex    */
+    case 2615:	/* opaque vector <- complex */
 
 	*x = coerceVector(*x, CPLXSXP);
 	break;
@@ -427,6 +429,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1316:	/* integer    <- character  */
     case 1416:	/* real	      <- character  */
     case 1516:	/* complex    <- character  */
+    case 2616:	/* opaque vector <- character */
 
 	*x = coerceVector(*x, STRSXP);
 	break;
@@ -475,6 +478,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1519:  /* complex    <- vector     */
     case 1619:  /* character  <- vector     */
     case 2419:  /* raw        <- vector     */
+    case 2619:  /* opaque vector <- vector  */
 	*x = coerceVector(*x, VECSXP);
 	break;
 
@@ -484,6 +488,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1520:  /* complex    <- expression */
     case 1620:  /* character  <- expression */
     case 2420:  /* raw        <- expression */
+    case 2620:  /* opaque vector <- expression */
 	*x = coerceVector(*x, EXPRSXP);
 	break;
 
@@ -525,6 +530,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1525: /* complex   <- S4|OBJ */
     case 1625: /* character <- S4|OBJ */
     case 2425: /* raw       <- S4|OBJ */
+    case 2625: /* opaque vector <- S4|OBJ */
         if (dispatch_asvector(y, call, rho)) {
 	    /*^^^^^^^^^^^^^^^ creates an unprotected *y; call below may allocate (coerceVector),
 	      so the new value has to be protected: */
@@ -671,6 +677,20 @@ static R_INLINE Rboolean AltsxpWidens(SEXP x)
     }
 }
 
+/* Is x[i] <- y done in the opaque representation, or in the RHS's?  Only the
+   winner of the same ranking gets to be the result type, so an opaque LHS
+   with a double, complex, character or list RHS falls through to
+   SubassignTypeFix(), which widens the LHS exactly as x[i] <- 1.5 widens an
+   integer vector.  A NULL RHS stays on the opaque path so that it reports
+   "replacement has length zero" as it does for the base types. */
+static R_INLINE Rboolean AltsxpAssign(SEXP x, SEXP y)
+{
+    if (TYPEOF(x) == ALTSXP)
+	return AltsxpWidens(y) || TYPEOF(y) == NILSXP;
+
+    return TYPEOF(y) == ALTSXP && AltsxpWidens(x);
+}
+
 /* Generic subassignment for an opaque vector: bring the RHS into the LHS's
    representation with Coerce_from, then move whole elements.  Nothing here
    needs to know what an element means. */
@@ -696,20 +716,56 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	}
 	REPROTECT(x = nx, xpi);
     }
-    /* growing introduces NA, so a target that cannot be NA is widened first */
-    if (stretch && ! R_altsxp_nullable(x)) {
+    /* Does the RHS bring a domain that includes NA?  Only an opaque RHS
+       carries one: an ordinary vector is rendered into the LHS's domain by
+       Coerce_from below, which reports a clash itself. */
+    Rboolean y_nullable = (Rboolean)
+	(TYPEOF(y) == ALTSXP &&
+	 ALTSXP_ELT_TYPE(y) == ALTSXP_ELT_TYPE(x) &&
+	 R_altsxp_nullable(y));
+
+    /* Growing introduces NA, and so does an RHS whose domain has one, so
+       either way a target that cannot be NA is widened first.  Widening on
+       the domain rather than on the values present is what AnswerType()
+       does for c(), and it reports the same clash. */
+    if ((stretch || y_nullable) && ! R_altsxp_nullable(x)) {
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));
+	if (ATTRIB(x) != R_NilValue) {
+	    /* Na_widen knows only about data, so it hands back a bare
+	       vector; the names and dim of the target are still the
+	       target's */
+	    PROTECT(w);
+	    SHALLOW_DUPLICATE_ATTRIB(w, x);
+	    UNPROTECT(1);
+	}
 	REPROTECT(x = w, xpi);
     }
 
     if (stretch)
 	REPROTECT(x = EnlargeVector(x, stretch), xpi);
 
+    R_xlen_t n = xlength(indx), ny = xlength(y), nx = xlength(x);
+    if (n > 0 && ny == 0)
+	error(_("replacement has length zero"));
+
     SEXP yy;
-    if (TYPEOF(y) == ALTSXP && ALTSXP_ELT_TYPE(y) == ALTSXP_ELT_TYPE(x))
+    if (ny == 0)
+	yy = y;			/* nothing to move, and n is zero too */
+    else if (TYPEOF(y) == ALTSXP && ALTSXP_ELT_TYPE(y) == ALTSXP_ELT_TYPE(x)) {
+	/* The element types agree, but the two sides can still disagree on
+	   what the NA pattern means, and a raw copy would then launder a
+	   missing value into data or an extreme value into NA.  x was
+	   widened above if y needed it; this is the other direction, the one
+	   AltsxpArg() takes for c(). */
 	yy = y;
+	if (R_altsxp_nullable(x) && ! R_altsxp_nullable(yy)) {
+	    yy = R_altsxp_na_widen(yy);
+	    if (yy == NULL)
+		errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(y));
+	}
+    }
     else {
 	yy = R_altsxp_coerce_from(x, y);
 	if (yy == NULL) {
@@ -719,10 +775,6 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	}
     }
     PROTECT(yy);
-
-    R_xlen_t n = xlength(indx), ny = xlength(yy), nx = xlength(x);
-    if (n > 0 && ny == 0)
-	error(_("replacement has length zero"));
     if (n > 0 && n % ny)
 	warning(_("number of items to replace is not a multiple of replacement length"));
     /* as for the base types: an NA subscript names no element, so it is only
@@ -801,7 +853,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     R_xlen_t stretch = 1;
     SEXP indx = PROTECT(makeSubscript(x, s, &stretch, R_NilValue));
 
-    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
+    if (AltsxpAssign(x, y)) {
 	SEXP val = AltsxpVectorAssign(call, x, indx, stretch, y);
 	UNPROTECT(2); /* indx, s */
 	return val;
@@ -1135,7 +1187,7 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
+    if (AltsxpAssign(x, y)) {
 	/* linear indices, then the same generic element move as x[i] <- v */
 	SEXP lidx = PROTECT(allocVector(REALSXP, n));
 	double *plidx = REAL(lidx);
@@ -1395,7 +1447,7 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
 
-    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
+    if (AltsxpAssign(x, y)) {
 	/* linear indices, then the same generic element move as x[i] <- v */
 	SEXP lidx = PROTECT(allocVector(REALSXP, n));
 	double *plidx = REAL(lidx);
@@ -2104,7 +2156,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 
 	SEXP old_x = x;
-	if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
+	if (AltsxpAssign(x, y)) {
 	    /* x[[i]] <- v : one element, same generic machinery as x[i] <- v */
 	    SEXP ind = PROTECT(ScalarReal((double) (offset + 1)));
 	    x = AltsxpVectorAssign(call, x, ind, stretch, y);

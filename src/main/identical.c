@@ -401,11 +401,14 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	const void *vmax = vmaxget();
 	char *bx = R_alloc((size_t) nb, esz), *by = R_alloc((size_t) nb, esz);
 	Rboolean ans = TRUE;
-	for (R_xlen_t i = 0; i < n && ans; i += nb) {
+	for (R_xlen_t i = 0; i < n && ans; ) {
 	    R_xlen_t k = n - i > nb ? nb : n - i;
-	    R_altsxp_get_region(x, i, k, bx);
-	    R_altsxp_get_region(y, i, k, by);
-	    if (memcmp(bx, by, (size_t) k * esz) != 0) ans = FALSE;
+	    R_xlen_t kx = R_altsxp_get_region(x, i, k, bx);
+	    R_xlen_t ky = R_altsxp_get_region(y, i, k, by);
+	    if (kx <= 0 || kx != ky)
+		error(_("'%s' method reported no elements"), "Get_region");
+	    if (memcmp(bx, by, (size_t) kx * esz) != 0) ans = FALSE;
+	    i += kx;
 	}
 	vmaxset(vmax);
 	return ans;

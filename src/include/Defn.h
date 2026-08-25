@@ -749,8 +749,6 @@ SEXP ALTREP_UNSERIALIZE_EX(SEXP, SEXP, SEXP, int, int);
 R_xlen_t ALTREP_LENGTH(SEXP x);
 R_xlen_t ALTREP_TRUELENGTH(SEXP x);
 void *ALTVEC_DATAPTR(SEXP x);
-SEXP ALTSXP_ELT_TYPE(SEXP x);
-size_t ALTSXP_ELT_SIZE(SEXP x);
 SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n);
 int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j);
 SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y);
@@ -762,13 +760,11 @@ int ALTSXP_IS_SORTED(SEXP x);
 int ALTSXP_NO_NA(SEXP x);
 SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
 SEXP ALTSXP_DEPARSE(SEXP x);
-unsigned int ALTREP_TRAITS(SEXP x);
-SEXP R_allocVectorLike(SEXP proto, R_xlen_t n);
-SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol);
 SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width);
-SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
-SEXP R_altsxp_na_widen(SEXP x);
-Rboolean R_altsxp_nullable(SEXP x);
+R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n);
+/* the rest of the ALTSXP consumer API -- ALTSXP_ELT_TYPE, ALTREP_TRAITS,
+   R_allocVectorLike and friends -- is declared in R_ext/Altrep.h, which the
+   files that use it include */
 const void *ALTVEC_DATAPTR_RO(SEXP x);
 const void *ALTVEC_DATAPTR_OR_NULL(SEXP x);
 SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call);

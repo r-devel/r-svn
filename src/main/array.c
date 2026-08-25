@@ -26,6 +26,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include <R_ext/RS.h>     /* for R_Calloc/R_Free, F77_CALL */
 
 // calls BLAS routines dgemm dgemv zgemm

@@ -156,6 +156,12 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *   Set_region     copy n elements from buf into positions i..i+n-1.
  *   Set_na_region  set positions i..i+n-1 to the class's NA element.
  *
+ * Each of the three region methods, and Is_na_region below, returns how many
+ * elements it actually handled.  That is n unless i..i+n-1 runs off the end
+ * of the object, and R advances its copy loops by the reported count rather
+ * than by n -- so a method that stops short must say so, or R would read
+ * whatever was already in the buffer.
+ *
  * The second group is element-type specific:
  *
  *   Is_na_region   fill buf with 0/1 for positions i..i+n-1.
@@ -270,11 +276,10 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
    traits.
 
    Every bit asserts something that departs from an ordinary R vector, so an
-   empty mask -- which is both the default method's answer and what
-   ALTREP_TRAITS() reports for anything that is not an ALTSXP -- means
-   "assume nothing special".  That is why the NA bit is stated negatively:
-   with a NULLABLE bit, a plain `traits & bit` test would read as "cannot be
-   NA" for every ordinary vector.
+   empty mask -- what ALTREP_TRAITS() reports for anything that is not an
+   ALTSXP -- means "assume nothing special".  That is why the NA bit is
+   stated negatively: with a NULLABLE bit, a plain `traits & bit` test would
+   read as "cannot be NA" for every ordinary vector.
 
    R_ALTREP_TRAITS_NUMERIC       is.numeric() is TRUE and arithmetic is
                                  meaningful.
@@ -296,7 +301,13 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
                                  Note the difference from the No_NA method:
                                  this trait is about what an object *can*
                                  hold, No_NA about what it currently *does*
-                                 hold. */
+                                 hold.
+
+                                 A class that registers no Traits method at
+                                 all gets this bit whenever it also registers
+                                 no Set_na_region method: with no way to
+                                 store an NA it is not nullable, whatever it
+                                 might prefer to claim. */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\

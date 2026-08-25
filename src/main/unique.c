@@ -1238,10 +1238,16 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 
     /* handle zero length vectors, and NULL */
     R_xlen_t n = xlength(x);
-    if (n == 0)
-	return(PRIMVAL(op) <= 1
-	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
-	       : ScalarInteger(0));
+    if (n == 0) {
+	if (PRIMVAL(op) > 1)		/* anyDuplicated() */
+	    return ScalarInteger(0);
+	if (PRIMVAL(op) != 1)		/* duplicated() */
+	    return allocVector(LGLSXP, 0);
+	/* unique(): an opaque vector cannot be allocated from its SEXPTYPE
+	   alone, so the class makes the empty one */
+	return TYPEOF(x) == ALTSXP ? R_allocVectorLike(x, 0)
+	    : allocVector(TYPEOF(x), 0);
+    }
 
     if (!isVector(x)) {
 	error(_("%s() applies only to vectors"),
@@ -2142,6 +2148,60 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 
 
+/* Order the rows by group for the opaque rowsum() below: afterwards the rows
+   of group k, counting from one as HashLookup() does, are
+   perm[start[k]] .. perm[start[k+1] - 1].  'start' has ng + 2 entries. */
+static void rowsum_group_order(const int *pmatches, R_xlen_t n, R_xlen_t ng,
+			       R_xlen_t *perm, R_xlen_t *start)
+{
+    for (R_xlen_t k = 0; k <= ng + 1; k++)
+	start[k] = 0;
+    for (R_xlen_t j = 0; j < n; j++) {
+	if (pmatches[j] < 1 || pmatches[j] > ng)
+	    error(_("invalid '%s' argument"), "group");
+	start[pmatches[j]]++;
+    }
+    for (R_xlen_t k = 1; k <= ng; k++)
+	start[k] += start[k - 1];
+
+    /* start[k] is the end of group k; filling from the back turns each one
+       into the group's beginning */
+    for (R_xlen_t j = n; j > 0; j--)
+	perm[--start[pmatches[j - 1]]] = j - 1;
+    start[ng + 1] = n;
+}
+
+/* rowsum() over an opaque element type.  There is no generic zero to start
+   an accumulator from, so each cell is formed by handing the class the
+   elements that fall in it and asking for their sum.  'off' is where this
+   column starts in x, 'ansoff' where its results start in ans. */
+static void altsxp_rowsum(SEXP ans, R_xlen_t ansoff, SEXP x, R_xlen_t off,
+			  R_xlen_t ng, const R_xlen_t *perm,
+			  const R_xlen_t *start, Rboolean narm)
+{
+    SEXP idx = R_NilValue;
+    PROTECT_INDEX ipi;
+    PROTECT_WITH_INDEX(idx, &ipi);
+
+    for (R_xlen_t k = 1; k <= ng; k++) {
+	R_xlen_t m = start[k + 1] - start[k];
+	REPROTECT(idx = allocVector(REALSXP, m), ipi);
+	double *pidx = REAL(idx);
+	for (R_xlen_t t = 0; t < m; t++)
+	    pidx[t] = (double) (off + perm[start[k] + t] + 1);
+
+	SEXP sub = PROTECT(ExtractSubset(x, idx, R_NilValue));
+	SEXP s = ALTSXP_SUM(sub, narm);
+	if (s == NULL)
+	    error(_("invalid 'type' (%s) of argument"), R_typeToChar(x));
+	PROTECT(s);
+	R_altsxp_copy_region(ans, ansoff + k - 1, s, 0, 1);
+	UNPROTECT(2); /* s, sub */
+    }
+
+    UNPROTECT(1); /* idx */
+}
+
 static SEXP
 rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 {
@@ -2163,9 +2223,21 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
 
-    PROTECT(ans = allocMatrix(TYPEOF(x), ng, p));
+    PROTECT(ans = (TYPEOF(x) == ALTSXP) ? R_allocMatrixLike(x, ng, p)
+	    : allocMatrix(TYPEOF(x), ng, p));
 
     switch(TYPEOF(x)){
+    case ALTSXP:
+    {
+	R_xlen_t *perm = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	R_xlen_t *start =
+	    (R_xlen_t *) R_alloc((size_t) ng + 2, sizeof(R_xlen_t));
+	rowsum_group_order(pmatches, n, ng, perm, start);
+	for(int i = 0; i < p; i++)
+	    altsxp_rowsum(ans, (R_xlen_t) i * ng, x, (R_xlen_t) i * n,
+			  ng, perm, start, (Rboolean) narm);
+    }
+	break;
     case REALSXP:
 	Memzero(REAL0(ans), ng*p);
 	for(int i = 0; i < p; i++) {
@@ -2239,6 +2311,10 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     PROTECT(ans = allocVector(VECSXP, p));
 
+    /* built on the first opaque column, and shared by the rest: the
+       ordering is the same for every column */
+    R_xlen_t *perm = NULL, *start = NULL;
+
     for(int i = 0; i < p; i++) {
 	xcol = VECTOR_ELT(x,i);
 	if (!isNumeric(xcol))
@@ -2274,6 +2350,22 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 	    }
 	    SET_VECTOR_ELT(ans, i, col);
 	    UNPROTECT(1);
+	    break;
+
+	case ALTSXP:
+	{
+	    if (perm == NULL) {
+		perm = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+		start = (R_xlen_t *)
+		    R_alloc((size_t) ng + 2, sizeof(R_xlen_t));
+		rowsum_group_order(pmatches, n, ng, perm, start);
+	    }
+
+	    PROTECT(col = R_allocVectorLike(xcol, ng));
+	    altsxp_rowsum(col, 0, xcol, 0, ng, perm, start, (Rboolean) narm);
+	    SET_VECTOR_ELT(ans, i, col);
+	    UNPROTECT(1);
+	}
 	    break;
 
 	default:

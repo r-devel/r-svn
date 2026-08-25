@@ -293,9 +293,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 
     switch (TYPEOF(s)) {
     case ALTSXP:
-	MOD_ITERATE1(na, ns, i, j, {
-	    R_altsxp_copy_region(a, i, s, j, 1);
-	});
+	R_altsxp_recycle_region(a, 0, s, na);
 	break;
     case LGLSXP:
 	MOD_ITERATE1(na, ns, i, j, {

@@ -22,6 +22,7 @@
 #endif
 
 #include <Defn.h>
+#include <Print.h>	/* for R_print, in the shared formatter */
 #include <R_ext/Altrep.h>
 
 
@@ -785,6 +786,26 @@ R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
     return done;
 }
 
+/* Fill n elements of dst from di on, recycling src -- the shape of c()'s and
+   rep()'s inner loops, and of cbind()'s column fill.  One copy per pass over
+   src rather than one per element. */
+attribute_hidden
+R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n)
+{
+    R_xlen_t ns = XLENGTH(src), done = 0;
+    if (ns <= 0) return 0;
+
+    while (done < n) {
+	R_xlen_t si = done % ns, k = ns - si;
+	if (k > n - done) k = n - done;
+	k = R_altsxp_copy_region(dst, di + done, src, si, k);
+	if (k <= 0) break;
+	done += k;
+    }
+
+    return done;
+}
+
 attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (! IS_ALTSXP(x) || ! IS_ALTSXP(y))
@@ -799,15 +820,34 @@ attribute_hidden SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Format, x, i, n) : NULL;
 }
 
+/* Methods are handed the operator as a symbol rather than the PRIMSXP, which
+   packages have no supported way to inspect.  install() is a hash lookup on
+   the name and these dispatchers run once per operation, so the symbol is
+   remembered per primitive: PRIMOFFSET() is a dense index into the primitive
+   table, and symbols are never collected, so the cache needs no protection
+   and can never go stale. */
+static SEXP altsxp_op_symbol(SEXP op)
+{
+    enum { NCACHE = 64 };
+    static SEXP sym[NCACHE];
+    static int cached_off[NCACHE] = { 0 };	/* offset + 1, 0 for empty */
+
+    int off = PRIMOFFSET(op), slot = off % NCACHE;
+    if (cached_off[slot] != off + 1) {
+	sym[slot] = install(PRIMNAME(op));
+	cached_off[slot] = off + 1;
+    }
+
+    return sym[slot];
+}
+
 /* Try the left operand's method, then the right one's.  A class that does
    not recognise the other operand returns NULL and the caller carries on to
    its ordinary error.  Attributes are the caller's business: both hooks sit
    inside the operator's own dim/names/ts/S4 handling. */
 attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 {
-    /* Methods are handed the operator as a symbol rather than the PRIMSXP,
-       which packages have no supported way to inspect. */
-    SEXP sym = install(PRIMNAME(op));
+    SEXP sym = altsxp_op_symbol(op);
     SEXP val = NULL;
     if (IS_ALTSXP(x))
 	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
@@ -826,11 +866,15 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width)
 {
     R_xlen_t n = XLENGTH(fmt);
+    /* an opaque element type is numeric-like, so NA renders as the numeric
+       na.print string rather than the <NA> a character column would use */
+    const char *na = CHAR(R_print.na_string);
+    int na_w = R_print.na_width;
     int w = 0;
 
     for (R_xlen_t i = 0; i < n; i++) {
 	SEXP e = STRING_ELT(fmt, i);
-	int wi = (e == NA_STRING) ? 2 : Rstrlen(e, 0);
+	int wi = (e == NA_STRING) ? na_w : Rstrlen(e, 0);
 	if (wi > w) w = wi;
     }
     if (trim) w = 0;
@@ -840,8 +884,8 @@ attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width)
     const void *vmax = vmaxget();
     for (R_xlen_t i = 0; i < n; i++) {
 	SEXP e = STRING_ELT(fmt, i);
-	const char *s = (e == NA_STRING) ? "NA" : CHAR(e);
-	int wi = (e == NA_STRING) ? 2 : Rstrlen(e, 0);
+	const char *s = (e == NA_STRING) ? na : CHAR(e);
+	int wi = (e == NA_STRING) ? na_w : Rstrlen(e, 0);
 
 	if (wi >= w)
 	    SET_STRING_ELT(ans, i, (e == NA_STRING) ? mkChar(s) : e);
@@ -919,7 +963,7 @@ attribute_hidden SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args)
 {
     SEXP x = CAR(args);
     if (! IS_ALTSXP(x)) return NULL;
-    return ALTSXP_METHODS_TABLE(x)->Math(call, install(PRIMNAME(op)), args);
+    return ALTSXP_METHODS_TABLE(x)->Math(call, altsxp_op_symbol(op), args);
 }
 
 /* The call a class offers for deparse(); NULL leaves the printer to report
@@ -937,7 +981,7 @@ attribute_hidden SEXP ALTSXP_DEPARSE(SEXP x)
 
 attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 {
-    SEXP sym = install(PRIMNAME(op));
+    SEXP sym = altsxp_op_symbol(op);
     SEXP val = NULL;
     if (IS_ALTSXP(x))
 	val = ALTSXP_METHODS_TABLE(x)->Relop(call, sym, x, y);
@@ -1292,8 +1336,15 @@ static SEXP altsxp_Relop_default(SEXP call, SEXP op, SEXP x, SEXP y)
 
 static unsigned int altsxp_Traits_default(SEXP x)
 {
-    /* No bits: assume nothing beyond what an ordinary R vector offers. */
-    return 0;
+    /* No bits: assume nothing beyond what an ordinary R vector offers --
+       except that an object is only nullable if its class can actually put
+       an NA in it, which takes a Set_na_region method.  Without one,
+       claiming to be nullable would make altsxp_Is_na_region_default() and
+       altsxp_Set_na_region_default() contradict each other on the first
+       out-of-bounds subscript. */
+    altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
+    return m->Set_na_region == altsxp_Set_na_region_default
+	? R_ALTREP_TRAITS_NOT_NULLABLE : 0;
 }
 
 static SEXP altsxp_Coerce_from_default(SEXP proto, SEXP from) { return NULL; }
@@ -1316,11 +1367,14 @@ static int altsxp_No_NA_default(SEXP x)
     const void *vmax = vmaxget();
     int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
     int ans = TRUE;
-    for (R_xlen_t i = 0; i < n && ans; i += nb) {
+    for (R_xlen_t i = 0; i < n && ans; ) {
 	R_xlen_t k = n - i > nb ? nb : n - i;
-	ALTSXP_DISPATCH(Is_na_region, x, i, k, buf);
+	k = ALTSXP_DISPATCH(Is_na_region, x, i, k, buf);
+	if (k <= 0)
+	    ALTREP_ERROR_IN_CLASS("Is_na_region method reported no elements", x);
 	for (R_xlen_t j = 0; j < k; j++)
 	    if (buf[j]) { ans = FALSE; break; }
+	i += k;
     }
     vmaxset(vmax);
     return ans;
@@ -1432,10 +1486,16 @@ static SEXP altsxp_Serialized_state_default(SEXP x)
     if (n > 0)
 	m->Get_region(x, 0, n, RAW(payload));
 
-    SEXP state = PROTECT(allocVector(VECSXP, 3));
+    /* The traits are a property of the object, not of the class, and the
+       default Unserialize below has no way to put them back -- New() gives
+       whatever the class makes by default.  Recording them lets that method
+       notice, rather than hand back an object that quietly means something
+       else than the one that was written. */
+    SEXP state = PROTECT(allocVector(VECSXP, 4));
     SET_VECTOR_ELT(state, 0, ScalarString(PRINTNAME(m->Elt_type(x))));
     SET_VECTOR_ELT(state, 1, ScalarReal((double) n));
     SET_VECTOR_ELT(state, 2, payload);
+    SET_VECTOR_ELT(state, 3, ScalarInteger((int) m->Traits(x)));
 
     UNPROTECT(2);
     return state;
@@ -1450,17 +1510,20 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
 {
     altsxp_methods_t *m = CLASS_METHODS_TABLE(class);
 
-    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 3)
+    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 4)
 	error("unexpected serialised state for an ALTSXP object");
 
     SEXP eltname = VECTOR_ELT(state, 0);
     SEXP len = VECTOR_ELT(state, 1);
     SEXP payload = VECTOR_ELT(state, 2);
+    SEXP traits = VECTOR_ELT(state, 3);
     if (TYPEOF(eltname) != STRSXP || XLENGTH(eltname) != 1 ||
 	STRING_ELT(eltname, 0) == NA_STRING ||
 	TYPEOF(payload) != RAWSXP ||
 	! (TYPEOF(len) == INTSXP || TYPEOF(len) == REALSXP) ||
-	XLENGTH(len) != 1)
+	XLENGTH(len) != 1 ||
+	TYPEOF(traits) != INTSXP || XLENGTH(traits) != 1 ||
+	INTEGER(traits)[0] == NA_INTEGER)
 	error("unexpected serialised state for an ALTSXP object");
 
     double dn = asReal(len);
@@ -1482,6 +1545,12 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
     R_xlen_t esz = (R_xlen_t) m->Elt_size(ans), np = XLENGTH(payload);
     if (esz <= 0 || np % esz != 0 || np / esz != n)
 	error("serialised payload of an ALTSXP object has the wrong size");
+
+    /* New() cannot be told what traits to give the object, so a class whose
+       objects differ in their traits -- one that reserves a pattern for NA
+       and one that does not, say -- needs its own Unserialize method */
+    if ((unsigned int) INTEGER(traits)[0] != m->Traits(ans))
+	error("serialised ALTSXP traits cannot be restored by this class");
 
     if (n > 0)
 	m->Set_region(ans, 0, n, RAW(payload));

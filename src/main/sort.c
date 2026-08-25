@@ -830,6 +830,75 @@ static void Psort(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 }
 
 
+/* psort_body over an index array: an opaque element is moved by the class
+   rather than assigned, so the partitioning permutes indices and the data is
+   rearranged once, at the end.  Sorting the whole vector instead would be
+   O(n log n) where a partial sort is O(n) -- which is what median() asks
+   for. */
+static void altsxpPsort2(SEXP x, R_xlen_t *idx, R_xlen_t lo, R_xlen_t hi,
+			 R_xlen_t k)
+{
+    R_xlen_t L, R, i, j, v, w;
+
+    for (L = lo, R = hi; L < R; ) {
+	v = idx[k];
+	for (i = L, j = R; i <= j; ) {
+	    while (altsxpcmp(x, idx[i], v, TRUE) < 0) i++;
+	    while (altsxpcmp(x, v, idx[j], TRUE) < 0) j--;
+	    if (i <= j) { w = idx[i]; idx[i++] = idx[j]; idx[j--] = w; }
+	}
+	if (j < k) L = i;
+	if (k < i) R = j;
+    }
+}
+
+static void
+altsxpPsort0(SEXP x, R_xlen_t *idx, R_xlen_t lo, R_xlen_t hi,
+	     R_xlen_t *ind, int nind)
+{
+    if (nind < 1 || hi - lo < 1) return;
+    if (nind <= 1)
+	altsxpPsort2(x, idx, lo, hi, ind[0] - 1);
+    else {
+	int This = 0;
+	R_xlen_t mid = (lo + hi) / 2, z;
+	for (int i = 0; i < nind; i++) if (ind[i] - 1 <= mid) This = i;
+	z = ind[This] - 1;
+	altsxpPsort2(x, idx, lo, hi, z);
+	altsxpPsort0(x, idx, lo, z - 1, ind, This);
+	altsxpPsort0(x, idx, z + 1, hi, ind + This + 1, nind - This - 1);
+    }
+}
+
+/* Rearrange x so that x[i] becomes the element that was at idx[i], one cycle
+   at a time.  In place, so this needs room for one element rather than a
+   second copy of the vector; idx is consumed, each entry set to -1 as its
+   element is moved. */
+static void altsxpPermute(SEXP x, R_xlen_t *idx, R_xlen_t n)
+{
+    const void *vmax = vmaxget();
+    size_t esz = ALTSXP_ELT_SIZE(x);
+    char *hold = R_alloc(1, esz), *slot = R_alloc(1, esz);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (idx[i] < 0 || idx[i] == i) continue;
+
+	R_altsxp_get_region(x, i, 1, hold);
+	R_xlen_t j = i;
+	for (;;) {
+	    R_xlen_t src = idx[j];
+	    idx[j] = -1;
+	    if (src == i) break;
+	    R_altsxp_get_region(x, src, 1, slot);
+	    R_altsxp_set_region(x, j, 1, slot);
+	    j = src;
+	}
+	R_altsxp_set_region(x, j, 1, hold);
+    }
+
+    vmaxset(vmax);
+}
+
 /* Here ind are 1-based indices passed from R */
 static void
 Psort0(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t *ind, int nind)
@@ -899,11 +968,15 @@ attribute_hidden SEXP do_psort(SEXP call, SEXP op, SEXP args, SEXP rho)
     SETCAR(args, duplicate(x));
     SET_ATTRIB(CAR(args), R_NilValue);  /* remove all attributes */
     SET_OBJECT(CAR(args), 0);           /* and the object bit    */
-    if (TYPEOF(x) == ALTSXP)
-	/* An opaque element type has no partial sort.  Ordering the whole
-	   vector leaves the right element at every requested position, which
-	   is all Psort0() promises; the index checks above still run. */
-	sortVector(CAR(args), FALSE);
+    if (TYPEOF(x) == ALTSXP) {
+	/* the same quickselect, over an index array the class can order */
+	const void *vmax = vmaxget();
+	R_xlen_t *idx = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	for (R_xlen_t i = 0; i < n; i++) idx[i] = i;
+	altsxpPsort0(CAR(args), idx, 0, n - 1, l, nind);
+	altsxpPermute(CAR(args), idx, n);
+	vmaxset(vmax);
+    }
     else
 	Psort0(CAR(args), 0, n - 1, l, nind);
     return CAR(args);
