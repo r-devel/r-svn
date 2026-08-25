@@ -1637,9 +1637,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     else { // regular case
 	HashData data = { 0 };
 	if (incomp) {
-	    PROTECT(incomp = type == ALTSXP
-		    ? coerce_incomparables(table, incomp)
-		    : coerceVector(incomp, type));
+	    PROTECT(incomp = coerce_incomparables(table, incomp));
 	    nprot++;
 	}
 	data.nomatch = nmatch;
