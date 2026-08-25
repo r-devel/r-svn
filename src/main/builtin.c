@@ -634,8 +634,20 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     width = 0;
     ntot = 0;
     nlines = 0;
+    PROTECT_INDEX spi;
+    PROTECT_WITH_INDEX(R_NilValue, &spi);
     for (iobj = 0; iobj < nobjs; iobj++) {
 	s = VECTOR_ELT(objs, iobj);
+	if (TYPEOF(s) == ALTSXP) {
+	    /* An opaque element has no C type EncodeElement0() could read,
+	       so the class renders it and cat() goes on to treat the result
+	       as it does any character vector, i.e. unquoted and unpadded. */
+	    SEXP fmt = ALTSXP_FORMAT(s, 0, XLENGTH(s));
+	    if (fmt == NULL)
+		error(_("argument %d (type '%s') cannot be handled by 'cat'"),
+		      1 + iobj, R_typeToChar(s));
+	    REPROTECT(s = fmt, spi);
+	}
 	if (iobj != 0 && !isNull(s))
 	    cat_printsep(sepr, ntot++);
 	n = length(s);
@@ -712,6 +724,7 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     cat_cleanup(&ci);
 
+    UNPROTECT(1); /* s */
     return R_NilValue;
 }
 
@@ -849,39 +862,32 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	return (x);
 
     if (len > lenx && ! R_altsxp_nullable(x)) {
-	/* the new tail is NA, which this object cannot hold as it stands */
+	/* the new tail is NA, which this object cannot hold as it stands.
+	   Na_widen() returns a fresh object, so protect before allocating
+	   the result below. */
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
 	x = w;
     }
+    PROTECT(x);
 
     if (TYPEOF(x) == ALTSXP) {
 	/* An opaque vector cannot be allocated by SEXPTYPE, so ask the class
-	   for storage; copying and NA filling are then generic byte
-	   operations that need no knowledge of the element type. */
+	   for storage; copying and NA filling are then generic operations
+	   that need no knowledge of the element type. */
 	R_xlen_t ncopy = lenx < len ? lenx : len;
 	PROTECT(rval = R_allocVectorLike(x, len));
-	if (ncopy > 0) {
-	    size_t esz = ALTSXP_ELT_SIZE(x);
-	    R_xlen_t nb = ncopy > 512 ? 512 : ncopy;
-	    const void *vmax = vmaxget();
-	    void *buf = R_alloc((size_t) nb, esz);
-	    for (R_xlen_t k = 0; k < ncopy; k += nb) {
-		R_xlen_t m = ncopy - k > nb ? nb : ncopy - k;
-		R_altsxp_get_region(x, k, m, buf);
-		R_altsxp_set_region(rval, k, m, buf);
-	    }
-	    vmaxset(vmax);
-	}
+	R_altsxp_copy_region(rval, 0, x, 0, ncopy);
 	if (len > ncopy)
 	    R_altsxp_set_na_region(rval, ncopy, len - ncopy);
 	PROTECT(xnames = getAttrib(x, R_NamesSymbol));
 	if (xnames != R_NilValue)
 	    setAttrib(rval, R_NamesSymbol, xlengthgets(xnames, len));
-	UNPROTECT(2);
+	UNPROTECT(3); /* xnames, rval, x */
 	return rval;
     }
+    UNPROTECT(1); /* x */
 
     PROTECT(rval = allocVector(TYPEOF(x), len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));

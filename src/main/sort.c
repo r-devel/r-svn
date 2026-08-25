@@ -1016,6 +1016,9 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
 	}
@@ -1112,6 +1115,9 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);

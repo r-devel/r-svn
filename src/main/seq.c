@@ -176,6 +176,12 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 
 #define R2_SWITCH_LOOP(it) \
     switch (TYPEOF(s)) { \
+    case ALTSXP: \
+	for (i = 0; i < nc; i++) { \
+	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
+		R_altsxp_copy_region(a, n++, s, i, 1); \
+	} \
+	break; \
     case LGLSXP: \
 	for (i = 0; i < nc; i++) { \
 /*	    if ((i+1) % ni == 0) R_CheckUserInterrupt();*/ \
@@ -287,14 +293,9 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 
     switch (TYPEOF(s)) {
     case ALTSXP:
-    {
-	size_t esz = ALTSXP_ELT_SIZE(s);
-	void *buf = R_alloc(1, esz);
 	MOD_ITERATE1(na, ns, i, j, {
-	    R_altsxp_get_region(s, j, 1, buf);
-	    R_altsxp_set_region(a, i, 1, buf);
+	    R_altsxp_copy_region(a, i, s, j, 1);
 	});
-    }
 	break;
     case LGLSXP:
 	MOD_ITERATE1(na, ns, i, j, {
@@ -503,17 +504,12 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 #define R4_SWITCH_LOOP(itimes)						\
     switch (TYPEOF(x)) {						\
     case ALTSXP:							\
-	{								\
-	    size_t esz__ = ALTSXP_ELT_SIZE(x);				\
-	    void *buf__ = R_alloc(1, esz__);				\
-	    for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
-		for(j = 0, sum = 0; j < each; j++)			\
-		    sum += (R_xlen_t) itimes[k++];			\
-		R_altsxp_get_region(x, i, 1, buf__);			\
-		for(k3 = 0; k3 < sum; k3++) {				\
-		    R_altsxp_set_region(a, k2++, 1, buf__);		\
-		    if(k2 == len) goto done;				\
-		}							\
+	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
+	    for(j = 0, sum = 0; j < each; j++)				\
+		sum += (R_xlen_t) itimes[k++];				\
+	    for(k3 = 0; k3 < sum; k3++) {				\
+		R_altsxp_copy_region(a, k2++, x, i, 1);			\
+		if(k2 == len) goto done;				\
 	    }								\
 	}								\
 	break;								\
@@ -595,6 +591,10 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 
     if(nt == 1)
 	switch (TYPEOF(x)) {
+	case ALTSXP:
+	    for(i = 0; i < len; i++)
+		R_altsxp_copy_region(a, i, x, (i/each) % lx, 1);
+	    break;
 	case LGLSXP:
 	    for(i = 0; i < len; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();

@@ -23,6 +23,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <R_ext/Itermacros.h>
 
@@ -1148,6 +1149,27 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 		}
 	}
     }
+    break;
+
+    case ALTSXP:
+    {
+	/* isNumeric() is TRUE for an opaque vector whose class says so, so
+	   this is no longer reached through the coerceVector() above; the
+	   class's own ordering answers instead, which also keeps the exact
+	   result for values no double can hold. */
+	int want = (PRIMVAL(op) == 0) ? -1 : 1;
+	for (i = 0; i < n; i++) {
+	    int na;
+	    R_altsxp_is_na_region(sx, i, 1, &na);
+	    if (na) continue;
+	    if (indx == -1 || ALTSXP_COMPARE(sx, i, sx, indx) == want)
+		indx = i;
+	}
+    }
+    break;
+
+    default:
+	UNIMPLEMENTED_TYPE("which.min/which.max", sx);
     } // switch()
 
 

@@ -878,6 +878,30 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	SEXPTYPE t = TYPEOF(obj);
 	SEXP defaultClass;
 
+	if (t == ALTSXP) {
+	    /* Dispatch on the element type, as R_data_class() already does:
+	       "altrep" names the mechanism, not the thing, and would make
+	       every opaque class indistinguishable to UseMethod().  Built
+	       per call rather than cached in Type2DefaultClass, since two
+	       objects of one SEXPTYPE can differ here. */
+	    SEXP et = ALTSXP_ELT_TYPE(obj);
+	    SEXP nm = (et != R_NilValue) ? PRINTNAME(et)
+				         : type2str_nowarn(ALTSXP);
+	    int num = (ALTREP_TRAITS(obj) & R_ALTREP_TRAITS_NUMERIC) ? 1 : 0;
+	    int shape = (n == 2) ? 2 : (n > 0 ? 1 : 0);
+
+	    PROTECT(nm);
+	    defaultClass = PROTECT(allocVector(STRSXP, shape + 1 + num));
+	    int i = 0;
+	    if (shape == 2) SET_STRING_ELT(defaultClass, i++, mkChar("matrix"));
+	    if (shape > 0)  SET_STRING_ELT(defaultClass, i++, mkChar("array"));
+	    SET_STRING_ELT(defaultClass, i++, nm);
+	    if (num) SET_STRING_ELT(defaultClass, i, mkChar("numeric"));
+	    UNPROTECT(2); /* defaultClass, nm */
+
+	    return defaultClass;
+	}
+
 	switch(n) {
 	case 0:  defaultClass = Type2DefaultClass[t].vector; break;
 	case 2:  defaultClass = Type2DefaultClass[t].matrix; break;

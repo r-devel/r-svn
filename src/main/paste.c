@@ -448,15 +448,27 @@ attribute_hidden SEXP do_filepath(SEXP call, SEXP op, SEXP args, SEXP env)
 		  scientific, decimal.mark) */
 attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
-	/* an opaque element type formats itself */
+    checkArity(op, args);
+
+    if (TYPEOF(CAR(args)) == ALTSXP) {
+	/* An opaque element type formats itself.  'digits', 'nsmall' and
+	   'scientific' describe a floating point rendering and 'justify' a
+	   character one, so as for an integer vector only 'trim' and
+	   'width' apply here; they are still checked above. */
 	SEXP x = CAR(args);
 	SEXP val = ALTSXP_FORMAT(x, 0, XLENGTH(x));
 	if (val != NULL) {
+	    int trim = asLogical(CADR(args));
+	    if (trim == NA_INTEGER)
+		error(_("invalid '%s' argument"), "trim");
+	    SEXP w = CAD4R(args);
+	    int wd = isNull(w) ? 0 : asInteger(w);
+	    if (wd == NA_INTEGER || wd < 0)
+		error(_("invalid '%s' argument"), "width");
+
 	    PROTECT_INDEX vpi;
 	    PROTECT_WITH_INDEX(val, &vpi);
-	    REPROTECT(val = R_altsxp_format_common(val,
-					asLogical(CADR(args)) == TRUE), vpi);
+	    REPROTECT(val = R_altsxp_format_common(val, trim == TRUE, wd), vpi);
 	    SEXP dims = getAttrib(x, R_DimSymbol);
 	    if (dims != R_NilValue) {
 		setAttrib(val, R_DimSymbol, dims);
@@ -471,7 +483,6 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
 
-    checkArity(op, args);
     PrintDefaults();
     int scikeep = R_print.scipen;
 

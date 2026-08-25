@@ -224,7 +224,8 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altsxp_Max_method_t Max;			\
     R_altsxp_Is_sorted_method_t Is_sorted;		\
     R_altsxp_No_NA_method_t No_NA;			\
-    R_altsxp_Math_method_t Math
+    R_altsxp_Math_method_t Math;			\
+    R_altsxp_Deparse_method_t Deparse
 
 typedef struct { ALTREP_METHODS; } altrep_methods_t;
 typedef struct { ALTVEC_METHODS; } altvec_methods_t;
@@ -734,6 +735,56 @@ R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     return ALTSXP_DISPATCH(Is_na_region, x, i, n, buf);
 }
 
+/* How many elements to stage at a time when a class supplies no data
+   pointer: enough to amortise the method calls, small enough to allocate
+   without thinking about it. */
+#define ALTSXP_COPY_CHUNK 512
+
+/* Copy n elements from src[si...] to dst[di...].  Both must have the same
+   element type; the count is clamped to what both objects hold, and the
+   number actually copied is returned.  This is the move that every generic
+   copy in base -- c(), rep(), duplicate, growing, subassignment -- reduces
+   to once the element type is out of the way. */
+R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
+			      R_xlen_t n)
+{
+    if (! IS_ALTSXP(dst) || ! IS_ALTSXP(src))
+	error("%s can only be applied to an ALTSXP object",
+	      "R_altsxp_copy_region");
+    if (ALTSXP_DISPATCH(Elt_type, dst) != ALTSXP_DISPATCH(Elt_type, src))
+	error("cannot copy between ALTSXP objects with different element types");
+
+    R_xlen_t ns = ALTREP_LENGTH(src), nd = ALTREP_LENGTH(dst);
+    if (si < 0 || di < 0 || si >= ns || di >= nd || n <= 0)
+	return 0;
+    if (n > ns - si) n = ns - si;
+    if (n > nd - di) n = nd - di;
+
+    size_t esz = ALTSXP_DISPATCH(Elt_size, dst);
+    /* the staging buffer is not just for classes without a data pointer:
+       it also keeps a self-copy out of memcpy(), which may not overlap */
+    const void *p = (dst == src) ? NULL : ALTVEC_DATAPTR_OR_NULL(src);
+    if (p != NULL)
+	return ALTSXP_DISPATCH(Set_region, dst, di, n,
+			       (const char *) p + (size_t) si * esz);
+
+    const void *vmax = vmaxget();
+    R_xlen_t nb = n > ALTSXP_COPY_CHUNK ? ALTSXP_COPY_CHUNK : n;
+    void *buf = R_alloc((size_t) nb, esz);
+    R_xlen_t done = 0;
+    while (done < n) {
+	R_xlen_t k = n - done > nb ? nb : n - done;
+	k = ALTSXP_DISPATCH(Get_region, src, si + done, k, buf);
+	if (k <= 0) break;
+	k = ALTSXP_DISPATCH(Set_region, dst, di + done, k, buf);
+	if (k <= 0) break;
+	done += k;
+    }
+    vmaxset(vmax);
+
+    return done;
+}
+
 attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (! IS_ALTSXP(x) || ! IS_ALTSXP(y))
@@ -748,44 +799,10 @@ attribute_hidden SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Format, x, i, n) : NULL;
 }
 
-/* R_binary() normally applies dim/dimnames/names to its result; a class hook
-   bypasses that, so do the common part here. */
-static void altsxp_binop_attribs(SEXP ans, SEXP x, SEXP y)
-{
-    if (ans == NULL || ans == R_NilValue) return;
-    if (ATTRIB(x) == R_NilValue && (y == NULL || ATTRIB(y) == R_NilValue))
-	return;
-
-    PROTECT(ans);
-    SEXP dims = R_NilValue, dnms = R_NilValue;
-    if (isArray(x) && (y == NULL || !isArray(y) || xlength(y) <= xlength(x))) {
-	dims = getAttrib(x, R_DimSymbol);
-	dnms = getAttrib(x, R_DimNamesSymbol);
-    }
-    else if (y != NULL && isArray(y)) {
-	dims = getAttrib(y, R_DimSymbol);
-	dnms = getAttrib(y, R_DimNamesSymbol);
-    }
-
-    if (dims != R_NilValue) {
-	setAttrib(ans, R_DimSymbol, dims);
-	if (dnms != R_NilValue)
-	    setAttrib(ans, R_DimNamesSymbol, dnms);
-    }
-    else {
-	R_xlen_t n = xlength(ans);
-	SEXP nms = getAttrib(x, R_NamesSymbol);
-	if ((nms == R_NilValue || xlength(nms) != n) && y != NULL)
-	    nms = getAttrib(y, R_NamesSymbol);
-	if (nms != R_NilValue && xlength(nms) == n)
-	    setAttrib(ans, R_NamesSymbol, nms);
-    }
-    UNPROTECT(1);
-}
-
 /* Try the left operand's method, then the right one's.  A class that does
    not recognise the other operand returns NULL and the caller carries on to
-   its ordinary error. */
+   its ordinary error.  Attributes are the caller's business: both hooks sit
+   inside the operator's own dim/names/ts/S4 handling. */
 attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     /* Methods are handed the operator as a symbol rather than the PRIMSXP,
@@ -796,7 +813,6 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
     if (val == NULL && y != NULL && IS_ALTSXP(y))
 	val = ALTSXP_METHODS_TABLE(y)->Arith(call, sym, x, y);
-    altsxp_binop_attribs(val, x, y);
     return val;
 }
 
@@ -804,8 +820,10 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
    unpadded.  format() and print() both want the numeric look -- every
    element right-justified in a common width, NA spelled out rather than
    left as NA_STRING -- which is what formatting an integer vector gives.
-   as.character() wants neither, so this is not the Format method's job. */
-attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim)
+   as.character() wants neither, so this is not the Format method's job.
+   'width' is format()'s minimum field width; trim drops the padding
+   altogether, as it does for the base types. */
+attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width)
 {
     R_xlen_t n = XLENGTH(fmt);
     int w = 0;
@@ -816,6 +834,7 @@ attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim)
 	if (wi > w) w = wi;
     }
     if (trim) w = 0;
+    if (w < width) w = width;
 
     SEXP ans = PROTECT(allocVector(STRSXP, n));
     const void *vmax = vmaxget();
@@ -903,6 +922,19 @@ attribute_hidden SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args)
     return ALTSXP_METHODS_TABLE(x)->Math(call, install(PRIMNAME(op)), args);
 }
 
+/* The call a class offers for deparse(); NULL leaves the printer to report
+   the type and length, which is all R can say on its own. */
+attribute_hidden SEXP ALTSXP_DEPARSE(SEXP x)
+{
+    if (! IS_ALTSXP(x)) return NULL;
+
+    SEXP val = ALTSXP_DISPATCH(Deparse, x);
+    if (val != NULL && TYPEOF(val) != LANGSXP)
+	ALTREP_ERROR_IN_CLASS("the Deparse method must return a call", x);
+
+    return val;
+}
+
 attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     SEXP sym = install(PRIMNAME(op));
@@ -911,7 +943,6 @@ attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = ALTSXP_METHODS_TABLE(x)->Relop(call, sym, x, y);
     if (val == NULL && y != NULL && IS_ALTSXP(y))
 	val = ALTSXP_METHODS_TABLE(y)->Relop(call, sym, x, y);
-    altsxp_binop_attribs(val, x, y);
     return val;
 }
 
@@ -1184,6 +1215,17 @@ static SEXP altsxp_New_default(SEXP proto, R_xlen_t n)
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a New method", proto);
 }
 
+/* How many of the n elements at i are actually in x.  Clamped at zero: a
+   region method is a no-op when it is handed a start index past the end, and
+   a negative count would otherwise reach memcpy() as a huge size_t. */
+static R_xlen_t altsxp_ncopy(SEXP x, R_xlen_t i, R_xlen_t n)
+{
+    R_xlen_t size = ALTREP_LENGTH(x);
+    if (i < 0 || i >= size || n <= 0)
+	return 0;
+    return size - i > n ? n : size - i;
+}
+
 static R_xlen_t
 altsxp_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 {
@@ -1192,9 +1234,9 @@ altsxp_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 	ALTREP_ERROR_IN_CLASS("no Get_region method and no data pointer", x);
 
     size_t esz = ALTSXP_DISPATCH(Elt_size, x);
-    R_xlen_t size = ALTREP_LENGTH(x);
-    R_xlen_t ncopy = size - i > n ? n : size - i;
-    memcpy(buf, (const char *) p + (size_t) i * esz, (size_t) ncopy * esz);
+    R_xlen_t ncopy = altsxp_ncopy(x, i, n);
+    if (ncopy > 0)
+	memcpy(buf, (const char *) p + (size_t) i * esz, (size_t) ncopy * esz);
     return ncopy;
 }
 
@@ -1206,9 +1248,9 @@ altsxp_Set_region_default(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
 	ALTREP_ERROR_IN_CLASS("no Set_region method and no data pointer", x);
 
     size_t esz = ALTSXP_DISPATCH(Elt_size, x);
-    R_xlen_t size = ALTREP_LENGTH(x);
-    R_xlen_t ncopy = size - i > n ? n : size - i;
-    memcpy((char *) p + (size_t) i * esz, buf, (size_t) ncopy * esz);
+    R_xlen_t ncopy = altsxp_ncopy(x, i, n);
+    if (ncopy > 0)
+	memcpy((char *) p + (size_t) i * esz, buf, (size_t) ncopy * esz);
     return ncopy;
 }
 
@@ -1222,8 +1264,7 @@ static R_xlen_t
 altsxp_Is_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
     /* A class with no notion of a missing value has none. */
-    R_xlen_t size = ALTREP_LENGTH(x);
-    R_xlen_t ncopy = size - i > n ? n : size - i;
+    R_xlen_t ncopy = altsxp_ncopy(x, i, n);
     for (R_xlen_t k = 0; k < ncopy; k++)
 	buf[k] = FALSE;
     return ncopy;
@@ -1271,7 +1312,7 @@ static int altsxp_No_NA_default(SEXP x)
     R_xlen_t n = ALTREP_LENGTH(x);
     if (n == 0) return TRUE;
 
-    R_xlen_t nb = n > 512 ? 512 : n;
+    R_xlen_t nb = n > ALTSXP_COPY_CHUNK ? ALTSXP_COPY_CHUNK : n;
     const void *vmax = vmaxget();
     int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
     int ans = TRUE;
@@ -1286,6 +1327,8 @@ static int altsxp_No_NA_default(SEXP x)
 }
 
 static SEXP altsxp_Math_default(SEXP call, SEXP op, SEXP x) { return NULL; }
+
+static SEXP altsxp_Deparse_default(SEXP x) { return NULL; }
 
 /* Generic subsetting: copy whole elements by index, filling NA where the
    subscript is NA or out of bounds. */
@@ -1305,10 +1348,11 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	}
 	else {
 	    const double *pd = REAL_RO(indx);
-	    for (R_xlen_t k = 0; k < n && !needs_na; k++) {
-		R_xlen_t ii = (R_xlen_t) (pd[k] - 1);
-		if (!(R_FINITE(pd[k]) && 0 <= ii && ii < nx)) needs_na = TRUE;
-	    }
+	    for (R_xlen_t k = 0; k < n && !needs_na; k++)
+		/* the cast is only defined once the value is known to be
+		   finite and in range, so test before converting */
+		if (!R_FINITE(pd[k]) || pd[k] < 1 || pd[k] > (double) nx)
+		    needs_na = TRUE;
 	}
 	if (needs_na) {
 	    SEXP w = R_altsxp_na_widen(x);
@@ -1352,9 +1396,8 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	const double *pd = REAL_RO(indx);
 	for (R_xlen_t k = 0; k < n; k++) {
 	    double di = pd[k];
-	    R_xlen_t ii = (R_xlen_t) (di - 1);
-	    if (R_FINITE(di) && 0 <= ii && ii < nx)
-		ALTSXP_COPY_ONE(k, ii);
+	    if (R_FINITE(di) && 1 <= di && di <= (double) nx)
+		ALTSXP_COPY_ONE(k, (R_xlen_t) (di - 1));
 	    else
 		m->Set_na_region(ans, k, 1);
 	}
@@ -1369,24 +1412,11 @@ static SEXP altsxp_Duplicate_default(SEXP x, Rboolean deep)
 {
     altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     R_xlen_t n = ALTREP_LENGTH(x);
-    size_t esz = m->Elt_size(x);
 
     SEXP ans = PROTECT(m->New(x, n));
-
-    const void *src = ALTVEC_DATAPTR_OR_NULL(x);
-    if (src != NULL)
-	memcpy(ALTVEC_DATAPTR(ans), src, (size_t) n * esz);
-    else {
-	R_xlen_t bufn = n > 512 ? 512 : n;
-	void *buf = R_alloc((size_t) bufn, esz);
-	for (R_xlen_t i = 0; i < n; i += bufn) {
-	    R_xlen_t nb = n - i > bufn ? bufn : n - i;
-	    m->Get_region(x, i, nb, buf);
-	    m->Set_region(ans, i, nb, buf);
-	}
-    }
-
+    R_altsxp_copy_region(ans, 0, x, 0, n);
     UNPROTECT(1);
+
     return ans;
 }
 
@@ -1411,6 +1441,11 @@ static SEXP altsxp_Serialized_state_default(SEXP x)
     return state;
 }
 
+/* The state reaching this method comes from unserialize(), i.e. from an
+   untrusted stream, and the copy below is a memcpy sized from it.  Every
+   field is therefore checked against the class before it is used, and a
+   mismatched element type is an error rather than a warning: the payload
+   then means something other than what this class would read. */
 static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
 {
     altsxp_methods_t *m = CLASS_METHODS_TABLE(class);
@@ -1418,19 +1453,35 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
     if (TYPEOF(state) != VECSXP || XLENGTH(state) != 3)
 	error("unexpected serialised state for an ALTSXP object");
 
-    R_xlen_t n = (R_xlen_t) asReal(VECTOR_ELT(state, 1));
+    SEXP eltname = VECTOR_ELT(state, 0);
+    SEXP len = VECTOR_ELT(state, 1);
     SEXP payload = VECTOR_ELT(state, 2);
+    if (TYPEOF(eltname) != STRSXP || XLENGTH(eltname) != 1 ||
+	STRING_ELT(eltname, 0) == NA_STRING ||
+	TYPEOF(payload) != RAWSXP ||
+	! (TYPEOF(len) == INTSXP || TYPEOF(len) == REALSXP) ||
+	XLENGTH(len) != 1)
+	error("unexpected serialised state for an ALTSXP object");
+
+    double dn = asReal(len);
+    if (! R_FINITE(dn) || dn < 0 || dn > (double) R_XLEN_T_MAX)
+	error("invalid length in the serialised state of an ALTSXP object");
+    R_xlen_t n = (R_xlen_t) dn;
 
     /* New() is passed the class object here rather than an instance; see
        the note on the New method in R_ext/Altrep.h. */
     SEXP ans = PROTECT(m->New(class, n));
 
     SEXP want = m->Elt_type(ans);
-    SEXP got = installTrChar(STRING_ELT(VECTOR_ELT(state, 0), 0));
+    SEXP got = installTrChar(STRING_ELT(eltname, 0));
     if (want != got)
-	warning("serialised ALTSXP element type '%s' does not match "
-		"registered element type '%s'",
-		CHAR(PRINTNAME(got)), CHAR(PRINTNAME(want)));
+	error("serialised ALTSXP element type '%s' does not match "
+	      "registered element type '%s'",
+	      CHAR(PRINTNAME(got)), CHAR(PRINTNAME(want)));
+
+    R_xlen_t esz = (R_xlen_t) m->Elt_size(ans), np = XLENGTH(payload);
+    if (esz <= 0 || np % esz != 0 || np / esz != n)
+	error("serialised payload of an ALTSXP object has the wrong size");
 
     if (n > 0)
 	m->Set_region(ans, 0, n, RAW(payload));
@@ -1595,7 +1646,8 @@ static altsxp_methods_t altsxp_default_methods = {
     .Max = altsxp_Max_default,
     .Is_sorted = altsxp_Is_sorted_default,
     .No_NA = altsxp_No_NA_default,
-    .Math = altsxp_Math_default
+    .Math = altsxp_Math_default,
+    .Deparse = altsxp_Deparse_default
 };
 
 
@@ -1774,6 +1826,7 @@ DEFINE_METHOD_SETTER(altsxp, Max)
 DEFINE_METHOD_SETTER(altsxp, Is_sorted)
 DEFINE_METHOD_SETTER(altsxp, No_NA)
 DEFINE_METHOD_SETTER(altsxp, Math)
+DEFINE_METHOD_SETTER(altsxp, Deparse)
 
 /**
  ** ALTREP Object Constructor and Utility Functions

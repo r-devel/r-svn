@@ -516,6 +516,68 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return memcmp(px, py, esz) == 0;
 }
 
+/* Whether element i of an ordinary numeric vector is missing. */
+static int match_operand_isna(SEXP x, R_xlen_t i)
+{
+    switch (TYPEOF(x)) {
+    case LGLSXP: case INTSXP: return INTEGER_ELT(x, i) == NA_INTEGER;
+    case REALSXP: return ISNAN(REAL_ELT(x, i));
+    default: return FALSE; /* a raw byte is never missing */
+    }
+}
+
+/* Promote an ordinary vector into the class of an opaque one so that match()
+   compares values rather than renderings: 1e18 and "1000000000000000000" are
+   the same number but not the same string.  Returns NULL when the promotion
+   would change a value, and the caller falls back to comparing as character.
+
+   Only a vector that can hold NA is promoted into, so that a value the class
+   cannot represent becomes NA -- which the check below then spots -- instead
+   of raising an error from inside match().  Such a value still draws the
+   class's own coercion warning before the fallback; there is no quiet form
+   of Coerce_from, and a value the type cannot hold is worth mentioning. */
+static SEXP altsxp_match_operand(SEXP alt, SEXP other)
+{
+    R_xlen_t n = XLENGTH(other);
+
+    if (! R_altsxp_nullable(alt))
+	return NULL;
+
+    switch (TYPEOF(other)) {
+    case RAWSXP: case LGLSXP: case INTSXP:
+	break;
+    case REALSXP: {
+	/* a value with a fractional part equals no element of an exact
+	   type, and rounding it here would invent a match */
+	const double *p = REAL_RO(other);
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (!ISNAN(p[i]) && (!R_FINITE(p[i]) || p[i] != floor(p[i])))
+		return NULL;
+	break;
+    }
+    default:
+	return NULL;
+    }
+
+    SEXP ans = R_altsxp_coerce_from(alt, other);
+    if (ans == NULL)
+	return NULL;
+    PROTECT(ans);
+
+    /* an NA in the result that was not one in the input is a value the
+       class could not hold, so it must not be allowed to match NA */
+    Rboolean ok = TRUE;
+    for (R_xlen_t i = 0; i < n && ok; i++) {
+	int na;
+	R_altsxp_is_na_region(ans, i, 1, &na);
+	if (na && ! match_operand_isna(other, i))
+	    ok = FALSE;
+    }
+    UNPROTECT(1);
+
+    return ok ? ans : NULL;
+}
+
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 {
     d->useUTF8 = FALSE;
@@ -1469,6 +1531,23 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     if(TYPEOF(x) == ALTSXP && TYPEOF(table) == ALTSXP &&
        ALTSXP_ELT_TYPE(x) == ALTSXP_ELT_TYPE(table))
 	type = ALTSXP; /* hash the elements directly */
+    else if(TYPEOF(x) == ALTSXP || TYPEOF(table) == ALTSXP) {
+	/* Exactly one side is opaque.  Promoting the other into the class's
+	   representation compares values rather than their renderings --
+	   1e18 and "1000000000000000000" are the same number but not the
+	   same string.  It is only sound where the promotion is exact, so
+	   altsxp_match_operand() declines otherwise and the pair falls back
+	   to the character comparison below. */
+	SEXP alt = TYPEOF(x) == ALTSXP ? x : table;
+	SEXP oth = TYPEOF(x) == ALTSXP ? table : x;
+	SEXP as_alt = altsxp_match_operand(alt, oth);
+	if(as_alt != NULL) {
+	    type = ALTSXP;
+	    if(TYPEOF(x) == ALTSXP) REPROTECT(table = as_alt, tbpi);
+	    else                    REPROTECT(x     = as_alt, xpi);
+	}
+	else type = STRSXP;
+    }
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);

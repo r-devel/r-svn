@@ -913,12 +913,14 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	{
 	    R_xlen_t n_ = XLENGTH(s);
 	    SEXP fmt = ALTSXP_FORMAT(s, 0, n_);
+	    /* protect before the Rprintf(): output to a text connection can
+	       allocate, and fmt is not reachable from anywhere else */
+	    PROTECT_INDEX fpi;
+	    PROTECT_WITH_INDEX(fmt == NULL ? R_NilValue : fmt, &fpi);
 	    Rprintf("<%s[%lld]>\n",
 		    CHAR(PRINTNAME(ALTSXP_ELT_TYPE(s))), (long long) n_);
 	    if (fmt != NULL) {
-		PROTECT_INDEX fpi;
-		PROTECT_WITH_INDEX(fmt, &fpi);
-		REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE), fpi);
+		REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
 
 		/* the rendering carries the shape, so an opaque matrix or
 		   array prints as one rather than as a flat vector */
@@ -948,8 +950,9 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 		    else
 			printVector(fmt, 1, 0);
 		}
-		UNPROTECT(2); /* t, fmt */
+		UNPROTECT(1); /* t */
 	    }
+	    UNPROTECT(1); /* fmt */
 	}
 	break;
     case LISTSXP:

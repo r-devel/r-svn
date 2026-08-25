@@ -165,16 +165,7 @@ static SEXP EnlargeVector(SEXP x, R_xlen_t newlen)
 	PROTECT(x);
 	PROTECT(newx = R_allocVectorLike(x, newlen));
 
-	size_t esz = ALTSXP_ELT_SIZE(x);
-	R_xlen_t chunk = len < 512 ? len : 512;
-	const void *vmax = vmaxget();
-	void *buf = R_alloc((size_t) (chunk > 0 ? chunk : 1), esz);
-	for (R_xlen_t i = 0; i < len; i += chunk) {
-	    R_xlen_t k = len - i < chunk ? len - i : chunk;
-	    R_altsxp_get_region(x, i, k, buf);
-	    R_altsxp_set_region(newx, i, k, buf);
-	}
-	vmaxset(vmax);
+	R_altsxp_copy_region(newx, 0, x, 0, len);
 
 	if (newlen > len)
 	    R_altsxp_set_na_region(newx, len, newlen - len);
@@ -415,8 +406,21 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1613:	/* character  <- integer    */
     case 1614:	/* character  <- real	    */
     case 1615:	/* character  <- complex    */
+    case 1626:	/* character  <- opaque vector */
 
 	*y = coerceVector(*y, STRSXP);
+	break;
+
+    /* an opaque element type ranks below these, so the LHS wins and the
+       class renders itself into it -- see AltsxpWidens() */
+    case 1426:	/* real       <- opaque vector */
+
+	*y = coerceVector(*y, REALSXP);
+	break;
+
+    case 1526:	/* complex    <- opaque vector */
+
+	*y = coerceVector(*y, CPLXSXP);
 	break;
 
     case 1016:	/* logical    <- character  */
@@ -442,6 +446,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 1922:  /* vector     <- external pointer */
     case 1923:  /* vector     <- weak reference */
     case 1924:  /* vector     <- raw */
+    case 1926:  /* vector     <- opaque vector */
     case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	if (level == 1) {
@@ -491,6 +496,7 @@ static int SubassignTypeFix(SEXP *x, SEXP *y, R_xlen_t stretch,
     case 2015:	/* expression <- complex    */
     case 2016:	/* expression <- character  */
     case 2019:  /* expression <- vector     */
+    case 2026:  /* expression <- opaque vector */
 
 	if (level == 1) {
 	    /* Coerce the RHS into a list */
@@ -649,35 +655,57 @@ static R_INLINE SEXP VECTOR_ELT_FIX_NAMED(SEXP y, R_xlen_t i) {
       change byte code instructions in eval.c */
 
 
+/* Does an opaque RHS widen this LHS, or does the LHS win?  The ranking is
+   c()'s, whose flag order in AnswerType() puts an opaque element type above
+   the R integer types and below double, complex and character: an exact
+   64-bit integer can hold any integer, but narrowing a double to it would
+   drop a fraction and narrowing a string would lose the text.  A list holds
+   an opaque vector as one element instead, via SubassignTypeFix(). */
+static R_INLINE Rboolean AltsxpWidens(SEXP x)
+{
+    switch (TYPEOF(x)) {
+    case RAWSXP: case LGLSXP: case INTSXP: case ALTSXP:
+	return TRUE;
+    default:
+	return FALSE;
+    }
+}
+
 /* Generic subassignment for an opaque vector: bring the RHS into the LHS's
    representation with Coerce_from, then move whole elements.  Nothing here
    needs to know what an element means. */
 static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 				  R_xlen_t stretch, SEXP y)
 {
+    PROTECT_INDEX xpi;
+    PROTECT_WITH_INDEX(x, &xpi);
+
     if (TYPEOF(x) != ALTSXP) {
-	/* assigning an opaque value into an ordinary vector widens the
-	   whole vector, exactly as integer[i] <- 1.5 widens to double */
+	/* Assigning an opaque value into an ordinary vector widens the whole
+	   vector, exactly as integer[i] <- 1.5 widens to double -- including
+	   keeping the attributes, which coerceVector() does for the base
+	   types but Coerce_from, which knows only about data, does not. */
 	SEXP nx = R_altsxp_coerce_from(y, x);
 	if (nx == NULL)
 	    errorcall(call, _("incompatible types (from %s to %s) in subassignment type fix"),
 		      R_typeToChar(y), R_typeToChar(x));
-	x = nx;
+	if (ATTRIB(x) != R_NilValue) {
+	    PROTECT(nx);
+	    SHALLOW_DUPLICATE_ATTRIB(nx, x);
+	    UNPROTECT(1);
+	}
+	REPROTECT(x = nx, xpi);
     }
     /* growing introduces NA, so a target that cannot be NA is widened first */
     if (stretch && ! R_altsxp_nullable(x)) {
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));
-	x = w;
+	REPROTECT(x = w, xpi);
     }
 
-    PROTECT(x);
-    if (stretch) {
-	x = EnlargeVector(x, stretch);
-	UNPROTECT(1);
-	PROTECT(x);
-    }
+    if (stretch)
+	REPROTECT(x = EnlargeVector(x, stretch), xpi);
 
     SEXP yy;
     if (TYPEOF(y) == ALTSXP && ALTSXP_ELT_TYPE(y) == ALTSXP_ELT_TYPE(x))
@@ -697,10 +725,13 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	error(_("replacement has length zero"));
     if (n > 0 && n % ny)
 	warning(_("number of items to replace is not a multiple of replacement length"));
+    /* as for the base types: an NA subscript names no element, so it is only
+       allowed when there is a single value to recycle */
+    if (ny > 1)
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (gi(indx, i) == NA_INTEGER)
+		error(_("NAs are not allowed in subscripted assignments"));
 
-    size_t esz = ALTSXP_ELT_SIZE(x);
-    const void *vmax = vmaxget();
-    void *buf = R_alloc(1, esz);
     R_xlen_t iny = 0;
     for (R_xlen_t i = 0; i < n; i++) {
 	R_xlen_t ii = gi(indx, i);
@@ -708,12 +739,10 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	    ii--;
 	    if (ii < 0 || ii >= nx)
 		errorcall(call, _("subscript out of bounds"));
-	    R_altsxp_get_region(yy, iny, 1, buf);
-	    R_altsxp_set_region(x, ii, 1, buf);
+	    R_altsxp_copy_region(x, ii, yy, iny, 1);
 	}
 	iny = (++iny == ny) ? 0 : iny;
     }
-    vmaxset(vmax);
 
     UNPROTECT(2); /* yy, x */
     return x;
@@ -772,7 +801,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     R_xlen_t stretch = 1;
     SEXP indx = PROTECT(makeSubscript(x, s, &stretch, R_NilValue));
 
-    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
 	SEXP val = AltsxpVectorAssign(call, x, indx, stretch, y);
 	UNPROTECT(2); /* indx, s */
 	return val;
@@ -1106,7 +1135,7 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
-    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
 	/* linear indices, then the same generic element move as x[i] <- v */
 	SEXP lidx = PROTECT(allocVector(REALSXP, n));
 	double *plidx = REAL(lidx);
@@ -1366,7 +1395,7 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
 
-    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+    if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
 	/* linear indices, then the same generic element move as x[i] <- v */
 	SEXP lidx = PROTECT(allocVector(REALSXP, n));
 	double *plidx = REAL(lidx);
@@ -1811,7 +1840,11 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	else {
 	    /* bug PR#2590 coerce only if null */
-	    if(isNull(x)) x = coerceVector(x, TYPEOF(y));
+	    if(isNull(x))
+		/* an opaque vector has no allocator keyed by SEXPTYPE, so
+		   the RHS itself is the prototype */
+		x = (TYPEOF(y) == ALTSXP) ? R_allocVectorLike(y, 0)
+					  : coerceVector(x, TYPEOF(y));
 	}
     }
     PROTECT(x);
@@ -2071,7 +2104,7 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 
 	SEXP old_x = x;
-	if (TYPEOF(x) == ALTSXP) {
+	if (TYPEOF(x) == ALTSXP || (TYPEOF(y) == ALTSXP && AltsxpWidens(x))) {
 	    /* x[[i]] <- v : one element, same generic machinery as x[i] <- v */
 	    SEXP ind = PROTECT(ScalarReal((double) (offset + 1)));
 	    x = AltsxpVectorAssign(call, x, ind, stretch, y);
@@ -2180,6 +2213,8 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case 1923:  /* vector     <- weak reference */
 	case 1924:  /* vector     <- raw */
 	case 1925:  /* vector     <- S4 */
+	case 1926:  /* vector     <- opaque vector */
+	case 2026:  /* expression <- opaque vector */
 	case 1903: case 1907: case 1908: case 1999: /* functions */
 
 	    /* drop through: vectors and expressions are treated the same */

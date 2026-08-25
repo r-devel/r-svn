@@ -569,6 +569,7 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
     }
 
  array_subset_dims:
+    ; /* a label may not be followed by a declaration before C23 */
 
     SEXP new_dim = PROTECT(allocVector(INTSXP, k));
     for(int i = 0 ; i < k ; i++)

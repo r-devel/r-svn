@@ -61,11 +61,20 @@ R_make_altcomplex_class(const char *cname, const char *pname, DllInfo *info);
 R_altrep_class_t
 R_make_altlist_class(const char *cname, const char *pname, DllInfo *info);
 
-/* ALTSXP classes.  An ALTSXP is an opaque vector: TYPEOF() reports ALTSXP
-   and says nothing about the element type, which is instead a run-time
-   property of the class (see the Elt_type/Elt_size methods below).  Code
-   that has not been taught about a particular element type therefore fails
-   rather than silently reinterpreting the payload. */
+/* ALTSXP classes.  An ALTSXP is an opaque *atomic* vector: TYPEOF() reports
+   ALTSXP and says nothing about the element type, which is instead a
+   run-time property of the class (see the Elt_type/Elt_size methods below).
+   Code that has not been taught about a particular element type therefore
+   fails rather than silently reinterpreting the payload.
+
+   The shape is part of the contract, not just the element type: an ALTSXP
+   has a length, and n indivisible elements of one fixed width that can be
+   read and written by index.  That is what lets R subset, concatenate,
+   duplicate, sort and serialise it without knowing what an element means,
+   and it is why is.atomic() is TRUE for one.  An object that is not that
+   shape -- a hash table, a connection, a handle to something outside R --
+   does not belong here even though it is equally opaque: use an external
+   pointer, or an ALTREP class over one of R's own vector types. */
 R_altrep_class_t
 R_make_altsxp_class(const char *cname, const char *pname, DllInfo *info);
 
@@ -174,6 +183,15 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  return NULL to decline.  The third argument is the whole
  *                  argument list, so two-argument members such as round(x, d)
  *                  and signif(x, d) are reachable too.
+ *   Deparse        an unevaluated R call that would rebuild this object, or
+ *                  NULL to decline.  deparse() and dput() have no other way
+ *                  to name a class that was registered from C, and without
+ *                  this they can only report the type and length.  The call
+ *                  is deparsed like any other, so it should be built from
+ *                  ordinary vectors and should name a function a user can
+ *                  actually reach -- see i64_Deparse() in altclasses.c,
+ *                  which returns as.int64(<character>) because the text form
+ *                  is the one that carries the whole 64-bit range.
  * What a method may do
  * --------------------
  *
@@ -237,6 +255,7 @@ typedef SEXP (*R_altsxp_Max_method_t)(SEXP, Rboolean);
 typedef int (*R_altsxp_Is_sorted_method_t)(SEXP);
 typedef int (*R_altsxp_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
+typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
 
 /* The trait bits themselves are in Rinternals.h, next to the ALTSXP type.
    They describe what R may assume about a particular *object*: two objects
@@ -346,6 +365,7 @@ DECLARE_METHOD_SETTER(altsxp, Max)
 DECLARE_METHOD_SETTER(altsxp, Is_sorted)
 DECLARE_METHOD_SETTER(altsxp, No_NA)
 DECLARE_METHOD_SETTER(altsxp, Math)
+DECLARE_METHOD_SETTER(altsxp, Deparse)
 
 /* ALTSXP consumer API.  ALTSXP_ELT_TYPE() returns R_NilValue for anything
    that is not an ALTSXP, so it is safe to call on an arbitrary SEXP.
@@ -354,7 +374,13 @@ DECLARE_METHOD_SETTER(altsxp, Math)
    returns NULL unless the object really is an ALTSXP whose element type is
    `elt_type`, so a caller cannot cast the result to the wrong C type by
    accident.  It also returns NULL if the class cannot supply a contiguous
-   pointer, in which case use R_altsxp_get_region(). */
+   pointer, in which case use R_altsxp_get_region().
+
+   R_altsxp_copy_region() moves whole elements between two objects of the
+   same element type -- the shape of every generic copy in base -- clamping
+   the count to what both hold and returning how many it moved.  It uses a
+   data pointer where the source offers one and stages through a buffer
+   otherwise, so a class need only implement Get_region and Set_region. */
 SEXP ALTSXP_ELT_TYPE(SEXP x);
 size_t ALTSXP_ELT_SIZE(SEXP x);
 unsigned int ALTREP_TRAITS(SEXP x);
@@ -370,6 +396,8 @@ R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
 R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
 R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
 R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
+R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
+			      R_xlen_t n);
 SEXP R_altsxp_new(SEXP proto, R_xlen_t n);
 
 /* DATAPTR_RW is declared here since it should only be used to

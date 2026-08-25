@@ -118,6 +118,11 @@ SEXP CAR(SEXP e);
     case EXPRSXP:
     case RAWSXP:
     case WEAKREFSXP:
+
+    /* An ALTSXP is a vector: DATAPTR_RO() and DATAPTR_OR_NULL() dispatch to
+       the class, which may hand out a pointer the caller can only use once
+       it has checked the element type (R_altsxp_dataptr_ro). */
+    case ALTSXP:
 	break;
     default:
 	error("cannot get data pointer of '%s' objects", R_typeToChar(x));
@@ -913,10 +918,9 @@ INLINE_FUN Rboolean isVector(SEXP s)/* === isVectorList() or isVectorAtomic() */
     case VECSXP:
     case EXPRSXP:
 
-    /* An ALTSXP has vector shape (a length, and elements that can be
-       subset and copied by index) but deliberately does not satisfy
-       isVectorAtomic(): callers of that predicate go on to assume they
-       know the C element type. */
+    /* An ALTSXP has vector shape: a length, and elements that can be
+       subset and copied by index.  It is atomic too -- see
+       isVectorAtomic() above. */
     case ALTSXP:
 	return TRUE;
     default:

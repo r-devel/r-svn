@@ -1551,6 +1551,9 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	/* an opaque vector is atomic too, and as.vector() drops its
+	   attributes the same way -- on a copy, not on the caller's object */
+	case ALTSXP:
 	    if(ATTRIB(x) == R_NilValue) return x;
 	    ans  = MAYBE_REFERENCED(x) ? duplicate(x) : x;
 	    CLEAR_ATTRIB(ans);

@@ -516,11 +516,16 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
     } \
 } while (0)
 
-#define FIXUP_NULL_AND_CHECK_TYPES(v, vpi) do { \
+/* 'lax' is set when the other operand is an opaque vector: what its class
+   accepts is the class's decision, so the check is left to the dispatch
+   below, which reports the same error when the class declines. */
+#define FIXUP_NULL_AND_CHECK_TYPES(v, vpi, lax) do { \
     switch (TYPEOF(v)) { \
     case NILSXP: REPROTECT(v = allocVector(INTSXP,0), vpi); break; \
     case CPLXSXP: case REALSXP: case INTSXP: case LGLSXP: break; \
-    default: errorcall(call, _("non-numeric argument to binary operator")); \
+    default: \
+	if (!(lax)) \
+	    errorcall(call, _("non-numeric argument to binary operator")); \
     } \
 } while (0)
 
@@ -531,23 +536,12 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     ARITHOP_TYPE oper = (ARITHOP_TYPE) PRIMVAL(op);
     int nprotect = 2; /* x and y */
 
-    /* An ALTSXP has no base type to fall back on, so give the class a
-       chance before the type check below rejects it as non-numeric.  Group
-       dispatch has already run in do_arith()/cmp_arith2(), so an S3 or S4
-       method still takes precedence; hooking here rather than in do_arith()
-       covers the bytecode interpreter as well. */
-    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
-	SEXP val = ALTSXP_ARITH(call, op, x, y);
-	if (val != NULL)
-	    return val;
-    }
-
-
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
 
-    FIXUP_NULL_AND_CHECK_TYPES(x, xpi);
-    FIXUP_NULL_AND_CHECK_TYPES(y, ypi);
+    bool altsxp = (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP);
+    FIXUP_NULL_AND_CHECK_TYPES(x, xpi, altsxp);
+    FIXUP_NULL_AND_CHECK_TYPES(y, ypi, altsxp);
 
     R_xlen_t
 	nx = XLENGTH(x),
@@ -672,7 +666,28 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
     SEXP val;
     /* need to preserve object here, as *_binary copies class attributes */
-    if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
+    if (altsxp) {
+	/* An ALTSXP has no base type to fall back on, so the class computes
+	   the result.  Dispatching here rather than at the top of R_binary()
+	   means the conformability, recycling and attribute rules above and
+	   below apply to it as they do to the base types; group dispatch has
+	   already run in do_arith()/cmp_arith2(), so an S3 or S4 method
+	   still takes precedence. */
+	val = ALTSXP_ARITH(call, op, x, y);
+	if (val == NULL)
+	    errorcall(call, _("non-numeric argument to binary operator"));
+
+	/* *_binary() gets this from R_allocOrReuseVector(), which hands back
+	   an operand of the right length along with its attributes */
+	SEXP proto = (xattr && XLENGTH(val) == nx) ? x
+	    : ((yattr && XLENGTH(val) == ny) ? y : NULL);
+	if (proto != NULL && proto != val) {
+	    PROTECT(val);
+	    copyMostAttrib(proto, val);
+	    UNPROTECT(1);
+	}
+    }
+    else if (TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP) {
 /* TODO: if not both are CPLX, work with "coordinate-wise   scalar o <2D-vector> "
    1) can be *faster* for all ops
    2) for '*' and '/' (with  y  DBL/INT/LGL ) really different use C standard <real> o <cmplx>
@@ -729,8 +744,16 @@ attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 {
     if (TYPEOF(s1) == ALTSXP) {
 	SEXP val = ALTSXP_ARITH(call, op, s1, NULL);
-	if (val != NULL)
+	if (val != NULL) {
+	    /* as for the base types below, which either reuse s1 or
+	       duplicate it and so keep its attributes */
+	    if (val != s1 && ATTRIB(s1) != R_NilValue) {
+		PROTECT(val);
+		SHALLOW_DUPLICATE_ATTRIB(val, s1);
+		UNPROTECT(1);
+	    }
 	    return val;
+	}
     }
 
     ARITHOP_TYPE operation = (ARITHOP_TYPE) PRIMVAL(op);
@@ -1386,26 +1409,37 @@ static double Ratan(double x)
 
 
 
-attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
+/* Offer a Math-group member to the class of an opaque first argument.
+   Returns NULL when the argument is not an ALTSXP or the class declines.
+   Every caller runs this after DispatchGroup(), so an S3 or S4 method on a
+   classed ALTSXP still wins, as R_ext/Altrep.h promises. */
+static SEXP altsxp_math(SEXP call, SEXP op, SEXP args)
 {
-    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
-	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL) {
-	    if (val != CAR(args)) {
-		PROTECT(val);
-		DUPLICATE_ATTRIB(val, CAR(args));
-		UNPROTECT(1);
-	    }
-	    return val;
-	}
+    SEXP x = CAR(args);
+    if (x == R_NilValue || TYPEOF(x) != ALTSXP)
+	return NULL;
+
+    SEXP val = ALTSXP_MATH(call, op, args);
+    if (val != NULL && val != x) {
+	PROTECT(val);
+	DUPLICATE_ATTRIB(val, x);
+	UNPROTECT(1);
     }
 
+    return val;
+}
+
+attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
+{
     SEXP s;
 
     checkArity(op, args);
     check1arg(args, call, "x");
 
     if (DispatchGroup("Math", call, op, args, env, &s))
+	return s;
+
+    if ((s = altsxp_math(call, op, args)) != NULL)
 	return s;
 
     if (isComplex(CAR(args)))
@@ -1480,19 +1514,10 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP s;
     if (DispatchGroup("Math", call, op, args, env, &s))
 	return s;
-    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
-	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL) {
-	    if (val != CAR(args)) {
-		PROTECT(val);
-		DUPLICATE_ATTRIB(val, CAR(args));
-		UNPROTECT(1);
-	    }
-	    return val;
-	}
-    }
     // checkArity(op, args); /* is -1 in names.c */
     check1arg(args, call, "x");
+    if ((s = altsxp_math(call, op, args)) != NULL)
+	return s;
     if (isComplex(CAR(args)))
 	errorcall(call, _("unimplemented complex function"));
     return math1(CAR(args), trunc, call);
@@ -1505,18 +1530,6 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
 
 attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
-	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL) {
-	    if (val != CAR(args)) {
-		PROTECT(val);
-		DUPLICATE_ATTRIB(val, CAR(args));
-		UNPROTECT(1);
-	    }
-	    return val;
-	}
-    }
-
     SEXP x, s = R_NilValue /* -Wall */;
 
     checkArity(op, args);
@@ -1524,6 +1537,9 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
     x = CAR(args);
 
     if (DispatchGroup("Math", call, op, args, env, &s))
+	return s;
+
+    if ((s = altsxp_math(call, op, args)) != NULL)
 	return s;
 
     if (isInteger(x) || isLogical(x)) {
@@ -1875,17 +1891,10 @@ attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* the arguments are only evaluated above, so this is the first point
 	   at which an opaque vector can be recognised; group dispatch has
 	   already run, so an S3 or S4 method still takes precedence */
-	if (TYPEOF(CAR(args)) == ALTSXP) {
-	    SEXP val = ALTSXP_MATH(call, op, args);
-	    if (val != NULL) {
-		if (val != CAR(args)) {
-		    PROTECT(val);
-		    DUPLICATE_ATTRIB(val, CAR(args));
-		    UNPROTECT(1);
-		}
-		UNPROTECT(1); /* args */
-		return val;
-	    }
+	SEXP val = altsxp_math(call, op, args);
+	if (val != NULL) {
+	    UNPROTECT(1); /* args */
+	    return val;
 	}
 
         res = do_math2(call, op, args, env);

@@ -191,10 +191,12 @@ sort.int <-
 }
 
 ## The radix sort works on R's own storage types; an ALTSXP element type is
-## opaque to it, so such vectors must take the comparison path.
+## opaque to it, so such vectors must take the comparison path.  A classed
+## object is admitted on the strength of what it is built on -- typeof() is
+## "integer" for a factor and "double" for a Date -- and an opaque vector
+## reports its element type here, so it never qualifies.
 .radix.storage <- function(x)
-    typeof(x) %in% c("logical", "integer", "double", "character") ||
-        is.object(x)
+    typeof(x) %in% c("logical", "integer", "double", "character", "list")
 
 order <- function(..., na.last = TRUE, decreasing = FALSE,
                   method = c("auto", "shell", "radix"))

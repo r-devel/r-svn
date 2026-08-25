@@ -34,6 +34,7 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <float.h>  /* for DBL_DIG */
 #include <Fileio.h>
 #include <Rconnections.h>
@@ -996,6 +997,13 @@ static bool isna(SEXP x, R_xlen_t indx)
 	rc = COMPLEX(x)[indx];
 	return ISNAN(rc.r) || ISNAN(rc.i);
 	break;
+    case ALTSXP:
+    {
+	/* only the class knows which values it treats as missing */
+	int na;
+	R_altsxp_is_na_region(x, indx, 1, &na);
+	return na != 0;
+    }
     default:
 	break;
     }

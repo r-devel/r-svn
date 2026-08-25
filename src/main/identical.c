@@ -364,13 +364,33 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	return TRUE;
     case ALTSXP: {
 	/* Two opaque vectors are identical if they have the same element
-	   type, the same length, and the same element bytes.  This needs no
-	   knowledge of what the elements mean. */
+	   type, the same length, the same NA domain -- an object that
+	   reserves a value for NA is not the same object as one that reads
+	   the same bytes as data -- and equal elements. */
 	if (TYPEOF(y) != ALTSXP) return FALSE;
 	R_xlen_t n = XLENGTH(x);
 	if (n != XLENGTH(y)) return FALSE;
 	if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y)) return FALSE;
+	if (R_altsxp_nullable(x) != R_altsxp_nullable(y)) return FALSE;
 	if (n == 0) return TRUE;
+
+	/* Raw bytes decide equality only for a class that says so; a
+	   floating element type must not, since +0/-0 and NaN payloads
+	   compare equal or unequal as values but not as bytes. */
+	if (! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
+	    ! (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ)) {
+	    for (R_xlen_t i = 0; i < n; i++) {
+		int nax, nay;
+		R_altsxp_is_na_region(x, i, 1, &nax);
+		R_altsxp_is_na_region(y, i, 1, &nay);
+		if (nax || nay) {
+		    if (nax != nay) return FALSE;
+		}
+		else if (ALTSXP_COMPARE(x, i, y, i) != 0)
+		    return FALSE;
+	    }
+	    return TRUE;
+	}
 
 	size_t esz = ALTSXP_ELT_SIZE(x);
 	const void *px = DATAPTR_OR_NULL(x), *py = DATAPTR_OR_NULL(y);

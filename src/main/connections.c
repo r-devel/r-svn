@@ -4979,10 +4979,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP object = CAR(args);
-    /* isVectorAtomic() is deliberately false for an opaque vector -- its
-       callers go on to assume they know the C element type -- but writing
-       one out only needs its bytes. */
-    if(!isVectorAtomic(object) && TYPEOF(object) != ALTSXP)
+    if(!isVectorAtomic(object))
 	error(_("'x' is not an atomic vector type"));
     Rboolean
 	isRaw = TYPEOF(CADR(args)) == RAWSXP,

@@ -51,6 +51,20 @@ is.uint64(x)
   differ, and they interoperate.  \R{} reports an error rather than
   introducing an \code{NA} into a vector that has no room for one.
 
+  Each vector is read in its own domain, so a whole-range vector's extreme
+  value is data even when it is compared with a vector that reserves that
+  pattern.  An operation with a single result, such as \code{+} or
+  \code{sum}, needs one domain for its answer: it uses the wider one, which
+  fails if the whole-range operand actually holds the reserved value, just
+  as \code{\link{c}} does.
+
+  \code{\link{typeof}} is also the implicit class, so \code{print.int64}
+  or \code{format.uint64} methods are dispatched to as usual.
+  \code{\link{deparse}} and \code{\link{dput}} write a call to
+  \code{as.int64} or \code{as.uint64} that reproduces the vector,
+  including its \code{na} setting; values outside the range of an
+  \code{integer} are written as character, which is exact.
+
   Arithmetic between a 64-bit integer vector and a \code{logical},
   \code{raw} or \code{integer} vector is exact and 64-bit.  A
   \code{double} operand, and the \code{/} and \code{^} operators, promote
