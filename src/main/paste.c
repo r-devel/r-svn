@@ -457,30 +457,35 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	   'width' apply here; they are still checked above. */
 	SEXP x = CAR(args);
 	SEXP val = ALTSXP_FORMAT(x, 0, XLENGTH(x));
-	if (val != NULL) {
-	    int trim = asLogical(CADR(args));
-	    if (trim == NA_INTEGER)
-		error(_("invalid '%s' argument"), "trim");
-	    SEXP w = CAD4R(args);
-	    int wd = isNull(w) ? 0 : asInteger(w);
-	    if (wd == NA_INTEGER || wd < 0)
-		error(_("invalid '%s' argument"), "width");
+	if (val == NULL)
+	    /* Format is optional -- print() falls back to a summary line --
+	       but format() has to return a character vector, so there is
+	       nothing to fall back to here. */
+	    error(_("no method to format '%s' objects"), R_typeToChar(x));
 
-	    PROTECT_INDEX vpi;
-	    PROTECT_WITH_INDEX(val, &vpi);
-	    REPROTECT(val = R_altsxp_format_common(val, trim == TRUE, wd), vpi);
-	    SEXP dims = getAttrib(x, R_DimSymbol);
-	    if (dims != R_NilValue) {
-		setAttrib(val, R_DimSymbol, dims);
-		setAttrib(val, R_DimNamesSymbol, getAttrib(x, R_DimNamesSymbol));
-	    }
-	    else {
-		SEXP nms = getAttrib(x, R_NamesSymbol);
-		if (nms != R_NilValue) setAttrib(val, R_NamesSymbol, nms);
-	    }
-	    UNPROTECT(1);
-	    return val;
+	int trim = asLogical(CADR(args));
+	if (trim == NA_INTEGER)
+	    error(_("invalid '%s' argument"), "trim");
+	SEXP w = CAD4R(args);
+	int wd = isNull(w) ? 0 : asInteger(w);
+	if (wd == NA_INTEGER || wd < 0)
+	    error(_("invalid '%s' argument"), "width");
+
+	PROTECT_INDEX vpi;
+	PROTECT_WITH_INDEX(val, &vpi);
+	REPROTECT(val = R_altsxp_format_common(val, trim == TRUE, wd), vpi);
+	SEXP dims = getAttrib(x, R_DimSymbol);
+	if (dims != R_NilValue) {
+	    setAttrib(val, R_DimSymbol, dims);
+	    setAttrib(val, R_DimNamesSymbol, getAttrib(x, R_DimNamesSymbol));
 	}
+	else {
+	    SEXP nms = getAttrib(x, R_NamesSymbol);
+	    if (nms != R_NilValue) setAttrib(val, R_NamesSymbol, nms);
+	}
+	UNPROTECT(1);
+
+	return val;
     }
 
     PrintDefaults();

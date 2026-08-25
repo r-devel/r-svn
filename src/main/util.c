@@ -388,7 +388,11 @@ void UNIMPLEMENTED_TYPEt(const char *s, SEXPTYPE t)
 
 NORET void UNIMPLEMENTED_TYPE(const char *s, SEXP x)
 {
-    UNIMPLEMENTED_TYPEt(s, TYPEOF(x));
+    /* R_typeToChar() rather than the SEXPTYPE, so that a diagnostic about
+       an opaque vector names its element type: "unimplemented type 'int64'"
+       tells the reader which class needs the missing method, where
+       "unimplemented type 'altrep'" names only the mechanism. */
+    error(_("unimplemented type '%s' in '%s'\n"), R_typeToChar(x), s);
 }
 
 # include <R_ext/Riconv.h>

@@ -164,7 +164,14 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  elements that Is_na_region reported as non-NA, so a class
  *                  need handle neither case.  It must be a consistent total
  *                  order: R's comparison sorts misbehave otherwise.
- *   Format         a character vector rendering positions i..i+n-1.
+ *   Format         a character vector rendering positions i..i+n-1, or NULL
+ *                  to decline.  Optional, because a class may exist only to
+ *                  carry bytes between two places that understand them; R
+ *                  has no generic rendering to fall back on, since the only
+ *                  thing it knows about an element is its bytes and their
+ *                  order in memory is not portable.  Without it print()
+ *                  reports the type and length, and format(), cat() and
+ *                  write.table() report that they cannot render the type.
  *   Traits         a bitmask of R_ALTREP_TRAITS_* below, describing what R
  *                  may assume about this object.
  *   Coerce_from    build an object of this class from an ordinary R vector,
