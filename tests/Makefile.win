@@ -42,6 +42,14 @@ all check test-all-basics test-all-devel: Makefile.win Makefile.common
 
 test-system2.exe: test-system2.c
 
+altsxp_test_build.c: altsxp_test.c
+	@cp $< $@
+
+altsxp_test.dll: altsxp_test_build.c
+	@$(R_HOME)/$(BINDIR)/R CMD SHLIB -o $@ $<
+
+altsxp.Rout: altsxp_test.dll
+
 ## Not run by any other target
 test-System: test-system2.exe
 	@$(MK) test-system.Rout
@@ -76,6 +84,8 @@ clean:
 	@rm -Rf anRpackage myTst* myLib
 	@rm -f *.tar.gz
 	@rm -f keepsource.tex test-system2.exe test-system.Rout
+	@rm -f altsxp_test.dll altsxp_test.o altsxp_test_build.c \
+	  altsxp_test_build.o altsxp_test-win.def
 	@$(MK) -C Examples $@
 	@$(MK) -C Embedding $@
 	-@rm -f *.log *.tsin *.trin

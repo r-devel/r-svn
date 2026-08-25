@@ -748,6 +748,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	}
 	if(toret != NULL) {
+	    PROTECT(toret);
 	    /* With nothing to reduce base R warns and returns +/-Inf; an
 	       exact element type has no infinity, so NA it is -- but the
 	       warning still belongs here, where the whole call is in view.
@@ -762,7 +763,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		    warning(_("no non-missing arguments to %s; returning NA"),
 			    PRIMVAL(op) == 2 ? "min" : "max");
 	    }
-	    UNPROTECT(1); /* args */
+	    UNPROTECT(2); /* toret, args */
 	    return toret;
 	}
     }

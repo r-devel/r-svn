@@ -1292,4 +1292,122 @@ local({
                             as.int64(1L))) == "int64")
 })
 
+## --- fixes from the fourth review round ------------------------------
+
+## The only overflowing signed division has an exactly representable
+## remainder, and zero-length arithmetic keeps the opaque operand's NA domain.
+local({
+    lo <- as.int64("-9223372036854775808", na = FALSE)
+    stopifnot(identical(as.character(lo %% as.int64(-1L, na = FALSE)), "0"))
+    assertError(lo %/% as.int64(-1L, na = FALSE))
+
+    e <- as.int64(integer(), na = FALSE)
+    z <- e + 1L
+    stopifnot(identical(z, e))
+    assertError(c(z, NA_integer_))
+})
+
+## An incomparable is represented in the opaque class before hashing, and a
+## removed ALTSXP hash entry is a tombstone rather than an element index.
+local({
+    x <- as.int64(c(1L, 1L, 2L))
+    stopifnot(identical(as.double(unique(x, incomparables = 1L)), c(1, 1, 2)),
+              identical(duplicated(x, incomparables = 1L),
+                        c(FALSE, FALSE, FALSE)),
+              identical(anyDuplicated(x, incomparables = 1L), 0L),
+              identical(match(as.int64(1:3), as.int64(1:3),
+                              incomparables = 2L),
+                        c(1L, NA_integer_, 3L)))
+})
+
+## int64 serialization stores portable high/low integer words, not native raw
+## bytes.  0x0102030405060708 is 16909060 followed by 84281096 in that form.
+local({
+    x <- as.int64("72623859790382856", na = FALSE)
+    txt <- rawToChar(serialize(x, NULL, ascii = TRUE))
+    stopifnot(grepl("\n16909060\n84281096\n", txt, fixed = TRUE),
+              identical(unserialize(serialize(x, NULL)), x),
+              identical(unserialize(serialize(x, NULL, ascii = TRUE)), x))
+})
+
+## format.default() resets R_print even when reached from another object's
+## print method, just as it does for the ordinary atomic types.
+local({
+    print.altsxpFormatProbe <- function(x, ...) cat(format(x), "\n")
+    environment(print.altsxpFormatProbe) <- globalenv()
+    assign("print.altsxpFormatProbe", print.altsxpFormatProbe, globalenv())
+    on.exit(rm("print.altsxpFormatProbe", envir = globalenv()))
+    z <- structure(as.int64(NA_integer_), class = "altsxpFormatProbe")
+    stopifnot("NA" %in% trimws(capture.output(print(list(z), na.print = "-"))))
+})
+
+## The summary result must remain rooted while its empty-input warning is
+## allocated and dispatched.
+local({
+    gctorture(TRUE)
+    on.exit(gctorture(FALSE))
+    z <- suppressWarnings(min(int64()))
+    stopifnot(typeof(z) == "int64", length(z) == 1L, is.na(z))
+})
+
+## --- generic ALTSXP region-contract regressions ----------------------
+
+## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
+## methods deliberately handle only a few elements per call.  Installed tests
+## may run without a compiler, so leave this block to the source build when the
+## helper DSO is present.
+dll.name <- paste0("altsxp_test", .Platform$dynlib.ext)
+dll.paths <- c(dll.name, file.path("tests", dll.name))
+dll.paths <- dll.paths[file.exists(dll.paths)]
+if (length(dll.paths)) local({
+    dll <- dyn.load(dll.paths[[1L]])
+    on.exit(dyn.unload(dll[["path"]]))
+    call.test <- function(name, ...)
+        .Call(name, ..., PACKAGE = "altsxp_test")
+    new.test <- function(x, wide = FALSE)
+        call.test("C_altsxp_test_constructor", x, wide)
+    contents <- function(x) call.test("C_altsxp_test_contents", x)
+    counts <- function(x) call.test("C_altsxp_test_counts", x)
+
+    ## writeBin(), readBin(), and the default serializer must drain short
+    ## positive returns instead of consuming an uninitialised buffer tail.
+    bytes <- as.raw(0:31)
+    x <- new.test(bytes)
+    encoded <- writeBin(x, raw())
+    stopifnot(identical(encoded, bytes), counts(x)[[1L]] >= ceiling(32 / 3))
+
+    y <- readBin(encoded, x, length(bytes))
+    stopifnot(identical(contents(y), bytes),
+              counts(y)[[2L]] >= ceiling(32 / 2))
+
+    z <- unserialize(serialize(x, NULL))
+    stopifnot(identical(contents(z), bytes),
+              counts(z)[[2L]] >= ceiling(32 / 2))
+
+    ## A self-copy larger than the staging chunk has memmove semantics in both
+    ## overlap directions, even though both region methods return short.
+    original <- as.raw(rep(0:255, length.out = 2000L))
+    right <- new.test(original)
+    expected <- original
+    expected[601:1600] <- original[1:1000]
+    moved <- call.test("C_altsxp_test_copy", right, 600, 0, 1000)
+    stopifnot(identical(moved, 1000), identical(contents(right), expected))
+
+    left <- new.test(original)
+    expected <- original
+    expected[1:1000] <- original[601:1600]
+    moved <- call.test("C_altsxp_test_copy", left, 0, 600, 1000)
+    stopifnot(identical(moved, 1000), identical(contents(left), expected))
+
+    ## coerceVector(ALTSXP, VECSXP) invokes the default one-element subset once
+    ## per element.  Each invocation must restore its R_alloc mark; the wide
+    ## element size makes a leaked mark unambiguous without consuming memory.
+    wide.bytes <- as.raw(0:63)
+    probe <- call.test("C_altsxp_test_as_list_vmax",
+                       new.test(wide.bytes, wide = TRUE))
+    stopifnot(isTRUE(probe[[2L]]), length(probe[[1L]]) == length(wide.bytes),
+              identical(vapply(probe[[1L]], function(e) contents(e)[[1L]],
+                               raw(1L)), wide.bytes))
+})
+
 cat("altsxp tests OK\n")

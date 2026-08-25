@@ -2640,10 +2640,27 @@ static SEXP i64_Coerce(SEXP x, int type)
    would silently turn its extreme value into NA. */
 static SEXP i64_Serialized_state(SEXP x)
 {
+    R_xlen_t n = i64_length(x);
+    if (n > R_XLEN_T_MAX / 2)
+	error(_("64-bit integer vector is too long to serialise"));
+
+    /* Store two semantic 32-bit words per element rather than native bytes.
+       R's serializers make integer vectors portable, including through XDR,
+       while a RAWSXP would silently retain the writer's byte order. */
+    SEXP payload = PROTECT(allocVector(INTSXP, 2 * n));
+    int *out = INTEGER(payload);
+    const int64_t *in = i64_data(x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	uint64_t bits;
+	memcpy(&bits, in + i, sizeof(bits));
+	out[2 * i] = (int) (uint32_t) (bits >> 32);
+	out[2 * i + 1] = (int) (uint32_t) bits;
+    }
+
     SEXP state = PROTECT(allocVector(VECSXP, 2));
-    SET_VECTOR_ELT(state, 0, I64_DATA(x));
+    SET_VECTOR_ELT(state, 0, payload);
     SET_VECTOR_ELT(state, 1, ScalarLogical(I64_NULLABLE(x)));
-    UNPROTECT(1);
+    UNPROTECT(2);
 
     return state;
 }
@@ -2651,19 +2668,28 @@ static SEXP i64_Serialized_state(SEXP x)
 static SEXP i64_Unserialize(SEXP class, SEXP state)
 {
     if (TYPEOF(state) != VECSXP || XLENGTH(state) != 2 ||
-	TYPEOF(VECTOR_ELT(state, 0)) != RAWSXP)
+	TYPEOF(VECTOR_ELT(state, 0)) != INTSXP ||
+	XLENGTH(VECTOR_ELT(state, 0)) % 2 != 0 ||
+	TYPEOF(VECTOR_ELT(state, 1)) != LGLSXP ||
+	XLENGTH(VECTOR_ELT(state, 1)) != 1 ||
+	LOGICAL(VECTOR_ELT(state, 1))[0] == NA_LOGICAL)
 	error(_("unexpected serialised state for a 64-bit integer vector"));
 
     SEXP payload = VECTOR_ELT(state, 0);
-    R_xlen_t n = XLENGTH(payload) / (R_xlen_t) sizeof(int64_t);
+    R_xlen_t n = XLENGTH(payload) / 2;
 
     /* i64_alloc() is passed the class object here rather than an instance;
        see the note on the New method in R_ext/Altrep.h. */
     SEXP ans = PROTECT(i64_alloc(class, n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] =
-	asLogical(VECTOR_ELT(state, 1)) == TRUE;
-    if (n > 0)
-	memcpy(i64_data(ans), RAW(payload), (size_t) n * sizeof(int64_t));
+	LOGICAL(VECTOR_ELT(state, 1))[0] == TRUE;
+    const int *in = INTEGER(payload);
+    int64_t *out = i64_data(ans);
+    for (R_xlen_t i = 0; i < n; i++) {
+	uint64_t bits = (uint64_t) (uint32_t) in[2 * i] << 32;
+	bits |= (uint32_t) in[2 * i + 1];
+	memcpy(out + i, &bits, sizeof(bits));
+    }
     UNPROTECT(1);
 
     return ans;
@@ -2990,9 +3016,11 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
     PROTECT_WITH_INDEX(p1 = i64_materialize(x, uns, nullable), &pi1);
     PROTECT_WITH_INDEX(p2 = i64_materialize(y, uns, nullable), &pi2);
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
+    int has_na = I64_NULLABLE(p1) || I64_NULLABLE(p2);
 
     if (nx == 0 || ny == 0) {
 	SEXP z = i64_alloc(I64_PROTO(uns), 0, FALSE);
+	INTEGER(I64_META(z))[I64_NULLABLE_FIELD] = has_na;
 	UNPROTECT(2);
 	return z;
     }
@@ -3001,7 +3029,6 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
        single loop can read both: otherwise a whole-range operand's extreme
        value would be read as missing, or a missing value as data.  Widening
        is what c() does in the same situation, and reports the same clash. */
-    int has_na = I64_NULLABLE(p1) || I64_NULLABLE(p2);
     if (has_na && !I64_NULLABLE(p1))
 	REPROTECT(p1 = i64_Na_widen(p1), pi1);
     if (has_na && !I64_NULLABLE(p2))
@@ -3066,8 +3093,9 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 		}
 		break;
 	    default:
-		bad = (a == INT64_MIN && b == -1);
-		if (!bad) {
+		if (a == INT64_MIN && b == -1)
+		    r = 0;
+		else {
 		    r = a % b;
 		    if (r != 0 && (r < 0) != (b < 0)) r += b;
 		}

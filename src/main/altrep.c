@@ -722,12 +722,49 @@ SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
     return ALTSXP_DISPATCH(New, proto, n, zeroinit);
 }
 
+/* How many of the n elements at i are actually in x.  Clamped at zero: a
+   region method is a no-op when it is handed a start index past the end, and
+   a negative count would otherwise reach pointer arithmetic as a huge
+   size_t. */
+static R_xlen_t altsxp_ncopy(SEXP x, R_xlen_t i, R_xlen_t n)
+{
+    R_xlen_t size = ALTREP_LENGTH(x);
+    if (i < 0 || i >= size || n <= 0)
+	return 0;
+    return size - i > n ? n : size - i;
+}
+
+static R_xlen_t altsxp_region_progress(const char *method, R_xlen_t got,
+				       R_xlen_t asked)
+{
+    if (got < 0 || got > asked)
+	error("'%s' method returned an invalid element count", method);
+    if (got == 0)
+	error("'%s' method made no progress", method);
+    return got;
+}
+
 R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 {
     if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
 	      "R_altsxp_get_region");
-    return ALTSXP_DISPATCH(Get_region, x, i, n, buf);
+
+    n = altsxp_ncopy(x, i, n);
+    if (n == 0) return 0;
+
+    size_t esz = ALTSXP_DISPATCH(Elt_size, x);
+    if (esz == 0 || (size_t) n > R_SIZE_T_MAX / esz)
+	error("ALTSXP region is too large");
+
+    R_xlen_t done = 0;
+    while (done < n) {
+	R_xlen_t ask = n - done;
+	R_xlen_t got = ALTSXP_DISPATCH(Get_region, x, i + done, ask,
+				       (char *) buf + (size_t) done * esz);
+	done += altsxp_region_progress("Get_region", got, ask);
+    }
+    return done;
 }
 
 R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
@@ -735,7 +772,22 @@ R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
     if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
 	      "R_altsxp_set_region");
-    return ALTSXP_DISPATCH(Set_region, x, i, n, buf);
+
+    n = altsxp_ncopy(x, i, n);
+    if (n == 0) return 0;
+
+    size_t esz = ALTSXP_DISPATCH(Elt_size, x);
+    if (esz == 0 || (size_t) n > R_SIZE_T_MAX / esz)
+	error("ALTSXP region is too large");
+
+    R_xlen_t done = 0;
+    while (done < n) {
+	R_xlen_t ask = n - done;
+	R_xlen_t got = ALTSXP_DISPATCH(Set_region, x, i + done, ask,
+				       (const char *) buf + (size_t) done * esz);
+	done += altsxp_region_progress("Set_region", got, ask);
+    }
+    return done;
 }
 
 R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
@@ -743,7 +795,15 @@ R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
     if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
 	      "R_altsxp_set_na_region");
-    return ALTSXP_DISPATCH(Set_na_region, x, i, n);
+
+    n = altsxp_ncopy(x, i, n);
+    R_xlen_t done = 0;
+    while (done < n) {
+	R_xlen_t ask = n - done;
+	R_xlen_t got = ALTSXP_DISPATCH(Set_na_region, x, i + done, ask);
+	done += altsxp_region_progress("Set_na_region", got, ask);
+    }
+    return done;
 }
 
 R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
@@ -751,7 +811,16 @@ R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
 	      "R_altsxp_is_na_region");
-    return ALTSXP_DISPATCH(Is_na_region, x, i, n, buf);
+
+    n = altsxp_ncopy(x, i, n);
+    R_xlen_t done = 0;
+    while (done < n) {
+	R_xlen_t ask = n - done;
+	R_xlen_t got = ALTSXP_DISPATCH(Is_na_region, x, i + done, ask,
+					buf + done);
+	done += altsxp_region_progress("Is_na_region", got, ask);
+    }
+    return done;
 }
 
 /* Copy n elements from src[si...] to dst[di...].  Both must have the same
@@ -774,29 +843,32 @@ R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
     if (n > ns - si) n = ns - si;
     if (n > nd - di) n = nd - di;
 
+    if (dst == src && di == si)
+	return n;
+
     size_t esz = ALTSXP_DISPATCH(Elt_size, dst);
-    /* the staging buffer is not just for classes without a data pointer:
-       it also keeps a self-copy out of memcpy(), which may not overlap */
+    /* The staging buffer is not just for classes without a data pointer: it
+       also gives overlapping self-copies memmove semantics. */
     const void *p = (dst == src) ? NULL : ALTVEC_DATAPTR_OR_NULL(src);
     if (p != NULL)
-	return ALTSXP_DISPATCH(Set_region, dst, di, n,
-			       (const char *) p + (size_t) si * esz);
+	return R_altsxp_set_region(dst, di, n,
+				   (const char *) p + (size_t) si * esz);
 
     const void *vmax = vmaxget();
     R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
     void *buf = R_alloc((size_t) nb, esz);
-    R_xlen_t done = 0;
-    while (done < n) {
-	R_xlen_t k = n - done > nb ? nb : n - done;
-	k = ALTSXP_DISPATCH(Get_region, src, si + done, k, buf);
-	if (k <= 0) break;
-	k = ALTSXP_DISPATCH(Set_region, dst, di + done, k, buf);
-	if (k <= 0) break;
-	done += k;
+    R_xlen_t moved = 0;
+    Rboolean backwards = dst == src && di > si && di < si + n;
+    while (moved < n) {
+	R_xlen_t k = n - moved > nb ? nb : n - moved;
+	R_xlen_t off = backwards ? n - moved - k : moved;
+	R_altsxp_get_region(src, si + off, k, buf);
+	R_altsxp_set_region(dst, di + off, k, buf);
+	moved += k;
     }
     vmaxset(vmax);
 
-    return done;
+    return moved;
 }
 
 /* Fill n elements of dst from di on, recycling src -- the shape of c()'s and
@@ -1272,17 +1344,6 @@ static SEXP altsxp_New_default(SEXP proto, R_xlen_t n, Rboolean zeroinit)
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a New method", proto);
 }
 
-/* How many of the n elements at i are actually in x.  Clamped at zero: a
-   region method is a no-op when it is handed a start index past the end, and
-   a negative count would otherwise reach memcpy() as a huge size_t. */
-static R_xlen_t altsxp_ncopy(SEXP x, R_xlen_t i, R_xlen_t n)
-{
-    R_xlen_t size = ALTREP_LENGTH(x);
-    if (i < 0 || i >= size || n <= 0)
-	return 0;
-    return size - i > n ? n : size - i;
-}
-
 static R_xlen_t
 altsxp_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 {
@@ -1437,6 +1498,7 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 
     const char *src = (const char *) ALTVEC_DATAPTR_OR_NULL(x);
     char *dst = (src == NULL) ? NULL : (char *) ALTVEC_DATAPTR(ans);
+    const void *vmax = vmaxget();
     void *buf = (src == NULL) ? R_alloc(1, esz) : NULL;
 
 #define ALTSXP_COPY_ONE(k, ii) do {				\
@@ -1444,8 +1506,8 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	    memcpy(dst + (size_t) (k) * esz,			\
 		   src + (size_t) (ii) * esz, esz);		\
 	else {							\
-	    m->Get_region(x, ii, 1, buf);			\
-	    m->Set_region(ans, k, 1, buf);			\
+	    R_altsxp_get_region(x, ii, 1, buf);			\
+	    R_altsxp_set_region(ans, k, 1, buf);			\
 	}							\
     } while (0)
 
@@ -1456,7 +1518,7 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	    if (0 < ii && ii <= nx)
 		ALTSXP_COPY_ONE(k, ii - 1);
 	    else
-		m->Set_na_region(ans, k, 1);
+		R_altsxp_set_na_region(ans, k, 1);
 	}
     }
     else {
@@ -1466,11 +1528,12 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	    if (R_FINITE(di) && 1 <= di && di <= (double) nx)
 		ALTSXP_COPY_ONE(k, (R_xlen_t) (di - 1));
 	    else
-		m->Set_na_region(ans, k, 1);
+		R_altsxp_set_na_region(ans, k, 1);
 	}
     }
 #undef ALTSXP_COPY_ONE
 
+    vmaxset(vmax);
     UNPROTECT(2); /* ans, x */
     return ans;
 }
@@ -1481,34 +1544,47 @@ static SEXP altsxp_Duplicate_default(SEXP x, Rboolean deep)
     R_xlen_t n = ALTREP_LENGTH(x);
 
     SEXP ans = PROTECT(m->New(x, n, FALSE));
-    R_altsxp_copy_region(ans, 0, x, 0, n);
+    if (R_altsxp_copy_region(ans, 0, x, 0, n) != n)
+	error("ALTSXP duplicate copied too few elements");
     UNPROTECT(1);
 
     return ans;
 }
 
-/* Serialised state is (element type name, length, raw payload), which is
-   byte exact in every serialisation format and needs no class cooperation. */
+/* Serialised state is (element type name, length, raw payload, traits,
+   byte-order).  The default is byte exact and needs no class cooperation, but
+   the bytes cannot be interpreted safely on a host with the opposite byte
+   order.  A class with a portable representation should provide its own
+   Serialized_state and Unserialize methods, as int64 and uint64 do. */
 static SEXP altsxp_Serialized_state_default(SEXP x)
 {
     altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     R_xlen_t n = ALTREP_LENGTH(x);
     size_t esz = m->Elt_size(x);
 
-    SEXP payload = PROTECT(allocVector(RAWSXP, (R_xlen_t) ((size_t) n * esz)));
-    if (n > 0)
-	m->Get_region(x, 0, n, RAW(payload));
+    if (esz == 0 || esz > (size_t) R_XLEN_T_MAX ||
+	n > R_XLEN_T_MAX / (R_xlen_t) esz)
+	error("ALTSXP payload is too large to serialise");
+    R_xlen_t np = n * (R_xlen_t) esz;
+    SEXP payload = PROTECT(allocVector(RAWSXP, np));
+    if (n > 0 && R_altsxp_get_region(x, 0, n, RAW(payload)) != n)
+	error("ALTSXP serializer read too few elements");
 
     /* The traits are a property of the object, not of the class, and the
        default Unserialize below has no way to put them back -- New() gives
        whatever the class makes by default.  Recording them lets that method
        notice, rather than hand back an object that quietly means something
        else than the one that was written. */
-    SEXP state = PROTECT(allocVector(VECSXP, 4));
+    SEXP state = PROTECT(allocVector(VECSXP, 5));
     SET_VECTOR_ELT(state, 0, ScalarString(PRINTNAME(m->Elt_type(x))));
     SET_VECTOR_ELT(state, 1, ScalarReal((double) n));
     SET_VECTOR_ELT(state, 2, payload);
     SET_VECTOR_ELT(state, 3, ScalarInteger((int) m->Traits(x)));
+#ifdef WORDS_BIGENDIAN
+    SET_VECTOR_ELT(state, 4, ScalarLogical(TRUE));
+#else
+    SET_VECTOR_ELT(state, 4, ScalarLogical(FALSE));
+#endif
 
     UNPROTECT(2);
     return state;
@@ -1523,21 +1599,31 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
 {
     altsxp_methods_t *m = CLASS_METHODS_TABLE(class);
 
-    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 4)
+    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 5)
 	error("unexpected serialised state for an ALTSXP object");
 
     SEXP eltname = VECTOR_ELT(state, 0);
     SEXP len = VECTOR_ELT(state, 1);
     SEXP payload = VECTOR_ELT(state, 2);
     SEXP traits = VECTOR_ELT(state, 3);
+    SEXP bigendian = VECTOR_ELT(state, 4);
     if (TYPEOF(eltname) != STRSXP || XLENGTH(eltname) != 1 ||
 	STRING_ELT(eltname, 0) == NA_STRING ||
 	TYPEOF(payload) != RAWSXP ||
 	! (TYPEOF(len) == INTSXP || TYPEOF(len) == REALSXP) ||
 	XLENGTH(len) != 1 ||
 	TYPEOF(traits) != INTSXP || XLENGTH(traits) != 1 ||
-	INTEGER(traits)[0] == NA_INTEGER)
+	INTEGER(traits)[0] == NA_INTEGER ||
+	TYPEOF(bigendian) != LGLSXP || XLENGTH(bigendian) != 1 ||
+	LOGICAL(bigendian)[0] == NA_LOGICAL)
 	error("unexpected serialised state for an ALTSXP object");
+
+#ifdef WORDS_BIGENDIAN
+    if (LOGICAL(bigendian)[0] != TRUE)
+#else
+    if (LOGICAL(bigendian)[0] != FALSE)
+#endif
+	error("serialised ALTSXP payload uses a different byte order");
 
     double dn = asReal(len);
     if (! R_FINITE(dn) || dn < 0 || dn > (double) R_XLEN_T_MAX)
@@ -1565,8 +1651,8 @@ static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
     if ((unsigned int) INTEGER(traits)[0] != m->Traits(ans))
 	error("serialised ALTSXP traits cannot be restored by this class");
 
-    if (n > 0)
-	m->Set_region(ans, 0, n, RAW(payload));
+    if (n > 0 && R_altsxp_set_region(ans, 0, n, RAW(payload)) != n)
+	error("ALTSXP unserializer wrote too few elements");
 
     UNPROTECT(1);
     return ans;
@@ -1954,4 +2040,3 @@ attribute_hidden SEXP do_altrep_class(SEXP call, SEXP op, SEXP args, SEXP env)
     else
 	return R_NilValue;
 }
-

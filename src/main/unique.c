@@ -497,6 +497,10 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
 
 static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
+    /* UndoHashing marks incomparable table entries with a negative index;
+       equality predicates must ignore those tombstones. */
+    if (i < 0 || j < 0)
+	return 0;
     if (TYPEOF(x) != ALTSXP || TYPEOF(y) != ALTSXP)
 	return 0;
     if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
@@ -574,6 +578,20 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other)
     UNPROTECT(1);
 
     return ok ? ans : NULL;
+}
+
+/* coerceVector() cannot allocate an opaque element type from its SEXPTYPE;
+   use the vector being matched as the required class prototype instead. */
+static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
+{
+    if (TYPEOF(proto) != ALTSXP)
+	return coerceVector(incomp, TYPEOF(proto));
+
+    SEXP ans = R_altsxp_coerce_from(proto, incomp);
+    if (ans == NULL)
+	error(_("'incomparables' cannot be coerced to type '%s'"),
+	      R_typeToChar(proto));
+    return ans;
 }
 
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
@@ -1159,7 +1177,7 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	PROTECT(incomp = coerce_incomparables(x, incomp));
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1184,7 +1202,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    PROTECT(incomp = coerce_incomparables(x, incomp));
     m = length(incomp);
 
     if(from_last)
@@ -1618,7 +1636,12 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
+	if (incomp) {
+	    PROTECT(incomp = type == ALTSXP
+		    ? coerce_incomparables(table, incomp)
+		    : coerceVector(incomp, type));
+	    nprot++;
+	}
 	data.nomatch = nmatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;

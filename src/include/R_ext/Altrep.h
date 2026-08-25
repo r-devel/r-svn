@@ -174,9 +174,11 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *
  * Each of the three region methods, and Is_na_region below, returns how many
  * elements it actually handled.  That is n unless i..i+n-1 runs off the end
- * of the object, and R advances its copy loops by the reported count rather
- * than by n -- so a method that stops short must say so, or R would read
- * whatever was already in the buffer.
+ * of the object.  The public R_altsxp_*_region() helpers clamp requests to the
+ * object, advance by a short positive return, and keep calling the method
+ * until the request is complete.  Returning zero before then is an error: it
+ * would leave R with no way to make progress without reading uninitialised
+ * buffer contents.
  *
  * The second group is element-type specific:
  *

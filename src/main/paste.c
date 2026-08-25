@@ -449,6 +449,7 @@ attribute_hidden SEXP do_filepath(SEXP call, SEXP op, SEXP args, SEXP env)
 attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
+    PrintDefaults();
 
     if (TYPEOF(CAR(args)) == ALTSXP) {
 	/* An opaque element type formats itself.  'digits', 'nsmall' and
@@ -487,8 +488,6 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	return val;
     }
-
-    PrintDefaults();
     int scikeep = R_print.scipen;
 
     SEXP x = CAR(args), y, l;

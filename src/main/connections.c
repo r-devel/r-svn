@@ -4767,7 +4767,9 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(swap)
 		    for(i = 0; i < m0; i++)
 			swapb(buf + (size_t) i * esz, size);
-		R_altsxp_set_region(ans, m, m0, buf);
+		if (R_altsxp_set_region(ans, m, m0, buf) != m0)
+		    error(_("'%s' method reported too few elements"),
+			  "Set_region");
 		m += m0;
 	    }
 	    if(m0 < n1) break;
@@ -5184,7 +5186,9 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	    break;
 	case ALTSXP:
-	    R_altsxp_get_region(object, 0, len, buf);
+	    if (R_altsxp_get_region(object, 0, len, buf) != len)
+		error(_("'%s' method reported too few elements"),
+		      "Get_region");
 	    break;
 	case CPLXSXP:
 	    memcpy(buf, COMPLEX(object), size * len);
