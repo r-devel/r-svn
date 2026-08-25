@@ -1893,10 +1893,9 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else {
 	    /* bug PR#2590 coerce only if null */
 	    if(isNull(x))
-		/* an opaque vector has no allocator keyed by SEXPTYPE, so
-		   the RHS itself is the prototype */
-		x = (TYPEOF(y) == ALTSXP) ? R_allocVectorLike(y, 0, FALSE)
-					  : coerceVector(x, TYPEOF(y));
+		/* x is NULL, so this is an empty vector of y's kind -- which
+		   for an opaque y cannot be named by a SEXPTYPE */
+		x = R_allocVectorLike(y, 0, FALSE);
 	}
     }
     PROTECT(x);
