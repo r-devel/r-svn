@@ -531,6 +531,17 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
     ARITHOP_TYPE oper = (ARITHOP_TYPE) PRIMVAL(op);
     int nprotect = 2; /* x and y */
 
+    /* An ALTSXP has no base type to fall back on, so give the class a
+       chance before the type check below rejects it as non-numeric.  Group
+       dispatch has already run in do_arith()/cmp_arith2(), so an S3 or S4
+       method still takes precedence; hooking here rather than in do_arith()
+       covers the bytecode interpreter as well. */
+    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	SEXP val = ALTOPAQUE_ARITH(call, op, x, y);
+	if (val != NULL)
+	    return val;
+    }
+
 
     PROTECT_WITH_INDEX(x, &xpi);
     PROTECT_WITH_INDEX(y, &ypi);
@@ -716,6 +727,12 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 
 attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 {
+    if (TYPEOF(s1) == ALTSXP) {
+	SEXP val = ALTOPAQUE_ARITH(call, op, s1, NULL);
+	if (val != NULL)
+	    return val;
+    }
+
     ARITHOP_TYPE operation = (ARITHOP_TYPE) PRIMVAL(op);
     switch (TYPEOF(s1)) {
     case LGLSXP:

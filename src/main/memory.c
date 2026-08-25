@@ -4069,7 +4069,7 @@ static int nvec[32] = {
     1,1,1,1,1,1,1,1,
     1,0,0,1,1,0,0,0,
     0,1,1,0,0,1,1,0,
-    0,1,1,1,1,1,1,1
+    0,1,0,1,1,1,1,1  /* index 26 == ALTSXP has a length */
 };
 
 static R_INLINE SEXP CHK2(SEXP x)

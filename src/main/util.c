@@ -230,6 +230,7 @@ TypeTable[] = {
     { "raw",		RAWSXP },
     { "S4",		S4SXP },
     { "object",		OBJSXP }, /* == S4SXP */
+    { "altrep",		ALTSXP },
     /* aliases : */
     { "numeric",	REALSXP	   },
     { "name",		SYMSXP	   },
@@ -349,9 +350,15 @@ const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
 #endif
 
 const char *R_typeToChar(SEXP x) {
-    // = type2char() but distinguishing {S4, object}
+    // = type2char() but distinguishing {S4, object} and naming ALTSXP
+    // element types, so that "invalid 'type' (int64)" beats
+    // "invalid 'type' (altrep)" in diagnostics.
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
+    else if(TYPEOF(x) == ALTSXP) {
+	SEXP et = ALTREP_ELT_TYPE(x);
+	return et != R_NilValue ? CHAR(PRINTNAME(et)) : type2char(ALTSXP);
+    }
     else
 	return type2char(TYPEOF(x));
 }

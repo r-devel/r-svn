@@ -61,6 +61,14 @@ R_make_altcomplex_class(const char *cname, const char *pname, DllInfo *info);
 R_altrep_class_t
 R_make_altlist_class(const char *cname, const char *pname, DllInfo *info);
 
+/* ALTSXP classes.  An ALTSXP is an opaque vector: TYPEOF() reports ALTSXP
+   and says nothing about the element type, which is instead a run-time
+   property of the class (see the Elt_type/Elt_size methods below).  Code
+   that has not been taught about a particular element type therefore fails
+   rather than silently reinterpreting the payload. */
+R_altrep_class_t
+R_make_altopaque_class(const char *cname, const char *pname, DllInfo *info);
+
 Rboolean R_altrep_inherits(SEXP x, R_altrep_class_t);
 
 typedef SEXP (*R_altrep_UnserializeEX_method_t)(SEXP, SEXP, SEXP, int, int);
@@ -118,6 +126,57 @@ typedef int (*R_altstring_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altlist_Elt_method_t)(SEXP, R_xlen_t);
 typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
 
+/* ALTSXP methods.
+ *
+ * The first group describes the *shape* of the data and is enough for R to
+ * implement subsetting, concatenation, duplication and serialisation
+ * generically, without knowing what an element means:
+ *
+ *   Elt_type       an installed symbol naming the C element type, e.g.
+ *                  install("int64").  Two classes that report the same
+ *                  symbol promise the same in-memory representation, so a
+ *                  consumer may cast a data pointer to the matching C type.
+ *   Elt_size       sizeof() that C type.
+ *   New            allocate a new, uninitialised object of this class with
+ *                  the given length.  The first argument is normally an
+ *                  existing instance to use as a prototype, but is the class
+ *                  object itself when called from the default Unserialize
+ *                  method, where no instance exists yet; a class that cares
+ *                  can tell the two apart with ALTREP().
+ *   Get_region     copy n elements starting at i into buf.
+ *   Set_region     copy n elements from buf into positions i..i+n-1.
+ *   Set_na_region  set positions i..i+n-1 to the class's NA element.
+ *
+ * The second group is element-type specific:
+ *
+ *   Is_na_region   fill buf with 0/1 for positions i..i+n-1.
+ *   Compare        three-way compare of x[i] and y[j]; both must have the
+ *                  same Elt_type.  NA ordering is the caller's business.
+ *   Format         a character vector rendering positions i..i+n-1.
+ *   Arith, Relop   handle an arithmetic or comparison operation, or return
+ *                  NULL to decline.  The second argument is the operator as
+ *                  an installed symbol ("+", "<", ...); the fourth is NULL
+ *                  for a unary operator.  Consulted after S3/S4 group dispatch,
+ *                  so a class attribute still wins; without them an ALTSXP
+ *                  that has lost its class attribute has no arithmetic at
+ *                  all, since there is no base type to fall back on.
+ */
+typedef SEXP (*R_altopaque_Elt_type_method_t)(SEXP);
+typedef size_t (*R_altopaque_Elt_size_method_t)(SEXP);
+typedef SEXP (*R_altopaque_New_method_t)(SEXP, R_xlen_t);
+typedef R_xlen_t
+(*R_altopaque_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
+typedef R_xlen_t
+(*R_altopaque_Set_region_method_t)(SEXP, R_xlen_t, R_xlen_t, const void *);
+typedef R_xlen_t
+(*R_altopaque_Set_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t);
+typedef R_xlen_t
+(*R_altopaque_Is_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t, int *);
+typedef int (*R_altopaque_Compare_method_t)(SEXP, R_xlen_t, SEXP, R_xlen_t);
+typedef SEXP (*R_altopaque_Format_method_t)(SEXP, R_xlen_t, R_xlen_t);
+typedef SEXP (*R_altopaque_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef SEXP (*R_altopaque_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
+
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
     R_set_##CNAME##_##MNAME##_method(R_altrep_class_t cls,		\
@@ -171,6 +230,37 @@ DECLARE_METHOD_SETTER(altstring, No_NA)
 
 DECLARE_METHOD_SETTER(altlist, Elt)
 DECLARE_METHOD_SETTER(altlist, Set_elt)
+
+DECLARE_METHOD_SETTER(altopaque, Elt_type)
+DECLARE_METHOD_SETTER(altopaque, Elt_size)
+DECLARE_METHOD_SETTER(altopaque, New)
+DECLARE_METHOD_SETTER(altopaque, Get_region)
+DECLARE_METHOD_SETTER(altopaque, Set_region)
+DECLARE_METHOD_SETTER(altopaque, Set_na_region)
+DECLARE_METHOD_SETTER(altopaque, Is_na_region)
+DECLARE_METHOD_SETTER(altopaque, Compare)
+DECLARE_METHOD_SETTER(altopaque, Format)
+DECLARE_METHOD_SETTER(altopaque, Arith)
+DECLARE_METHOD_SETTER(altopaque, Relop)
+
+/* ALTSXP consumer API.  ALTREP_ELT_TYPE() returns R_NilValue for anything
+   that is not an ALTSXP, so it is safe to call on an arbitrary SEXP.
+
+   R_altopaque_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
+   returns NULL unless the object really is an ALTSXP whose element type is
+   `elt_type`, so a caller cannot cast the result to the wrong C type by
+   accident.  It also returns NULL if the class cannot supply a contiguous
+   pointer, in which case use R_altopaque_get_region(). */
+SEXP ALTREP_ELT_TYPE(SEXP x);
+size_t ALTREP_ELT_SIZE(SEXP x);
+
+const void *R_altopaque_dataptr_ro(SEXP x, SEXP elt_type);
+void *R_altopaque_dataptr_rw(SEXP x, SEXP elt_type);
+R_xlen_t R_altopaque_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
+R_xlen_t R_altopaque_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
+R_xlen_t R_altopaque_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
+R_xlen_t R_altopaque_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
+SEXP R_altopaque_new(SEXP proto, R_xlen_t n);
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */

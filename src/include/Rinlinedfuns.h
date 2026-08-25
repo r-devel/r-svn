@@ -548,6 +548,7 @@ INLINE_FUN R_len_t length(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case ALTSXP:
 	return LENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -583,6 +584,7 @@ INLINE_FUN R_xlen_t xlength(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case ALTSXP:
 	return XLENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -902,6 +904,12 @@ INLINE_FUN Rboolean isVector(SEXP s)/* === isVectorList() or isVectorAtomic() */
 
     case VECSXP:
     case EXPRSXP:
+
+    /* An ALTSXP has vector shape (a length, and elements that can be
+       subset and copied by index) but deliberately does not satisfy
+       isVectorAtomic(): callers of that predicate go on to assume they
+       know the C element type. */
+    case ALTSXP:
 	return TRUE;
     default:
 	return FALSE;

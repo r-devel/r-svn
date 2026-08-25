@@ -22,6 +22,7 @@
 #include <config.h>
 #endif
 #include <Defn.h>
+#include <R_ext/Altrep.h> /* R_altopaque_get_region */
 /* -> Rinternals.h which exports R_compute_identical() */
 
 /* Implementation of identical(x, y) */
@@ -361,10 +362,39 @@ R_compute_identical(SEXP x, SEXP y, int flags)
     case OBJSXP:
 	/* attributes already tested, so all slots identical */
 	return TRUE;
+    case ALTSXP: {
+	/* Two opaque vectors are identical if they have the same element
+	   type, the same length, and the same element bytes.  This needs no
+	   knowledge of what the elements mean. */
+	if (TYPEOF(y) != ALTSXP) return FALSE;
+	R_xlen_t n = XLENGTH(x);
+	if (n != XLENGTH(y)) return FALSE;
+	if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y)) return FALSE;
+	if (n == 0) return TRUE;
+
+	size_t esz = ALTREP_ELT_SIZE(x);
+	const void *px = DATAPTR_OR_NULL(x), *py = DATAPTR_OR_NULL(y);
+	if (px != NULL && py != NULL)
+	    return memcmp(px, py, (size_t) n * esz) == 0 ? TRUE : FALSE;
+
+	R_xlen_t nb = n > 512 ? 512 : n;
+	const void *vmax = vmaxget();
+	char *bx = R_alloc((size_t) nb, esz), *by = R_alloc((size_t) nb, esz);
+	Rboolean ans = TRUE;
+	for (R_xlen_t i = 0; i < n && ans; i += nb) {
+	    R_xlen_t k = n - i > nb ? nb : n - i;
+	    R_altopaque_get_region(x, i, k, bx);
+	    R_altopaque_get_region(y, i, k, by);
+	    if (memcmp(bx, by, (size_t) k * esz) != 0) ans = FALSE;
+	}
+	vmaxset(vmax);
+	return ans;
+    }
     default:
 	/* these are all supposed to be types that represent constant
 	   entities, so no further testing required ?? */
-	printf("Unknown Type in identical(): %s (%x)\n", R_typeToChar(x), TYPEOF(x));
+	REprintf("Unknown Type in identical(): %s (%x)\n",
+		 R_typeToChar(x), TYPEOF(x));
 	return TRUE;
     }
 }

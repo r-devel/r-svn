@@ -198,6 +198,14 @@ static SEXP compute_language_relop(SEXP call, SEXP op, SEXP x, SEXP y)
 // also called from cmp_relop() in eval.c :
 attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 {
+    /* see the note in R_binary(): hooking the _dflt entry point covers both
+       the AST evaluator and the bytecode interpreter */
+    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	SEXP val = ALTOPAQUE_RELOP(call, op, x, y);
+	if (val != NULL)
+	    return val;
+    }
+
     /* handle the REALSXP/INTSXP simple scalar case quickly */
     if (IS_SIMPLE_SCALAR(x, INTSXP)) {
 	int ix = SCALAR_IVAL(x);

@@ -1997,6 +1997,14 @@ attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
     if(TYPEOF(CAR(args)) == OBJSXP && ! IS_S4_OBJECT(CAR(args)))
 	return mkString("object");
+    else if(TYPEOF(CAR(args)) == ALTSXP) {
+	/* The useful answer for an opaque vector is its element type, not
+	   the fact that it is opaque; ALTREP_ELT_TYPE() falls back to the
+	   class name for classes that declare none. */
+	SEXP et = ALTREP_ELT_TYPE(CAR(args));
+	return et != R_NilValue ? ScalarString(PRINTNAME(et))
+			        : type2rstr(ALTSXP);
+    }
     else
 	return type2rstr(TYPEOF(CAR(args)));
 }

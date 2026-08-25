@@ -1109,6 +1109,7 @@ SEXP eval(SEXP e, SEXP rho)
     case CPLXSXP:
     case RAWSXP:
     case OBJSXP:
+    case ALTSXP:
     case SPECIALSXP:
     case BUILTINSXP:
     case ENVSXP:

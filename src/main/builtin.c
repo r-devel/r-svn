@@ -25,6 +25,7 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <Print.h>
 #include <Fileio.h>
@@ -846,6 +847,34 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
+
+    if (TYPEOF(x) == ALTSXP) {
+	/* An opaque vector cannot be allocated by SEXPTYPE, so ask the class
+	   for storage; copying and NA filling are then generic byte
+	   operations that need no knowledge of the element type. */
+	R_xlen_t ncopy = lenx < len ? lenx : len;
+	PROTECT(rval = R_altopaque_new(x, len));
+	if (ncopy > 0) {
+	    size_t esz = ALTREP_ELT_SIZE(x);
+	    R_xlen_t nb = ncopy > 512 ? 512 : ncopy;
+	    const void *vmax = vmaxget();
+	    void *buf = R_alloc((size_t) nb, esz);
+	    for (R_xlen_t k = 0; k < ncopy; k += nb) {
+		R_xlen_t m = ncopy - k > nb ? nb : ncopy - k;
+		R_altopaque_get_region(x, k, m, buf);
+		R_altopaque_set_region(rval, k, m, buf);
+	    }
+	    vmaxset(vmax);
+	}
+	if (len > ncopy)
+	    R_altopaque_set_na_region(rval, ncopy, len - ncopy);
+	PROTECT(xnames = getAttrib(x, R_NamesSymbol));
+	if (xnames != R_NilValue)
+	    setAttrib(rval, R_NamesSymbol, xlengthgets(xnames, len));
+	UNPROTECT(2);
+	return rval;
+    }
+
     PROTECT(rval = allocVector(TYPEOF(x), len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)

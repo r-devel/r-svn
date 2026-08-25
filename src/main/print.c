@@ -906,6 +906,26 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case VECSXP:
 	PrintGenericVector(s, data); /* handles attributes/slots */
 	goto done;
+    case ALTSXP:
+	/* An ALTSXP has no printable element type of its own, so ask the
+	   class to render itself.  A class with no Format method still gets
+	   a usable summary line rather than an "unimplemented type" error. */
+	{
+	    R_xlen_t n_ = XLENGTH(s);
+	    SEXP fmt = ALTOPAQUE_FORMAT(s, 0, n_);
+	    Rprintf("<%s[%lld]>\n",
+		    CHAR(PRINTNAME(ALTREP_ELT_TYPE(s))), (long long) n_);
+	    if (fmt != NULL) {
+		PROTECT(fmt);
+		SEXP nms = getAttrib(s, R_NamesSymbol);
+		if (nms != R_NilValue)
+		    printNamedVector(fmt, nms, 0, NULL);
+		else
+		    printVector(fmt, 1, 0);
+		UNPROTECT(1);
+	    }
+	}
+	break;
     case LISTSXP:
 	printList(s, data);
 	break;
