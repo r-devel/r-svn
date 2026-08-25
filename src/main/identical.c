@@ -22,7 +22,7 @@
 #include <config.h>
 #endif
 #include <Defn.h>
-#include <R_ext/Altrep.h> /* R_altopaque_get_region */
+#include <R_ext/Altrep.h> /* R_altsxp_get_region */
 /* -> Rinternals.h which exports R_compute_identical() */
 
 /* Implementation of identical(x, y) */
@@ -383,8 +383,8 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	Rboolean ans = TRUE;
 	for (R_xlen_t i = 0; i < n && ans; i += nb) {
 	    R_xlen_t k = n - i > nb ? nb : n - i;
-	    R_altopaque_get_region(x, i, k, bx);
-	    R_altopaque_get_region(y, i, k, by);
+	    R_altsxp_get_region(x, i, k, bx);
+	    R_altsxp_get_region(y, i, k, by);
 	    if (memcmp(bx, by, (size_t) k * esz) != 0) ans = FALSE;
 	}
 	vmaxset(vmax);

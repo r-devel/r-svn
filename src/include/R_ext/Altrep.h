@@ -67,7 +67,7 @@ R_make_altlist_class(const char *cname, const char *pname, DllInfo *info);
    that has not been taught about a particular element type therefore fails
    rather than silently reinterpreting the payload. */
 R_altrep_class_t
-R_make_altopaque_class(const char *cname, const char *pname, DllInfo *info);
+R_make_altsxp_class(const char *cname, const char *pname, DllInfo *info);
 
 Rboolean R_altrep_inherits(SEXP x, R_altrep_class_t);
 
@@ -153,6 +153,24 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *   Compare        three-way compare of x[i] and y[j]; both must have the
  *                  same Elt_type.  NA ordering is the caller's business.
  *   Format         a character vector rendering positions i..i+n-1.
+ *   Traits         a bitmask of R_ALTSXP_* below, describing what R may
+ *                  assume about the element type.
+ *   Coerce_from    build an object of this class from an ordinary R vector,
+ *                  or return NULL.  This is what lets c() and x[i] <- v mix
+ *                  an opaque vector with base types.
+ *   Na_widen       return an object with the same contents whose domain does
+ *                  include NA, or NULL if the class has no such form.  R
+ *                  calls this before an operation that must introduce NA
+ *                  into an object whose traits say it has no NA (growing it,
+ *                  subsetting out of bounds, assigning NA into it).
+ *   Sum/Min/Max    whole-vector reductions, or NULL to decline.
+ *   Is_sorted      one of the SORTED_* constants; UNKNOWN_SORTEDNESS if not
+ *                  known.  No_NA is TRUE only if the vector is known to
+ *                  contain no NA.
+ *   Math           handle a Math-group function (abs, cumsum, round, ...) or
+ *                  return NULL to decline.  The third argument is the whole
+ *                  argument list, so two-argument members such as round(x, d)
+ *                  and signif(x, d) are reachable too.
  *   Arith, Relop   handle an arithmetic or comparison operation, or return
  *                  NULL to decline.  The second argument is the operator as
  *                  an installed symbol ("+", "<", ...); the fourth is NULL
@@ -161,21 +179,45 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  that has lost its class attribute has no arithmetic at
  *                  all, since there is no base type to fall back on.
  */
-typedef SEXP (*R_altopaque_Elt_type_method_t)(SEXP);
-typedef size_t (*R_altopaque_Elt_size_method_t)(SEXP);
-typedef SEXP (*R_altopaque_New_method_t)(SEXP, R_xlen_t);
+typedef SEXP (*R_altsxp_Elt_type_method_t)(SEXP);
+typedef size_t (*R_altsxp_Elt_size_method_t)(SEXP);
+typedef SEXP (*R_altsxp_New_method_t)(SEXP, R_xlen_t);
 typedef R_xlen_t
-(*R_altopaque_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
+(*R_altsxp_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
 typedef R_xlen_t
-(*R_altopaque_Set_region_method_t)(SEXP, R_xlen_t, R_xlen_t, const void *);
+(*R_altsxp_Set_region_method_t)(SEXP, R_xlen_t, R_xlen_t, const void *);
 typedef R_xlen_t
-(*R_altopaque_Set_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t);
+(*R_altsxp_Set_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t);
 typedef R_xlen_t
-(*R_altopaque_Is_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t, int *);
-typedef int (*R_altopaque_Compare_method_t)(SEXP, R_xlen_t, SEXP, R_xlen_t);
-typedef SEXP (*R_altopaque_Format_method_t)(SEXP, R_xlen_t, R_xlen_t);
-typedef SEXP (*R_altopaque_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
-typedef SEXP (*R_altopaque_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
+(*R_altsxp_Is_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t, int *);
+typedef int (*R_altsxp_Compare_method_t)(SEXP, R_xlen_t, SEXP, R_xlen_t);
+typedef SEXP (*R_altsxp_Format_method_t)(SEXP, R_xlen_t, R_xlen_t);
+typedef SEXP (*R_altsxp_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef SEXP (*R_altsxp_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef unsigned int (*R_altsxp_Traits_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Coerce_from_method_t)(SEXP, SEXP);
+typedef SEXP (*R_altsxp_Na_widen_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Sum_method_t)(SEXP, Rboolean);
+typedef SEXP (*R_altsxp_Min_method_t)(SEXP, Rboolean);
+typedef SEXP (*R_altsxp_Max_method_t)(SEXP, Rboolean);
+typedef int (*R_altsxp_Is_sorted_method_t)(SEXP);
+typedef int (*R_altsxp_No_NA_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
+
+/* Traits bits.
+   NUMERIC     is.numeric() is TRUE and arithmetic is meaningful.
+   BITWISE_EQ  two *non-NA* elements are equal exactly when their bytes are
+               equal, so R may hash and compare elements generically.  Do not
+               set this for a floating type: NaN and signed zero break it.
+   NO_NA       this object's value domain does not include NA at all, so its
+               whole width is available for data.  This is a property of the
+               object, not of the class or of the element type: a column read
+               from a source with no concept of a missing value can set it
+               while a sibling object of the same class does not.  R will ask
+               Na_widen() before introducing an NA into such an object. */
+#define R_ALTSXP_NUMERIC    1
+#define R_ALTSXP_BITWISE_EQ 2
+#define R_ALTSXP_NO_NA      4
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
@@ -231,36 +273,48 @@ DECLARE_METHOD_SETTER(altstring, No_NA)
 DECLARE_METHOD_SETTER(altlist, Elt)
 DECLARE_METHOD_SETTER(altlist, Set_elt)
 
-DECLARE_METHOD_SETTER(altopaque, Elt_type)
-DECLARE_METHOD_SETTER(altopaque, Elt_size)
-DECLARE_METHOD_SETTER(altopaque, New)
-DECLARE_METHOD_SETTER(altopaque, Get_region)
-DECLARE_METHOD_SETTER(altopaque, Set_region)
-DECLARE_METHOD_SETTER(altopaque, Set_na_region)
-DECLARE_METHOD_SETTER(altopaque, Is_na_region)
-DECLARE_METHOD_SETTER(altopaque, Compare)
-DECLARE_METHOD_SETTER(altopaque, Format)
-DECLARE_METHOD_SETTER(altopaque, Arith)
-DECLARE_METHOD_SETTER(altopaque, Relop)
+DECLARE_METHOD_SETTER(altsxp, Elt_type)
+DECLARE_METHOD_SETTER(altsxp, Elt_size)
+DECLARE_METHOD_SETTER(altsxp, New)
+DECLARE_METHOD_SETTER(altsxp, Get_region)
+DECLARE_METHOD_SETTER(altsxp, Set_region)
+DECLARE_METHOD_SETTER(altsxp, Set_na_region)
+DECLARE_METHOD_SETTER(altsxp, Is_na_region)
+DECLARE_METHOD_SETTER(altsxp, Compare)
+DECLARE_METHOD_SETTER(altsxp, Format)
+DECLARE_METHOD_SETTER(altsxp, Arith)
+DECLARE_METHOD_SETTER(altsxp, Relop)
+DECLARE_METHOD_SETTER(altsxp, Traits)
+DECLARE_METHOD_SETTER(altsxp, Coerce_from)
+DECLARE_METHOD_SETTER(altsxp, Na_widen)
+DECLARE_METHOD_SETTER(altsxp, Sum)
+DECLARE_METHOD_SETTER(altsxp, Min)
+DECLARE_METHOD_SETTER(altsxp, Max)
+DECLARE_METHOD_SETTER(altsxp, Is_sorted)
+DECLARE_METHOD_SETTER(altsxp, No_NA)
+DECLARE_METHOD_SETTER(altsxp, Math)
 
 /* ALTSXP consumer API.  ALTREP_ELT_TYPE() returns R_NilValue for anything
    that is not an ALTSXP, so it is safe to call on an arbitrary SEXP.
 
-   R_altopaque_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
+   R_altsxp_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
    returns NULL unless the object really is an ALTSXP whose element type is
    `elt_type`, so a caller cannot cast the result to the wrong C type by
    accident.  It also returns NULL if the class cannot supply a contiguous
-   pointer, in which case use R_altopaque_get_region(). */
+   pointer, in which case use R_altsxp_get_region(). */
 SEXP ALTREP_ELT_TYPE(SEXP x);
 size_t ALTREP_ELT_SIZE(SEXP x);
+unsigned int ALTREP_TRAITS(SEXP x);
+SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
+SEXP R_altsxp_na_widen(SEXP x);
 
-const void *R_altopaque_dataptr_ro(SEXP x, SEXP elt_type);
-void *R_altopaque_dataptr_rw(SEXP x, SEXP elt_type);
-R_xlen_t R_altopaque_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
-R_xlen_t R_altopaque_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
-R_xlen_t R_altopaque_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
-R_xlen_t R_altopaque_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
-SEXP R_altopaque_new(SEXP proto, R_xlen_t n);
+const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type);
+void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type);
+R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
+R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
+R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
+R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
+SEXP R_altsxp_new(SEXP proto, R_xlen_t n);
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */

@@ -460,6 +460,62 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
 }
 
 #define IMAX 4294967296L
+
+/* Hashing an opaque vector.  This works for any class that sets
+   R_ALTSXP_BITWISE_EQ, i.e. promises that equal values have equal bytes,
+   because then hashing and comparing the raw element bytes is exact.  A
+   floating element type must not set that bit: NaN and signed zero break
+   the correspondence. */
+#define ALTSXP_ELT_BUFSIZE 64
+
+static R_INLINE const unsigned char *
+altsxp_eltptr(SEXP x, R_xlen_t i, size_t esz, unsigned char *buf)
+{
+    const unsigned char *p = (const unsigned char *) DATAPTR_OR_NULL(x);
+    if (p != NULL)
+	return p + (size_t) i * esz;
+    R_altsxp_get_region(x, i, 1, buf);
+    return buf;
+}
+
+static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
+{
+    int na;
+    R_altsxp_is_na_region(x, indx, 1, &na);
+    if (na) return scatter(0u, d); /* all NAs hash alike */
+
+    size_t esz = ALTREP_ELT_SIZE(x);
+    unsigned char buf[ALTSXP_ELT_BUFSIZE];
+    const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
+
+    /* FNV-1a over the element bytes */
+    unsigned int h = 2166136261u;
+    for (size_t k = 0; k < esz; k++) {
+	h ^= (unsigned int) p[k];
+	h *= 16777619u;
+    }
+    return scatter(h, d);
+}
+
+static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (TYPEOF(x) != ALTSXP || TYPEOF(y) != ALTSXP)
+	return 0;
+    if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y))
+	return 0;
+
+    int nax, nay;
+    R_altsxp_is_na_region(x, i, 1, &nax);
+    R_altsxp_is_na_region(y, j, 1, &nay);
+    if (nax || nay) return nax && nay; /* NA matches only NA */
+
+    size_t esz = ALTREP_ELT_SIZE(x);
+    unsigned char bx[ALTSXP_ELT_BUFSIZE], by[ALTSXP_ELT_BUFSIZE];
+    const unsigned char *px = altsxp_eltptr(x, i, esz, bx);
+    const unsigned char *py = altsxp_eltptr(y, j, esz, by);
+    return memcmp(px, py, esz) == 0;
+}
+
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 {
     d->useUTF8 = FALSE;
@@ -509,6 +565,14 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
     case VECSXP:
 	d->hash = vhash;
 	d->equal = vequal;
+	MKsetup(XLENGTH(x), d, nmax);
+	break;
+    case ALTSXP:
+	if (!(ALTREP_TRAITS(x) & R_ALTSXP_BITWISE_EQ) ||
+	    ALTREP_ELT_SIZE(x) > ALTSXP_ELT_BUFSIZE)
+	    error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
+	d->hash = altsxphash;
+	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     default:
@@ -1162,6 +1226,20 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(duptr[j] == 0) k++;
 	});
 
+    if (TYPEOF(x) == ALTSXP) {
+	/* build an index vector and let the class's Extract_subset do the
+	   copying: R still does not need to know what an element is */
+	SEXP idx = PROTECT(allocVector(REALSXP, k));
+	double *pidx = REAL(idx);
+	R_xlen_t m = 0;
+	for (i = 0; i < n; i++)
+	    if (LOGICAL_ELT(dup, i) == 0)
+		pidx[m++] = (double) (i + 1);
+	SEXP ans = ExtractSubset(x, idx, R_NilValue);
+	UNPROTECT(2); /* idx, dup */
+	return ans;
+    }
+
     SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
 
     k = 0;
@@ -1388,7 +1466,10 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
+    if(TYPEOF(x) == ALTSXP && TYPEOF(table) == ALTSXP &&
+       ALTREP_ELT_TYPE(x) == ALTREP_ELT_TYPE(table))
+	type = ALTSXP; /* hash the elements directly */
+    else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);

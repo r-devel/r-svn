@@ -706,6 +706,10 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	  case OBJSXP:
 	    klass = mkChar(IS_S4_OBJECT(obj) ? "S4" : "object");
 	    break;
+	  case ALTSXP:
+	    /* the implicit class of an opaque vector is its element type */
+	    klass = mkChar(R_typeToChar(obj));
+	    break;
 	  default:
 	    klass = type2str(t);
 	  }

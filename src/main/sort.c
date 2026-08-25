@@ -23,7 +23,8 @@
 #include <config.h>
 #endif
 
-#include <Defn.h> /* => Utils.h with the protos from here; Rinternals.h */
+#include <Defn.h>
+#include <R_ext/Altrep.h> /* => Utils.h with the protos from here; Rinternals.h */
 #include <Internal.h>
 #include <Rmath.h>
 #include <R_ext/RS.h>  /* for R_Calloc/R_Free */
@@ -83,6 +84,24 @@ static int scmp(SEXP x, SEXP y, bool nalast)
 }
 
 #define R_INT_MIN 1 + INT_MIN //INT_MIN is NA_INTEGER
+/* NA-aware ordering for an opaque vector, built from the class's Compare
+   and Is_na_region methods. */
+static int altsxp_isna(SEXP x, R_xlen_t i)
+{
+    int na;
+    R_altsxp_is_na_region(x, i, 1, &na);
+    return na;
+}
+
+static int altsxpcmp(SEXP x, R_xlen_t i, R_xlen_t j, Rboolean nalast)
+{
+    int nai = altsxp_isna(x, i), naj = altsxp_isna(x, j);
+    if (nai && naj) return 0;
+    if (nai) return nalast ? 1 : -1;
+    if (naj) return nalast ? -1 : 1;
+    return ALTSXP_COMPARE(x, i, x, j);
+}
+
 // API: in Rinternals.h
 Rboolean isUnsorted(SEXP x, Rboolean strictly)
 {
@@ -203,6 +222,17 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 	    } else {
 		for(i = 0; i+1 < n ; i++)
 		    if(RAW(x)[i] > RAW(x)[i+1])
+			return TRUE;
+	    }
+	    break;
+	case ALTSXP:
+	    if(strictly) {
+		for(i = 0; i+1 < n ; i++)
+		    if(altsxpcmp(x, i, i+1, TRUE) >= 0)
+			return TRUE;
+	    } else {
+		for(i = 0; i+1 < n ; i++)
+		    if(altsxpcmp(x, i, i+1, TRUE) > 0)
 			return TRUE;
 	    }
 	    break;
@@ -436,6 +466,10 @@ attribute_hidden SEXP do_sort(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 static bool fastpass_sortcheck(SEXP x, int wanted) {
+    if (TYPEOF(x) == ALTSXP) {
+	int sorted = ALTSXP_IS_SORTED(x);
+	return KNOWN_SORTED(sorted) && sorted == wanted;
+    }
     if(!KNOWN_SORTED(wanted)) 
 	return false;
 
@@ -632,8 +666,47 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 
 /* The meat of sort.int() */
 // Used in envir.c library/utils/src/io.c
+/* Sorting an opaque vector: order the indices with the class's Compare, then
+   permute whole elements.  Done in place so that do_sort()'s duplicate-then-
+   sort contract still holds. */
+static void altsxpSort(SEXP s, bool decreasing)
+{
+    R_xlen_t n = XLENGTH(s);
+    if (n < 2) return;
+
+    const void *vmax = vmaxget();
+    SEXP idx = PROTECT(allocVector(INTSXP, n));
+    int *pidx = INTEGER(idx);
+    for (R_xlen_t i = 0; i < n; i++) pidx[i] = (int) i;
+
+    /* insertion sort is fine for the sizes R reaches here via sort.int();
+       a class wanting more should provide its own ordering */
+    for (R_xlen_t i = 1; i < n; i++) {
+	int v = pidx[i];
+	R_xlen_t j = i - 1;
+	while (j >= 0 &&
+	       (decreasing ? altsxpcmp(s, pidx[j], v, TRUE) < 0
+			   : altsxpcmp(s, pidx[j], v, TRUE) > 0)) {
+	    pidx[j + 1] = pidx[j];
+	    j--;
+	}
+	pidx[j + 1] = v;
+    }
+
+    size_t esz = ALTREP_ELT_SIZE(s);
+    char *tmp = R_alloc((size_t) n, esz);
+    for (R_xlen_t i = 0; i < n; i++)
+	R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
+    R_altsxp_set_region(s, 0, n, tmp);
+
+    UNPROTECT(1);
+    vmaxset(vmax);
+}
+
 void sortVector(SEXP s, bool decreasing)
 {
+    if (TYPEOF(s) == ALTSXP) { altsxpSort(s, decreasing); return; }
+
     R_xlen_t n = XLENGTH(s);
     if (n >= 2 && (decreasing || isUnsorted(s, FALSE)))
 	switch (TYPEOF(s)) {
@@ -858,6 +931,9 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("equal", x);
 	    break;
@@ -867,6 +943,7 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	return 1;
     return 0;
 }
+
 
 static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 		   bool decreasing, SEXP rho)
@@ -895,6 +972,9 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("greater", x);
@@ -1192,6 +1272,9 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case ALTSXP:
+	    R_altsxp_is_na_region(key, 0, n, isna);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1204,6 +1287,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
@@ -1329,6 +1413,9 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case ALTSXP:
+	    R_altsxp_is_na_region(key, 0, n, isna);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1341,6 +1428,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))

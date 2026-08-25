@@ -537,7 +537,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
        method still takes precedence; hooking here rather than in do_arith()
        covers the bytecode interpreter as well. */
     if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
-	SEXP val = ALTOPAQUE_ARITH(call, op, x, y);
+	SEXP val = ALTSXP_ARITH(call, op, x, y);
 	if (val != NULL)
 	    return val;
     }
@@ -728,7 +728,7 @@ attribute_hidden SEXP R_binary(SEXP call, SEXP op, SEXP x, SEXP y)
 attribute_hidden SEXP R_unary(SEXP call, SEXP op, SEXP s1)
 {
     if (TYPEOF(s1) == ALTSXP) {
-	SEXP val = ALTOPAQUE_ARITH(call, op, s1, NULL);
+	SEXP val = ALTSXP_ARITH(call, op, s1, NULL);
 	if (val != NULL)
 	    return val;
     }
@@ -1388,6 +1388,12 @@ static double Ratan(double x)
 
 attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL)
+	    return val;
+    }
+
     SEXP s;
 
     checkArity(op, args);
@@ -1482,6 +1488,12 @@ attribute_hidden SEXP do_trunc(SEXP call, SEXP op, SEXP args, SEXP env)
 
 attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL)
+	    return val;
+    }
+
     SEXP x, s = R_NilValue /* -Wall */;
 
     checkArity(op, args);
@@ -1798,6 +1810,12 @@ static R_INLINE SEXP match_Math2_dflt_args(SEXP args, SEXP call)
 /* This is a primitive SPECIALSXP with internal argument matching */
 attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL)
+	    return val;
+    }
+
     SEXP res, call2;
     int is_signif = (PRIMVAL(op) == 10004) ? true : false;
     double dflt_digits = is_signif ? 6.0 : 0.;

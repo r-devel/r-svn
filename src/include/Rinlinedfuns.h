@@ -397,6 +397,8 @@ HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     RAW(x)[0] = v;
 }
 
+unsigned int ALTREP_TRAITS(SEXP x);
+
 INLINE_FUN SEXP ALTREP_CLASS(SEXP x) { return TAG(x); }
 
 INLINE_FUN SEXP R_altrep_data1(SEXP x) { return CAR(x); }
@@ -886,6 +888,12 @@ INLINE_FUN Rboolean isVectorAtomic(SEXP s)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+
+    /* An ALTSXP holds one indivisible value per position, so it is atomic in
+       the sense R exposes to users.  C code that reaches a TYPEOF switch
+       from here lands on its default arm and errors, which is the intended
+       behaviour for a type it was never taught about. */
+    case ALTSXP:
 	return TRUE;
     default: /* including NULL */
 	return FALSE;
@@ -998,6 +1006,10 @@ INLINE_FUN Rboolean isNumeric(SEXP s)
     case LGLSXP:
     case REALSXP:
 	return TRUE;
+    case ALTSXP:
+	/* whether an opaque element type counts as numeric is the class's
+	   decision, not the SEXPTYPE's */
+	return (ALTREP_TRAITS(s) & R_ALTSXP_NUMERIC) ? TRUE : FALSE;
     default:
 	return FALSE;
     }

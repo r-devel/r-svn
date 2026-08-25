@@ -29,6 +29,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 
 #define imax2(x, y) ((x < y) ? y : x)
@@ -447,6 +448,26 @@ attribute_hidden SEXP do_filepath(SEXP call, SEXP op, SEXP args, SEXP env)
 		  scientific, decimal.mark) */
 attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	/* an opaque element type formats itself */
+	SEXP x = CAR(args);
+	SEXP val = ALTSXP_FORMAT(x, 0, XLENGTH(x));
+	if (val != NULL) {
+	    PROTECT(val);
+	    SEXP dims = getAttrib(x, R_DimSymbol);
+	    if (dims != R_NilValue) {
+		setAttrib(val, R_DimSymbol, dims);
+		setAttrib(val, R_DimNamesSymbol, getAttrib(x, R_DimNamesSymbol));
+	    }
+	    else {
+		SEXP nms = getAttrib(x, R_NamesSymbol);
+		if (nms != R_NilValue) setAttrib(val, R_NamesSymbol, nms);
+	    }
+	    UNPROTECT(1);
+	    return val;
+	}
+    }
+
     checkArity(op, args);
     PrintDefaults();
     int scikeep = R_print.scipen;

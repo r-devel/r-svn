@@ -1535,6 +1535,28 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	break;
     default:
 	d->sourceable = false;
+	if (TYPEOF(s) == ALTSXP) {
+	    /* deparse the element type's own text form; the result is not
+	       re-parseable without the class, so mark it as a call */
+	    SEXP fmt = ALTSXP_FORMAT(s, 0, XLENGTH(s));
+	    if (fmt != NULL) {
+		PROTECT(fmt);
+		print2buff("structure(c(", d);
+		for (R_xlen_t i = 0; i < XLENGTH(fmt); i++) {
+		    if (i > 0) print2buff(", ", d);
+		    SEXP e = STRING_ELT(fmt, i);
+		    if (e == NA_STRING) print2buff("NA", d);
+		    else { print2buff("\"", d);
+			   print2buff(translateChar(e), d);
+			   print2buff("\"", d); }
+		}
+		print2buff("), class = \"", d);
+		print2buff(R_typeToChar(s), d);
+		print2buff("\")", d);
+		UNPROTECT(1);
+		break;
+	    }
+	}
 	UNIMPLEMENTED_TYPE("deparse2buff", s);
     }
 

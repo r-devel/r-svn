@@ -39,6 +39,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 
 /* JMC convinced MM that this was not a good idea: */
@@ -1118,6 +1119,16 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifndef SWITCH_TO_REFCNT
 	RAISE_NAMED(ans, named_x);
 #endif
+    } else if (TYPEOF(x) == ALTSXP) {
+	/* an opaque element boxes as a length-one vector of the same class */
+	size_t esz = ALTREP_ELT_SIZE(x);
+	const void *vmax = vmaxget();
+	void *buf = R_alloc(1, esz);
+	ans = PROTECT(R_altsxp_new(x, 1));
+	R_altsxp_get_region(x, offset, 1, buf);
+	R_altsxp_set_region(ans, 0, 1, buf);
+	vmaxset(vmax);
+	UNPROTECT(1); /* ans */
     } else {
 	ans = PROTECT(allocVector(TYPEOF(x), 1));
 	switch (TYPEOF(x)) {

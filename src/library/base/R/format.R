@@ -74,9 +74,14 @@ format.default <-
 			     zero.print = zero.print, drop0trailing = drop0trailing,
 			     is.cmplx = is.complex(x),
 			     preserve.width = if (trim) "individual" else "common", ...),
-	       ## all others (for now):
-	       stop(gettextf("Found no format() method for class \"%s\"",
-			     class(x)), domain = NA))
+	       ## Anything else atomic -- notably an ALTSXP, whose element
+	       ## type formats itself -- goes through .Internal(format).
+	       if(is.atomic(x))
+		   .Internal(format(x, trim, digits, nsmall, width, 3L,
+				    na.encode, scientific, decimal.mark))
+	       else
+		   stop(gettextf("Found no format() method for class \"%s\"",
+				 class(x)), domain = NA))
     }
 }
 

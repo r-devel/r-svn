@@ -848,12 +848,20 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     if (lenx == len)
 	return (x);
 
+    if (TYPEOF(x) == ALTSXP && len > lenx &&
+	(ALTREP_TRAITS(x) & R_ALTSXP_NO_NA)) {
+	SEXP w = R_altsxp_na_widen(x);
+	if (w == NULL)
+	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
+	x = w;
+    }
+
     if (TYPEOF(x) == ALTSXP) {
 	/* An opaque vector cannot be allocated by SEXPTYPE, so ask the class
 	   for storage; copying and NA filling are then generic byte
 	   operations that need no knowledge of the element type. */
 	R_xlen_t ncopy = lenx < len ? lenx : len;
-	PROTECT(rval = R_altopaque_new(x, len));
+	PROTECT(rval = R_altsxp_new(x, len));
 	if (ncopy > 0) {
 	    size_t esz = ALTREP_ELT_SIZE(x);
 	    R_xlen_t nb = ncopy > 512 ? 512 : ncopy;
@@ -861,13 +869,13 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    void *buf = R_alloc((size_t) nb, esz);
 	    for (R_xlen_t k = 0; k < ncopy; k += nb) {
 		R_xlen_t m = ncopy - k > nb ? nb : ncopy - k;
-		R_altopaque_get_region(x, k, m, buf);
-		R_altopaque_set_region(rval, k, m, buf);
+		R_altsxp_get_region(x, k, m, buf);
+		R_altsxp_set_region(rval, k, m, buf);
 	    }
 	    vmaxset(vmax);
 	}
 	if (len > ncopy)
-	    R_altopaque_set_na_region(rval, ncopy, len - ncopy);
+	    R_altsxp_set_na_region(rval, ncopy, len - ncopy);
 	PROTECT(xnames = getAttrib(x, R_NamesSymbol));
 	if (xnames != R_NilValue)
 	    setAttrib(rval, R_NamesSymbol, xlengthgets(xnames, len));

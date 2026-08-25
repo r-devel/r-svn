@@ -912,7 +912,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	   a usable summary line rather than an "unimplemented type" error. */
 	{
 	    R_xlen_t n_ = XLENGTH(s);
-	    SEXP fmt = ALTOPAQUE_FORMAT(s, 0, n_);
+	    SEXP fmt = ALTSXP_FORMAT(s, 0, n_);
 	    Rprintf("<%s[%lld]>\n",
 		    CHAR(PRINTNAME(ALTREP_ELT_TYPE(s))), (long long) n_);
 	    if (fmt != NULL) {

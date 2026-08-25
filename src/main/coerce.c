@@ -28,7 +28,8 @@
 /* #define NINTERRUPT 10000000 */
 
 #include <Parse.h>
-#include <Defn.h> /*-- Maybe modularize into own Coerce.h ..*/
+#include <Defn.h>
+#include <R_ext/Altrep.h> /*-- Maybe modularize into own Coerce.h ..*/
 #include <Internal.h>
 #include <float.h> /* for DBL_DIG */
 #define R_MSG_mode	_("invalid 'mode' argument")
@@ -1175,6 +1176,20 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     if (TYPEOF(v) == type)
 	return v;
 
+    if (TYPEOF(v) == ALTSXP && (type == VECSXP || type == EXPRSXP)) {
+	/* boxing each element as a length-one vector of the same class is
+	   the only list form an opaque vector has */
+	R_xlen_t n = xlength(v);
+	SEXP ans = PROTECT(allocVector(type, n));
+	SEXP idx = PROTECT(allocVector(REALSXP, 1));
+	for (R_xlen_t i = 0; i < n; i++) {
+	    REAL(idx)[0] = (double) (i + 1);
+	    SET_VECTOR_ELT(ans, i, ExtractSubset(v, idx, R_NilValue));
+	}
+	UNPROTECT(2);
+	return ans;
+    }
+
     SEXP ans = R_NilValue;	/* -Wall */
     if (ALTREP(v)) {
 	PROTECT(v); /* the methods should protect, but ... */
@@ -2115,6 +2130,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     case 200:		/* is.atomic */
 	switch(TYPEOF(CAR(args))) {
+	case ALTSXP:  /* one indivisible value per position */
 #ifdef S_compatible_BUT_UNDESIRABLE
 	case NILSXP:
 	    /* NULL is atomic (S compatibly), but not in isVectorAtomic(.) */
@@ -2293,6 +2309,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(ans = allocVector(LGLSXP, n));
     int *pa = LOGICAL(ans);
     switch (TYPEOF(x)) {
+    case ALTSXP:
+	R_altsxp_is_na_region(x, 0, n, pa);
+	break;
     case LGLSXP:
        for (i = 0; i < n; i++)
 	   pa[i] = (LOGICAL_ELT(x, i) == NA_LOGICAL);
@@ -2400,6 +2419,23 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 
     R_xlen_t i, n = xlength(x);
     switch (xT) {
+    case ALTSXP:
+    {
+	R_xlen_t n = xlength(x);
+	if (n == 0) return false;
+	if (ALTSXP_NO_NA(x)) return false;
+	R_xlen_t nb = n > 512 ? 512 : n;
+	const void *vmax = vmaxget();
+	int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
+	for (R_xlen_t i = 0; i < n; i += nb) {
+	    R_xlen_t k = n - i > nb ? nb : n - i;
+	    R_altsxp_is_na_region(x, i, k, buf);
+	    for (R_xlen_t j = 0; j < k; j++)
+		if (buf[j]) { vmaxset(vmax); return true; }
+	}
+	vmaxset(vmax);
+	return false;
+    }
     case REALSXP:
     {
 	if(REAL_NO_NA(x))

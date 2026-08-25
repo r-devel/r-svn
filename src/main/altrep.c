@@ -135,7 +135,7 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
 #define ALTCOMPLEX_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altcomplex)
 #define ALTSTRING_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altstring)
 #define ALTLIST_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altlist)
-#define ALTOPAQUE_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altopaque)
+#define ALTSXP_METHODS_TABLE(x) GENERIC_METHODS_TABLE(x, altsxp)
 
 #define ALTREP_METHODS						\
     R_altrep_UnserializeEX_method_t UnserializeEX;		\
@@ -203,19 +203,28 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altlist_Elt_method_t Elt;                 \
     R_altlist_Set_elt_method_t Set_elt
 
-#define ALTOPAQUE_METHODS				\
+#define ALTSXP_METHODS				\
     ALTVEC_METHODS;					\
-    R_altopaque_Elt_type_method_t Elt_type;		\
-    R_altopaque_Elt_size_method_t Elt_size;		\
-    R_altopaque_New_method_t New;			\
-    R_altopaque_Get_region_method_t Get_region;		\
-    R_altopaque_Set_region_method_t Set_region;		\
-    R_altopaque_Set_na_region_method_t Set_na_region;	\
-    R_altopaque_Is_na_region_method_t Is_na_region;	\
-    R_altopaque_Compare_method_t Compare;		\
-    R_altopaque_Format_method_t Format;			\
-    R_altopaque_Arith_method_t Arith;			\
-    R_altopaque_Relop_method_t Relop
+    R_altsxp_Elt_type_method_t Elt_type;		\
+    R_altsxp_Elt_size_method_t Elt_size;		\
+    R_altsxp_New_method_t New;			\
+    R_altsxp_Get_region_method_t Get_region;		\
+    R_altsxp_Set_region_method_t Set_region;		\
+    R_altsxp_Set_na_region_method_t Set_na_region;	\
+    R_altsxp_Is_na_region_method_t Is_na_region;	\
+    R_altsxp_Compare_method_t Compare;		\
+    R_altsxp_Format_method_t Format;			\
+    R_altsxp_Arith_method_t Arith;			\
+    R_altsxp_Relop_method_t Relop;			\
+    R_altsxp_Traits_method_t Traits;			\
+    R_altsxp_Coerce_from_method_t Coerce_from;	\
+    R_altsxp_Na_widen_method_t Na_widen;		\
+    R_altsxp_Sum_method_t Sum;			\
+    R_altsxp_Min_method_t Min;			\
+    R_altsxp_Max_method_t Max;			\
+    R_altsxp_Is_sorted_method_t Is_sorted;		\
+    R_altsxp_No_NA_method_t No_NA;			\
+    R_altsxp_Math_method_t Math
 
 typedef struct { ALTREP_METHODS; } altrep_methods_t;
 typedef struct { ALTVEC_METHODS; } altvec_methods_t;
@@ -226,7 +235,7 @@ typedef struct { ALTRAW_METHODS; } altraw_methods_t;
 typedef struct { ALTCOMPLEX_METHODS; } altcomplex_methods_t;
 typedef struct { ALTSTRING_METHODS; } altstring_methods_t;
 typedef struct { ALTLIST_METHODS; } altlist_methods_t;
-typedef struct { ALTOPAQUE_METHODS; } altopaque_methods_t;
+typedef struct { ALTSXP_METHODS; } altsxp_methods_t;
 
 /* Macro to extract first element from ... macro argument.
    From Richard Hansen's answer in
@@ -247,7 +256,7 @@ typedef struct { ALTOPAQUE_METHODS; } altopaque_methods_t;
 #define ALTCOMPLEX_DISPATCH(fun, ...) DO_DISPATCH(ALTCOMPLEX, fun, __VA_ARGS__)
 #define ALTSTRING_DISPATCH(fun, ...) DO_DISPATCH(ALTSTRING, fun, __VA_ARGS__)
 #define ALTLIST_DISPATCH(fun, ...) DO_DISPATCH(ALTLIST, fun, __VA_ARGS__)
-#define ALTOPAQUE_DISPATCH(fun, ...) DO_DISPATCH(ALTOPAQUE, fun, __VA_ARGS__)
+#define ALTSXP_DISPATCH(fun, ...) DO_DISPATCH(ALTSXP, fun, __VA_ARGS__)
 
 
 /*
@@ -661,112 +670,170 @@ attribute_hidden Rbyte ALTRAW_ELT(SEXP x, R_xlen_t i)
  * ALTSXP (opaque vector) support
  */
 
-#define IS_ALTOPAQUE(x) (TYPEOF(x) == ALTSXP && ALTREP(x))
+#define IS_ALTSXP(x) (TYPEOF(x) == ALTSXP && ALTREP(x))
 
 SEXP ALTREP_ELT_TYPE(SEXP x)
 {
-    return IS_ALTOPAQUE(x) ? ALTOPAQUE_DISPATCH(Elt_type, x) : R_NilValue;
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Elt_type, x) : R_NilValue;
 }
 
 size_t ALTREP_ELT_SIZE(SEXP x)
 {
-    if (! IS_ALTOPAQUE(x))
+    if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object", "ALTREP_ELT_SIZE");
-    return ALTOPAQUE_DISPATCH(Elt_size, x);
+    return ALTSXP_DISPATCH(Elt_size, x);
 }
 
-SEXP R_altopaque_new(SEXP proto, R_xlen_t n)
+SEXP R_altsxp_new(SEXP proto, R_xlen_t n)
 {
-    if (! IS_ALTOPAQUE(proto))
-	error("%s can only be applied to an ALTSXP object", "R_altopaque_new");
-    return ALTOPAQUE_DISPATCH(New, proto, n);
+    if (! IS_ALTSXP(proto))
+	error("%s can only be applied to an ALTSXP object", "R_altsxp_new");
+    return ALTSXP_DISPATCH(New, proto, n);
 }
 
-R_xlen_t R_altopaque_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
+R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 {
-    if (! IS_ALTOPAQUE(x))
+    if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
-	      "R_altopaque_get_region");
-    return ALTOPAQUE_DISPATCH(Get_region, x, i, n, buf);
+	      "R_altsxp_get_region");
+    return ALTSXP_DISPATCH(Get_region, x, i, n, buf);
 }
 
-R_xlen_t R_altopaque_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
+R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
 {
-    if (! IS_ALTOPAQUE(x))
+    if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
-	      "R_altopaque_set_region");
-    return ALTOPAQUE_DISPATCH(Set_region, x, i, n, buf);
+	      "R_altsxp_set_region");
+    return ALTSXP_DISPATCH(Set_region, x, i, n, buf);
 }
 
-R_xlen_t R_altopaque_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
+R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
 {
-    if (! IS_ALTOPAQUE(x))
+    if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
-	      "R_altopaque_set_na_region");
-    return ALTOPAQUE_DISPATCH(Set_na_region, x, i, n);
+	      "R_altsxp_set_na_region");
+    return ALTSXP_DISPATCH(Set_na_region, x, i, n);
 }
 
-R_xlen_t R_altopaque_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
+R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
-    if (! IS_ALTOPAQUE(x))
+    if (! IS_ALTSXP(x))
 	error("%s can only be applied to an ALTSXP object",
-	      "R_altopaque_is_na_region");
-    return ALTOPAQUE_DISPATCH(Is_na_region, x, i, n, buf);
+	      "R_altsxp_is_na_region");
+    return ALTSXP_DISPATCH(Is_na_region, x, i, n, buf);
 }
 
-attribute_hidden int ALTOPAQUE_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    if (! IS_ALTOPAQUE(x) || ! IS_ALTOPAQUE(y))
+    if (! IS_ALTSXP(x) || ! IS_ALTSXP(y))
 	error("ALTSXP comparison needs two ALTSXP objects");
     if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y))
 	error("cannot compare ALTSXP objects with different element types");
-    return ALTOPAQUE_DISPATCH(Compare, x, i, y, j);
+    return ALTSXP_DISPATCH(Compare, x, i, y, j);
 }
 
-attribute_hidden SEXP ALTOPAQUE_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
+attribute_hidden SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
 {
-    return IS_ALTOPAQUE(x) ? ALTOPAQUE_DISPATCH(Format, x, i, n) : NULL;
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Format, x, i, n) : NULL;
 }
 
 /* Try the left operand's method, then the right one's.  A class that does
    not recognise the other operand returns NULL and the caller carries on to
    its ordinary error. */
-attribute_hidden SEXP ALTOPAQUE_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
+attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     /* Methods are handed the operator as a symbol rather than the PRIMSXP,
        which packages have no supported way to inspect. */
     SEXP sym = install(PRIMNAME(op));
     SEXP val = NULL;
-    if (IS_ALTOPAQUE(x))
-	val = ALTOPAQUE_METHODS_TABLE(x)->Arith(call, sym, x, y);
-    if (val == NULL && y != NULL && IS_ALTOPAQUE(y))
-	val = ALTOPAQUE_METHODS_TABLE(y)->Arith(call, sym, x, y);
+    if (IS_ALTSXP(x))
+	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
+    if (val == NULL && y != NULL && IS_ALTSXP(y))
+	val = ALTSXP_METHODS_TABLE(y)->Arith(call, sym, x, y);
     return val;
 }
 
-attribute_hidden SEXP ALTOPAQUE_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
+unsigned int ALTREP_TRAITS(SEXP x)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Traits, x) : 0;
+}
+
+SEXP R_altsxp_coerce_from(SEXP proto, SEXP from)
+{
+    if (! IS_ALTSXP(proto))
+	error("%s can only be applied to an ALTSXP object",
+	      "R_altsxp_coerce_from");
+    return ALTSXP_DISPATCH(Coerce_from, proto, from);
+}
+
+/* An object whose domain excludes NA must be widened before R can put an NA
+   in it.  Returns x unchanged when it already accepts NA, and NULL when the
+   class offers no NA-capable form. */
+SEXP R_altsxp_na_widen(SEXP x)
+{
+    if (! IS_ALTSXP(x))
+	return x;
+    if (!(ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA))
+	return x;
+    return ALTSXP_DISPATCH(Na_widen, x);
+}
+
+attribute_hidden SEXP ALTSXP_SUM(SEXP x, Rboolean narm)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Sum, x, narm) : NULL;
+}
+
+attribute_hidden SEXP ALTSXP_MIN(SEXP x, Rboolean narm)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Min, x, narm) : NULL;
+}
+
+attribute_hidden SEXP ALTSXP_MAX(SEXP x, Rboolean narm)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Max, x, narm) : NULL;
+}
+
+attribute_hidden int ALTSXP_IS_SORTED(SEXP x)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Is_sorted, x)
+			   : UNKNOWN_SORTEDNESS;
+}
+
+attribute_hidden int ALTSXP_NO_NA(SEXP x)
+{
+    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(No_NA, x) : FALSE;
+}
+
+attribute_hidden SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args)
+{
+    SEXP x = CAR(args);
+    if (! IS_ALTSXP(x)) return NULL;
+    return ALTSXP_METHODS_TABLE(x)->Math(call, install(PRIMNAME(op)), args);
+}
+
+attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     SEXP sym = install(PRIMNAME(op));
     SEXP val = NULL;
-    if (IS_ALTOPAQUE(x))
-	val = ALTOPAQUE_METHODS_TABLE(x)->Relop(call, sym, x, y);
-    if (val == NULL && y != NULL && IS_ALTOPAQUE(y))
-	val = ALTOPAQUE_METHODS_TABLE(y)->Relop(call, sym, x, y);
+    if (IS_ALTSXP(x))
+	val = ALTSXP_METHODS_TABLE(x)->Relop(call, sym, x, y);
+    if (val == NULL && y != NULL && IS_ALTSXP(y))
+	val = ALTSXP_METHODS_TABLE(y)->Relop(call, sym, x, y);
     return val;
 }
 
 /* The point of the element type symbol: a consumer that does not know the
    class can still recognise the representation and cast safely. */
-const void *R_altopaque_dataptr_ro(SEXP x, SEXP elt_type)
+const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type)
 {
-    if (! IS_ALTOPAQUE(x) || ALTOPAQUE_DISPATCH(Elt_type, x) != elt_type)
+    if (! IS_ALTSXP(x) || ALTSXP_DISPATCH(Elt_type, x) != elt_type)
 	return NULL;
     return ALTVEC_DATAPTR_OR_NULL(x);
 }
 
-void *R_altopaque_dataptr_rw(SEXP x, SEXP elt_type)
+void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type)
 {
-    if (! IS_ALTOPAQUE(x) || ALTOPAQUE_DISPATCH(Elt_type, x) != elt_type)
+    if (! IS_ALTSXP(x) || ALTSXP_DISPATCH(Elt_type, x) != elt_type)
 	return NULL;
     return ALTVEC_DATAPTR(x);
 }
@@ -1008,30 +1075,30 @@ static const void *altlist_Dataptr_or_null_default(SEXP x)
  ** int64, uint64, float16, decimal128, fixed-width UUIDs, and so on.
  **/
 
-static SEXP altopaque_Elt_type_default(SEXP x)
+static SEXP altsxp_Elt_type_default(SEXP x)
 {
     /* A class that declares no element type is its own element type. */
     return ALTREP_OBJECT_CLSSYM(x);
 }
 
-static size_t altopaque_Elt_size_default(SEXP x)
+static size_t altsxp_Elt_size_default(SEXP x)
 {
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide an Elt_size method", x);
 }
 
-static SEXP altopaque_New_default(SEXP proto, R_xlen_t n)
+static SEXP altsxp_New_default(SEXP proto, R_xlen_t n)
 {
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a New method", proto);
 }
 
 static R_xlen_t
-altopaque_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
+altsxp_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 {
     const void *p = ALTVEC_DATAPTR_OR_NULL(x);
     if (p == NULL)
 	ALTREP_ERROR_IN_CLASS("no Get_region method and no data pointer", x);
 
-    size_t esz = ALTOPAQUE_DISPATCH(Elt_size, x);
+    size_t esz = ALTSXP_DISPATCH(Elt_size, x);
     R_xlen_t size = ALTREP_LENGTH(x);
     R_xlen_t ncopy = size - i > n ? n : size - i;
     memcpy(buf, (const char *) p + (size_t) i * esz, (size_t) ncopy * esz);
@@ -1039,27 +1106,27 @@ altopaque_Get_region_default(SEXP x, R_xlen_t i, R_xlen_t n, void *buf)
 }
 
 static R_xlen_t
-altopaque_Set_region_default(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
+altsxp_Set_region_default(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf)
 {
     void *p = ALTVEC_DATAPTR(x);
     if (p == NULL)
 	ALTREP_ERROR_IN_CLASS("no Set_region method and no data pointer", x);
 
-    size_t esz = ALTOPAQUE_DISPATCH(Elt_size, x);
+    size_t esz = ALTSXP_DISPATCH(Elt_size, x);
     R_xlen_t size = ALTREP_LENGTH(x);
     R_xlen_t ncopy = size - i > n ? n : size - i;
     memcpy((char *) p + (size_t) i * esz, buf, (size_t) ncopy * esz);
     return ncopy;
 }
 
-static R_xlen_t altopaque_Set_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n)
+static R_xlen_t altsxp_Set_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n)
 {
     ALTREP_ERROR_IN_CLASS("ALTSXP classes must provide a Set_na_region method",
 			  x);
 }
 
 static R_xlen_t
-altopaque_Is_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
+altsxp_Is_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
     /* A class with no notion of a missing value has none. */
     R_xlen_t size = ALTREP_LENGTH(x);
@@ -1069,33 +1136,93 @@ altopaque_Is_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     return ncopy;
 }
 
-static int altopaque_Compare_default(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+static int altsxp_Compare_default(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     ALTREP_ERROR_IN_CLASS("ALTSXP class provides no ordering", x);
 }
 
-static SEXP altopaque_Format_default(SEXP x, R_xlen_t i, R_xlen_t n)
+static SEXP altsxp_Format_default(SEXP x, R_xlen_t i, R_xlen_t n)
 {
     return NULL; /* the printer falls back to a summary line */
 }
 
-static SEXP altopaque_Arith_default(SEXP call, SEXP op, SEXP x, SEXP y)
+static SEXP altsxp_Arith_default(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     return NULL; /* decline */
 }
 
-static SEXP altopaque_Relop_default(SEXP call, SEXP op, SEXP x, SEXP y)
+static SEXP altsxp_Relop_default(SEXP call, SEXP op, SEXP x, SEXP y)
 {
     return NULL; /* decline */
 }
+
+static unsigned int altsxp_Traits_default(SEXP x) { return 0; }
+
+static SEXP altsxp_Coerce_from_default(SEXP proto, SEXP from) { return NULL; }
+
+static SEXP altsxp_Na_widen_default(SEXP x) { return NULL; }
+
+static SEXP altsxp_Sum_default(SEXP x, Rboolean narm) { return NULL; }
+static SEXP altsxp_Min_default(SEXP x, Rboolean narm) { return NULL; }
+static SEXP altsxp_Max_default(SEXP x, Rboolean narm) { return NULL; }
+
+static int altsxp_Is_sorted_default(SEXP x) { return UNKNOWN_SORTEDNESS; }
+
+/* generic: ask the class which elements are NA */
+static int altsxp_No_NA_default(SEXP x)
+{
+    R_xlen_t n = ALTREP_LENGTH(x);
+    if (n == 0) return TRUE;
+
+    R_xlen_t nb = n > 512 ? 512 : n;
+    const void *vmax = vmaxget();
+    int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
+    int ans = TRUE;
+    for (R_xlen_t i = 0; i < n && ans; i += nb) {
+	R_xlen_t k = n - i > nb ? nb : n - i;
+	ALTSXP_DISPATCH(Is_na_region, x, i, k, buf);
+	for (R_xlen_t j = 0; j < k; j++)
+	    if (buf[j]) { ans = FALSE; break; }
+    }
+    vmaxset(vmax);
+    return ans;
+}
+
+static SEXP altsxp_Math_default(SEXP call, SEXP op, SEXP x) { return NULL; }
 
 /* Generic subsetting: copy whole elements by index, filling NA where the
    subscript is NA or out of bounds. */
-static SEXP altopaque_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
+static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 {
-    altopaque_methods_t *m = ALTOPAQUE_METHODS_TABLE(x);
     R_xlen_t n = XLENGTH(indx);
     R_xlen_t nx = ALTREP_LENGTH(x);
+
+    /* If any subscript is NA or out of bounds the result needs an NA, so
+       the source may first have to be widened to an NA-capable form. */
+    if (ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA) {
+	Rboolean needs_na = FALSE;
+	if (TYPEOF(indx) == INTSXP) {
+	    const int *pi = INTEGER_RO(indx);
+	    for (R_xlen_t k = 0; k < n && !needs_na; k++)
+		if (!(0 < pi[k] && pi[k] <= nx)) needs_na = TRUE;
+	}
+	else {
+	    const double *pd = REAL_RO(indx);
+	    for (R_xlen_t k = 0; k < n && !needs_na; k++) {
+		R_xlen_t ii = (R_xlen_t) (pd[k] - 1);
+		if (!(R_FINITE(pd[k]) && 0 <= ii && ii < nx)) needs_na = TRUE;
+	    }
+	}
+	if (needs_na) {
+	    SEXP w = R_altsxp_na_widen(x);
+	    if (w == NULL)
+		error(_("'%s' cannot represent NA"), R_typeToChar(x));
+	    x = w;
+	}
+    }
+    PROTECT(x);
+
+    altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     size_t esz = m->Elt_size(x);
 
     SEXP ans = PROTECT(m->New(x, n));
@@ -1104,14 +1231,14 @@ static SEXP altopaque_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
     char *dst = (src == NULL) ? NULL : (char *) ALTVEC_DATAPTR(ans);
     void *buf = (src == NULL) ? R_alloc(1, esz) : NULL;
 
-#define ALTOPAQUE_COPY_ONE(k, ii) do {						if (src != NULL)							    memcpy(dst + (size_t) (k) * esz,						   src + (size_t) (ii) * esz, esz);				else {									    m->Get_region(x, ii, 1, buf);					    m->Set_region(ans, k, 1, buf);					}								    } while (0)
+#define ALTSXP_COPY_ONE(k, ii) do {						if (src != NULL)							    memcpy(dst + (size_t) (k) * esz,						   src + (size_t) (ii) * esz, esz);				else {									    m->Get_region(x, ii, 1, buf);					    m->Set_region(ans, k, 1, buf);					}								    } while (0)
 
     if (TYPEOF(indx) == INTSXP) {
 	const int *pi = INTEGER_RO(indx);
 	for (R_xlen_t k = 0; k < n; k++) {
 	    R_xlen_t ii = pi[k];
 	    if (0 < ii && ii <= nx)
-		ALTOPAQUE_COPY_ONE(k, ii - 1);
+		ALTSXP_COPY_ONE(k, ii - 1);
 	    else
 		m->Set_na_region(ans, k, 1);
 	}
@@ -1122,20 +1249,20 @@ static SEXP altopaque_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 	    double di = pd[k];
 	    R_xlen_t ii = (R_xlen_t) (di - 1);
 	    if (R_FINITE(di) && 0 <= ii && ii < nx)
-		ALTOPAQUE_COPY_ONE(k, ii);
+		ALTSXP_COPY_ONE(k, ii);
 	    else
 		m->Set_na_region(ans, k, 1);
 	}
     }
-#undef ALTOPAQUE_COPY_ONE
+#undef ALTSXP_COPY_ONE
 
-    UNPROTECT(1);
+    UNPROTECT(2); /* ans, x */
     return ans;
 }
 
-static SEXP altopaque_Duplicate_default(SEXP x, Rboolean deep)
+static SEXP altsxp_Duplicate_default(SEXP x, Rboolean deep)
 {
-    altopaque_methods_t *m = ALTOPAQUE_METHODS_TABLE(x);
+    altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     R_xlen_t n = ALTREP_LENGTH(x);
     size_t esz = m->Elt_size(x);
 
@@ -1160,9 +1287,9 @@ static SEXP altopaque_Duplicate_default(SEXP x, Rboolean deep)
 
 /* Serialised state is (element type name, length, raw payload), which is
    byte exact in every serialisation format and needs no class cooperation. */
-static SEXP altopaque_Serialized_state_default(SEXP x)
+static SEXP altsxp_Serialized_state_default(SEXP x)
 {
-    altopaque_methods_t *m = ALTOPAQUE_METHODS_TABLE(x);
+    altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
     R_xlen_t n = ALTREP_LENGTH(x);
     size_t esz = m->Elt_size(x);
 
@@ -1179,9 +1306,9 @@ static SEXP altopaque_Serialized_state_default(SEXP x)
     return state;
 }
 
-static SEXP altopaque_Unserialize_default(SEXP class, SEXP state)
+static SEXP altsxp_Unserialize_default(SEXP class, SEXP state)
 {
-    altopaque_methods_t *m = CLASS_METHODS_TABLE(class);
+    altsxp_methods_t *m = CLASS_METHODS_TABLE(class);
 
     if (TYPEOF(state) != VECSXP || XLENGTH(state) != 3)
 	error("unexpected serialised state for an ALTSXP object");
@@ -1332,29 +1459,38 @@ static altstring_methods_t altstring_default_methods = {
 
 
 
-static altopaque_methods_t altopaque_default_methods = {
+static altsxp_methods_t altsxp_default_methods = {
     .UnserializeEX = altrep_UnserializeEX_default,
-    .Unserialize = altopaque_Unserialize_default,
-    .Serialized_state = altopaque_Serialized_state_default,
+    .Unserialize = altsxp_Unserialize_default,
+    .Serialized_state = altsxp_Serialized_state_default,
     .DuplicateEX = altrep_DuplicateEX_default,
-    .Duplicate = altopaque_Duplicate_default,
+    .Duplicate = altsxp_Duplicate_default,
     .Coerce = altrep_Coerce_default,
     .Inspect = altrep_Inspect_default,
     .Length = altrep_Length_default,
     .Dataptr = altvec_Dataptr_default,
     .Dataptr_or_null = altvec_Dataptr_or_null_default,
-    .Extract_subset = altopaque_Extract_subset_default,
-    .Elt_type = altopaque_Elt_type_default,
-    .Elt_size = altopaque_Elt_size_default,
-    .New = altopaque_New_default,
-    .Get_region = altopaque_Get_region_default,
-    .Set_region = altopaque_Set_region_default,
-    .Set_na_region = altopaque_Set_na_region_default,
-    .Is_na_region = altopaque_Is_na_region_default,
-    .Compare = altopaque_Compare_default,
-    .Format = altopaque_Format_default,
-    .Arith = altopaque_Arith_default,
-    .Relop = altopaque_Relop_default
+    .Extract_subset = altsxp_Extract_subset_default,
+    .Elt_type = altsxp_Elt_type_default,
+    .Elt_size = altsxp_Elt_size_default,
+    .New = altsxp_New_default,
+    .Get_region = altsxp_Get_region_default,
+    .Set_region = altsxp_Set_region_default,
+    .Set_na_region = altsxp_Set_na_region_default,
+    .Is_na_region = altsxp_Is_na_region_default,
+    .Compare = altsxp_Compare_default,
+    .Format = altsxp_Format_default,
+    .Arith = altsxp_Arith_default,
+    .Relop = altsxp_Relop_default,
+    .Traits = altsxp_Traits_default,
+    .Coerce_from = altsxp_Coerce_from_default,
+    .Na_widen = altsxp_Na_widen_default,
+    .Sum = altsxp_Sum_default,
+    .Min = altsxp_Min_default,
+    .Max = altsxp_Max_default,
+    .Is_sorted = altsxp_Is_sorted_default,
+    .No_NA = altsxp_No_NA_default,
+    .Math = altsxp_Math_default
 };
 
 
@@ -1409,7 +1545,7 @@ make_altrep_class(int type, const char *cname, const char *pname, DllInfo *dll)
     case CPLXSXP: MAKE_CLASS(class, altcomplex); break;
     case STRSXP:  MAKE_CLASS(class, altstring);  break;
     case VECSXP:  MAKE_CLASS(class, altlist);    break;
-    case ALTSXP:  MAKE_CLASS(class, altopaque);  break;
+    case ALTSXP:  MAKE_CLASS(class, altsxp);  break;
     default: error("unsupported ALTREP class");
     }
     RegisterClass(class, type, cname, pname, dll);
@@ -1434,7 +1570,7 @@ DEFINE_CLASS_CONSTRUCTOR(altreal, REALSXP)
 DEFINE_CLASS_CONSTRUCTOR(altlogical, LGLSXP)
 DEFINE_CLASS_CONSTRUCTOR(altraw, RAWSXP)
 DEFINE_CLASS_CONSTRUCTOR(altcomplex, CPLXSXP)
-DEFINE_CLASS_CONSTRUCTOR(altopaque, ALTSXP)
+DEFINE_CLASS_CONSTRUCTOR(altsxp, ALTSXP)
 
 static void reinit_altrep_class(SEXP class)
 {
@@ -1446,7 +1582,7 @@ static void reinit_altrep_class(SEXP class)
     case RAWSXP: INIT_CLASS(class, altraw); break;
     case CPLXSXP: INIT_CLASS(class, altcomplex); break;
     case VECSXP: INIT_CLASS(class, altlist); break;
-    case ALTSXP: INIT_CLASS(class, altopaque); break;
+    case ALTSXP: INIT_CLASS(class, altsxp); break;
     default: error("unsupported ALTREP class");
     }
 }
@@ -1513,17 +1649,26 @@ DEFINE_METHOD_SETTER(altstring, No_NA)
 DEFINE_METHOD_SETTER(altlist, Elt)
 DEFINE_METHOD_SETTER(altlist, Set_elt)
 
-DEFINE_METHOD_SETTER(altopaque, Elt_type)
-DEFINE_METHOD_SETTER(altopaque, Elt_size)
-DEFINE_METHOD_SETTER(altopaque, New)
-DEFINE_METHOD_SETTER(altopaque, Get_region)
-DEFINE_METHOD_SETTER(altopaque, Set_region)
-DEFINE_METHOD_SETTER(altopaque, Set_na_region)
-DEFINE_METHOD_SETTER(altopaque, Is_na_region)
-DEFINE_METHOD_SETTER(altopaque, Compare)
-DEFINE_METHOD_SETTER(altopaque, Format)
-DEFINE_METHOD_SETTER(altopaque, Arith)
-DEFINE_METHOD_SETTER(altopaque, Relop)
+DEFINE_METHOD_SETTER(altsxp, Elt_type)
+DEFINE_METHOD_SETTER(altsxp, Elt_size)
+DEFINE_METHOD_SETTER(altsxp, New)
+DEFINE_METHOD_SETTER(altsxp, Get_region)
+DEFINE_METHOD_SETTER(altsxp, Set_region)
+DEFINE_METHOD_SETTER(altsxp, Set_na_region)
+DEFINE_METHOD_SETTER(altsxp, Is_na_region)
+DEFINE_METHOD_SETTER(altsxp, Compare)
+DEFINE_METHOD_SETTER(altsxp, Format)
+DEFINE_METHOD_SETTER(altsxp, Arith)
+DEFINE_METHOD_SETTER(altsxp, Relop)
+DEFINE_METHOD_SETTER(altsxp, Traits)
+DEFINE_METHOD_SETTER(altsxp, Coerce_from)
+DEFINE_METHOD_SETTER(altsxp, Na_widen)
+DEFINE_METHOD_SETTER(altsxp, Sum)
+DEFINE_METHOD_SETTER(altsxp, Min)
+DEFINE_METHOD_SETTER(altsxp, Max)
+DEFINE_METHOD_SETTER(altsxp, Is_sorted)
+DEFINE_METHOD_SETTER(altsxp, No_NA)
+DEFINE_METHOD_SETTER(altsxp, Math)
 
 /**
  ** ALTREP Object Constructor and Utility Functions

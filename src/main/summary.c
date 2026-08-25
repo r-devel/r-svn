@@ -544,6 +544,11 @@ static R_INLINE SEXP complex_mean(SEXP x)
 attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
+    if(PRIMVAL(op) == 1 && TYPEOF(CAR(args)) == ALTSXP)
+	/* mean() of an opaque vector is a double; the class decides what
+	   its elements are worth as doubles */
+	SETCAR(args, coerceVector(CAR(args), REALSXP));
+
     if(PRIMVAL(op) == 1) { /* mean */
 	SEXP x = CAR(args);
 	switch(TYPEOF(x)) {
@@ -591,18 +596,24 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		toret = ALTINTEGER_SUM(vec, narm);
 	    else if (TYPEOF(vec) == REALSXP)
 		toret = ALTREAL_SUM(vec, narm);
+	    else if (TYPEOF(vec) == ALTSXP)
+		toret = ALTSXP_SUM(vec, narm);
 	    break; 
 	case 2:
 	    if(TYPEOF(vec) == INTSXP) 
 		toret = ALTINTEGER_MIN(vec, narm);
 	    else if (TYPEOF(vec) == REALSXP)
 		toret = ALTREAL_MIN(vec, narm);
+	    else if (TYPEOF(vec) == ALTSXP)
+		toret = ALTSXP_MIN(vec, narm);
 	    break;
 	case 3:
 	    if(TYPEOF(vec) == INTSXP) 
 		toret = ALTINTEGER_MAX(vec, narm);
 	    else if (TYPEOF(vec) == REALSXP)
 		toret = ALTREAL_MAX(vec, narm);
+	    else if (TYPEOF(vec) == ALTSXP)
+		toret = ALTSXP_MAX(vec, narm);
 	    break;
 	default:
 	    break;

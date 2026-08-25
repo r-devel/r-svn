@@ -96,6 +96,7 @@ sort.int <-
     method <- match.arg(method)
     if (method == "auto" && is.null(partial) &&
         (is.numeric(x) || is.factor(x) || is.logical(x)) &&
+                .radix.storage(x) &&
         is.integer(length(x)))
         method <- "radix"
     if (method == "radix") {
@@ -189,6 +190,12 @@ sort.int <-
         y
 }
 
+## The radix sort works on R's own storage types; an ALTSXP element type is
+## opaque to it, so such vectors must take the comparison path.
+.radix.storage <- function(x)
+    typeof(x) %in% c("logical", "integer", "double", "character") ||
+        is.object(x)
+
 order <- function(..., na.last = TRUE, decreasing = FALSE,
                   method = c("auto", "shell", "radix"))
 {
@@ -211,6 +218,7 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
     if (method == "auto") {
         useRadix <- all(vapply(z, function(x) {
             (is.numeric(x) || is.factor(x) || is.logical(x)) &&
+                .radix.storage(x) &&
                 is.integer(length(x))
         }, logical(1L)))
         method <- if (useRadix) "radix" else "shell"
@@ -250,8 +258,9 @@ sort.list <- function(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
 
     method <- match.arg(method)
     if (method == "auto" &&
-        (is.numeric(x) || is.factor(x) || is.logical(x) ||
-         (is.object(x) && !is.atomic(x))) && is.integer(length(x)))
+        ((is.numeric(x) || is.factor(x) || is.logical(x) ||
+          (is.object(x) && !is.atomic(x))) && .radix.storage(x)) &&
+        is.integer(length(x)))
         method <- "radix"
     if(!is.null(partial))
         .NotYetUsed("partial != NULL")

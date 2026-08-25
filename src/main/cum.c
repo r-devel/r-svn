@@ -209,6 +209,12 @@ static SEXP cumvar(SEXP x, SEXP s)
 
 attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 {
+    if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL)
+	    return val;
+    }
+
     SEXP s, t, ans;
     R_xlen_t i, n;
     checkArity(op, args);

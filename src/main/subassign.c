@@ -85,6 +85,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <R_ext/RS.h> /* for test of S4 objects */
 #include <R_ext/Itermacros.h>
@@ -616,6 +617,77 @@ static R_INLINE SEXP VECTOR_ELT_FIX_NAMED(SEXP y, R_xlen_t i) {
 /**** This could use SET_REAL_ELT and such, but would also have to
       change byte code instructions in eval.c */
 
+
+/* Generic subassignment for an opaque vector: bring the RHS into the LHS's
+   representation with Coerce_from, then move whole elements.  Nothing here
+   needs to know what an element means. */
+static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
+				  R_xlen_t stretch, SEXP y)
+{
+    if (TYPEOF(x) != ALTSXP) {
+	/* assigning an opaque value into an ordinary vector widens the
+	   whole vector, exactly as integer[i] <- 1.5 widens to double */
+	SEXP nx = R_altsxp_coerce_from(y, x);
+	if (nx == NULL)
+	    errorcall(call, _("incompatible types (from %s to %s) in subassignment type fix"),
+		      R_typeToChar(y), R_typeToChar(x));
+	x = nx;
+    }
+    /* growing introduces NA, so the target may need widening first */
+    if (stretch && (ALTREP_TRAITS(x) & R_ALTSXP_NO_NA)) {
+	SEXP w = R_altsxp_na_widen(x);
+	if (w == NULL)
+	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));
+	x = w;
+    }
+
+    PROTECT(x);
+    if (stretch) {
+	x = EnlargeVector(x, stretch);
+	UNPROTECT(1);
+	PROTECT(x);
+    }
+
+    SEXP yy;
+    if (TYPEOF(y) == ALTSXP && ALTREP_ELT_TYPE(y) == ALTREP_ELT_TYPE(x))
+	yy = y;
+    else {
+	yy = R_altsxp_coerce_from(x, y);
+	if (yy == NULL) {
+	    UNPROTECT(1);
+	    errorcall(call, _("incompatible types (from %s to %s) in subassignment type fix"),
+		      R_typeToChar(y), R_typeToChar(x));
+	}
+    }
+    PROTECT(yy);
+
+    R_xlen_t n = xlength(indx), ny = xlength(yy), nx = xlength(x);
+    if (n > 0 && ny == 0)
+	error(_("replacement has length zero"));
+    if (n > 0 && n % ny)
+	warning(_("number of items to replace is not a multiple of replacement length"));
+
+    size_t esz = ALTREP_ELT_SIZE(x);
+    const void *vmax = vmaxget();
+    void *buf = R_alloc(1, esz);
+    R_xlen_t iny = 0;
+    for (R_xlen_t i = 0; i < n; i++) {
+	R_xlen_t ii = gi(indx, i);
+	if (ii != NA_INTEGER) {
+	    ii--;
+	    if (ii < 0 || ii >= nx)
+		errorcall(call, _("subscript out of bounds"));
+	    R_altsxp_get_region(yy, iny, 1, buf);
+	    R_altsxp_set_region(x, ii, 1, buf);
+	}
+	iny = (++iny == ny) ? 0 : iny;
+    }
+    vmaxset(vmax);
+
+    UNPROTECT(2); /* yy, x */
+    return x;
+}
+
 static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 {
     /* try for quick return for simple scalar case */
@@ -668,6 +740,13 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
     R_xlen_t stretch = 1;
     SEXP indx = PROTECT(makeSubscript(x, s, &stretch, R_NilValue));
+
+    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	SEXP val = AltsxpVectorAssign(call, x, indx, stretch, y);
+	UNPROTECT(2); /* indx, s */
+	return val;
+    }
+
     R_xlen_t i, ii, n = xlength(indx);
     if(xlength(y) > 1)
 	for(i = 0; i < n; i++)
@@ -1672,6 +1751,7 @@ attribute_hidden SEXP do_subassign_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     case EXPRSXP:
     case VECSXP:
     case RAWSXP:
+    case ALTSXP:
 	switch (nsubs) {
 	case 0:
 	    x = VectorAssign(call, rho, x, R_MissingArg, y);
@@ -1917,6 +1997,16 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 
 	SEXP old_x = x;
+	if (TYPEOF(x) == ALTSXP) {
+	    /* x[[i]] <- v : one element, same generic machinery as x[i] <- v */
+	    SEXP ind = PROTECT(ScalarReal((double) (offset + 1)));
+	    x = AltsxpVectorAssign(call, x, ind, stretch, y);
+	    UNPROTECT(1);
+	    PROTECT(x);
+	    PROTECT(y);
+	    goto altsxp_done;
+	}
+
 	which = SubassignTypeFix(&x, &y, stretch, 2, call, rho);
 
 	PROTECT(x);
@@ -2047,6 +2137,11 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("incompatible types (from %s to %s) in [[ assignment"),
 		  R_typeToChar(x), R_typeToChar(y));
 	}
+	UNPROTECT(2); /* x, y */
+	PROTECT(x);
+	PROTECT(y);
+
+    altsxp_done:
 	/* If we stretched, we may have a new name. */
 	/* In this case we must create a names attribute */
 	/* (if it doesn't already exist) and set the new */
