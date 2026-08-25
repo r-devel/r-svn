@@ -1841,7 +1841,31 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     Memzero(iip, n);
 
     R_xlen_t len = XLENGTH(a);
-    SEXP r = PROTECT(allocVector(TYPEOF(a), len));
+    SEXP r;
+    if (TYPEOF(a) == ALTSXP) {
+	/* the same permutation, expressed as a linear index vector, so the
+	   class's Extract_subset does the element moves */
+	SEXP lidx = PROTECT(allocVector(REALSXP, len));
+	double *plidx = REAL(lidx);
+	Memzero(iip, n);
+	R_xlen_t lj_ = 0;
+	for (R_xlen_t li_ = 0; li_ < len; li_++) {
+	    plidx[li_] = (double) (lj_ + 1);
+	    for (int i_ = 0; i_ < n; i_++) {
+		if (iip[i_] == isr[i_] - 1) iip[i_] = 0;
+		else { iip[i_]++; break; }
+	    }
+	    lj_ = 0;
+	    for (int i_ = 0; i_ < n; i_++)
+		lj_ += iip[i_] * stride[i_];
+	}
+	r = ExtractSubset(a, lidx, R_NilValue);
+	UNPROTECT(1); /* lidx */
+	PROTECT(r);
+	goto aperm_dims;
+    }
+
+    r = PROTECT(allocVector(TYPEOF(a), len));
 
     R_xlen_t li, lj;
 
@@ -1912,6 +1936,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNIMPLEMENTED_TYPE("aperm", a);
     }
 
+ aperm_dims:
     /* handle names(dim(.)) and the dimnames if any */
     if (resize) {
 	SEXP nmdm = getAttrib(dimsa, R_NamesSymbol);
