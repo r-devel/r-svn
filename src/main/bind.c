@@ -104,11 +104,11 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
     case ALTSXP:
 	if (data->ans_proto == NULL)
 	    data->ans_proto = x;
-	else if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(data->ans_proto))
+	else if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(data->ans_proto))
 	    /* mixing two opaque element types: fall back to a list */
 	    data->ans_flags |= 256;
-	else if ((ALTREP_TRAITS(data->ans_proto) & R_ALTSXP_NO_NA) &&
-		 !(ALTREP_TRAITS(x) & R_ALTSXP_NO_NA))
+	else if ((ALTSXP_TRAITS(data->ans_proto) & R_ALTSXP_NO_NA_DOMAIN) &&
+		 !(ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN))
 	    /* the result must be able to hold NA if any input can */
 	    data->ans_proto = x;
 	data->ans_flags |= 1024;
@@ -187,51 +187,71 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 /* Concatenating opaque vectors: the class promotes any ordinary vector into
    its own representation, and everything after that is a region copy. */
 static void
-AltsxpAnswer(SEXP args, struct BindData *data, SEXP call)
+AltsxpAnswer1(SEXP x, struct BindData *data, SEXP call)
 {
     SEXP ans = data->ans_ptr;
-    size_t esz = ALTREP_ELT_SIZE(ans);
-    const void *vmax = vmaxget();
 
-    for (SEXP t = args; t != R_NilValue; t = CDR(t)) {
-	SEXP x = CAR(t);
-	if (x == R_NilValue) continue;
+    if (x == R_NilValue) return;
 
-	SEXP src;
-	if (TYPEOF(x) == ALTSXP) {
-	    src = x;
-	    if (!(ALTREP_TRAITS(ans) & R_ALTSXP_NO_NA) &&
-		(ALTREP_TRAITS(src) & R_ALTSXP_NO_NA)) {
-		/* moving whole-range data into a vector that reserves a
-		   pattern for NA is only safe if that pattern is unused */
-		src = R_altsxp_na_widen(src);
-		if (src == NULL)
-		    errorcall(call, _("'%s' cannot represent NA"),
-			      R_typeToChar(x));
-	    }
-	}
-	else {
-	    src = R_altsxp_coerce_from(ans, x);
-	    if (src == NULL)
-		errorcall(call, _("cannot combine '%s' and '%s'"),
-			  R_typeToChar(ans), R_typeToChar(x));
-	}
-	PROTECT(src);
-
-	R_xlen_t n = xlength(src);
-	if (n > 0) {
-	    R_xlen_t nb = n > 512 ? 512 : n;
-	    void *buf = R_alloc((size_t) nb, esz);
-	    for (R_xlen_t i = 0; i < n; i += nb) {
-		R_xlen_t k = n - i > nb ? nb : n - i;
-		R_altsxp_get_region(src, i, k, buf);
-		R_altsxp_set_region(ans, data->ans_length + i, k, buf);
-	    }
-	}
-	data->ans_length += n;
-	UNPROTECT(1);
+    if (TYPEOF(x) == VECSXP || TYPEOF(x) == EXPRSXP) {
+	for (R_xlen_t j = 0; j < XLENGTH(x); j++)
+	    AltsxpAnswer1(VECTOR_ELT(x, j), data, call);
+	return;
     }
-    vmaxset(vmax);
+    if (TYPEOF(x) == LISTSXP) {
+	for (SEXP t = x; t != R_NilValue; t = CDR(t))
+	    AltsxpAnswer1(CAR(t), data, call);
+	return;
+    }
+
+    SEXP src;
+    if (TYPEOF(x) == ALTSXP) {
+	src = x;
+	if (!(ALTSXP_TRAITS(ans) & R_ALTSXP_NO_NA_DOMAIN) &&
+	    (ALTSXP_TRAITS(src) & R_ALTSXP_NO_NA_DOMAIN)) {
+	    /* moving whole-range data into a vector that reserves a pattern
+	       for NA is only safe if that pattern is unused */
+	    src = R_altsxp_na_widen(src);
+	    if (src == NULL)
+		errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));
+	}
+    }
+    else {
+	src = R_altsxp_coerce_from(ans, x);
+	if (src == NULL)
+	    errorcall(call, _("cannot combine '%s' and '%s'"),
+		      R_typeToChar(ans), R_typeToChar(x));
+    }
+    PROTECT(src);
+
+    R_xlen_t n = xlength(src);
+    if (n > 0) {
+	size_t esz = ALTSXP_ELT_SIZE(ans);
+	const void *vmax = vmaxget();
+	R_xlen_t nb = n > 512 ? 512 : n;
+	void *buf = R_alloc((size_t) nb, esz);
+	for (R_xlen_t i = 0; i < n; i += nb) {
+	    R_xlen_t k = n - i > nb ? nb : n - i;
+	    R_altsxp_get_region(src, i, k, buf);
+	    R_altsxp_set_region(ans, data->ans_length + i, k, buf);
+	}
+	vmaxset(vmax);
+    }
+    data->ans_length += n;
+    UNPROTECT(1);
+}
+
+/* Concatenating opaque vectors: the class promotes any ordinary vector into
+   its own representation, and everything after that is a region copy. */
+static void
+AltsxpAnswer(SEXP args, struct BindData *data, SEXP call)
+{
+    if (TYPEOF(args) == VECSXP || TYPEOF(args) == EXPRSXP)
+	for (R_xlen_t j = 0; j < XLENGTH(args); j++)
+	    AltsxpAnswer1(VECTOR_ELT(args, j), data, call);
+    else
+	for (SEXP t = args; t != R_NilValue; t = CDR(t))
+	    AltsxpAnswer1(CAR(t), data, call);
 }
 
 static void
@@ -1043,12 +1063,16 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = mode == ALTSXP
+	    ? R_altsxp_new(data.ans_proto, data.ans_length)
+	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
 
-    if (mode == VECSXP || mode == EXPRSXP) {
+    if (mode == ALTSXP)
+	AltsxpAnswer(args, &data, call);
+    else if (mode == VECSXP || mode == EXPRSXP) {
 	if (!recurse) {
 	    if (TYPEOF(args) == VECSXP)
 		for (i = 0; i < n; i++)
@@ -1408,7 +1432,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t k = XLENGTH(uu);
 		if (k > 0) {
 		    R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		    size_t esz = ALTREP_ELT_SIZE(result);
+		    size_t esz = ALTSXP_ELT_SIZE(result);
 		    void *buf = R_alloc(1, esz);
 		    R_xlen_t i, i1;
 		    MOD_ITERATE1(idx, k, i, i1, {
@@ -1713,7 +1737,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t k = XLENGTH(uu);
 		if (k > 0) {
 		    R_xlen_t idx = (!isMatrix(u)) ? rows : k;
-		    size_t esz = ALTREP_ELT_SIZE(result);
+		    size_t esz = ALTSXP_ELT_SIZE(result);
 		    void *buf = R_alloc(1, esz);
 		    R_xlen_t i, i1;
 		    MOD_ITERATE1(idx, k, i, i1, {

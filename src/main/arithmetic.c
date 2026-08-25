@@ -1390,8 +1390,14 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
 	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL)
+	if (val != NULL) {
+	    if (val != CAR(args)) {
+		PROTECT(val);
+		DUPLICATE_ATTRIB(val, CAR(args));
+		UNPROTECT(1);
+	    }
 	    return val;
+	}
     }
 
     SEXP s;
@@ -1490,8 +1496,14 @@ attribute_hidden SEXP do_abs(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
 	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL)
+	if (val != NULL) {
+	    if (val != CAR(args)) {
+		PROTECT(val);
+		DUPLICATE_ATTRIB(val, CAR(args));
+		UNPROTECT(1);
+	    }
 	    return val;
+	}
     }
 
     SEXP x, s = R_NilValue /* -Wall */;
@@ -1812,8 +1824,14 @@ attribute_hidden SEXP do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
 	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL)
+	if (val != NULL) {
+	    if (val != CAR(args)) {
+		PROTECT(val);
+		DUPLICATE_ATTRIB(val, CAR(args));
+		UNPROTECT(1);
+	    }
 	    return val;
+	}
     }
 
     SEXP res, call2;

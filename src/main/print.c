@@ -914,7 +914,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	    R_xlen_t n_ = XLENGTH(s);
 	    SEXP fmt = ALTSXP_FORMAT(s, 0, n_);
 	    Rprintf("<%s[%lld]>\n",
-		    CHAR(PRINTNAME(ALTREP_ELT_TYPE(s))), (long long) n_);
+		    CHAR(PRINTNAME(ALTSXP_ELT_TYPE(s))), (long long) n_);
 	    if (fmt != NULL) {
 		PROTECT(fmt);
 		SEXP nms = getAttrib(s, R_NamesSymbol);

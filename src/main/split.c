@@ -23,6 +23,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <R_ext/Itermacros.h>
 

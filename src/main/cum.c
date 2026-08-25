@@ -211,8 +211,16 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     if (CAR(args) != R_NilValue && TYPEOF(CAR(args)) == ALTSXP) {
 	SEXP val = ALTSXP_MATH(call, op, args);
-	if (val != NULL)
+	if (val != NULL) {
+	    /* cum*() keeps names but drops dim, as for the base types */
+	    SEXP nms = getAttrib(CAR(args), R_NamesSymbol);
+	    if (nms != R_NilValue && val != CAR(args)) {
+		PROTECT(val);
+		setAttrib(val, R_NamesSymbol, nms);
+		UNPROTECT(1);
+	    }
 	    return val;
+	}
     }
 
     SEXP s, t, ans;

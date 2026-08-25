@@ -328,9 +328,24 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	error(_("dimensions would exceed maximum size of array"));
     PROTECT(sr);
     PROTECT(sc);
-    result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
     const int *psr = INTEGER_RO(sr);
     const int *psc = INTEGER_RO(sc);
+
+    if (TYPEOF(x) == ALTSXP) {
+	/* Turn the row/column subscripts into linear indices and let the
+	   class's Extract_subset move whole elements. */
+	SEXP lidx = PROTECT(allocVector(REALSXP,
+					(R_xlen_t) nrs * (R_xlen_t) ncs));
+	double *plidx = REAL(lidx);
+	MATRIX_SUBSET_LOOP(plidx[ij] = (double) (iijj + 1),
+			   plidx[ij] = NA_REAL);
+	result = ExtractSubset(x, lidx, call);
+	UNPROTECT(1); /* lidx */
+	PROTECT(result);
+	goto matrix_subset_dims;
+    }
+
+    result = allocVector(TYPEOF(x), (R_xlen_t) nrs * (R_xlen_t) ncs);
     PROTECT(result);
     switch(TYPEOF(x)) {
     case LGLSXP:
@@ -371,6 +386,7 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
 	break;
     }
 
+ matrix_subset_dims:
     if(nrs >= 0 && ncs >= 0) {
 	PROTECT(attr = allocVector(INTSXP, 2));
 	INTEGER0(attr)[0] = nrs;
@@ -502,6 +518,16 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	}
 
     /* Transfer the subset elements from "x" to "a". */
+    if (mode == ALTSXP) {
+	SEXP lidx = PROTECT(allocVector(REALSXP, n));
+	double *plidx = REAL(lidx);
+	ARRAY_SUBSET_LOOP(plidx[i] = (double) (ii + 1), plidx[i] = NA_REAL);
+	result = ExtractSubset(x, lidx, call);
+	UNPROTECT(1); /* lidx */
+	PROTECT(result);
+	goto array_subset_dims;
+    }
+
     PROTECT(result = allocVector(mode, n));
     switch (mode) {
     case LGLSXP:
@@ -541,6 +567,8 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
 	errorcall(call, _("array subscripting not handled for this type"));
 	break;
     }
+
+ array_subset_dims:
 
     SEXP new_dim = PROTECT(allocVector(INTSXP, k));
     for(int i = 0 ; i < k ; i++)
@@ -1121,7 +1149,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 #endif
     } else if (TYPEOF(x) == ALTSXP) {
 	/* an opaque element boxes as a length-one vector of the same class */
-	size_t esz = ALTREP_ELT_SIZE(x);
+	size_t esz = ALTSXP_ELT_SIZE(x);
 	const void *vmax = vmaxget();
 	void *buf = R_alloc(1, esz);
 	ans = PROTECT(R_altsxp_new(x, 1));

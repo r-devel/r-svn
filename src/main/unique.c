@@ -484,7 +484,7 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
     R_altsxp_is_na_region(x, indx, 1, &na);
     if (na) return scatter(0u, d); /* all NAs hash alike */
 
-    size_t esz = ALTREP_ELT_SIZE(x);
+    size_t esz = ALTSXP_ELT_SIZE(x);
     unsigned char buf[ALTSXP_ELT_BUFSIZE];
     const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
 
@@ -501,7 +501,7 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (TYPEOF(x) != ALTSXP || TYPEOF(y) != ALTSXP)
 	return 0;
-    if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y))
+    if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
 	return 0;
 
     int nax, nay;
@@ -509,7 +509,7 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     R_altsxp_is_na_region(y, j, 1, &nay);
     if (nax || nay) return nax && nay; /* NA matches only NA */
 
-    size_t esz = ALTREP_ELT_SIZE(x);
+    size_t esz = ALTSXP_ELT_SIZE(x);
     unsigned char bx[ALTSXP_ELT_BUFSIZE], by[ALTSXP_ELT_BUFSIZE];
     const unsigned char *px = altsxp_eltptr(x, i, esz, bx);
     const unsigned char *py = altsxp_eltptr(y, j, esz, by);
@@ -568,8 +568,8 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case ALTSXP:
-	if (!(ALTREP_TRAITS(x) & R_ALTSXP_BITWISE_EQ) ||
-	    ALTREP_ELT_SIZE(x) > ALTSXP_ELT_BUFSIZE)
+	if (!(ALTSXP_TRAITS(x) & R_ALTSXP_BITWISE_EQ) ||
+	    ALTSXP_ELT_SIZE(x) > ALTSXP_ELT_BUFSIZE)
 	    error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
 	d->hash = altsxphash;
 	d->equal = altsxpequal;
@@ -1467,7 +1467,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
     if(TYPEOF(x) == ALTSXP && TYPEOF(table) == ALTSXP &&
-       ALTREP_ELT_TYPE(x) == ALTREP_ELT_TYPE(table))
+       ALTSXP_ELT_TYPE(x) == ALTSXP_ELT_TYPE(table))
 	type = ALTSXP; /* hash the elements directly */
     else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);

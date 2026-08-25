@@ -369,10 +369,10 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	if (TYPEOF(y) != ALTSXP) return FALSE;
 	R_xlen_t n = XLENGTH(x);
 	if (n != XLENGTH(y)) return FALSE;
-	if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y)) return FALSE;
+	if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y)) return FALSE;
 	if (n == 0) return TRUE;
 
-	size_t esz = ALTREP_ELT_SIZE(x);
+	size_t esz = ALTSXP_ELT_SIZE(x);
 	const void *px = DATAPTR_OR_NULL(x), *py = DATAPTR_OR_NULL(y);
 	if (px != NULL && py != NULL)
 	    return memcmp(px, py, (size_t) n * esz) == 0 ? TRUE : FALSE;

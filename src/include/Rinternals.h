@@ -139,9 +139,10 @@ typedef unsigned int SEXPTYPE;
 #define ALTSXP      26    /* opaque ALTREP vector; element type is a property
 			     of the ALTREP class, not of the SEXPTYPE */
 
-/* What R may assume about an ALTSXP element type; see R_ext/Altrep.h */
-#define R_ALTSXP_NUMERIC    1
-#define R_ALTSXP_BITWISE_EQ 2
+/* What R may assume about an ALTSXP object; see R_ext/Altrep.h */
+#define R_ALTSXP_NUMERIC       1
+#define R_ALTSXP_BITWISE_EQ    2
+#define R_ALTSXP_NO_NA_DOMAIN  4
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */

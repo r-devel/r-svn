@@ -172,6 +172,27 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
+    if (TYPEOF(vals) == ALTSXP) {
+	/* Recycling into an opaque matrix is a subset with a computed index
+	   vector; NA where there is no data to recycle. */
+	R_xlen_t N = (R_xlen_t) nr * nc;
+	SEXP lidx = PROTECT(allocVector(REALSXP, N));
+	double *plidx = REAL(lidx);
+	for (R_xlen_t i = 0; i < N; i++) {
+	    if (lendat == 0) { plidx[i] = NA_REAL; continue; }
+	    R_xlen_t k = byrow ? ((i / nr) + (i % nr) * (R_xlen_t) nc) : i;
+	    plidx[i] = (double) (k % lendat + 1);
+	}
+	ans = PROTECT(ExtractSubset(vals, lidx, R_NilValue));
+	SEXP dm = PROTECT(allocVector(INTSXP, 2));
+	INTEGER(dm)[0] = nr; INTEGER(dm)[1] = nc;
+	setAttrib(ans, R_DimSymbol, dm);
+	UNPROTECT(2); /* dm, ans */
+	UNPROTECT(1); /* lidx */
+	PROTECT(ans);
+	goto matrix_dimnames;
+    }
+
     PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
@@ -211,6 +232,8 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    ;
 	}
     }
+
+ matrix_dimnames:
     if(!isNull(dimnames) && length(dimnames) > 0)
 	ans = dimnamesgets(ans, dimnames);
     UNPROTECT(1);
@@ -1625,6 +1648,19 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	goto not_matrix;
     PROTECT(dimnamesnames);
+    if (TYPEOF(a) == ALTSXP) {
+	SEXP lidx = PROTECT(allocVector(REALSXP, len));
+	double *plidx = REAL(lidx);
+	for (int i = 0; i < nrow; i++)
+	    for (int j = 0; j < ncol; j++)
+		plidx[(R_xlen_t) j + (R_xlen_t) i * ncol] =
+		    (double) ((R_xlen_t) i + (R_xlen_t) j * nrow + 1);
+	r = ExtractSubset(a, lidx, R_NilValue);
+	UNPROTECT(1); /* lidx */
+	PROTECT(r);
+	goto transpose_dims;
+    }
+
     PROTECT(r = allocVector(TYPEOF(a), len));
     R_xlen_t i, j, l_1 = len-1;
     switch (TYPEOF(a)) {
@@ -1670,6 +1706,8 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNPROTECT(2); /* r, dimnamesnames */
 	goto not_matrix;
     }
+
+ transpose_dims:
     PROTECT(dims = allocVector(INTSXP, 2));
     INTEGER(dims)[0] = ncol;
     INTEGER(dims)[1] = nrow;
@@ -2178,6 +2216,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP vals = CAR(args); // = data
     /* at least NULL can get here */
     switch(TYPEOF(vals)) {
+	case ALTSXP:
 	case LGLSXP:
 	case INTSXP:
 	case REALSXP:
@@ -2197,6 +2236,19 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(dims = coerceVector(dims, INTSXP));
     R_xlen_t nans = dim2total(dims, _("too many elements specified")),
 	lendat = XLENGTH(vals), i;
+
+    if (TYPEOF(vals) == ALTSXP) {
+	SEXP lidx = PROTECT(allocVector(REALSXP, nans));
+	double *plidx = REAL(lidx);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    plidx[i] = lendat ? (double) (i % lendat + 1) : NA_REAL;
+	ans = PROTECT(ExtractSubset(vals, lidx, R_NilValue));
+	ans = dimgets(ans, dims);
+	if (!isNull(dimnames) && length(dimnames) > 0)
+	    ans = dimnamesgets(ans, dimnames);
+	UNPROTECT(2); /* ans, lidx */
+	return ans;
+    }
 
     PROTECT(ans = allocVector(TYPEOF(vals), nans));
     switch(TYPEOF(vals)) {

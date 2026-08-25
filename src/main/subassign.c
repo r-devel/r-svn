@@ -634,7 +634,7 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	x = nx;
     }
     /* growing introduces NA, so the target may need widening first */
-    if (stretch && (ALTREP_TRAITS(x) & R_ALTSXP_NO_NA)) {
+    if (stretch && (ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN)) {
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));
@@ -649,7 +649,7 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
     }
 
     SEXP yy;
-    if (TYPEOF(y) == ALTSXP && ALTREP_ELT_TYPE(y) == ALTREP_ELT_TYPE(x))
+    if (TYPEOF(y) == ALTSXP && ALTSXP_ELT_TYPE(y) == ALTSXP_ELT_TYPE(x))
 	yy = y;
     else {
 	yy = R_altsxp_coerce_from(x, y);
@@ -667,7 +667,7 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
     if (n > 0 && n % ny)
 	warning(_("number of items to replace is not a multiple of replacement length"));
 
-    size_t esz = ALTREP_ELT_SIZE(x);
+    size_t esz = ALTSXP_ELT_SIZE(x);
     const void *vmax = vmaxget();
     void *buf = R_alloc(1, esz);
     R_xlen_t iny = 0;
@@ -1075,6 +1075,25 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     if (n > 0 && n % ny)
 	error(_("number of items to replace is not a multiple of replacement length"));
 
+    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	/* linear indices, then the same generic element move as x[i] <- v */
+	SEXP lidx = PROTECT(allocVector(REALSXP, n));
+	double *plidx = REAL(lidx);
+	R_xlen_t m = 0;
+	for (int j = 0; j < ncs; j++) {
+	    int jj = psc[j];
+	    for (int i = 0; i < nrs; i++) {
+		int ii = psr[i];
+		plidx[m++] = (ii == NA_INTEGER || jj == NA_INTEGER)
+		    ? NA_REAL
+		    : (double) ((R_xlen_t)(ii - 1) + (R_xlen_t)(jj - 1) * nr + 1);
+	    }
+	}
+	SEXP val = AltsxpVectorAssign(call, x, lidx, 0, y);
+	UNPROTECT(1); /* lidx */
+	return val;
+    }
+
     which = SubassignTypeFix(&x, &y, 0, 1, call, rho);
     if (n == 0) return x;
 
@@ -1315,6 +1334,30 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
     /* Here we make sure that the LHS has been coerced into */
     /* a form which can accept elements from the RHS. */
+
+    if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	/* linear indices, then the same generic element move as x[i] <- v */
+	SEXP lidx = PROTECT(allocVector(REALSXP, n));
+	double *plidx = REAL(lidx);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    R_xlen_t ii = 0;
+	    Rboolean na = FALSE;
+	    for (int j = 0; j < k; j++) {
+		int jj = subs[j][indx[j]];
+		if (jj == NA_INTEGER) { na = TRUE; break; }
+		ii += (R_xlen_t) (jj - 1) * offset[j];
+	    }
+	    plidx[i] = na ? NA_REAL : (double) (ii + 1);
+	    if (n > 1) {
+		int j = 0;
+		while (++indx[j] >= bound[j]) { indx[j] = 0; j = (j + 1) % k; }
+	    }
+	}
+	SEXP val = AltsxpVectorAssign(call, x, lidx, 0, y);
+	UNPROTECT(2); /* lidx, dims */
+	vmaxset(vmax);
+	return val;
+    }
 
     int which = SubassignTypeFix(&x, &y, 0, 1, call, rho);/* = 100 * TYPEOF(x) + TYPEOF(y);*/
 

@@ -356,7 +356,7 @@ const char *R_typeToChar(SEXP x) {
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
     else if(TYPEOF(x) == ALTSXP) {
-	SEXP et = ALTREP_ELT_TYPE(x);
+	SEXP et = ALTSXP_ELT_TYPE(x);
 	return et != R_NilValue ? CHAR(PRINTNAME(et)) : type2char(ALTSXP);
     }
     else

@@ -849,7 +849,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	return (x);
 
     if (TYPEOF(x) == ALTSXP && len > lenx &&
-	(ALTREP_TRAITS(x) & R_ALTSXP_NO_NA)) {
+	(ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN)) {
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
@@ -863,7 +863,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	R_xlen_t ncopy = lenx < len ? lenx : len;
 	PROTECT(rval = R_altsxp_new(x, len));
 	if (ncopy > 0) {
-	    size_t esz = ALTREP_ELT_SIZE(x);
+	    size_t esz = ALTSXP_ELT_SIZE(x);
 	    R_xlen_t nb = ncopy > 512 ? 512 : ncopy;
 	    const void *vmax = vmaxget();
 	    void *buf = R_alloc((size_t) nb, esz);

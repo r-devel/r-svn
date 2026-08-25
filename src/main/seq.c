@@ -290,7 +290,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     switch (TYPEOF(s)) {
     case ALTSXP:
     {
-	size_t esz = ALTREP_ELT_SIZE(s);
+	size_t esz = ALTSXP_ELT_SIZE(s);
 	void *buf = R_alloc(1, esz);
 	MOD_ITERATE1(na, ns, i, j, {
 	    R_altsxp_get_region(s, j, 1, buf);
@@ -507,7 +507,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     switch (TYPEOF(x)) {						\
     case ALTSXP:							\
 	{								\
-	    size_t esz__ = ALTREP_ELT_SIZE(x);				\
+	    size_t esz__ = ALTSXP_ELT_SIZE(x);				\
 	    void *buf__ = R_alloc(1, esz__);				\
 	    for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 		for(j = 0, sum = 0; j < each; j++)			\

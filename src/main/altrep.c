@@ -672,15 +672,15 @@ attribute_hidden Rbyte ALTRAW_ELT(SEXP x, R_xlen_t i)
 
 #define IS_ALTSXP(x) (TYPEOF(x) == ALTSXP && ALTREP(x))
 
-SEXP ALTREP_ELT_TYPE(SEXP x)
+SEXP ALTSXP_ELT_TYPE(SEXP x)
 {
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Elt_type, x) : R_NilValue;
 }
 
-size_t ALTREP_ELT_SIZE(SEXP x)
+size_t ALTSXP_ELT_SIZE(SEXP x)
 {
     if (! IS_ALTSXP(x))
-	error("%s can only be applied to an ALTSXP object", "ALTREP_ELT_SIZE");
+	error("%s can only be applied to an ALTSXP object", "ALTSXP_ELT_SIZE");
     return ALTSXP_DISPATCH(Elt_size, x);
 }
 
@@ -727,7 +727,7 @@ attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
     if (! IS_ALTSXP(x) || ! IS_ALTSXP(y))
 	error("ALTSXP comparison needs two ALTSXP objects");
-    if (ALTREP_ELT_TYPE(x) != ALTREP_ELT_TYPE(y))
+    if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
 	error("cannot compare ALTSXP objects with different element types");
     return ALTSXP_DISPATCH(Compare, x, i, y, j);
 }
@@ -735,6 +735,41 @@ attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 attribute_hidden SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
 {
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Format, x, i, n) : NULL;
+}
+
+/* R_binary() normally applies dim/dimnames/names to its result; a class hook
+   bypasses that, so do the common part here. */
+static void altsxp_binop_attribs(SEXP ans, SEXP x, SEXP y)
+{
+    if (ans == NULL || ans == R_NilValue) return;
+    if (ATTRIB(x) == R_NilValue && (y == NULL || ATTRIB(y) == R_NilValue))
+	return;
+
+    PROTECT(ans);
+    SEXP dims = R_NilValue, dnms = R_NilValue;
+    if (isArray(x) && (y == NULL || !isArray(y) || xlength(y) <= xlength(x))) {
+	dims = getAttrib(x, R_DimSymbol);
+	dnms = getAttrib(x, R_DimNamesSymbol);
+    }
+    else if (y != NULL && isArray(y)) {
+	dims = getAttrib(y, R_DimSymbol);
+	dnms = getAttrib(y, R_DimNamesSymbol);
+    }
+
+    if (dims != R_NilValue) {
+	setAttrib(ans, R_DimSymbol, dims);
+	if (dnms != R_NilValue)
+	    setAttrib(ans, R_DimNamesSymbol, dnms);
+    }
+    else {
+	R_xlen_t n = xlength(ans);
+	SEXP nms = getAttrib(x, R_NamesSymbol);
+	if ((nms == R_NilValue || xlength(nms) != n) && y != NULL)
+	    nms = getAttrib(y, R_NamesSymbol);
+	if (nms != R_NilValue && xlength(nms) == n)
+	    setAttrib(ans, R_NamesSymbol, nms);
+    }
+    UNPROTECT(1);
 }
 
 /* Try the left operand's method, then the right one's.  A class that does
@@ -750,10 +785,11 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
     if (val == NULL && y != NULL && IS_ALTSXP(y))
 	val = ALTSXP_METHODS_TABLE(y)->Arith(call, sym, x, y);
+    altsxp_binop_attribs(val, x, y);
     return val;
 }
 
-unsigned int ALTREP_TRAITS(SEXP x)
+unsigned int ALTSXP_TRAITS(SEXP x)
 {
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Traits, x) : 0;
 }
@@ -773,7 +809,7 @@ SEXP R_altsxp_na_widen(SEXP x)
 {
     if (! IS_ALTSXP(x))
 	return x;
-    if (!(ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA))
+    if (!(ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA_DOMAIN))
 	return x;
     return ALTSXP_DISPATCH(Na_widen, x);
 }
@@ -819,6 +855,7 @@ attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = ALTSXP_METHODS_TABLE(x)->Relop(call, sym, x, y);
     if (val == NULL && y != NULL && IS_ALTSXP(y))
 	val = ALTSXP_METHODS_TABLE(y)->Relop(call, sym, x, y);
+    altsxp_binop_attribs(val, x, y);
     return val;
 }
 
@@ -1199,7 +1236,7 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 
     /* If any subscript is NA or out of bounds the result needs an NA, so
        the source may first have to be widened to an NA-capable form. */
-    if (ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA) {
+    if (ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA_DOMAIN) {
 	Rboolean needs_na = FALSE;
 	if (TYPEOF(indx) == INTSXP) {
 	    const int *pi = INTEGER_RO(indx);

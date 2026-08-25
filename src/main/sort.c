@@ -693,7 +693,7 @@ static void altsxpSort(SEXP s, bool decreasing)
 	pidx[j + 1] = v;
     }
 
-    size_t esz = ALTREP_ELT_SIZE(s);
+    size_t esz = ALTSXP_ELT_SIZE(s);
     char *tmp = R_alloc((size_t) n, esz);
     for (R_xlen_t i = 0; i < n; i++)
 	R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);

@@ -204,20 +204,23 @@ typedef int (*R_altsxp_Is_sorted_method_t)(SEXP);
 typedef int (*R_altsxp_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
 
-/* Traits bits.
-   NUMERIC     is.numeric() is TRUE and arithmetic is meaningful.
-   BITWISE_EQ  two *non-NA* elements are equal exactly when their bytes are
-               equal, so R may hash and compare elements generically.  Do not
-               set this for a floating type: NaN and signed zero break it.
-   NO_NA       this object's value domain does not include NA at all, so its
-               whole width is available for data.  This is a property of the
-               object, not of the class or of the element type: a column read
-               from a source with no concept of a missing value can set it
-               while a sibling object of the same class does not.  R will ask
-               Na_widen() before introducing an NA into such an object. */
-#define R_ALTSXP_NUMERIC    1
-#define R_ALTSXP_BITWISE_EQ 2
-#define R_ALTSXP_NO_NA      4
+/* The trait bits themselves are in Rinternals.h, next to the ALTSXP type:
+
+   R_ALTSXP_NUMERIC       is.numeric() is TRUE and arithmetic is meaningful.
+   R_ALTSXP_BITWISE_EQ    two *non-NA* elements are equal exactly when their
+                          bytes are equal, so R may hash and compare elements
+                          generically.  Do not set this for a floating type:
+                          NaN and signed zero break it.
+   R_ALTSXP_NO_NA_DOMAIN  this object's value domain does not include NA at
+                          all, so its whole width is available for data.
+                          This is a property of the object, not of the class
+                          or of the element type: a column read from a source
+                          with no concept of a missing value can set it while
+                          a sibling object of the same class does not.  R
+                          calls Na_widen() before introducing an NA into such
+                          an object.  Note this is about what the object
+                          *can* hold; the No_NA method is about what it
+                          currently *does* hold. */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
@@ -294,7 +297,7 @@ DECLARE_METHOD_SETTER(altsxp, Is_sorted)
 DECLARE_METHOD_SETTER(altsxp, No_NA)
 DECLARE_METHOD_SETTER(altsxp, Math)
 
-/* ALTSXP consumer API.  ALTREP_ELT_TYPE() returns R_NilValue for anything
+/* ALTSXP consumer API.  ALTSXP_ELT_TYPE() returns R_NilValue for anything
    that is not an ALTSXP, so it is safe to call on an arbitrary SEXP.
 
    R_altsxp_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
@@ -302,9 +305,9 @@ DECLARE_METHOD_SETTER(altsxp, Math)
    `elt_type`, so a caller cannot cast the result to the wrong C type by
    accident.  It also returns NULL if the class cannot supply a contiguous
    pointer, in which case use R_altsxp_get_region(). */
-SEXP ALTREP_ELT_TYPE(SEXP x);
-size_t ALTREP_ELT_SIZE(SEXP x);
-unsigned int ALTREP_TRAITS(SEXP x);
+SEXP ALTSXP_ELT_TYPE(SEXP x);
+size_t ALTSXP_ELT_SIZE(SEXP x);
+unsigned int ALTSXP_TRAITS(SEXP x);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
 SEXP R_altsxp_na_widen(SEXP x);
 
