@@ -359,6 +359,7 @@ SEXP ALTSXP_ELT_TYPE(SEXP x);
 size_t ALTSXP_ELT_SIZE(SEXP x);
 unsigned int ALTREP_TRAITS(SEXP x);
 SEXP R_allocVectorLike(SEXP proto, R_xlen_t n);
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
 Rboolean R_altsxp_nullable(SEXP x);
 SEXP R_altsxp_na_widen(SEXP x);

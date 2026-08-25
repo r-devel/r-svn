@@ -241,11 +241,10 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
+/* the number of elements in an nrow by ncol matrix, with the extent checks
+   shared by allocMatrix() and R_allocMatrixLike() */
+static R_xlen_t matrix_length(int nrow, int ncol)
 {
-    SEXP s, t;
-    R_xlen_t n;
-
     if (nrow < 0 || ncol < 0)
 	error(_("negative extents to matrix"));
 #ifdef LONG_VECTOR_SUPPORT
@@ -255,13 +254,38 @@ SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
     if ((double)nrow * (double)ncol > INT_MAX)
 	error(_("allocMatrix: too many elements specified"));
 #endif
-    n = ((R_xlen_t) nrow) * ncol;
-    PROTECT(s = allocVector(mode, n));
+
+    return ((R_xlen_t) nrow) * ncol;
+}
+
+SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
+{
+    SEXP s, t;
+
+    PROTECT(s = allocVector(mode, matrix_length(nrow, ncol)));
     PROTECT(t = allocVector(INTSXP, 2));
     INTEGER(t)[0] = nrow;
     INTEGER(t)[1] = ncol;
     setAttrib(s, R_DimSymbol, t);
     UNPROTECT(2);
+
+    return s;
+}
+
+/* allocMatrix() for a prototype rather than a type: an ALTSXP cannot be
+   allocated from its SEXPTYPE alone, so the result takes its class from
+   proto.  The matrix counterpart of R_allocVectorLike(). */
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol)
+{
+    SEXP s, t;
+
+    PROTECT(s = R_allocVectorLike(proto, matrix_length(nrow, ncol)));
+    PROTECT(t = allocVector(INTSXP, 2));
+    INTEGER(t)[0] = nrow;
+    INTEGER(t)[1] = ncol;
+    setAttrib(s, R_DimSymbol, t);
+    UNPROTECT(2);
+
     return s;
 }
 

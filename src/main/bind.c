@@ -1311,18 +1311,6 @@ static void SetColNames(SEXP dimnames, SEXP x)
  * copying will be done.
  */
 
-/* an opaque matrix is an opaque vector with a dim attribute */
-static SEXP altsxp_matrix(SEXP proto, int nr, int nc)
-{
-    SEXP ans = PROTECT(R_allocVectorLike(proto, (R_xlen_t) nr * nc));
-    SEXP dim = PROTECT(allocVector(INTSXP, 2));
-    INTEGER(dim)[0] = nr;
-    INTEGER(dim)[1] = nc;
-    setAttrib(ans, R_DimSymbol, dim);
-    UNPROTECT(2);
-    return ans;
-}
-
 static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		  int deparse_level, SEXP proto)
 {
@@ -1401,7 +1389,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_rnames = true;
 
     PROTECT(result = mode == ALTSXP
-	    ? altsxp_matrix(proto, rows, cols)
+	    ? R_allocMatrixLike(proto, rows, cols)
 	    : allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
@@ -1705,7 +1693,7 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 	have_cnames = true;
 
     PROTECT(result = mode == ALTSXP
-	    ? altsxp_matrix(proto, rows, cols)
+	    ? R_allocMatrixLike(proto, rows, cols)
 	    : allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
