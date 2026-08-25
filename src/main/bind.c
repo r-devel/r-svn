@@ -1524,6 +1524,23 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
 		    n += idx;
 		}
+		else if (TYPEOF(u) == ALTSXP) {
+		    /* An opaque vector has no C element type the copies here
+		       could read, so the class supplies an ordinary one --
+		       as the CPLXSXP, STRSXP and VECSXP arms above and every
+		       rbind() arm below already do.  Only mode == REALSXP
+		       reaches this: an opaque element type outranks the
+		       integer types in do_bind()'s ladder, so a lower mode
+		       would have made the result opaque instead. */
+		    if (mode != REALSXP)
+			error(_("cannot create a matrix of type '%s'"),
+			      type2char(mode));
+
+		    PROTECT(u = coerceVector(u, REALSXP));
+		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
+		    n += idx;
+		    UNPROTECT(1);
+		}
 		else { /* u is a RAWSXP */
 		    /* FIXME: I'm not sure what the author intended when the sequence was
 		       defined as raw < logical -- it is possible to represent logical as

@@ -1277,8 +1277,10 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     break;
 
-    default:
-	UNIMPLEMENTED_TYPE("which.min/which.max", sx);
+    /* No default arm: a type that reaches this switch unhandled -- an
+       object whose xtfrm() method returned something other than a number,
+       say -- leaves indx at -1 and answers integer(0), as it did before
+       ALTSXP existed. */
     } // switch()
 
 

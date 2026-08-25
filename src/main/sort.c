@@ -466,10 +466,6 @@ attribute_hidden SEXP do_sort(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 static bool fastpass_sortcheck(SEXP x, int wanted) {
-    if (TYPEOF(x) == ALTSXP) {
-	int sorted = ALTSXP_IS_SORTED(x);
-	return KNOWN_SORTED(sorted) && sorted == wanted;
-    }
     if(!KNOWN_SORTED(wanted)) 
 	return false;
 
@@ -484,6 +480,10 @@ static bool fastpass_sortcheck(SEXP x, int wanted) {
     case REALSXP:
 	sorted = REAL_IS_SORTED(x);
 	noNA = (bool)REAL_NO_NA(x);
+	break;
+    case ALTSXP:
+	sorted = ALTSXP_IS_SORTED(x);
+	noNA = (bool)ALTSXP_NO_NA(x);
 	break;
     default:
 	/* keep sorted == UNKNOWN_SORTEDNESS */
@@ -1360,7 +1360,11 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
 	case ALTSXP:
-	    R_altsxp_is_na_region(key, 0, n, isna);
+	    /* insist the class report them all: a short answer would leave
+	       the tail of isna[] reading as non-NA */
+	    if (R_altsxp_is_na_region(key, 0, n, isna) != n)
+		error(_("'%s' method reported too few elements"),
+		      "Is_na_region");
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
@@ -1501,7 +1505,11 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
 	case ALTSXP:
-	    R_altsxp_is_na_region(key, 0, n, isna);
+	    /* insist the class report them all: a short answer would leave
+	       the tail of isna[] reading as non-NA */
+	    if (R_altsxp_is_na_region(key, 0, n, isna) != n)
+		error(_("'%s' method reported too few elements"),
+		      "Is_na_region");
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);

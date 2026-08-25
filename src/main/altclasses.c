@@ -2322,12 +2322,17 @@ static R_INLINE int i64_cmp(int64_t a, int64_t b, int uns)
 
 static SEXP i64_from(SEXP x, int uns, int nullable);
 
-/* PROTECT at the call site */
-static SEXP i64_materialize(SEXP x, int uns)
+/* PROTECT at the call site.  An operand that is not already of this class is
+   built with the NA domain 'nullable', which the caller takes from the
+   opaque operand on the other side: promoting an ordinary vector as nullable
+   regardless would make every operation look as though it were mixing
+   domains, and force a whole-range operand to be widened -- or refused --
+   for an operand that has no missing value in it. */
+static SEXP i64_materialize(SEXP x, int uns, int nullable)
 {
     if (i64_is(x) && i64_unsigned(x) == uns)
 	return x;
-    return i64_from(x, uns, TRUE);
+    return i64_from(x, uns, nullable);
 }
 
 static SEXP i64_from(SEXP x, int uns, int nullable)
@@ -2969,10 +2974,17 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 	errorcall(call, _("operator '%s' is not defined for %s"),
 		  op, uns ? "uint64" : "int64");
 
+    /* An ordinary operand is rendered in the opaque one's NA domain, the
+       same choice i64_Coerce_from() makes for c(), pmin() and x[i] <- v.
+       When both are opaque each keeps its own and the widening below
+       reconciles them. */
+    int nullable = i64_is(x) ? I64_NULLABLE(x)
+	: (i64_is(y) ? I64_NULLABLE(y) : TRUE);
+
     SEXP p1, p2;
     PROTECT_INDEX pi1, pi2;
-    PROTECT_WITH_INDEX(p1 = i64_materialize(x, uns), &pi1);
-    PROTECT_WITH_INDEX(p2 = i64_materialize(y, uns), &pi2);
+    PROTECT_WITH_INDEX(p1 = i64_materialize(x, uns, nullable), &pi1);
+    PROTECT_WITH_INDEX(p2 = i64_materialize(y, uns, nullable), &pi2);
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
 
     if (nx == 0 || ny == 0) {
@@ -3135,6 +3147,12 @@ static SEXP i64_Arith(SEXP call, SEXP opsym, SEXP x, SEXP y)
     if (!i64_numeric_operand(x) || !i64_numeric_operand(y))
 	return NULL; /* let R report the type error */
 
+    /* A raw byte is exact, and c() and the comparisons take one, but base R
+       does not admit raw to arithmetic -- 1L + as.raw(2) is an error -- so
+       neither does this class. */
+    if (TYPEOF(x) == RAWSXP || TYPEOF(y) == RAWSXP)
+	return NULL; /* let R report the type error */
+
     /* division and powers leave the integers behind, and so does a double
        operand: an exact 64-bit result is only possible between exact
        64-bit operands */
@@ -3178,8 +3196,13 @@ static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
 	errorcall(call, _("operator '%s' is not defined for %s"),
 		  op, uns ? "uint64" : "int64");
 
-    SEXP p1 = PROTECT(i64_materialize(x, uns));
-    SEXP p2 = PROTECT(i64_materialize(y, uns));
+    /* Unlike i64_binary(), an ordinary operand is rendered as nullable here
+       whatever the other side reserves: a comparison builds no opaque
+       result whose domain would have to accommodate it, and x == NA has to
+       answer NA rather than refuse.  The loop below then reads each operand
+       in its own domain, so a whole-range operand keeps its extremes. */
+    SEXP p1 = PROTECT(i64_materialize(x, uns, TRUE));
+    SEXP p2 = PROTECT(i64_materialize(y, uns, TRUE));
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
 
     if (nx == 0 || ny == 0) {

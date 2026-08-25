@@ -520,6 +520,27 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
+	    case ALTSXP:
+	    {
+		/* an opaque element has no C type this switch could read, so
+		   the class renders it; one that declines falls back to the
+		   type and length, as a longer vector does */
+		SEXP fmt = LENGTH(s_i) == 1 ? ALTSXP_FORMAT(s_i, 0, 1) : NULL;
+		if (fmt == NULL)
+		    snprintf(pbuf, 115, "%s,%d", R_typeToChar(s_i),
+			     LENGTH(s_i));
+		else {
+		    PROTECT(fmt);
+		    const void *vmax = vmaxget();
+		    SEXP e = STRING_ELT(fmt, 0);
+		    snprintf(pbuf, 115, "%s",
+			     e == NA_STRING ? CHAR(data->na_string)
+					    : translateChar(e));
+		    vmaxset(vmax);
+		    UNPROTECT(1); /* fmt */
+		}
+	    }
+		break;
 	    case LISTSXP:
 	    case VECSXP:
 		snprintf(pbuf, 115, "list,%d", length(s_i));
@@ -691,6 +712,13 @@ static void printList(SEXP s, R_PrintData *data)
 
 	    case RAWSXP:
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
+		break;
+
+	    case ALTSXP:
+		/* this printer reports the type and length for every
+		   element, so an opaque one needs no rendering */
+		snprintf(pbuf, 100, "%s,%d", R_typeToChar(CAR(s)),
+			 LENGTH(CAR(s)));
 		break;
 
 	    case LISTSXP:

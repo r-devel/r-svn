@@ -113,8 +113,10 @@ stopifnot(identical(as.double(x + x), as.double(2 * 1:5)),
           identical(as.double(-x), -as.double(1:5)),
           identical(as.double(+x), as.double(1:5)))
 
-## other integer types promote to int64
-for (e in list(3L, TRUE, as.raw(3)))
+## other integer types promote to int64.  Raw is not among them: it is an
+## exact integer type and c() takes one (see the promotion ladder below),
+## but base R does not admit raw to arithmetic at all, so neither does this.
+for (e in list(3L, TRUE))
     stopifnot(typeof(x + e) == "int64", typeof(e + x) == "int64")
 
 ## a double operand promotes the whole operation to double
@@ -1060,6 +1062,123 @@ local({
     op <- options(na.print = "...")
     on.exit(options(op))
     stopifnot(identical(format(as.int64(c(1L, NA))), format(c(1L, NA))))
+})
+
+## --- third review round: one block per bug ----------------------------
+
+## cbind()'s fallback arm dispatches on TYPEOF(u), and ALTSXP ranks above
+## every type it tests for, so an opaque argument fell through to the arm
+## that reads RAW(u) -- one byte per element off the payload -- whenever
+## another argument made the result double.  rbind() coerces first, which
+## is why only cbind() was wrong.
+local({
+    stopifnot(identical(cbind(as.int64(1:2), c(1.5, 2.5)),
+                        cbind(c(1, 2), c(1.5, 2.5))),
+              identical(cbind(c(1.5, 2.5), as.int64(1:2)),
+                        cbind(c(1.5, 2.5), c(1, 2))),
+              identical(cbind(as.int64(1:2), 3:4, c(1.5, 2.5)),
+                        cbind(c(1, 2), c(3, 4), c(1.5, 2.5))))
+    ## a matrix argument, and a shorter one that recycles down the column
+    stopifnot(identical(cbind(matrix(as.int64(1:4), 2L), c(1.5, 2.5)),
+                        cbind(matrix(c(1, 2, 3, 4), 2L), c(1.5, 2.5))),
+              identical(cbind(as.int64(1L), c(1.5, 2.5)),
+                        cbind(1, c(1.5, 2.5))))
+    ## a value that only the exact type can hold reaches the double result
+    stopifnot(identical(cbind(as.int64("4611686018427387904"), 1.5),
+                        cbind(4611686018427387904, 1.5)))
+    ## the arms that already coerced, and rbind(), must stay as they were
+    stopifnot(identical(rbind(as.int64(1:2), c(1.5, 2.5)),
+                        rbind(c(1, 2), c(1.5, 2.5))),
+              identical(cbind(as.int64(1:2), c("a", "b")),
+                        cbind(c("1", "2"), c("a", "b"))),
+              identical(cbind(as.int64(1:2), c(1i, 2i)),
+                        cbind(c(1+0i, 2+0i), c(1i, 2i))))
+    ## and the base types are untouched by the new arm
+    stopifnot(identical(cbind(1:2, c(1.5, 2.5)), cbind(c(1, 2), c(1.5, 2.5))),
+              identical(cbind(as.raw(1:2), c(1.5, 2.5)),
+                        cbind(c(1, 2), c(1.5, 2.5))))
+})
+
+## memory.profile()'s table is indexed by SEXPTYPE with the two unused
+## slots squeezed out, and was sized for the types up to OBJSXP: every live
+## ALTSXP node incremented one past the end of it, and was counted nowhere.
+local({
+    keep <- lapply(1:100, function(i) as.int64(i))
+    invisible(gc())
+    p <- memory.profile()
+    stopifnot(length(p) == length(names(p)),
+              "altrep" %in% names(p),
+              !anyNA(p),
+              p[["altrep"]] >= length(keep))
+})
+
+## An ordinary operand was promoted as nullable whatever the opaque side
+## reserved, so a whole-range vector was asked to widen -- which it cannot
+## -- and a merely non-nullable one silently came back nullable.  c(),
+## pmin() and x[i] <- v all took the domain from the opaque operand.
+local({
+    n <- as.int64(c("-9223372036854775808", "9223372036854775807"),
+                  na = FALSE)
+    stopifnot(identical(as.character(n + 0L), as.character(n)),
+              identical(as.character(n * 1L), as.character(n)),
+              identical(as.character(n %/% 1L), as.character(n)))
+    ## the result keeps the operand's domain, as every other path does
+    s <- as.int64(1:2, na = FALSE)
+    assertError(c(s + 0L, NA_integer_))
+    assertError(c(s * 2L, NA_integer_))
+    stopifnot(identical(as.double(s + 0L), c(1, 2)),
+              identical(as.double(s * 2L), c(2, 4)))
+    ## an operand that really is missing is refused, exactly as c() refuses
+    assertError(s + NA_integer_)
+    assertError(c(s, NA_integer_))
+    ## a nullable operand is unaffected
+    stopifnot(identical(is.na(as.int64(1:2) + NA_integer_), c(TRUE, TRUE)))
+    ## comparison builds no opaque result, so each side keeps its own
+    ## domain: a whole-range operand still reports its extremes as data
+    stopifnot(identical(n == n, c(TRUE, TRUE)),
+              identical(n > 0L, c(FALSE, TRUE)),
+              identical(is.na(n == NA_integer_), c(TRUE, TRUE)),
+              identical(is.na(as.int64(1L) == NA_integer_), TRUE))
+})
+
+## do_first_min() gained an ALTSXP arm; a default arm alongside it would
+## have turned an object whose xtfrm() method yields something other than
+## a number from integer(0) into an error.
+xtfrm.altsxpWM <- function(x) as.character(unclass(x))
+stopifnot(identical(which.min(structure(1:3, class = "altsxpWM")), integer(0)),
+          identical(which.max(structure(1:3, class = "altsxpWM")), integer(0)),
+          identical(which.min(as.int64(c(3L, 1L, 2L))), 2L))
+rm(xtfrm.altsxpWM)
+
+## a raw byte is exact, and c() and the comparisons take one, but base R
+## does not admit raw to arithmetic -- and the class used to
+local({
+    assertError(as.int64(3L) + as.raw(2))
+    assertError(as.raw(2) + as.int64(3L))
+    assertError(as.int64(3L) * as.raw(2))
+    stopifnot(as.int64(3L) > as.raw(2),
+              identical(as.double(c(as.int64(3L), as.raw(2))), c(3, 2)))
+})
+
+## sort.int()'s fast pass reads the class's Is_sorted and No_NA; an
+## already-sorted vector comes back unchanged whatever na.last says
+local({
+    v <- as.int64(1:5)
+    stopifnot(identical(as.double(sort(v)), as.double(v)),
+              identical(as.double(sort(v, na.last = TRUE)), as.double(v)),
+              identical(as.double(sort(v, na.last = NA)), as.double(v)),
+              identical(as.double(sort(v, decreasing = TRUE)),
+                        rev(as.double(v))))
+})
+
+## a list array renders each length-one element, and .Internal(inspect())
+## names the type: both used to report an opaque one as unknown
+local({
+    stopifnot(identical(capture.output(print(cbind(as.int64(1:2),
+                                                  list(1, 2)))),
+                        capture.output(print(cbind(1:2, list(1, 2))))),
+              any(grepl("ALTSXP",
+                        capture.output(.Internal(inspect(as.int64(1:2)))))))
 })
 
 cat("altsxp tests OK\n")
