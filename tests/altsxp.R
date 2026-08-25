@@ -197,6 +197,34 @@ stopifnot(as.character(s) == "4611686018427387904",
 ## mean() is a double: the class says what its elements are worth
 stopifnot(identical(mean(x), 3))
 
+## several arguments reduce together, following the same promotion ladder
+a1 <- as.int64(c("4611686018427387903", "1"))
+b1 <- as.int64(c("1", "2"))
+stopifnot(typeof(sum(a1, b1)) == "int64",
+          as.character(sum(a1, b1)) == "4611686018427387907",
+          typeof(sum(a1, 1L, TRUE)) == "int64",
+          as.character(sum(a1, 1L, TRUE)) == "4611686018427387906",
+          ## a double argument promotes the whole reduction
+          identical(sum(as.int64(1:3), 1.5), 7.5),
+          typeof(min(a1, b1)) == "int64",
+          as.character(min(a1, b1)) == "1",
+          as.character(max(a1, b1)) == "4611686018427387903",
+          typeof(range(a1, b1)) == "int64",
+          as.character(range(a1, b1)) == c("1", "4611686018427387903"),
+          typeof(sum(as.uint64(1:3), as.uint64(4L))) == "uint64")
+
+## NA and na.rm carry across the arguments
+stopifnot(is.na(sum(as.int64(c(1, NA)), as.int64(2))),
+          as.character(sum(as.int64(c(1, NA)), as.int64(2), na.rm = TRUE)) == "3")
+
+## two opaque element types have nothing in common to reduce over
+assertError(sum(as.int64(1L), as.uint64(1L)))
+
+## and the ordinary types are untouched
+stopifnot(identical(sum(1:3, 4L), 10L), identical(sum(1:3, 4.5), 10.5),
+          identical(min(3L, 1L, 2L), 1L), identical(range(3L, 1L), c(1L, 3L)),
+          identical(sum(), 0L))
+
 ## --- ordering, matching, tabulating ----------------------------------
 
 z <- as.int64(c(3, 1, 2, 1))

@@ -564,7 +564,8 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 
     SEXP ans, call2;
     /* match to foo(..., na.rm=FALSE) */
-    PROTECT(args = fixup_NaRm(args));
+    PROTECT_INDEX api;
+    PROTECT_WITH_INDEX(args = fixup_NaRm(args), &api);
     PROTECT(call2 = shallow_duplicate(call));
     R_args_enable_refcnt(args);
     SETCDR(call2, args);
@@ -585,6 +586,44 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 
     ans = matchArgExact(R_NaRmSymbol, &args);
     bool narm = asBool2(ans, call);
+
+    /* The accumulator below works on R's own storage types, so it has no way
+       to add up opaque elements.  Several arguments are combined first --
+       with the rules c() already implements, which is where the promotion
+       ladder lives -- and the result is reduced as one.  That costs an
+       allocation, on a path that could not run at all before. */
+    if (CDR(args) != R_NilValue &&
+	(PRIMVAL(op) == 0 || PRIMVAL(op) == 2 || PRIMVAL(op) == 3)) {
+	bool opaque = false;
+	for (SEXP a = args; a != R_NilValue; a = CDR(a))
+	    if (TYPEOF(CAR(a)) == ALTSXP) {
+		opaque = true;
+		break;
+	    }
+
+	if (opaque) {
+	    /* the copy is untagged, so that c()'s own 'recursive' and
+	       'use.names' arguments cannot be read out of the data */
+	    SEXP cargs = R_NilValue, tail = R_NilValue;
+	    PROTECT_INDEX cpi;
+	    PROTECT_WITH_INDEX(cargs, &cpi);
+	    for (SEXP a = args; a != R_NilValue; a = CDR(a)) {
+		SEXP cell = CONS(CAR(a), R_NilValue);
+		if (tail == R_NilValue)
+		    REPROTECT(cargs = cell, cpi);
+		else
+		    SETCDR(tail, cell);
+		tail = cell;
+	    }
+
+	    SEXP one = PROTECT(do_c_dflt(call, R_NilValue, cargs, env));
+	    /* c() answers two unrelated opaque element types with a list */
+	    if (TYPEOF(one) == VECSXP)
+		errorcall(call, _("arguments have no element type in common"));
+	    REPROTECT(args = CONS(one, R_NilValue), api);
+	    UNPROTECT(2); /* one, cargs */
+	}
+    }
 
     if (ALTREP(CAR(args)) && CDDR(args) == R_NilValue &&
 	(CDR(args) == R_NilValue || TAG(CDR(args)) == R_NaRmSymbol)) {
