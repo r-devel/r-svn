@@ -1152,7 +1152,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	size_t esz = ALTSXP_ELT_SIZE(x);
 	const void *vmax = vmaxget();
 	void *buf = R_alloc(1, esz);
-	ans = PROTECT(R_altsxp_new(x, 1));
+	ans = PROTECT(R_allocVectorLike(x, 1));
 	R_altsxp_get_region(x, offset, 1, buf);
 	R_altsxp_set_region(ans, 0, 1, buf);
 	vmaxset(vmax);

@@ -462,7 +462,7 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
 #define IMAX 4294967296L
 
 /* Hashing an opaque vector.  This works for any class that sets
-   R_ALTSXP_BITWISE_EQ, i.e. promises that equal values have equal bytes,
+   R_ALTREP_TRAITS_BITWISE_EQ, i.e. promises that equal values have equal bytes,
    because then hashing and comparing the raw element bytes is exact.  A
    floating element type must not set that bit: NaN and signed zero break
    the correspondence. */
@@ -568,7 +568,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case ALTSXP:
-	if (!(ALTSXP_TRAITS(x) & R_ALTSXP_BITWISE_EQ) ||
+	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
 	    ALTSXP_ELT_SIZE(x) > ALTSXP_ELT_BUFSIZE)
 	    error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
 	d->hash = altsxphash;

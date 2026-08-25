@@ -266,8 +266,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	ratio = na/nc; // average no of replications
 	if (ratio > 1000U) ni = 1000U;
 	} */
-    PROTECT(a = TYPEOF(s) == ALTSXP ? R_altsxp_new(s, na)
-			   : allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na));
     n = 0;
     if (TYPEOF(t) == REALSXP)
 	R2_SWITCH_LOOP(REAL(t))
@@ -284,8 +283,7 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     R_xlen_t i, j;
     SEXP a;
 
-    PROTECT(a = TYPEOF(s) == ALTSXP ? R_altsxp_new(s, na)
-			   : allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na));
 
     switch (TYPEOF(s)) {
     case ALTSXP:
@@ -500,8 +498,7 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     // faster code for common special case
     if (each == 1 && nt == 1) return rep3(x, lx, len);
 
-    PROTECT(a = TYPEOF(x) == ALTSXP ? R_altsxp_new(x, len)
-			   : allocVector(TYPEOF(x), len));
+    PROTECT(a = R_allocVectorLike(x, len));
 
 #define R4_SWITCH_LOOP(itimes)						\
     switch (TYPEOF(x)) {						\

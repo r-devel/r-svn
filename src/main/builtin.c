@@ -848,8 +848,8 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     if (lenx == len)
 	return (x);
 
-    if (TYPEOF(x) == ALTSXP && len > lenx &&
-	(ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN)) {
+    if (len > lenx && ! R_altsxp_nullable(x)) {
+	/* the new tail is NA, which this object cannot hold as it stands */
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
@@ -861,7 +861,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	   for storage; copying and NA filling are then generic byte
 	   operations that need no knowledge of the element type. */
 	R_xlen_t ncopy = lenx < len ? lenx : len;
-	PROTECT(rval = R_altsxp_new(x, len));
+	PROTECT(rval = R_allocVectorLike(x, len));
 	if (ncopy > 0) {
 	    size_t esz = ALTSXP_ELT_SIZE(x);
 	    R_xlen_t nb = ncopy > 512 ? 512 : ncopy;

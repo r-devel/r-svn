@@ -22,9 +22,7 @@
     PROTECT(vec = allocVector(VECSXP, nlevs));
     for (R_xlen_t i = 0;  i < nlevs; i++) {
 	SET_VECTOR_ELT(vec, i,
-		       TYPEOF(x) == ALTSXP
-		       ? R_altsxp_new(x, (_L_int_)_L_INTEG_(counts)[i])
-		       : allocVector(TYPEOF(x), (_L_int_)_L_INTEG_(counts)[i]));
+		       R_allocVectorLike(x, (_L_int_)_L_INTEG_(counts)[i]));
 	setAttrib(VECTOR_ELT(vec, i), R_LevelsSymbol,
 		  getAttrib(x, R_LevelsSymbol));
 	if(have_names)

@@ -150,11 +150,14 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  * The second group is element-type specific:
  *
  *   Is_na_region   fill buf with 0/1 for positions i..i+n-1.
- *   Compare        three-way compare of x[i] and y[j]; both must have the
- *                  same Elt_type.  NA ordering is the caller's business.
+ *   Compare        three-way compare of x[i] and y[j].  R only ever asks
+ *                  about two objects with the same Elt_type, and only about
+ *                  elements that Is_na_region reported as non-NA, so a class
+ *                  need handle neither case.  It must be a consistent total
+ *                  order: R's comparison sorts misbehave otherwise.
  *   Format         a character vector rendering positions i..i+n-1.
- *   Traits         a bitmask of R_ALTSXP_* below, describing what R may
- *                  assume about the element type.
+ *   Traits         a bitmask of R_ALTREP_TRAITS_* below, describing what R
+ *                  may assume about this object.
  *   Coerce_from    build an object of this class from an ordinary R vector,
  *                  or return NULL.  This is what lets c() and x[i] <- v mix
  *                  an opaque vector with base types.
@@ -171,6 +174,37 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  return NULL to decline.  The third argument is the whole
  *                  argument list, so two-argument members such as round(x, d)
  *                  and signif(x, d) are reachable too.
+ * What a method may do
+ * --------------------
+ *
+ * Elt_type, Elt_size and Traits must not allocate, and must give the same
+ * answer for the whole lifetime of an object.  R consults them from places
+ * where allocating is either unsafe or ruinous:
+ *
+ *   - R_typeToChar() calls Elt_type while building an error message, and
+ *     keeps only a pointer into the symbol's PRINTNAME, so the symbol has to
+ *     be one that stays reachable.  Install it once when the class is
+ *     registered rather than building one per call.
+ *   - match(), unique() and friends call Elt_type on *both* operands and
+ *     Elt_size on one for every element pair they compare.
+ *   - is.numeric() reads Traits, and appears on plenty of hot paths.
+ *
+ * A class that wants an object's traits to differ -- say, one vector that
+ * reserves a pattern for NA and one that does not -- gives the two different
+ * objects rather than mutating one in place.
+ *
+ * Is_na_region and Compare must not allocate either: sorting, hashing and
+ * matching call them once per element.
+ *
+ * Get_region, Set_region and Set_na_region may allocate, but R calls them
+ * from copy loops that can already be holding a data pointer into the
+ * destination, so they must not invalidate one -- as elsewhere in ALTREP, an
+ * object's data pointer has to stay put once handed out.  They are called
+ * once per block, so they should still be cheap.
+ *
+ * The rest -- New, Format, Coerce_from, Na_widen, Sum, Min, Max, Math, Arith
+ * and Relop -- return R objects and are expected to allocate.
+ *
  *   Arith, Relop   handle an arithmetic or comparison operation, or return
  *                  NULL to decline.  The second argument is the operator as
  *                  an installed symbol ("+", "<", ...); the fourth is NULL
@@ -204,23 +238,34 @@ typedef int (*R_altsxp_Is_sorted_method_t)(SEXP);
 typedef int (*R_altsxp_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
 
-/* The trait bits themselves are in Rinternals.h, next to the ALTSXP type:
+/* The trait bits themselves are in Rinternals.h, next to the ALTSXP type.
+   They describe what R may assume about a particular *object*: two objects
+   of the same class, with the same element type, may report different
+   traits.
 
-   R_ALTSXP_NUMERIC       is.numeric() is TRUE and arithmetic is meaningful.
-   R_ALTSXP_BITWISE_EQ    two *non-NA* elements are equal exactly when their
-                          bytes are equal, so R may hash and compare elements
-                          generically.  Do not set this for a floating type:
-                          NaN and signed zero break it.
-   R_ALTSXP_NO_NA_DOMAIN  this object's value domain does not include NA at
-                          all, so its whole width is available for data.
-                          This is a property of the object, not of the class
-                          or of the element type: a column read from a source
-                          with no concept of a missing value can set it while
-                          a sibling object of the same class does not.  R
-                          calls Na_widen() before introducing an NA into such
-                          an object.  Note this is about what the object
-                          *can* hold; the No_NA method is about what it
-                          currently *does* hold. */
+   R_ALTREP_TRAITS_NUMERIC     is.numeric() is TRUE and arithmetic is
+                               meaningful.
+
+   R_ALTREP_TRAITS_BITWISE_EQ  two non-NA elements are equal exactly when
+                               their bytes are equal, so R may hash and
+                               compare elements generically.  Do not set this
+                               for a floating element type: NaN and signed
+                               zero break it.
+
+   R_ALTREP_TRAITS_NULLABLE    this object can be NA -- that is, its value
+                               domain includes a missing value, at the cost
+                               of whatever it takes to represent one.  Every
+                               ordinary R vector is nullable, and so is the
+                               default, so a class only clears this bit when
+                               it deliberately gives up NA to gain the whole
+                               width for data: a column read from a source
+                               with no concept of a missing value, say.  R
+                               calls the Na_widen method before storing NA in
+                               an object that is not nullable.
+
+                               Note the difference from the No_NA method:
+                               this trait is about what an object *can* hold,
+                               No_NA about what it currently *does* hold. */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
@@ -307,8 +352,10 @@ DECLARE_METHOD_SETTER(altsxp, Math)
    pointer, in which case use R_altsxp_get_region(). */
 SEXP ALTSXP_ELT_TYPE(SEXP x);
 size_t ALTSXP_ELT_SIZE(SEXP x);
-unsigned int ALTSXP_TRAITS(SEXP x);
+unsigned int ALTREP_TRAITS(SEXP x);
+SEXP R_allocVectorLike(SEXP proto, R_xlen_t n);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
+Rboolean R_altsxp_nullable(SEXP x);
 SEXP R_altsxp_na_widen(SEXP x);
 
 const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type);

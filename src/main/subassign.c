@@ -633,8 +633,8 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 		      R_typeToChar(y), R_typeToChar(x));
 	x = nx;
     }
-    /* growing introduces NA, so the target may need widening first */
-    if (stretch && (ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN)) {
+    /* growing introduces NA, so a target that cannot be NA is widened first */
+    if (stretch && ! R_altsxp_nullable(x)) {
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(x));

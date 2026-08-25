@@ -107,8 +107,7 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	else if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(data->ans_proto))
 	    /* mixing two opaque element types: fall back to a list */
 	    data->ans_flags |= 256;
-	else if ((ALTSXP_TRAITS(data->ans_proto) & R_ALTSXP_NO_NA_DOMAIN) &&
-		 !(ALTSXP_TRAITS(x) & R_ALTSXP_NO_NA_DOMAIN))
+	else if (! R_altsxp_nullable(data->ans_proto) && R_altsxp_nullable(x))
 	    /* the result must be able to hold NA if any input can */
 	    data->ans_proto = x;
 	data->ans_flags |= 1024;
@@ -207,8 +206,7 @@ AltsxpAnswer1(SEXP x, struct BindData *data, SEXP call)
     SEXP src;
     if (TYPEOF(x) == ALTSXP) {
 	src = x;
-	if (!(ALTSXP_TRAITS(ans) & R_ALTSXP_NO_NA_DOMAIN) &&
-	    (ALTSXP_TRAITS(src) & R_ALTSXP_NO_NA_DOMAIN)) {
+	if (R_altsxp_nullable(ans) && ! R_altsxp_nullable(src)) {
 	    /* moving whole-range data into a vector that reserves a pattern
 	       for NA is only safe if that pattern is unused */
 	    src = R_altsxp_na_widen(src);
@@ -933,7 +931,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = mode == ALTSXP
-	    ? R_altsxp_new(data.ans_proto, data.ans_length)
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1064,7 +1062,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* the arguments filling in values of the returned object. */
 
     PROTECT(ans = mode == ALTSXP
-	    ? R_altsxp_new(data.ans_proto, data.ans_length)
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length)
 	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
@@ -1316,7 +1314,7 @@ static void SetColNames(SEXP dimnames, SEXP x)
 /* an opaque matrix is an opaque vector with a dim attribute */
 static SEXP altsxp_matrix(SEXP proto, int nr, int nc)
 {
-    SEXP ans = PROTECT(R_altsxp_new(proto, (R_xlen_t) nr * nc));
+    SEXP ans = PROTECT(R_allocVectorLike(proto, (R_xlen_t) nr * nc));
     SEXP dim = PROTECT(allocVector(INTSXP, 2));
     INTEGER(dim)[0] = nr;
     INTEGER(dim)[1] = nc;

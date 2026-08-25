@@ -684,6 +684,17 @@ size_t ALTSXP_ELT_SIZE(SEXP x)
     return ALTSXP_DISPATCH(Elt_size, x);
 }
 
+/* Allocate a vector of the same kind as proto: an ordinary vector of the
+   same SEXPTYPE, or -- because an ALTSXP cannot be allocated from its type
+   alone -- a new object of proto's own ALTSXP class.  This is the shape that
+   generic code wants when it is building a result "like" its input. */
+SEXP R_allocVectorLike(SEXP proto, R_xlen_t n)
+{
+    if (TYPEOF(proto) == ALTSXP)
+	return R_altsxp_new(proto, n);
+    return allocVector(TYPEOF(proto), n);
+}
+
 SEXP R_altsxp_new(SEXP proto, R_xlen_t n)
 {
     if (! IS_ALTSXP(proto))
@@ -789,7 +800,7 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
     return val;
 }
 
-unsigned int ALTSXP_TRAITS(SEXP x)
+unsigned int ALTREP_TRAITS(SEXP x)
 {
     return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Traits, x) : 0;
 }
@@ -802,14 +813,23 @@ SEXP R_altsxp_coerce_from(SEXP proto, SEXP from)
     return ALTSXP_DISPATCH(Coerce_from, proto, from);
 }
 
-/* An object whose domain excludes NA must be widened before R can put an NA
-   in it.  Returns x unchanged when it already accepts NA, and NULL when the
-   class offers no NA-capable form. */
-SEXP R_altsxp_na_widen(SEXP x)
+/* Can x hold NA?  True for every ordinary vector, and for any ALTSXP that
+   has not deliberately given up its NA.  Keeping this in one place means
+   callers cannot get the polarity wrong for a non-ALTSXP argument. */
+Rboolean R_altsxp_nullable(SEXP x)
 {
     if (! IS_ALTSXP(x))
-	return x;
-    if (!(ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA_DOMAIN))
+	return TRUE;
+    return (ALTSXP_DISPATCH(Traits, x) & R_ALTREP_TRAITS_NULLABLE)
+	? TRUE : FALSE;
+}
+
+/* An object that cannot be NA must be widened before R can put an NA in it.
+   Returns x unchanged when it already accepts NA, and NULL when the class
+   offers no NA-capable form. */
+SEXP R_altsxp_na_widen(SEXP x)
+{
+    if (R_altsxp_nullable(x))
 	return x;
     return ALTSXP_DISPATCH(Na_widen, x);
 }
@@ -1193,7 +1213,12 @@ static SEXP altsxp_Relop_default(SEXP call, SEXP op, SEXP x, SEXP y)
     return NULL; /* decline */
 }
 
-static unsigned int altsxp_Traits_default(SEXP x) { return 0; }
+static unsigned int altsxp_Traits_default(SEXP x)
+{
+    /* Every ordinary R vector can be NA, so that is the default here too; a
+       class clears the bit only when it deliberately gives up NA. */
+    return R_ALTREP_TRAITS_NULLABLE;
+}
 
 static SEXP altsxp_Coerce_from_default(SEXP proto, SEXP from) { return NULL; }
 
@@ -1236,7 +1261,7 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
 
     /* If any subscript is NA or out of bounds the result needs an NA, so
        the source may first have to be widened to an NA-capable form. */
-    if (ALTSXP_DISPATCH(Traits, x) & R_ALTSXP_NO_NA_DOMAIN) {
+    if (! R_altsxp_nullable(x)) {
 	Rboolean needs_na = FALSE;
 	if (TYPEOF(indx) == INTSXP) {
 	    const int *pi = INTEGER_RO(indx);
@@ -1268,7 +1293,15 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
     char *dst = (src == NULL) ? NULL : (char *) ALTVEC_DATAPTR(ans);
     void *buf = (src == NULL) ? R_alloc(1, esz) : NULL;
 
-#define ALTSXP_COPY_ONE(k, ii) do {						if (src != NULL)							    memcpy(dst + (size_t) (k) * esz,						   src + (size_t) (ii) * esz, esz);				else {									    m->Get_region(x, ii, 1, buf);					    m->Set_region(ans, k, 1, buf);					}								    } while (0)
+#define ALTSXP_COPY_ONE(k, ii) do {				\
+	if (src != NULL)					\
+	    memcpy(dst + (size_t) (k) * esz,			\
+		   src + (size_t) (ii) * esz, esz);		\
+	else {							\
+	    m->Get_region(x, ii, 1, buf);			\
+	    m->Set_region(ans, k, 1, buf);			\
+	}							\
+    } while (0)
 
     if (TYPEOF(indx) == INTSXP) {
 	const int *pi = INTEGER_RO(indx);
