@@ -232,6 +232,8 @@ FUNTAB R_FunTab[] =
 {"vector",	do_makevector,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"complex",	do_complex,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"matrix",	do_matrix,	0,	11,	7,	{PP_FUNCALL, PREC_FN,	0}},
+{"allocVectorLike",do_allocvectorlike,0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"allocMatrixLike",do_allocmatrixlike,0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"array",	do_array,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"diag",	do_diag,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"backsolve",	do_backsolve,	0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},

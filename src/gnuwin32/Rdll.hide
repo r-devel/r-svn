@@ -26,6 +26,17 @@
  ALTREP_TRUELENGTH
  ALTREP_UNSERIALIZE_EX
  ALTSTRING_SET_ELT
+ ALTSXP_ARITH
+ ALTSXP_COMPARE
+ ALTSXP_DEPARSE
+ ALTSXP_FORMAT
+ ALTSXP_IS_SORTED
+ ALTSXP_MATH
+ ALTSXP_MAX
+ ALTSXP_MIN
+ ALTSXP_NO_NA
+ ALTSXP_RELOP
+ ALTSXP_SUM
  ALTVEC_DATAPTR_OR_NULL
  ALTVEC_EXTRACT_SUBSET
  ASSIGNMENT_PENDING
@@ -269,6 +280,8 @@
  R_XDREncodeDouble
  R_XDREncodeInteger
  R_allocObject
+ R_altsxp_format_common
+ R_altsxp_recycle_region
  R_args_enable_refcnt
  R_binary
  R_checkConstants
@@ -772,6 +785,8 @@
  do_adist
  do_agrep
  do_allnames
+ do_allocmatrixlike
+ do_allocvectorlike
  do_altrep_class
  do_anyNA
  do_aperm
@@ -785,6 +800,7 @@
  do_asPOSIXct
  do_asPOSIXlt
  do_as_environment
+ do_as_int64
  do_asatomic
  do_ascall
  do_asfunction

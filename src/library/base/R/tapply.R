@@ -52,7 +52,7 @@ tapply <- function (X, INDEX, FUN = NULL, ..., default = NA, simplify = TRUE)
 	if (simplify && all(lengths(ans) == 1L)) {
 	    ans <- unlist(ans, recursive = FALSE, use.names = FALSE)
 	    if(is.na(default) && is.atomic(ans))
-		vector(typeof(ans))
+		.allocVectorLike(ans)
 	    else default
 	} else vector("list", prod(extent)),
 	dim = extent, dimnames = namelist)

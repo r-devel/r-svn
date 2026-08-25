@@ -1181,4 +1181,96 @@ local({
                         capture.output(.Internal(inspect(as.int64(1:2)))))))
 })
 
+## --- allocating from a prototype --------------------------------------
+
+## vector() and matrix() name the type they build, which an opaque vector
+## cannot supply: its element type is a property of its ALTREP class, not of
+## its SEXPTYPE.  .allocVectorLike() and .allocMatrixLike() take an example
+## object instead -- the R-level counterparts of R_allocVectorLike() and
+## R_allocMatrixLike(), and what base code that wrote vector(typeof(x), n)
+## needs.
+local({
+    ## for the base types they are exactly vector() and matrix()
+    stopifnot(identical(.allocVectorLike(TRUE, 3L), vector("logical", 3L)),
+              identical(.allocVectorLike(1L, 3L), vector("integer", 3L)),
+              identical(.allocVectorLike(1.5, 3L), vector("double", 3L)),
+              identical(.allocVectorLike(1i, 3L), vector("complex", 3L)),
+              identical(.allocVectorLike("a", 3L), vector("character", 3L)),
+              identical(.allocVectorLike(as.raw(1), 3L), vector("raw", 3L)),
+              identical(.allocVectorLike(list(), 3L), vector("list", 3L)),
+              identical(.allocMatrixLike(1L, 2L, 3L), matrix(0L, 2L, 3L)))
+
+    ## an opaque element type has no zero R could name, so its elements are
+    ## NA -- and never the uninitialised payload New() hands back
+    v <- .allocVectorLike(as.int64(1L), 3L)
+    stopifnot(typeof(v) == "int64", length(v) == 3L, all(is.na(v)))
+    m <- .allocMatrixLike(as.int64(1L), 2L, 3L)
+    stopifnot(typeof(m) == "int64", identical(dim(m), c(2L, 3L)),
+              all(is.na(m)))
+
+    ## the prototype's NA domain rides along, so a vector that gave up its
+    ## NA has no element R could invent -- unless none is wanted
+    assertError(.allocVectorLike(as.int64(1L, na = FALSE), 3L))
+    e <- .allocVectorLike(as.int64(1L, na = FALSE))
+    stopifnot(typeof(e) == "int64", length(e) == 0L)
+
+    assertError(.allocVectorLike(1L, -1L))
+    assertError(.allocVectorLike(quote(x), 1L))
+    assertError(.allocMatrixLike(1L, -1L, 1L))
+})
+
+## the base functions that had no way to allocate an opaque result
+local({
+    g1 <- c("x", "x", "y", "y"); g2 <- c("p", "q", "p", "q")
+
+    t1 <- tapply(as.int64(1:4), g1, sum)
+    stopifnot(typeof(t1) == "int64", identical(as.double(t1), c(3, 7)),
+              identical(names(t1), c("x", "y")))
+    ## several factors, and the same answer the integers give
+    t2 <- tapply(as.int64(1:4), list(g1, g2), sum)
+    stopifnot(typeof(t2) == "int64", identical(dim(t2), c(2L, 2L)),
+              identical(as.double(t2), as.double(tapply(1:4, list(g1, g2), sum))),
+              identical(dimnames(t2), list(c("x", "y"), c("p", "q"))))
+    ## a cell with nothing in it is NA, and default= still wins
+    t3 <- tapply(as.int64(1:3), list(g1[1:3], g2[1:3]), sum)
+    stopifnot(identical(is.na(as.vector(t3)), c(FALSE, FALSE, FALSE, TRUE)))
+    t4 <- tapply(as.int64(1:3), list(g1[1:3], g2[1:3]), sum, default = 0L)
+    stopifnot(identical(as.double(t4), c(1, 3, 2, 0)))
+
+    ## diag() and apply() need one only on an empty extent
+    d <- diag(matrix(as.int64(integer()), 0L, 3L))
+    stopifnot(typeof(d) == "int64", length(d) == 0L,
+              identical(as.double(diag(matrix(as.int64(1:6), 2L, 3L))),
+                        c(1, 4)))
+    a <- apply(matrix(as.int64(integer()), 0L, 3L), 1L, sum)
+    stopifnot(typeof(a) == "int64", length(a) == 0L)
+    stopifnot(identical(as.double(apply(matrix(as.int64(1:6), 2L, 3L), 1L, sum)),
+                        c(9, 12)))
+})
+
+## vapply() allocates its result from FUN.VALUE, the one place R already had
+## a prototype in hand
+local({
+    v <- vapply(1:3, function(i) as.int64(i), as.int64(1L))
+    stopifnot(typeof(v) == "int64", identical(as.double(v), c(1, 2, 3)))
+    ## a result that widens into the opaque type is taken, as c() takes it
+    stopifnot(identical(as.double(vapply(1:3, function(i) i, as.int64(1L))),
+                        c(1, 2, 3)))
+    ## one that does not is the type error any other FUN.VALUE would give
+    assertError(vapply(1:3, function(i) i + 0.5, as.int64(1L)))
+    assertError(vapply(1:3, function(i) "a", as.int64(1L)))
+    ## and so is the other opaque element type
+    assertError(vapply(1:3, function(i) as.uint64(i), as.int64(1L)))
+    ## a FUN.VALUE longer than one gives the usual matrix result
+    m <- vapply(1:3, function(i) as.int64(c(i, i)), as.int64(c(1L, 1L)))
+    stopifnot(typeof(m) == "int64", identical(dim(m), c(2L, 3L)),
+              identical(as.double(m), c(1, 1, 2, 2, 3, 3)))
+    ## names, and a zero-length input
+    stopifnot(identical(names(vapply(c(a = 1L, b = 2L),
+                                     function(i) as.int64(i), as.int64(1L))),
+                        c("a", "b")),
+              typeof(vapply(integer(), function(i) as.int64(i),
+                            as.int64(1L))) == "int64")
+})
+
 cat("altsxp tests OK\n")

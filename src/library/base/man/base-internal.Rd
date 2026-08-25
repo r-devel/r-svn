@@ -55,6 +55,9 @@
 \alias{.fixupGFortranStderr}
 \alias{.fixupGFortranStdout}
 
+\alias{.allocVectorLike}
+\alias{.allocMatrixLike}
+
 \alias{.doWrap}
 \alias{.doSortWrap}
 \alias{.radix.storage}
@@ -123,6 +126,9 @@ lazyLoadDBfetch(key, file, compressed, hook)
 ## Only on Windows:
 .fixupGFortranStdout()
 .fixupGFortranStderr()
+
+.allocVectorLike(x, length = 0L)
+.allocMatrixLike(x, nrow = 1L, ncol = 1L)
 
 .doWrap(vec, decr, nalast, noNA = NA) 
 .doSortWrap(vec, decr, nalast, noNA = NA)

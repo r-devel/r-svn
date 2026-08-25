@@ -290,6 +290,82 @@ SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol)
     return s;
 }
 
+/* R_allocVectorLike() for .Internal(allocVectorLike()) and
+   .Internal(allocMatrixLike()) below, filled the way vector() fills one:
+   R_allocVectorLike() leaves an opaque payload uninitialised, and
+   uninitialised memory must not reach R.  An opaque element type has no
+   zero R could name, so its elements are NA instead -- which is also what
+   array() already gives when it is handed no data to recycle. */
+static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
+{
+    if (!isVector(proto))
+	errorcall(call, _("'%s' must be a vector"), "x");
+
+    if (TYPEOF(proto) == ALTSXP) {
+	SEXP ans = PROTECT(R_allocVectorLike(proto, n));
+	if (n > 0 && R_altsxp_set_na_region(ans, 0, n) != n)
+	    errorcall(call, _("'%s' method reported too few elements"),
+		      "Set_na_region");
+	UNPROTECT(1);
+
+	return ans;
+    }
+
+    SEXP ans = allocVector(TYPEOF(proto), n);
+    switch (TYPEOF(proto)) {	/* as in do_makevector() */
+    case LGLSXP:
+    case INTSXP: Memzero(INTEGER(ans), n); break;
+    case REALSXP: Memzero(REAL(ans), n); break;
+    case CPLXSXP: Memzero(COMPLEX(ans), n); break;
+    case RAWSXP: Memzero(RAW(ans), n); break;
+    default: break;	/* string, list and expression elements are set */
+    }
+
+    return ans;
+}
+
+/* vector() and matrix() name the type they build, which an opaque vector
+   cannot supply: its element type is a property of its ALTREP class, not of
+   its SEXPTYPE.  These two take an example object in place of the name --
+   the R-level counterparts of R_allocVectorLike() and R_allocMatrixLike(),
+   and what base code that used to write vector(typeof(x), n) needs. */
+attribute_hidden SEXP do_allocvectorlike(SEXP call, SEXP op, SEXP args,
+					 SEXP rho)
+{
+    checkArity(op, args);
+
+    if (length(CADR(args)) != 1)
+	errorcall(call, _("invalid '%s' argument"), "length");
+    R_xlen_t n = asVecSize(CADR(args));
+    if (n < 0)
+	errorcall(call, _("invalid '%s' argument"), "length");
+
+    return allocLike(CAR(args), n, call);
+}
+
+attribute_hidden SEXP do_allocmatrixlike(SEXP call, SEXP op, SEXP args,
+					 SEXP rho)
+{
+    checkArity(op, args);
+
+    int nrow = asInteger(CADR(args)), ncol = asInteger(CADDR(args));
+    if (nrow == NA_INTEGER)
+	errorcall(call, _("invalid '%s' argument"), "nrow");
+    if (ncol == NA_INTEGER)
+	errorcall(call, _("invalid '%s' argument"), "ncol");
+
+    /* matrix_length() does the extent and overflow checks allocMatrix()
+       makes, so a bad shape fails the same way here */
+    SEXP ans = PROTECT(allocLike(CAR(args), matrix_length(nrow, ncol), call));
+    SEXP dim = PROTECT(allocVector(INTSXP, 2));
+    INTEGER(dim)[0] = nrow;
+    INTEGER(dim)[1] = ncol;
+    setAttrib(ans, R_DimSymbol, dim);
+    UNPROTECT(2);
+
+    return ans;
+}
+
 /**
  * Allocate a 3-dimensional array
  *
