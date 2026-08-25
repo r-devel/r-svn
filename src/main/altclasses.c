@@ -2198,6 +2198,7 @@ static SEXP altxint_Unserialize(SEXP class, SEXP state)
     if (TYPEOF(state) != VECSXP || XLENGTH(state) != 2 ||
 	TYPEOF(VECTOR_ELT(state, 0)) != RAWSXP ||
 	TYPEOF(VECTOR_ELT(state, 1)) != LGLSXP ||
+	XLENGTH(VECTOR_ELT(state, 1)) != 1 ||
 	XLENGTH(VECTOR_ELT(state, 0)) % 8 != 0)
 	error("invalid serialized int64/uint64 ALTREP state");
 

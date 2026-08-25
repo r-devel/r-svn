@@ -3001,13 +3001,13 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
    bytes in a RAWSXP data1 backing store; generic DATAPTR on the outer object
    remains unavailable. */
 
-/* Width, kind and the NA reservation are all per-vector properties, and
-   every one of them has been forgotten at an allocation site at least
-   once during this branch's history.  Taking all three as arguments
-   makes that impossible: there is one way to make an 'xinteger' vector, and
-   it cannot be called without saying what kind of one you want.  Code
-   deriving a new vector from an existing one should still prefer
-   R_allocVectorLike(), which copies all three from the original. */
+/* Width and kind select the built-in ALTREP class, while the NA reservation
+   is per-vector data2 metadata.  Taking all three as arguments makes it
+   impossible for an allocation site to omit any part of the element type:
+   there is one way to make an 'xinteger' vector, and it cannot be called
+   without saying what kind of one you want.  Code deriving a new vector
+   from an existing one should still prefer R_allocVectorLike(), which
+   preserves the class and NA policy. */
 SEXP R_allocXIntVector(R_xlen_t length, int width, int kind,
 		       Rboolean hasNA)
 {

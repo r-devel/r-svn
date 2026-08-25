@@ -46,10 +46,10 @@ fixed-integer fallback is used as appropriate.
 ## Serialization
 
 The two built-in classes serialize through ordinary ALTREP class state. The
-state contains portable big-endian raw bytes plus the integer kind and NA
-policy. This round-trips in the existing serialization stream version 3;
-there is no standard ALTSXP vector payload and no new stream version is
-needed.
+state contains portable big-endian raw bytes plus the NA policy; class
+identity supplies the integer kind. This round-trips in the existing
+serialization stream version 3; there is no standard ALTSXP vector payload
+and no new stream version is needed.
 
 ## Compatibility boundary
 
