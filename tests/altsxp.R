@@ -353,4 +353,86 @@ stopifnot(nrow(df) == 3L, typeof(df$i) == "int64",
 stopifnot(typeof(as.int64(1L)) == typeof(as.int64(1L, na = FALSE)),
           typeof(c(as.int64(1L), as.int64(2L, na = FALSE))) == "int64")
 
+## --- binary ingest: readBin() and writeBin() -------------------------
+
+## the prototype is what names the type: an opaque vector cannot be built
+## from a type name alone
+bin <- writeBin(x, raw())
+stopifnot(length(bin) == 5L * 8L,
+          identical(readBin(bin, int64(), 5L), x),
+          identical(readBin(bin, "int64", 5L), x))
+
+## a short read gives what was there
+stopifnot(identical(readBin(bin, int64(), 99L), x),
+          identical(as.double(readBin(bin, int64(), 2L)), c(1, 2)))
+
+## values no double could carry, through a file connection
+f <- tempfile()
+big <- as.int64(c("-9223372036854775807", "0", "9223372036854775807"))
+con <- file(f, "wb"); writeBin(big, con); close(con)
+con <- file(f, "rb"); back <- readBin(con, int64(), 3L); close(con)
+stopifnot(identical(back, big), file.size(f) == 24)
+unlink(f)
+
+## byte order round trips, and reading the wrong way round does not
+stopifnot(identical(readBin(writeBin(big, raw(), endian = "big"), int64(), 3L,
+                            endian = "big"), big),
+          !identical(readBin(writeBin(big, raw(), endian = "big"), int64(), 3L,
+                             endian = "little"), big))
+
+## uint64 keeps the top half of the range
+ub <- as.uint64(c("0", "18446744073709551614"))
+stopifnot(identical(readBin(writeBin(ub, raw()), uint64(), 2L), ub))
+
+## the element width is fixed by the type
+assertError(readBin(bin, int64(), 5L, size = 4L))
+assertError(writeBin(x, raw(), size = 4L))
+assertWarning(readBin(bin, int64(), 1L, signed = FALSE))
+
+## --- text ingest: scan() ---------------------------------------------
+
+tf <- tempfile()
+writeLines(c("4611686018427387904", "1", "NA", "-9223372036854775807"), tf)
+sc <- scan(tf, what = int64(), quiet = TRUE)
+stopifnot(typeof(sc) == "int64", length(sc) == 4L,
+          identical(is.na(sc), c(FALSE, FALSE, TRUE, FALSE)),
+          as.character(sc)[1L] == "4611686018427387904")
+unlink(tf)
+
+## a multi-column record, opaque and ordinary side by side
+tf <- tempfile()
+writeLines(c("9007199254740992 a", "9007199254740993 b"), tf)
+fr <- scan(tf, what = list(int64(), ""), quiet = TRUE)
+stopifnot(typeof(fr[[1L]]) == "int64", typeof(fr[[2L]]) == "character",
+          as.character(fr[[1L]]) == c("9007199254740992", "9007199254740993"),
+          as.double(fr[[1L]][2L] - fr[[1L]][1L]) == 1)
+unlink(tf)
+
+## and through read.table()'s colClasses
+tf <- tempfile()
+writeLines(c("id,val", "9007199254740992,a", "9007199254740993,b"), tf)
+df2 <- utils::read.csv(tf, colClasses = c("int64", "character"))
+stopifnot(nrow(df2) == 2L, typeof(df2$id) == "int64",
+          as.character(df2$id) == c("9007199254740992", "9007199254740993"),
+          df2$id[1L] != df2$id[2L],
+          ## the same file read as doubles cannot tell the two apart:
+          ## 2^53 + 1 has no double
+          identical(utils::read.csv(tf)$id, c(9007199254740992, 9007199254740992)))
+stopifnot(any(grepl("int64", utils::capture.output(utils::str(df2)))))
+unlink(tf)
+
+## --- sorting and the summaries built on it ---------------------------
+
+z2 <- as.int64(c(3, 1, NA, 2))
+stopifnot(identical(as.double(sort(z2)), c(1, 2, 3)),
+          identical(is.na(sort(z2, na.last = TRUE)), c(FALSE, FALSE, FALSE, TRUE)),
+          identical(as.double(sort(z2, decreasing = TRUE)), c(3, 2, 1)),
+          as.double(median(as.int64(c(5, 1, 3)))) == 3)
+
+## sorting is not quadratic: this is instant with an ordering sort and
+## minutes without one
+zz <- as.int64(rev(seq_len(20000L)))
+stopifnot(!is.unsorted(sort(zz)),
+          identical(order(zz), order(rev(seq_len(20000L)))))
+
 cat("altsxp tests OK\n")

@@ -664,42 +664,44 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 	}
 }
 
+#ifdef LONG_VECTOR_SUPPORT
+static void orderVector1l(R_xlen_t *, R_xlen_t, SEXP, bool, bool, SEXP);
+#endif
+
 /* The meat of sort.int() */
 // Used in envir.c library/utils/src/io.c
-/* Sorting an opaque vector: order the indices with the class's Compare, then
-   permute whole elements.  Done in place so that do_sort()'s duplicate-then-
-   sort contract still holds. */
+/* Sorting an opaque vector: order the indices with the same shell sort
+   order() uses -- it already drives the class's Compare -- then permute
+   whole elements.  Done in place so that do_sort()'s duplicate-then-sort
+   contract still holds. */
 static void altsxpSort(SEXP s, bool decreasing)
 {
     R_xlen_t n = XLENGTH(s);
     if (n < 2) return;
 
     const void *vmax = vmaxget();
-    SEXP idx = PROTECT(allocVector(INTSXP, n));
-    int *pidx = INTEGER(idx);
-    for (R_xlen_t i = 0; i < n; i++) pidx[i] = (int) i;
-
-    /* insertion sort is fine for the sizes R reaches here via sort.int();
-       a class wanting more should provide its own ordering */
-    for (R_xlen_t i = 1; i < n; i++) {
-	int v = pidx[i];
-	R_xlen_t j = i - 1;
-	while (j >= 0 &&
-	       (decreasing ? altsxpcmp(s, pidx[j], v, TRUE) < 0
-			   : altsxpcmp(s, pidx[j], v, TRUE) > 0)) {
-	    pidx[j + 1] = pidx[j];
-	    j--;
-	}
-	pidx[j + 1] = v;
-    }
-
     size_t esz = ALTSXP_ELT_SIZE(s);
     char *tmp = R_alloc((size_t) n, esz);
-    for (R_xlen_t i = 0; i < n; i++)
-	R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
-    R_altsxp_set_region(s, 0, n, tmp);
 
-    UNPROTECT(1);
+#ifdef LONG_VECTOR_SUPPORT
+    if (n > INT_MAX) {
+	R_xlen_t *pidx = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	for (R_xlen_t i = 0; i < n; i++) pidx[i] = i;
+	orderVector1l(pidx, n, s, TRUE, decreasing, R_NilValue);
+	for (R_xlen_t i = 0; i < n; i++)
+	    R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
+    }
+    else
+#endif
+    {
+	int *pidx = (int *) R_alloc((size_t) n, sizeof(int));
+	for (R_xlen_t i = 0; i < n; i++) pidx[i] = (int) i;
+	orderVector1(pidx, (int) n, s, TRUE, decreasing, R_NilValue);
+	for (R_xlen_t i = 0; i < n; i++)
+	    R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
+    }
+
+    R_altsxp_set_region(s, 0, n, tmp);
     vmaxset(vmax);
 }
 
@@ -897,7 +899,13 @@ attribute_hidden SEXP do_psort(SEXP call, SEXP op, SEXP args, SEXP rho)
     SETCAR(args, duplicate(x));
     SET_ATTRIB(CAR(args), R_NilValue);  /* remove all attributes */
     SET_OBJECT(CAR(args), 0);           /* and the object bit    */
-    Psort0(CAR(args), 0, n - 1, l, nind);
+    if (TYPEOF(x) == ALTSXP)
+	/* An opaque element type has no partial sort.  Ordering the whole
+	   vector leaves the right element at every requested position, which
+	   is all Psort0() promises; the index checks above still run. */
+	sortVector(CAR(args), FALSE);
+    else
+	Psort0(CAR(args), 0, n - 1, l, nind);
     return CAR(args);
 }
 

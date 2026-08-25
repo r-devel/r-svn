@@ -76,6 +76,10 @@ is.uint64(x)
 \seealso{
   \code{\link{integer}}, \code{\link{double}},
   \code{\link{.Machine}} for the range of \R's other numeric types.
+
+  \code{\link{scan}} and \code{\link{readBin}} read into these vectors
+  directly, as does \code{read.table(colClasses = "int64")}: reading
+  through \code{double} would round the values first.
 }
 \examples{
 x <- as.int64(c(1, 2, 3))
@@ -96,6 +100,13 @@ typeof(x + 1.5)
 n <- as.int64("-9223372036854775808", na = FALSE)
 as.character(n)
 is.na(n)
+
+## read without going through a double first
+tf <- tempfile()
+writeLines(c("id", "9007199254740992", "9007199254740993"), tf)
+read.csv(tf, colClasses = "int64")$id   # distinct
+read.csv(tf)$id                         # both round to 2^53
+unlink(tf)
 }
 \keyword{classes}
 \keyword{arith}

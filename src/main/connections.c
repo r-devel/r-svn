@@ -114,6 +114,7 @@
 #include <Internal.h>
 #include <Fileio.h>
 #include <Rconnections.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP region API */
 #include <R_ext/Complex.h>
 #include <R_ext/RS.h>		/* R_chk_calloc and R_Free */
 #include <R_ext/Riconv.h>
@@ -4706,9 +4707,14 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 
     args = CDR(args);
     swhat = CAR(args); args = CDR(args);
-    if(!isString(swhat) || LENGTH(swhat) != 1)
+    /* An opaque vector cannot be named by its type, so readBin() hands the
+       internal a prototype of the class instead of a type name. */
+    if(TYPEOF(swhat) == ALTSXP)
+	what = NULL;
+    else if(!isString(swhat) || LENGTH(swhat) != 1)
 	error(_("invalid '%s' argument"), "what");
-    what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
+    else
+	what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
     n = asVecSize(CAR(args)); args = CDR(args);
     if(n < 0) error(_("invalid '%s' argument"), "n");
     size = asInteger(CAR(args)); args = CDR(args);
@@ -4735,7 +4741,39 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
     }
-    if(!strcmp(what, "character")) {
+    if(what == NULL) {
+	/* Elements move as bytes: the class gives their width and takes them
+	   through Set_region, so nothing here knows what an element means.
+	   Reading a block at a time bounds the scratch buffer. */
+	size_t esz = ALTSXP_ELT_SIZE(swhat);
+	if(size == NA_INTEGER) size = (int) esz;
+	if(size != (int) esz)
+	    error(_("size %d is not the element size of '%s'"), size,
+		  R_typeToChar(swhat));
+	if(!signd)
+	    warning(_("'%s' is not used for '%s': the sign is part of the type"),
+		    "signed", R_typeToChar(swhat));
+
+	PROTECT(ans = R_allocVectorLike(swhat, n));
+	const void *vmax = vmaxget();
+	R_xlen_t nb = (n > 0 && n < BLOCK) ? n : BLOCK;
+	char *buf = R_alloc((size_t) nb, esz);
+	for(m = 0; m < n; ) {
+	    R_xlen_t n1 = (n - m < nb) ? n - m : nb, m0;
+	    m0 = isRaw ? rawRead(buf, size, n1, bytes, nbytes, &np)
+		: (R_xlen_t) con->read(buf, size, n1, con);
+	    if(m0 < 0) error("error reading from the connection");
+	    if(m0 > 0) {
+		if(swap)
+		    for(i = 0; i < m0; i++)
+			swapb(buf + (size_t) i * esz, size);
+		R_altsxp_set_region(ans, m, m0, buf);
+		m += m0;
+	    }
+	    if(m0 < n1) break;
+	}
+	vmaxset(vmax);
+    } else if(!strcmp(what, "character")) {
 	SEXP onechar;
 	PROTECT(ans = allocVector(STRSXP, n));
 	for(i = 0, m = 0; i < n; i++) {
@@ -4941,7 +4979,10 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP object = CAR(args);
-    if(!isVectorAtomic(object))
+    /* isVectorAtomic() is deliberately false for an opaque vector -- its
+       callers go on to assume they know the C element type -- but writing
+       one out only needs its bytes. */
+    if(!isVectorAtomic(object) && TYPEOF(object) != ALTSXP)
 	error(_("'x' is not an atomic vector type"));
     Rboolean
 	isRaw = TYPEOF(CADR(args)) == RAWSXP,
@@ -5057,6 +5098,15 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(size != 1)
 		error(_("size changing is not supported for raw vectors"));
 	    break;
+	case ALTSXP:
+	{
+	    int esz = (int) ALTSXP_ELT_SIZE(object);
+	    if(size == NA_INTEGER) size = esz;
+	    if(size != esz)
+		error(_("size %d is not the element size of '%s'"), size,
+		      R_typeToChar(object));
+	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("writeBin", object);
 	}
@@ -5135,6 +5185,9 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    default:
 		error(_("size %d is unknown on this machine"), size);
 	    }
+	    break;
+	case ALTSXP:
+	    R_altsxp_get_region(object, 0, len, buf);
 	    break;
 	case CPLXSXP:
 	    memcpy(buf, COMPLEX(object), size * len);

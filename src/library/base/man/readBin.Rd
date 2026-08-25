@@ -24,7 +24,13 @@ writeBin(object, con, size = NA_integer_,
     vector to be read, or a character vector of length one describing
     the mode: one of \code{"numeric"}, \code{"double"},
     \code{"integer"}, \code{"int"}, \code{"logical"}, \code{"complex"},
-    \code{"character"}, \code{"raw"}.}
+    \code{"character"}, \code{"raw"}, \code{"int64"}, \code{"uint64"}.
+
+    A vector type that cannot be allocated from a type name alone, such as
+    an \code{\link{int64}} vector, is named by an object of that type:
+    \code{readBin(con, int64(), n)}.  Its element width is fixed, so
+    \code{size} must be \code{NA} or that width, and \code{signed} does
+    not apply because the sign is part of the type.}
   \item{n}{numeric.  The (maximal) number of records to be
     read.  You can use an over-estimate here, but not too large as
     storage is reserved for \code{n} items.}

@@ -184,7 +184,7 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
 
     colClasses[colClasses %in% c("real", "double")] <- "numeric"
     known <- colClasses %in% c("logical", "integer", "numeric", "complex",
-                               "character", "raw")
+                               "character", "raw", "int64", "uint64")
     what[known] <- lapply(colClasses[known], do.call, list(0))
     what[colClasses %in% "NULL"] <- list(NULL)
     keep <- !vapply(what, is.null, NA)

@@ -704,7 +704,13 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    if (!isVector(w)) {
 		error(_("invalid '%s' argument"), "what");
 	    }
-	    SET_VECTOR_ELT(ans, i, allocVector(TYPEOF(w), blksize));
+	    /* An opaque element type has no scanner of its own, so the field
+	       text is collected and the class parses the whole column at the
+	       end.  That also keeps the inner loop free of per-item
+	       allocation. */
+	    SET_VECTOR_ELT(ans, i,
+			   allocVector(TYPEOF(w) == ALTSXP ? STRSXP : TYPEOF(w),
+				       blksize));
 	}
     }
     setAttrib(ans, R_NamesSymbol, getAttrib(what, R_NamesSymbol));
@@ -840,6 +846,15 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("scanFrame", old);
+	}
+	if (TYPEOF(VECTOR_ELT(what, i)) == ALTSXP) {
+	    PROTECT(new);
+	    SEXP conv = R_altsxp_coerce_from(VECTOR_ELT(what, i), new);
+	    if (conv == NULL)
+		error(_("scan() cannot read into a vector of type '%s'"),
+		      R_typeToChar(VECTOR_ELT(what, i)));
+	    new = conv;
+	    UNPROTECT(1);
 	}
 	SET_VECTOR_ELT(ans, i, new);
     }
@@ -1001,6 +1016,19 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 	ans = scanVector(TYPEOF(what), nmax, nlines, flush, stripwhite,
 			 blskip, &data);
 	break;
+
+    case ALTSXP: {
+	/* as in scanFrame(): read the field text, then let the class parse
+	   the whole vector at once */
+	SEXP str = PROTECT(scanVector(STRSXP, nmax, nlines, flush, stripwhite,
+				      blskip, &data));
+	ans = R_altsxp_coerce_from(what, str);
+	if (ans == NULL)
+	    error(_("scan() cannot read into a vector of type '%s'"),
+		  R_typeToChar(what));
+	UNPROTECT(1);
+	break;
+    }
 
     case VECSXP:
 	ans = scanFrame(what, nmax, nlines, flush, fill, stripwhite,
