@@ -2473,7 +2473,7 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 	R_xlen_t n = xlength(x);
 	if (n == 0) return false;
 	if (ALTSXP_NO_NA(x)) return false;
-	R_xlen_t nb = n > 512 ? 512 : n;
+	R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
 	const void *vmax = vmaxget();
 	int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
 	for (R_xlen_t i = 0; i < n; ) {

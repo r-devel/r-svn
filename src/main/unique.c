@@ -466,8 +466,6 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
    because then hashing and comparing the raw element bytes is exact.  A
    floating element type must not set that bit: NaN and signed zero break
    the correspondence. */
-#define ALTSXP_ELT_BUFSIZE 64
-
 static R_INLINE const unsigned char *
 altsxp_eltptr(SEXP x, R_xlen_t i, size_t esz, unsigned char *buf)
 {
@@ -485,7 +483,7 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
     if (na) return scatter(0u, d); /* all NAs hash alike */
 
     size_t esz = ALTSXP_ELT_SIZE(x);
-    unsigned char buf[ALTSXP_ELT_BUFSIZE];
+    unsigned char buf[ALTREP_ELT_MAX_SIZE];
     const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
 
     /* FNV-1a over the element bytes */
@@ -510,7 +508,7 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (nax || nay) return nax && nay; /* NA matches only NA */
 
     size_t esz = ALTSXP_ELT_SIZE(x);
-    unsigned char bx[ALTSXP_ELT_BUFSIZE], by[ALTSXP_ELT_BUFSIZE];
+    unsigned char bx[ALTREP_ELT_MAX_SIZE], by[ALTREP_ELT_MAX_SIZE];
     const unsigned char *px = altsxp_eltptr(x, i, esz, bx);
     const unsigned char *py = altsxp_eltptr(y, j, esz, by);
     return memcmp(px, py, esz) == 0;
@@ -631,7 +629,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	break;
     case ALTSXP:
 	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
-	    ALTSXP_ELT_SIZE(x) > ALTSXP_ELT_BUFSIZE)
+	    ALTSXP_ELT_SIZE(x) > ALTREP_ELT_MAX_SIZE)
 	    error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
 	d->hash = altsxphash;
 	d->equal = altsxpequal;

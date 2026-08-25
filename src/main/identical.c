@@ -397,7 +397,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	if (px != NULL && py != NULL)
 	    return memcmp(px, py, (size_t) n * esz) == 0 ? TRUE : FALSE;
 
-	R_xlen_t nb = n > 512 ? 512 : n;
+	R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
 	const void *vmax = vmaxget();
 	char *bx = R_alloc((size_t) nb, esz), *by = R_alloc((size_t) nb, esz);
 	Rboolean ans = TRUE;

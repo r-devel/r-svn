@@ -762,6 +762,15 @@ SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
 SEXP ALTSXP_DEPARSE(SEXP x);
 SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width);
 R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n);
+/* How many elements to stage at a time when moving them through the region
+   methods: enough to amortise the calls, and bounded so that filling or
+   comparing a long vector needs no second copy of it. */
+#define ALTSXP_REGION_CHUNK 512
+
+/* The largest element an ALTSXP class may declare, and so the size of the
+   buffers that hold one.  match() and unique() hash and compare raw
+   element bytes on the stack, and refuse a class that exceeds this. */
+#define ALTREP_ELT_MAX_SIZE 64
 /* the rest of the ALTSXP consumer API -- ALTSXP_ELT_TYPE, ALTREP_TRAITS,
    R_allocVectorLike and friends -- is declared in R_ext/Altrep.h, which the
    files that use it include */

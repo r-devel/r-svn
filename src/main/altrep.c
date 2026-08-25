@@ -736,11 +736,6 @@ R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     return ALTSXP_DISPATCH(Is_na_region, x, i, n, buf);
 }
 
-/* How many elements to stage at a time when a class supplies no data
-   pointer: enough to amortise the method calls, small enough to allocate
-   without thinking about it. */
-#define ALTSXP_COPY_CHUNK 512
-
 /* Copy n elements from src[si...] to dst[di...].  Both must have the same
    element type; the count is clamped to what both objects hold, and the
    number actually copied is returned.  This is the move that every generic
@@ -770,7 +765,7 @@ R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
 			       (const char *) p + (size_t) si * esz);
 
     const void *vmax = vmaxget();
-    R_xlen_t nb = n > ALTSXP_COPY_CHUNK ? ALTSXP_COPY_CHUNK : n;
+    R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
     void *buf = R_alloc((size_t) nb, esz);
     R_xlen_t done = 0;
     while (done < n) {
@@ -1363,7 +1358,7 @@ static int altsxp_No_NA_default(SEXP x)
     R_xlen_t n = ALTREP_LENGTH(x);
     if (n == 0) return TRUE;
 
-    R_xlen_t nb = n > ALTSXP_COPY_CHUNK ? ALTSXP_COPY_CHUNK : n;
+    R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
     const void *vmax = vmaxget();
     int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
     int ans = TRUE;
