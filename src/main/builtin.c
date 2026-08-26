@@ -862,12 +862,18 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	return (x);
 
     if (len > lenx && ! R_altsxp_nullable(x)) {
-	/* the new tail is NA, which this object cannot hold as it stands.
-	   Na_widen() returns a fresh object, so protect before allocating
-	   the result below. */
+	/* The new tail is NA, which this object cannot hold as it stands.
+	   Na_widen() knows only about the data, so it hands back a bare
+	   vector: carry the attributes over, or the names read below are the
+	   ones this object no longer has. */
 	SEXP w = R_altsxp_na_widen(x);
 	if (w == NULL)
 	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
+	if (ATTRIB(x) != R_NilValue) {
+	    PROTECT(w);
+	    SHALLOW_DUPLICATE_ATTRIB(w, x);
+	    UNPROTECT(1); /* w */
+	}
 	x = w;
     }
     PROTECT(x);
@@ -882,8 +888,17 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	if (len > ncopy)
 	    R_altsxp_set_na_region(rval, ncopy, len - ncopy);
 	PROTECT(xnames = getAttrib(x, R_NamesSymbol));
-	if (xnames != R_NilValue)
-	    setAttrib(rval, R_NamesSymbol, xlengthgets(xnames, len));
+	if (xnames != R_NilValue) {
+	    /* A name that was not there is blank, not NA -- the arms below fill
+	       a fresh STRSXP and leave the tail at allocVector()'s blank.
+	       Recursing into xlengthgets() would instead pad with NA_STRING,
+	       which is what it does for a character vector in its own right. */
+	    PROTECT(names = allocVector(STRSXP, len));
+	    for (i = 0; i < ncopy; i++)
+		SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+	    setAttrib(rval, R_NamesSymbol, names);
+	    UNPROTECT(1); /* names */
+	}
 	UNPROTECT(3); /* xnames, rval, x */
 	return rval;
     }

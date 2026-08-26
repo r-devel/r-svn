@@ -1685,6 +1685,40 @@ local({
               grepl("^r1", out[[2L]]), grepl("NA", out[[3L]]))
 })
 
+## `length<-` on a named opaque vector got the names wrong in two ways: the
+## new tail was NA rather than blank, because the ALTSXP arm recursed into
+## xlengthgets() on the character vector, which is where NA_STRING padding
+## belongs; and for a class that had to be widened first the names went
+## missing altogether, since Na_widen() answers with a bare vector.
+local({
+    z <- as.int64(1:3)
+    names(z) <- c("a", "b", "c")
+    length(z) <- 5L
+    ref <- 1:3
+    names(ref) <- c("a", "b", "c")
+    length(ref) <- 5L
+    stopifnot(identical(names(z), names(ref)), !anyNA(names(z)))
+
+    ## the same object reached by growing through a subscript already agreed
+    w <- as.int64(1:3)
+    names(w) <- c("a", "b", "c")
+    w[5L] <- as.int64(9L)
+    stopifnot(identical(names(w), names(z)))
+
+    ## a class with no NA of its own is widened first, and keeps its names
+    v <- as.int64(1:3, na = FALSE)
+    names(v) <- c("a", "b", "c")
+    length(v) <- 5L
+    stopifnot(identical(names(v), names(ref)),
+              identical(as.double(v), c(1, 2, 3, NA, NA)))
+
+    ## shrinking drops the tail of the names, as before
+    u <- as.int64(1:3)
+    names(u) <- c("a", "b", "c")
+    length(u) <- 2L
+    stopifnot(identical(names(u), c("a", "b")))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
