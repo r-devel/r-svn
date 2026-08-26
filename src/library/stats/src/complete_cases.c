@@ -23,6 +23,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 
 #include "statsErr.h"
 
@@ -145,6 +146,15 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case ALTSXP: {
+			/* an opaque element has no C type this switch could read,
+			   so the class reports its own missing values */
+			int na;
+			R_altsxp_is_na_region(u, i, 1, &na);
+			if (na)
+			    INTEGER(rval)[i % len] = 0;
+			break;
+		    }
 		    default:
 			UNPROTECT(1);
 			error(R_MSG_type, R_typeToChar(u));
@@ -177,6 +187,15 @@ SEXP compcases(SEXP args)
 			if (STRING_ELT(u, i) == NA_STRING)
 			    INTEGER(rval)[i % len] = 0;
 			break;
+		    case ALTSXP: {
+			/* an opaque element has no C type this switch could read,
+			   so the class reports its own missing values */
+			int na;
+			R_altsxp_is_na_region(u, i, 1, &na);
+			if (na)
+			    INTEGER(rval)[i % len] = 0;
+			break;
+		    }
 		    default:
 			UNPROTECT(1);
 			error(R_MSG_type, R_typeToChar(u));
@@ -205,6 +224,15 @@ SEXP compcases(SEXP args)
 		    if (STRING_ELT(u, i) == NA_STRING)
 			INTEGER(rval)[i % len] = 0;
 		    break;
+		case ALTSXP: {
+		    /* an opaque element has no C type this switch could read,
+		       so the class reports its own missing values */
+		    int na;
+		    R_altsxp_is_na_region(u, i, 1, &na);
+		    if (na)
+			INTEGER(rval)[i % len] = 0;
+		    break;
+		}
 		default:
 		    UNPROTECT(1);
 		    error(R_MSG_type, R_typeToChar(u));

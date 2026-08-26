@@ -1628,6 +1628,27 @@ local({
                         colSums(data.frame(p = 1:3))))
 })
 
+## complete.cases() reported "invalid 'type'" for an opaque argument, even
+## though the class answers exactly the question it asks.  It takes vectors,
+## matrices and data frames, and each of its three loops needed the arm.
+local({
+    x <- as.int64(c(1L, NA, 3L, NA))
+    stopifnot(identical(complete.cases(x), c(TRUE, FALSE, TRUE, FALSE)),
+              identical(complete.cases(x, c(1, 2, NA, 4)),
+                        c(TRUE, FALSE, FALSE, FALSE)),
+              identical(complete.cases(data.frame(a = x, b = 1:4)),
+                        c(TRUE, FALSE, TRUE, FALSE)))
+
+    ## a matrix argument recycles by column, as it does for a base type
+    m <- as.int64(c(1L, NA, 3L, 4L, 5L, 6L))
+    dim(m) <- c(3L, 2L)
+    stopifnot(identical(complete.cases(m), c(TRUE, FALSE, TRUE)))
+
+    ## and na.omit(), which is complete.cases() on a data frame
+    d <- data.frame(a = x)
+    stopifnot(identical(as.character(na.omit(d)$a), c("1", "3")))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
