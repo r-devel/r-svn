@@ -1956,6 +1956,105 @@ local({
     gctorture(FALSE)
 })
 
+## --- fixes from the sixth review round --------------------------------
+
+## R_binary() emits the recycling warning before it reaches the ALTSXP arm, so
+## an operation the class declines and hands back to R_binary() warned twice
+## where every base numeric type warns once.
+local({
+    n.warnings <- function(expr) {
+        n <- 0L
+        withCallingHandlers(expr, warning = function(e) {
+            n <<- n + 1L
+            invokeRestart("muffleWarning")
+        })
+        n
+    }
+    for (e in list(quote(as.int64(1:3) + c(1.5, 2.5)),
+                   quote(c(1.5, 2.5) + as.int64(1:3)),
+                   quote(as.int64(1:3) / as.int64(1:2)),
+                   quote(as.int64(1:5) ^ c(1.5, 2.5, 3.5)),
+                   quote(as.uint64(1:3) * c(1.5, 2.5))))
+        stopifnot(identical(n.warnings(eval(e)), 1L))
+
+    ## recycling to the common length must not disturb the answer: the result
+    ## and its attributes still come from the original operands
+    x <- as.int64(1:3); names(x) <- c("a", "b", "c")
+    d <- c(a = 1, b = 2, c = 3)
+    y <- c(p = 1.5, q = 2.5)
+    stopifnot(identical(suppressWarnings(x + y), suppressWarnings(d + y)),
+              identical(suppressWarnings(y + x), suppressWarnings(y + d)))
+    m <- as.int64(1:6); dim(m) <- c(2L, 3L)
+    dm <- as.double(1:6); dim(dm) <- c(2L, 3L)
+    short <- c(1.5, 2.5, 3.5, 4.5)
+    stopifnot(identical(suppressWarnings(m + short), suppressWarnings(dm + short)),
+              identical(suppressWarnings(short + m), suppressWarnings(short + dm)))
+
+    ## the operand may still be a compact sequence, which the recycling has to
+    ## materialize -- and that allocates
+    gctorture(TRUE)
+    stopifnot(identical(suppressWarnings(as.int64(1:5) / (1:3)),
+                        suppressWarnings(as.double(1:5) / as.double(1:3))),
+              identical(suppressWarnings((1:5) / as.int64(1:3)),
+                        suppressWarnings(as.double(1:5) / as.double(1:3))))
+    gctorture(FALSE)
+})
+
+## cbind()/rbind() refused a NULL argument: the other modes reach it through
+## coerceVector(), which makes it the zero-length vector the fill loop then
+## skips, but the opaque arm asked the class to coerce NILSXP.  A NULL only
+## gets that far when every argument is zero length, since lenmin is 0 there.
+local({
+    stopifnot(identical(dim(cbind(int64(0), NULL)), c(0L, 2L)),
+              identical(dim(rbind(int64(0), NULL)), c(2L, 0L)),
+              identical(dim(cbind(NULL, int64(0))), c(0L, 2L)),
+              identical(dim(cbind(int64(0), NULL, int64(0))), c(0L, 3L)))
+    for (f in c(cbind, rbind))
+        stopifnot(identical(dim(f(int64(0), NULL)), dim(f(integer(0), NULL))),
+                  identical(as.double(f(as.int64(1:3), NULL)),
+                            as.double(f(1:3, NULL))))
+})
+
+## A character `incomparables` was silently discarded.  Unlike match(), which
+## compares as character when the promotion is not exact, the answer here has
+## to be in the class, so there is nothing to decline to -- and as.int64("2")
+## is the documented way to enter a value a double cannot hold.
+local({
+    y <- as.int64(c(1, 2, 2, 3))
+    stopifnot(identical(as.double(unique(y, incomparables = "2")),
+                        c(1, 2, 2, 3)),
+              identical(duplicated(y, incomparables = "2"), rep(FALSE, 4)),
+              identical(anyDuplicated(y, incomparables = "2"), 0L),
+              identical(match(y, y, incomparables = "2"), c(1L, NA, NA, 4L)))
+
+    ## every spelling as.int64() itself takes
+    for (s in c("2", " 2 ", "+2", "0x2", "2e0"))
+        stopifnot(identical(as.double(unique(y, incomparables = s)),
+                            c(1, 2, 2, 3)))
+
+    ## a fractional string must not round onto a neighbour and make *that*
+    ## value incomparable, exactly as for the double it parses to
+    stopifnot(identical(as.double(unique(y, incomparables = "2.5")), c(1, 2, 3)),
+              identical(as.double(unique(y, incomparables = 2.5)), c(1, 2, 3)))
+
+    ## a value the class cannot hold is still dropped, with its warning
+    stopifnot(identical(as.double(suppressWarnings(
+                            unique(y, incomparables = "99999999999999999999"))),
+                        c(1, 2, 3)))
+
+    ## the point of taking the string at all: exact past 2^53, where routing
+    ## it through a double would land on the neighbouring even value
+    big <- as.int64(c("9007199254740993", "9007199254740993", "1"))
+    stopifnot(identical(format(unique(big, incomparables = "9007199254740993")),
+                        format(big)),
+              identical(as.double(unique(big, incomparables = "9007199254740992")),
+                        c(9007199254740992, 1)))
+
+    ## match() still compares a character operand as character, unchanged
+    stopifnot(identical(match(as.int64(2L), c("1", "2", "3")), 2L),
+              identical(match("1e3", as.int64(1000)), NA_integer_))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2143,6 +2242,23 @@ if (length(dll.paths)) local({
     ## the identity resolution needs no registration, and still works
     stopifnot(identical(as.vector(b, typeof(b)), b),
               identical(as.vector(plain, typeof(plain)), plain))
+
+    ## Set_na_region() has to invalidate whatever the class cached about its
+    ## contents, exactly as a writable Dataptr does.  int64 wrote straight to
+    ## its payload instead, so a no-NA answer computed earlier survived the
+    ## NAs and anyNA() then contradicted is.na().  No base caller reaches
+    ## set_na_region on an object that has been asked yet, so it takes the
+    ## public entry point a package would use.
+    set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
+    for (v in list(as.int64(1:5), as.uint64(1:5))) {
+        stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness
+        stopifnot(identical(set.na(v, 0, 2), 2))
+        stopifnot(anyNA(v),
+                  identical(is.na(v), c(TRUE, TRUE, FALSE, FALSE, FALSE)),
+                  is.na(is.unsorted(v)),
+                  identical(as.double(sort(v)), c(3, 4, 5)),
+                  identical(as.double(min(v, na.rm = TRUE)), 3))
+    }
 })
 
 cat("altsxp tests OK\n")

@@ -191,6 +191,13 @@ static SEXP AltsxpArg(SEXP result, SEXP u, SEXP call)
 {
     SEXP uu;
 
+    /* NULL contributes no elements, as it does to every other mode, where
+       coerceVector() turns it into the zero-length vector the loops then
+       skip.  cbind()/rbind() still count it as a column in the all-zero-
+       length case, so it has to arrive here rather than be refused. */
+    if (u == R_NilValue)
+	return R_allocVectorLike(result, 0, FALSE);
+
     if (TYPEOF(u) == ALTSXP) {
 	uu = u;
 	if (R_altsxp_nullable(result) && ! R_altsxp_nullable(uu)) {

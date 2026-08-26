@@ -559,6 +559,7 @@ static int match_operand_isna(SEXP x, R_xlen_t i)
     switch (TYPEOF(x)) {
     case LGLSXP: case INTSXP: return INTEGER_ELT(x, i) == NA_INTEGER;
     case REALSXP: return ISNAN(REAL_ELT(x, i));
+    case STRSXP: return STRING_ELT(x, i) == NA_STRING;
     default: return FALSE; /* a raw byte is never missing */
     }
 }
@@ -572,8 +573,12 @@ static int match_operand_isna(SEXP x, R_xlen_t i)
    cannot represent becomes NA -- which the check below then spots -- instead
    of raising an error from inside match().  Such a value still draws the
    class's own coercion warning before the fallback; there is no quiet form
-   of Coerce_from, and a value the type cannot hold is worth mentioning. */
-static SEXP altsxp_match_operand(SEXP alt, SEXP other)
+   of Coerce_from, and a value the type cannot hold is worth mentioning.
+
+   'strings' is for a caller that has no character fallback to decline to;
+   match() itself compares a character operand as character, which is already
+   exact, so it leaves this off. */
+static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
 {
     R_xlen_t n = XLENGTH(other);
 
@@ -590,6 +595,30 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other)
 	for (R_xlen_t i = 0; i < n; i++)
 	    if (!ISNAN(p[i]) && (!R_FINITE(p[i]) || p[i] != floor(p[i])))
 		return NULL;
+	break;
+    }
+    case STRSXP: {
+	if (! strings)
+	    return NULL;
+
+	/* the same exactness rule as the REALSXP arm, and a double is enough
+	   to apply it: a magnitude too large to be exact is integral anyway,
+	   so only a genuinely fractional or infinite string is rejected.  The
+	   value itself still comes from the class, which reads a plain
+	   decimal exactly over the whole 64-bit range.  A string that does
+	   not parse at all is left to Coerce_from, which turns it into an NA
+	   the round-trip check below then catches. */
+	for (R_xlen_t i = 0; i < n; i++) {
+	    SEXP s = STRING_ELT(other, i);
+	    if (s == NA_STRING)
+		continue;
+
+	    char *end;
+	    double v = R_strtod(CHAR(s), &end);
+	    if (isBlankString(end) && !ISNAN(v) &&
+		(!R_FINITE(v) || v != floor(v)))
+		return NULL;
+	}
 	break;
     }
     default:
@@ -624,7 +653,12 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other)
    2s.  A value the class cannot hold equals no element, which is what base R
    already does with unique(1:3, incomparables = 2.5), so it is dropped;
    altsxp_match_operand() is the same exactness check match() applies to its
-   other operand. */
+   other operand.
+
+   A character incomparable is promoted here though match() declines one,
+   because there is no character form of the answer to fall back to: the
+   result has to be in the class, so declining would silently drop a value
+   that as.int64("2") shows the class can hold. */
 static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
 {
     if (TYPEOF(proto) != ALTSXP)
@@ -641,7 +675,7 @@ static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
     SEXP ans = NULL;
     if (nullable != NULL) {
 	PROTECT(nullable);
-	ans = altsxp_match_operand(nullable, incomp);
+	ans = altsxp_match_operand(nullable, incomp, TRUE);
 	UNPROTECT(1);
     }
 
@@ -1623,7 +1657,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	   to the character comparison below. */
 	SEXP alt = TYPEOF(x) == ALTSXP ? x : table;
 	SEXP oth = TYPEOF(x) == ALTSXP ? table : x;
-	SEXP as_alt = altsxp_match_operand(alt, oth);
+	SEXP as_alt = altsxp_match_operand(alt, oth, FALSE);
 	if(as_alt != NULL) {
 	    type = ALTSXP;
 	    if(TYPEOF(x) == ALTSXP) REPROTECT(table = as_alt, tbpi);

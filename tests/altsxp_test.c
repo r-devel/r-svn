@@ -244,6 +244,17 @@ static SEXP test_copy(SEXP x, SEXP di, SEXP si, SEXP n)
     return ScalarReal((double) moved);
 }
 
+/* R_altsxp_set_na_region() on any ALTSXP, base classes included: no base
+   caller reaches it with an object whose sortedness or no-NA answer has
+   already been cached, but a package can, and a class that writes behind
+   its own Dataptr would then keep the stale answer. */
+static SEXP test_set_na(SEXP x, SEXP i, SEXP n)
+{
+    R_xlen_t set = R_altsxp_set_na_region(x, test_index(i, "index"),
+					  test_index(n, "count"));
+    return ScalarReal((double) set);
+}
+
 static SEXP test_as_list_vmax(SEXP x)
 {
     const void *before = vmaxget();
@@ -264,6 +275,7 @@ static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_contents", (DL_FUNC) &test_contents, 1},
     {"C_altsxp_test_counts", (DL_FUNC) &test_counts, 1},
     {"C_altsxp_test_copy", (DL_FUNC) &test_copy, 4},
+    {"C_altsxp_test_set_na", (DL_FUNC) &test_set_na, 3},
     {"C_altsxp_test_as_list_vmax", (DL_FUNC) &test_as_list_vmax, 1},
     {NULL, NULL, 0}
 };

@@ -2752,7 +2752,10 @@ static R_xlen_t i64_Set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
 
     R_xlen_t size = i64_length(x);
     R_xlen_t ncopy = i64_ncopy(size, i, n);
-    int64_t na = i64_na(x), *p = i64_data(x);
+    /* through Dataptr, not i64_data(): introducing NAs has to invalidate a
+       cached sortedness or no-NA answer, and a package can reach this on an
+       object those have already been computed for */
+    int64_t na = i64_na(x), *p = (int64_t *) i64_Dataptr(x, TRUE);
 
     for (R_xlen_t k = 0; k < ncopy; k++)
 	p[i + k] = na;
@@ -3006,13 +3009,47 @@ static SEXP i64_as_double(SEXP x)
     return coerceVector(x, REALSXP);
 }
 
+/* PROTECT at the call site.  A bare vector: the answer takes its attributes
+   from the original operands, which R_binary() still holds. */
+static SEXP i64_recycle_double(SEXP x, R_xlen_t n)
+{
+    R_xlen_t nx = XLENGTH(x);
+    if (nx == n)
+	return x;
+
+    /* x may still be a compact sequence, and materializing it allocates */
+    SEXP ans = PROTECT(allocVector(REALSXP, n));
+    const double *p = REAL_RO(x);
+    double *out = REAL(ans);
+    for (R_xlen_t i = 0, k = 0; i < n; i++, k++) {
+	if (k == nx) k = 0;
+	out[i] = p[k];
+    }
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* A double operand promotes the whole operation, as it does for integers.
    Re-entering R_binary() is safe: neither operand is an ALTSXP any more, so
    the hook at the top of it does not fire again. */
 static SEXP i64_double_binop(SEXP call, SEXP opsym, SEXP x, SEXP y)
 {
-    SEXP a = PROTECT(i64_as_double(x));
-    SEXP b = PROTECT(i64_as_double(y));
+    SEXP a, b;
+    PROTECT_INDEX pa, pb;
+    PROTECT_WITH_INDEX(a = i64_as_double(x), &pa);
+    PROTECT_WITH_INDEX(b = i64_as_double(y), &pb);
+
+    /* R_binary() warns about a non-multiple recycling before it dispatches
+       here, and would warn a second time on the way back in.  Recycling to
+       the common length first is what that pass would do anyway. */
+    R_xlen_t na = XLENGTH(a), nb = XLENGTH(b);
+    if (na > 0 && nb > 0 && ((na > nb) ? na % nb : nb % na) != 0) {
+	R_xlen_t n = na > nb ? na : nb;
+	REPROTECT(a = i64_recycle_double(a, n), pa);
+	REPROTECT(b = i64_recycle_double(b, n), pb);
+    }
+
     SEXP ans = R_binary(call, R_Primitive(CHAR(PRINTNAME(opsym))), a, b);
     UNPROTECT(2);
 
