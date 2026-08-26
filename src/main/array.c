@@ -2064,6 +2064,13 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
+    /* The accumulator below works on R's own storage types, so it has no way
+       to add up opaque elements; the answer is a double whatever they are.
+       That is the trade mean() and prod() make in do_summary(), and without
+       it these refuse a matrix that is.numeric() calls numeric. */
+    if (TYPEOF(CAR(args)) == ALTSXP)
+	SETCAR(args, coerceVector(CAR(args), REALSXP));
+
     SEXP x = CAR(args); args = CDR(args);
     R_xlen_t n = asVecSize(CAR(args)); args = CDR(args);
     R_xlen_t p = asVecSize(CAR(args)); args = CDR(args);

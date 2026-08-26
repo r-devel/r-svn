@@ -1602,6 +1602,32 @@ local({
                                                                   c(0L, 3L)))))))
 })
 
+## rowSums() and friends refused an opaque matrix although is.numeric() calls
+## it numeric.  They answer with a double, as they do for an integer matrix,
+## so the class renders itself into one first -- what mean() and prod() do.
+local({
+    m <- as.int64(1:6)
+    dim(m) <- c(2L, 3L)
+    dimnames(m) <- list(c("a", "b"), c("x", "y", "z"))
+    ref <- matrix(1:6, 2L, 3L, dimnames = dimnames(m))
+    stopifnot(identical(rowSums(m), rowSums(ref)),
+              identical(colSums(m), colSums(ref)),
+              identical(rowMeans(m), rowMeans(ref)),
+              identical(colMeans(m), colMeans(ref)))
+
+    ## na.rm reaches the same accumulator
+    n <- as.int64(c(1L, NA, 3L, 4L))
+    dim(n) <- c(2L, 2L)
+    nref <- matrix(c(1, NA, 3, 4), 2L, 2L)
+    stopifnot(identical(rowSums(n), rowSums(nref)),
+              identical(rowSums(n, na.rm = TRUE), rowSums(nref, na.rm = TRUE)),
+              identical(colMeans(n, na.rm = TRUE), colMeans(nref, na.rm = TRUE)))
+
+    ## and a data.frame column, which as.matrix() has to carry through
+    stopifnot(identical(colSums(data.frame(p = as.int64(1:3))),
+                        colSums(data.frame(p = 1:3))))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
