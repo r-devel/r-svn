@@ -1831,6 +1831,52 @@ local({
     stopifnot(identical(v[int64()], v[integer()]))
 })
 
+## mode(x) reports an opaque class's element type, but the type table maps
+## names to SEXPTYPEs and an element type is not one, so as.vector(x, mode(x))
+## and storage.mode(x) <- storage.mode(x) -- round trips that hold for every
+## other type -- both failed.  Both now match the name against the object's
+## own, which is what is.vector() has always done.
+local({
+    x <- as.int64(1:3)
+    names(x) <- c("a", "b", "c")
+    u <- as.uint64(1:3)
+
+    ## the round trips, and as.vector() drops attributes as it does elsewhere
+    stopifnot(identical(as.vector(x, "int64"), as.vector(x, "any")),
+              identical(as.vector(x, mode(x)), as.vector(x, "any")),
+              is.null(names(as.vector(x, "int64"))),
+              identical(as.vector(u, mode(u)), as.vector(u, "any")),
+              typeof(as.vector(u, "uint64")) == "uint64")
+
+    ## storage.mode<- of the mode it already has keeps the object whole
+    y <- x
+    storage.mode(y) <- storage.mode(y)
+    stopifnot(identical(y, x))
+
+    ## The two classes must not become synonyms: they share a SEXPTYPE, so
+    ## resolving either name to ALTSXP would make this silently answer with
+    ## the other one.
+    assertError(as.vector(x, "uint64"))
+    assertError(as.vector(u, "int64"))
+    assertError(`storage.mode<-`(x, "uint64"))
+    stopifnot(!is.vector(x, "uint64"), is.vector(x, "int64"))
+
+    ## Converting *into* an opaque class by name is a different question and
+    ## is still not this; as.int64() and mode<- are the routes that work.
+    assertError(as.vector(1:3, "int64"))
+    assertError(vector("int64", 3L))
+    assertError(`storage.mode<-`(1:3, "int64"))
+    z <- 1:3
+    mode(z) <- "int64"
+    stopifnot(typeof(z) == "int64")
+
+    ## nothing moved for the base types
+    stopifnot(identical(as.vector(1:3, "integer"), 1:3),
+              identical(as.vector(1:3, mode(1:3)), as.double(1:3)),
+              identical(as.vector(x, "double"), as.double(1:3)),
+              typeof(as.vector(x, "altrep")) == "int64")
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set

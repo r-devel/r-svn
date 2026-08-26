@@ -1543,10 +1543,20 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error_return(R_MSG_mode);
 
     SEXP x = CAR(args);
-    int type =
-	(!strcmp("function", CHAR(STRING_ELT(CADR(args), 0))))  /* ASCII */
-	? CLOSXP
-	: str2type(CHAR(STRING_ELT(CADR(args), 0))); /* ASCII */
+    const char *modestr = CHAR(STRING_ELT(CADR(args), 0)); /* ASCII */
+    int type = (!strcmp("function", modestr)) ? CLOSXP : str2type(modestr);
+
+    /* A registered ALTSXP class names itself by its element type, which is
+       not a SEXPTYPE and so is not in the type table.  Matching that name
+       against the object's own -- which is what is.vector() does -- is all
+       as.vector(x, mode(x)) needs to be the identity-and-drop-attributes it
+       is for every other type.  Only when str2type() found nothing, so a
+       class whose element type shadows a base type name does not take that
+       name's meaning here.  Converting *into* an opaque class by name is a
+       different question, and needs a registry keyed on the element type. */
+    if ((SEXPTYPE) type == (SEXPTYPE) -1 && TYPEOF(x) == ALTSXP &&
+	streql(modestr, R_typeToChar(x)))
+	type = ALTSXP;
 
     /* "any" case added in 2.13.0 */
     if(type == ANYSXP || TYPEOF(x) == type) {
@@ -3221,7 +3231,13 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
       value = CADR(args);
     if (!isValidString(value) || STRING_ELT(value, 0) == NA_STRING)
 	error(_("'value' must be non-null character string"));
-    SEXPTYPE type = str2type(CHAR(STRING_ELT(value, 0)));
+    const char *valstr = CHAR(STRING_ELT(value, 0));
+    SEXPTYPE type = str2type(valstr);
+    /* as in do_asvector(): an opaque class names itself by its element type,
+       so storage.mode(x) <- storage.mode(x) resolves against the object */
+    if(type == (SEXPTYPE) -1 && TYPEOF(obj) == ALTSXP &&
+       streql(valstr, R_typeToChar(obj)))
+	type = ALTSXP;
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {
 	    error("use of 'real' is defunct: use 'double' instead");
