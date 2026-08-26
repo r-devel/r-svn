@@ -998,6 +998,21 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    ans = altsxp_seq(call, one, from, NULL);
 	    UNPROTECT(1);
 	    if(ans != NULL) goto done;
+
+	    /* The class declined: an NA endpoint, or no exact arithmetic to
+	       do it with.  A numeric one is still an endpoint, so it takes
+	       the length-1 route below rather than the "one element, so
+	       count along it" branch, which would answer 1L for
+	       seq.int(as.int64(NA)) where seq.int(NA_integer_) is an error.
+	       A non-numeric opaque vector does fall through, since 1L is
+	       what base R answers for any other length-1 object. */
+	    if(isNumeric(from)) {
+		double rfrom = asReal(from);
+		if (!R_FINITE(rfrom))
+		    errorcall(call, _("'%s' must be a finite number"), "from");
+		ans = seq_colon(1.0, rfrom, call);
+		goto done;
+	    }
 	}
 	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP)) {
 	    double rfrom = asReal(from);

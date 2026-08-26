@@ -2396,6 +2396,26 @@ local({
               identical(sort(dec, decreasing = TRUE), dec))
 })
 
+## The one-argument seq() over an opaque value asks the class for 1:x, and
+## the class declines for an NA endpoint.  Control then fell into the "one
+## element, so count along it" branch and answered 1L, where the same call on
+## an ordinary NA is an error.  seq() itself never showed it -- seq.default
+## checks is.finite() in R first -- but seq.int() goes straight to the C.
+local({
+    ref <- tryCatch(seq.int(NA_integer_), error = conditionMessage)
+    for (v in list(as.int64(NA), as.uint64(NA)))
+        stopifnot(identical(tryCatch(seq.int(v), error = conditionMessage), ref),
+                  identical(tryCatch(seq(v), error = conditionMessage), ref))
+
+    ## the cases that do work are unchanged, and still exact
+    stopifnot(identical(as.double(seq.int(as.int64(5))), c(1, 2, 3, 4, 5)),
+              identical(as.double(seq.int(as.int64(-3))), c(1, 0, -1, -2, -3)),
+              identical(typeof(seq.int(as.int64(5))), "int64"),
+              identical(as.double(seq.int(as.int64(0))), c(1, 0)),
+              ## a length > 1 argument counts along it, as for any vector
+              identical(seq.int(as.int64(c(4, 9))), 1:2))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set

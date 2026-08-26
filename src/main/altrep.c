@@ -1097,17 +1097,29 @@ attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width)
     const char *na = CHAR(R_print.na_string);
     int na_w = R_print.na_width;
     int w = 0;
+    /* the widest rendering in bytes, which is not the widest in columns once
+       a multibyte encoding is in play */
+    size_t maxb = strlen(na);
 
     for (R_xlen_t i = 0; i < n; i++) {
 	SEXP e = STRING_ELT(fmt, i);
 	int wi = (e == NA_STRING) ? na_w : Rstrlen(e, 0);
 	if (wi > w) w = wi;
+	if (e != NA_STRING) {
+	    size_t b = strlen(CHAR(e));
+	    if (b > maxb) maxb = b;
+	}
     }
     if (trim) w = 0;
     if (w < width) w = width;
 
     SEXP ans = PROTECT(allocVector(STRSXP, n));
     const void *vmax = vmaxget();
+    /* One buffer for the whole pass: mkChar() copies out of it immediately,
+       so the bytes are dead by the next iteration.  Allocating per element
+       would hold O(n * w) of them live until the vmaxset() below. */
+    size_t bufsz = (size_t) w + maxb + 1;
+    char *buf = R_alloc(bufsz, 1);
     for (R_xlen_t i = 0; i < n; i++) {
 	SEXP e = STRING_ELT(fmt, i);
 	const char *s = (e == NA_STRING) ? na : CHAR(e);
@@ -1116,8 +1128,7 @@ attribute_hidden SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width)
 	if (wi >= w)
 	    SET_STRING_ELT(ans, i, (e == NA_STRING) ? mkChar(s) : e);
 	else {
-	    char *buf = R_alloc((size_t) w + strlen(s) + 1, 1);
-	    snprintf(buf, (size_t) w + strlen(s) + 1, "%*s%s", w - wi, "", s);
+	    snprintf(buf, bufsz, "%*s%s", w - wi, "", s);
 	    SET_STRING_ELT(ans, i, mkChar(buf));
 	}
     }
