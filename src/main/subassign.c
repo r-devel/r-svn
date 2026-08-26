@@ -691,6 +691,41 @@ static R_INLINE Rboolean AltsxpAssign(SEXP x, SEXP y)
     return TYPEOF(y) == ALTSXP && AltsxpWidens(x);
 }
 
+/* Install the names a subscript introduced.  makeSubscript() passes them back
+   as the use.names attribute (a list) of the generated subscript vector, so
+   x["d"] <- v is the assignment plus this; a path that returns without it
+   assigns the element and loses the only way of reaching it. */
+static void AssignNewNames(SEXP x, SEXP indx)
+{
+    SEXP newnames = getAttrib(indx, R_UseNamesSymbol);
+    if (newnames == R_NilValue)
+	return;
+
+    R_xlen_t n = xlength(indx), nx = xlength(x);
+    SEXP oldnames = getAttrib(x, R_NamesSymbol);
+    Rboolean fresh = (Rboolean) (oldnames == R_NilValue);
+
+    if (fresh) {
+	PROTECT(oldnames = allocVector(STRSXP, nx));
+	for (R_xlen_t i = 0; i < nx; i++)
+	    SET_STRING_ELT(oldnames, i, R_BlankString);
+    }
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (VECTOR_ELT(newnames, i) == R_NilValue)
+	    continue;
+	R_xlen_t ii = gi(indx, i);
+	if (ii == NA_INTEGER)
+	    continue;
+	SET_STRING_ELT(oldnames, ii - 1, VECTOR_ELT(newnames, i));
+    }
+
+    if (fresh) {
+	setAttrib(x, R_NamesSymbol, oldnames);
+	UNPROTECT(1);
+    }
+}
+
 /* Generic subassignment for an opaque vector: bring the RHS into the LHS's
    representation with Coerce_from, then move whole elements.  Nothing here
    needs to know what an element means. */
@@ -795,6 +830,8 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 	}
 	iny = (++iny == ny) ? 0 : iny;
     }
+
+    AssignNewNames(x, indx);
 
     UNPROTECT(2); /* yy, x */
     return x;
@@ -1064,38 +1101,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     default:
 	warningcall(call, "sub assignment (*[*] <- *) not done; __bug?__");
     }
-    /* Check for additional named elements. */
-    /* Note makeSubscript passes the additional names back as the use.names
-       attribute (a vector list) of the generated subscript vector */
-    SEXP newnames = getAttrib(indx, R_UseNamesSymbol);
-    if (newnames != R_NilValue) {
-	SEXP oldnames = getAttrib(x, R_NamesSymbol);
-	if (oldnames != R_NilValue) {
-	    for (i = 0; i < n; i++) {
-		if (VECTOR_ELT(newnames, i) != R_NilValue) {
-		    ii = gi(indx, i);
-		    if (ii == NA_INTEGER) continue;
-		    ii = ii - 1;
-		    SET_STRING_ELT(oldnames, ii, VECTOR_ELT(newnames, i));
-		}
-	    }
-	}
-	else {
-	    PROTECT(oldnames = allocVector(STRSXP, nx));
-	    for (i = 0; i < nx; i++)
-		SET_STRING_ELT(oldnames, i, R_BlankString);
-	    for (i = 0; i < n; i++) {
-		if (VECTOR_ELT(newnames, i) != R_NilValue) {
-		    ii = gi(indx, i);
-		    if (ii == NA_INTEGER) continue;
-		    ii = ii - 1;
-		    SET_STRING_ELT(oldnames, ii, VECTOR_ELT(newnames, i));
-		}
-	    }
-	    setAttrib(x, R_NamesSymbol, oldnames);
-	    UNPROTECT(1);
-	}
-    }
+    AssignNewNames(x, indx);
     UNPROTECT(4);
     if (old_x != x)
 	CLEAR_VECTOR(old_x);

@@ -749,9 +749,12 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if(toret != NULL) {
 	    PROTECT(toret);
-	    /* With nothing to reduce base R warns and returns +/-Inf; an
-	       exact element type has no infinity, so NA it is -- but the
-	       warning still belongs here, where the whole call is in view.
+	    /* With nothing to reduce base R warns and answers with the identity,
+	       +/-Inf, and does so as a double even for integer(0).  An exact
+	       element type has no infinity of its own, so it borrows that same
+	       double answer rather than returning NA: NA would turn an ordinary
+	       `if (min(x, na.rm = TRUE) < 5)` over an empty selection into an
+	       error where every other numeric type just works.
 	       With na.rm an NA answer means every element was missing, since
 	       min() and max() return one of their inputs. */
 	    if (TYPEOF(vec) == ALTSXP &&
@@ -759,9 +762,14 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		int empty = XLENGTH(vec) == 0;
 		if (!empty && narm && TYPEOF(toret) == ALTSXP)
 		    R_altsxp_is_na_region(toret, 0, 1, &empty);
-		if (empty)
-		    warning(_("no non-missing arguments to %s; returning NA"),
-			    PRIMVAL(op) == 2 ? "min" : "max");
+		if (empty) {
+		    if (PRIMVAL(op) == 2)
+			warning(_("no non-missing arguments to min; returning Inf"));
+		    else
+			warning(_("no non-missing arguments to max; returning -Inf"));
+		    UNPROTECT(2); /* toret, args */
+		    return ScalarReal(PRIMVAL(op) == 2 ? R_PosInf : R_NegInf);
+		}
 	    }
 	    UNPROTECT(2); /* toret, args */
 	    return toret;

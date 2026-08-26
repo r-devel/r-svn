@@ -1011,9 +1011,11 @@ local({
               is.na(max(as.int64(NA_integer_), as.int64(1L))),
               as.character(max(as.int64(NA_integer_), as.int64(1L),
                                na.rm = TRUE)) == "1")
-    ## nothing to reduce warns, as it does for the base types
+    ## nothing to reduce warns and gives the identity, as it does for the
+    ## base types -- and as a double, since min(integer(0)) is one too
     assertWarning(min(int64()))
-    stopifnot(is.na(suppressWarnings(min(int64()))))
+    stopifnot(identical(suppressWarnings(min(int64())), Inf),
+              identical(suppressWarnings(max(int64())), -Inf))
 })
 
 ## prod(), pmin() and pmax() reach an opaque vector
@@ -1292,6 +1294,199 @@ local({
                             as.int64(1L))) == "int64")
 })
 
+## --- regressions -----------------------------------------------------
+
+## match(x, table, incomparables = ) crashed: altsxpequal() was the one *equal
+## callback in unique.c with no guard on a negative index, and removeEntry()
+## marks a slot it has taken out of the table with exactly that.
+local({
+    x <- as.int64(c("1", "2", "3", "2"))
+    stopifnot(identical(match(x, x, incomparables = as.int64("2")),
+                        c(1L, NA, 3L, NA)))
+    ## an ordinary vector of incomparables is promoted rather than refused:
+    ## coerceVector() has no path to an opaque type, and asking for one used
+    ## to raise an error naming a type typeof() never reports
+    y <- as.int64(c(1, 2, 3, 2))
+    stopifnot(identical(as.double(unique(y, incomparables = 2L)),
+                        c(1, 2, 3, 2)),
+              identical(duplicated(y, incomparables = 2L), rep(FALSE, 4)),
+              identical(anyDuplicated(y, incomparables = 2L), 0L),
+              identical(match(y, y, incomparables = 2), c(1L, NA, 3L, NA)),
+              ## and one it cannot hold is refused, not quietly dropped
+              identical(as.double(unique(y, incomparables = 2.5)),
+                        c(1, 2, 3)))
+    ## the other opaque type is an error rather than a silent no-op
+    assertError(match(as.int64(1:3), as.int64(1:3),
+                      incomparables = as.uint64(2)))
+})
+
+## x["d"] <- v assigned the element but dropped the name: the opaque arm of
+## VectorAssign() returned before the block that installs the names a
+## subscript introduces.
+local({
+    y <- as.int64(1:3)
+    y["d"] <- as.int64(9L)
+    stopifnot(length(y) == 4L, identical(names(y), c("", "", "", "d")),
+              identical(as.double(y[["d"]]), 9))
+    z <- c(a = as.int64(1L), b = as.int64(2L))
+    z["c"] <- as.int64(3L)
+    stopifnot(identical(names(z), c("a", "b", "c")),
+              identical(as.double(z), c(1, 2, 3)))
+    ## the [[<- form was always right, and still is
+    w <- as.int64(1:3)
+    w[["d"]] <- as.int64(9L)
+    stopifnot(identical(names(w), c("", "", "", "d")))
+    ## the names of the object assigned *from* are not touched, which is what
+    ## installing them in place would risk
+    a <- c(p = as.int64(1L), q = as.int64(2L))
+    b <- a
+    b["r"] <- as.int64(3L)
+    stopifnot(identical(names(a), c("p", "q")),
+              identical(names(b), c("p", "q", "r")))
+    ## unchanged for the base types
+    v <- 1:3
+    v["d"] <- 9L
+    stopifnot(identical(names(v), c("", "", "", "d")))
+    d <- c(p = 1L, q = 2L)
+    e <- d
+    e["r"] <- 3L
+    stopifnot(identical(names(d), c("p", "q")),
+              identical(names(e), c("p", "q", "r")))
+})
+
+## Comparing against a double promoted both sides to double, so an exact
+## value above 2^53 compared equal to its neighbour -- and disagreed with
+## match(), which compares exactly.
+local({
+    a <- as.int64("9007199254740993")
+    d <- 9007199254740992
+    stopifnot(!(a == d), a > d, a != d, !(a <= d), a >= d,
+              d < a, !(d == a),
+              ## which is what %in% said all along
+              !(a %in% d), is.na(match(a, d)))
+    stopifnot(!(as.int64("9223372036854775807") == 9.223372036854776e18),
+              !(as.uint64("10000000000000000001") == 1e19),
+              as.uint64("10000000000000000001") > 1e19)
+    ## fractions, infinities and NA still behave
+    stopifnot(as.int64(2) < 2.5, as.int64(2) > 1.5, as.int64(3) == 3,
+              as.int64(-1) < 0.5, as.int64(-1) > -1.5,
+              as.int64(1) < Inf, as.int64(1) > -Inf,
+              is.na(as.int64(1) == NA_real_), is.na(as.int64(1) == NaN))
+})
+
+## seq() and `:` took their endpoints through asReal(), which rounds a
+## 64-bit value: the result then repeated some values and skipped others.
+local({
+    lo <- as.int64("9007199254740992")
+    s <- seq(lo, lo + as.int64(4L))
+    stopifnot(typeof(s) == "int64", length(s) == 5L, !anyDuplicated(s),
+              identical(as.character(s[5L]), "9007199254740996"),
+              identical(as.character(s), as.character(lo + as.int64(0:4))))
+    stopifnot(identical(as.character(lo:(lo + as.int64(2L))),
+                        as.character(lo + as.int64(0:2))))
+    ## with a step, and in both directions
+    stopifnot(identical(as.character(seq(lo, lo + as.int64(6L), by = 2)),
+                        as.character(lo + as.int64(c(0, 2, 4, 6)))),
+              identical(as.double(seq(as.int64(10), as.int64(1), by = -3)),
+                        c(10, 7, 4, 1)),
+              identical(as.double(as.int64(3):as.int64(1)), c(3, 2, 1)))
+    ## a mixed pair is exact too, and seq(x) is 1:x as it is for an integer
+    stopifnot(typeof(1L:as.int64(5)) == "int64",
+              identical(as.double(1L:as.int64(5)), c(1, 2, 3, 4, 5)),
+              identical(as.double(seq(as.int64(5))), c(1, 2, 3, 4, 5)),
+              identical(as.double(seq(as.int64(-3))), c(1, 0, -1, -2, -3)))
+    assertError(seq(as.int64(1), as.int64(10), by = -1))
+    assertError(as.int64(NA):as.int64(3))
+    ## and the ordinary path is untouched, byte-compiled or not
+    f <- compiler::cmpfun(function(a, b) a:b)
+    stopifnot(identical(f(1L, 5L), 1:5), identical(f(1.5, 4), c(1.5, 2.5, 3.5)),
+              identical(seq(1, 10, by = 3), c(1, 4, 7, 10)),
+              identical(seq(1.5, 3.5, by = 0.5), c(1.5, 2, 2.5, 3, 3.5)),
+              identical(seq(0, 1, length.out = 3), c(0, 0.5, 1)))
+})
+
+## round() and signif() read only the first element of 'digits' and used it
+## for the whole vector, and a non-negative first element made the call a
+## no-op for every element.
+local({
+    x <- as.int64(c(1234, 5678, 91011))
+    d <- c(1234, 5678, 91011)
+    stopifnot(identical(as.double(round(x, c(-1, -2, -3))),
+                        round(d, c(-1, -2, -3))),
+              identical(as.double(signif(x, c(1, 2, 3))),
+                        signif(d, c(1, 2, 3))),
+              identical(as.double(round(x, c(1, -2, -3))),
+                        round(d, c(1, -2, -3))),
+              ## the scalar cases are unchanged
+              identical(as.double(round(x)), d),
+              identical(as.double(round(x, -2)), round(d, -2)),
+              identical(as.double(signif(x, 2)), signif(d, 2)))
+    ## an empty x gives an empty answer, and an empty 'digits' is the error
+    ## do_Math2() gives for any type
+    assertError(round(x, integer(0)))
+    stopifnot(length(round(int64(0), 2)) == 0L,
+              ## and 'digits' recycles the other way too
+              identical(as.double(round(as.int64(1234), c(-1, -2))),
+                        round(1234, c(-1, -2))))
+})
+
+## An unparseable field became NA with only a coercion warning: the class
+## parses the whole column at once, so scan()'s own type check never ran.
+local({
+    f <- tempfile(fileext = ".csv")
+    on.exit(unlink(f))
+    writeLines(c("id", "1", "zz"), f)
+    assertError(read.csv(f, colClasses = "int64"))
+    assertError(scan(text = "1 2 zz", what = int64(), quiet = TRUE))
+    ## an NA string, and an empty field, are still missing values
+    stopifnot(identical(as.double(scan(text = "1 2 NA", what = int64(),
+                                       quiet = TRUE)), c(1, 2, NA)))
+    writeLines(c("a,b", "1,", "2,3"), f)
+    got <- read.csv(f, colClasses = c("int64", "int64"))
+    stopifnot(identical(as.double(got$a), c(1, 2)),
+              identical(as.double(got$b), c(NA, 3)))
+})
+
+## as.int64() of a string took only a plain decimal, a much narrower grammar
+## than as.integer(), and treated a blank field as a parse failure.
+local({
+    stopifnot(identical(as.double(as.int64(c("1e3", "1.5", "0x10", " 42 "))),
+                        as.double(as.integer(c("1e3", "1.5", "0x10", " 42 ")))),
+              ## a plain decimal is still read exactly, over the whole range
+              identical(as.character(as.int64("9223372036854775806")),
+                        "9223372036854775806"))
+    ## a blank field is NA, silently, as it is for as.integer()
+    stopifnot(is.na(as.int64("")), is.na(as.int64("   ")))
+    old <- options(warn = 2)
+    on.exit(options(old))
+    stopifnot(is.na(as.int64("")))
+    options(old)
+    ## R can read back what write.csv() wrote
+    f <- tempfile(fileext = ".csv")
+    on.exit(unlink(f), add = TRUE)
+    write.csv(data.frame(id = 1e15), f, row.names = FALSE)
+    stopifnot(identical(as.character(read.csv(f, colClasses = "int64")$id),
+                        "1000000000000000"))
+})
+
+## min() and max() over nothing returned NA, where every other numeric type
+## returns the identity -- and R's own min(integer(0)) is a *double* Inf, so
+## an exact element type does not force the answer.
+local({
+    assertWarning(stopifnot(identical(min(int64(0)), Inf)))
+    assertWarning(stopifnot(identical(max(int64(0)), -Inf)))
+    assertWarning(stopifnot(identical(min(as.int64(NA), na.rm = TRUE), Inf)))
+    assertWarning(stopifnot(identical(range(int64(0)), c(Inf, -Inf))))
+    ## so ordinary code over an empty selection works as it does for integer
+    f <- function(v) if (min(v, na.rm = TRUE) < 5) "small" else "big"
+    assertWarning(stopifnot(identical(f(int64(0)), f(integer(0)))))
+    ## with something to reduce, the answer is still of the type
+    x <- as.int64(c(3, 1, 2))
+    stopifnot(typeof(min(x)) == "int64", as.double(min(x)) == 1,
+              typeof(max(x)) == "int64", as.double(max(x)) == 3,
+              is.na(min(as.int64(NA))))
+})
+
 ## --- fixes from the fourth review round ------------------------------
 
 ## The only overflowing signed division has an exactly representable
@@ -1366,6 +1561,8 @@ if (length(dll.paths)) local({
         .Call(name, ..., PACKAGE = "altsxp_test")
     new.test <- function(x, wide = FALSE)
         call.test("C_altsxp_test_constructor", x, wide)
+    new.kind <- function(kind, x)
+        call.test("C_altsxp_test_constructor2", kind, x)
     contents <- function(x) call.test("C_altsxp_test_contents", x)
     counts <- function(x) call.test("C_altsxp_test_counts", x)
 
@@ -1408,6 +1605,40 @@ if (length(dll.paths)) local({
     stopifnot(isTRUE(probe[[2L]]), length(probe[[1L]]) == length(wide.bytes),
               identical(vapply(probe[[1L]], function(e) contents(e)[[1L]],
                                raw(1L)), wide.bytes))
+
+    ## A class that registers no Elt_type method takes the default, which has
+    ## to name the package as well as the class: the registry keys a class on
+    ## both, so without the package two classes that merely share a name
+    ## would promise each other a layout neither knows anything about.
+    stopifnot(typeof(new.kind("plain_byte", as.raw(1:4))) ==
+              "altsxpTest::plain_byte")
+
+    ## twin_byte reports short_byte's element type at 4096 bytes.  Sharing an
+    ## element type deliberately is how a package class interoperates with a
+    ## base one, but the promise includes the width, so nothing may read one
+    ## at the other's.  The hash table also stages an element in a fixed stack
+    ## buffer and refuses one that does not fit -- whichever operand it
+    ## belongs to, not just the one HashTableSetup() was handed.
+    narrow <- new.test(as.raw(1:4))
+    twin <- new.kind("twin_byte", as.raw(1:4))
+    stopifnot(typeof(narrow) == typeof(twin), !identical(narrow, twin))
+    assertError(c(narrow, twin))
+    assertError(match(narrow, twin))
+    assertError(match(twin, narrow))
+
+    ## R_ext/Altrep.h says a class need not provide Compare; order() reports
+    ## that rather than inventing an order of its own.
+    assertError(order(narrow))
+    assertError(sort(narrow))
+
+    ## cmp_byte has one, so sort() reaches the write-back that hands the
+    ## ordered elements to Set_region -- two at a time, here.
+    jumbled <- as.raw(c(3, 1, 4, 1, 5, 9, 2, 6))
+    cmp <- new.kind("cmp_byte", jumbled)
+    stopifnot(identical(contents(sort(cmp)),
+                        as.raw(sort(as.integer(jumbled)))),
+              identical(contents(cmp[3:5]), jumbled[3:5]),
+              identical(match(cmp, cmp), match(jumbled, jumbled)))
 })
 
 cat("altsxp tests OK\n")

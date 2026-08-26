@@ -2324,6 +2324,20 @@ static R_INLINE int i64_cmp(int64_t a, int64_t b, int uns)
  * Conversion
  */
 
+/* Truncate v toward zero into the 64-bit domain, as as.integer() does with a
+   double; FALSE when the value has nowhere to land. */
+static Rboolean i64_from_double(double v, int uns, int64_t *out)
+{
+    if (ISNAN(v))
+	return FALSE;
+    if (uns ? (v < 0 || v >= 18446744073709551616.0)
+	    : (v >= 9223372036854775808.0 || v < -9223372036854775808.0))
+	return FALSE;
+
+    *out = uns ? (int64_t) (uint64_t) v : (int64_t) v;
+    return TRUE;
+}
+
 static SEXP i64_from(SEXP x, int uns, int nullable);
 
 /* PROTECT at the call site.  An operand that is not already of this class is
@@ -2404,27 +2418,48 @@ static SEXP i64_from(SEXP x, int uns, int nullable)
 		continue;
 	    }
 
+	    /* a blank field is a missing value rather than a bad one, as in
+	       IntegerFromString(), so that an empty CSV cell reads the same
+	       way for this type as it does for integer */
+	    const char *cs = CHAR(s);
+	    if (isBlankString(cs)) {
+		out[i] = na;
+		na_seen = TRUE;
+		continue;
+	    }
+
 	    /* the same leading and trailing whitespace as as.integer(), so
 	       that a column of blank-padded numbers reads the same way */
-	    const char *cs = CHAR(s), *q = cs;
+	    const char *q = cs;
 	    char *end;
 	    while (isspace((unsigned char) *q)) q++;
 
 	    errno = 0;
+	    Rboolean ok;
 	    if (uns) {
 		/* strtoull() silently wraps a negative literal */
 		uint64_t v = (*q == '-') ? 0 : (uint64_t) strtoull(q, &end, 10);
 		out[i] = (int64_t) v;
-		if (*q == '-') end = (char *) q;
+		ok = (*q != '-' && end != q && isBlankString(end) &&
+		      errno != ERANGE);
 	    }
-	    else
+	    else {
 		out[i] = (int64_t) strtoll(q, &end, 10);
+		ok = (end != q && isBlankString(end) && errno != ERANGE);
+	    }
 
-	    const char *tail = end;
-	    while (isspace((unsigned char) *tail)) tail++;
+	    /* strtoll() reads a plain decimal exactly over the whole 64-bit
+	       range, which is the point of doing it first -- a double cannot.
+	       Anything it will not take, "1e15" and "1.5" and "0x10" among
+	       them, is then read the way as.integer() reads it.  Without this
+	       R could not read back a 1e+15 that write.csv() had just
+	       written. */
+	    if (! ok) {
+		double d = R_strtod(q, &end);
+		ok = isBlankString(end) && i64_from_double(d, uns, &out[i]);
+	    }
 
-	    if (end == q || *tail != '\0' || errno == ERANGE ||
-		(nullable && out[i] == na)) {
+	    if (! ok || (nullable && out[i] == na)) {
 		out[i] = na;
 		warn = TRUE;
 	    }
@@ -3196,6 +3231,102 @@ static SEXP i64_Arith(SEXP call, SEXP opsym, SEXP x, SEXP y)
 		      i64_is(x) ? i64_unsigned(x) : i64_unsigned(y));
 }
 
+/* The relational operators, resolved once per call rather than per element */
+enum i64_rel { REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE };
+
+static int i64_rel_code(const char *op)
+{
+    if (!strcmp(op, "==")) return REL_EQ;
+    if (!strcmp(op, "!=")) return REL_NE;
+    if (!strcmp(op, "<"))  return REL_LT;
+    if (!strcmp(op, "<=")) return REL_LE;
+    if (!strcmp(op, ">"))  return REL_GT;
+    if (!strcmp(op, ">=")) return REL_GE;
+    return -1;
+}
+
+/* Compare an exact 64-bit integer with a double without converting either.
+   Splitting the double at its integer part is what keeps this exact: floor()
+   of anything in range is representable, and the leftover fraction breaks the
+   tie when the integer parts agree. */
+static int i64_cmp_double(int64_t a, int uns, double d)
+{
+    if (uns) {
+	if (d < 0) return 1;
+	if (d >= 18446744073709551616.0) return -1;
+    }
+    else {
+	if (d >= 9223372036854775808.0) return -1;
+	if (d < -9223372036854775808.0) return 1;
+    }
+
+    double f = floor(d);
+    int c;
+    if (uns) {
+	uint64_t ua = (uint64_t) a, uf = (uint64_t) f;
+	c = (ua > uf) - (ua < uf);
+    }
+    else {
+	int64_t fi = (int64_t) f;
+	c = (a > fi) - (a < fi);
+    }
+
+    return c != 0 ? c : (d > f ? -1 : 0);
+}
+
+/* One operand is a double.  Promoting both to double would round the exact
+   one -- 2^53 + 1 would then compare equal to 2^53 -- and would disagree with
+   match() and %in%, which compare exactly.  So neither side is converted. */
+static SEXP i64_relop_double(SEXP call, int rel, SEXP x, SEXP y)
+{
+    Rboolean xd = (Rboolean) (TYPEOF(x) == REALSXP);
+    SEXP alt = xd ? y : x, dbl = xd ? x : y;
+
+    R_xlen_t na = i64_length(alt), nb = XLENGTH(dbl);
+    if (na == 0 || nb == 0)
+	return allocVector(LGLSXP, 0);
+
+    int has_na, uns = i64_unsigned(alt);
+    int64_t nav = i64_na_test(alt, &has_na);
+    const int64_t *pa = i64_data(alt);
+    const double *pb = REAL_RO(dbl);
+    R_xlen_t n = na > nb ? na : nb;
+
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
+    int *out = LOGICAL(ans);
+    R_xlen_t ia = 0, ib = 0;
+
+    for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+	if (ia == na) ia = 0;
+	if (ib == nb) ib = 0;
+
+	int64_t a = pa[ia];
+	double b = pb[ib];
+	if ((has_na && a == nav) || ISNAN(b)) {
+	    out[i] = NA_LOGICAL;
+	    continue;
+	}
+
+	/* the comparison is written left to right, so it is the opaque
+	   operand's side that decides the sign */
+	int c = i64_cmp_double(a, uns, b);
+	if (xd) c = -c;
+
+	switch (rel) {
+	case REL_EQ: out[i] = c == 0; break;
+	case REL_NE: out[i] = c != 0; break;
+	case REL_LT: out[i] = c <  0; break;
+	case REL_LE: out[i] = c <= 0; break;
+	case REL_GT: out[i] = c >  0; break;
+	default:     out[i] = c >= 0; break;
+	}
+    }
+
+    UNPROTECT(1);
+    return ans;
+}
+
 static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
 {
     if (i64_is(x) && i64_is(y) && i64_unsigned(x) != i64_unsigned(y))
@@ -3205,28 +3336,18 @@ static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
     if (!i64_numeric_operand(x) || !i64_numeric_operand(y))
 	return NULL; /* let R report the type error */
 
-    if (!i64_exact_operand(x) || !i64_exact_operand(y)) {
-	SEXP a = PROTECT(i64_as_double(x));
-	SEXP b = PROTECT(i64_as_double(y));
-	SEXP ans = do_relop_dflt(call, R_Primitive(CHAR(PRINTNAME(opsym))),
-				 a, b);
-	UNPROTECT(2);
-	return ans;
-    }
-
     const char *op = CHAR(PRINTNAME(opsym));
     int uns = i64_is(x) ? i64_unsigned(x) : i64_unsigned(y);
-    /* resolved once, not once per element */
-    enum { REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE } rel;
-    if (!strcmp(op, "=="))      rel = REL_EQ;
-    else if (!strcmp(op, "!=")) rel = REL_NE;
-    else if (!strcmp(op, "<"))  rel = REL_LT;
-    else if (!strcmp(op, "<=")) rel = REL_LE;
-    else if (!strcmp(op, ">"))  rel = REL_GT;
-    else if (!strcmp(op, ">=")) rel = REL_GE;
-    else
+    int rel = i64_rel_code(op);
+    if (rel < 0)
 	errorcall(call, _("operator '%s' is not defined for %s"),
 		  op, uns ? "uint64" : "int64");
+
+    /* The only inexact operand this class admits is a double, and comparing
+       against one is exact -- unlike arithmetic, where a double operand
+       promotes the whole operation and the result has nowhere exact to go. */
+    if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP)
+	return i64_relop_double(call, rel, x, y);
 
     /* Unlike i64_binary(), an ordinary operand is rendered as nullable here
        whatever the other side reserves: a comparison builds no opaque
@@ -3407,17 +3528,29 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 {
     int is_signif = !strcmp(op, "signif");
     SEXP darg = CADR(args);
-    int digits = (darg == R_NilValue || darg == R_MissingArg)
-	? (is_signif ? 6 : 0) : asInteger(darg);
 
-    if (digits == NA_INTEGER)
-	errorcall(call, _("invalid '%s' argument"), "digits");
-    if (is_signif && digits < 1)
-	digits = 1; /* as in do_Math2() for the base types */
-    if (!is_signif && digits >= 0)
-	return x; /* an integer is already rounded to any decimal place */
+    /* 'digits' is a vector recycled over x, as it is in math2() for the base
+       types -- reading only its first element would silently round every
+       element to the same place. */
+    SEXP dv = PROTECT((darg == R_NilValue || darg == R_MissingArg)
+		      ? ScalarInteger(is_signif ? 6 : 0)
+		      : coerceVector(darg, INTSXP));
+    R_xlen_t nd = XLENGTH(dv), nx = i64_length(x);
+    const int *pdig = INTEGER_RO(dv);
 
-    R_xlen_t n = i64_length(x);
+    /* either operand empty gives an empty answer, again as math2() does */
+    if (nx == 0 || nd == 0) {
+	SEXP e = nx == 0 ? x : i64_alloc(x, 0, FALSE);
+	UNPROTECT(1);
+	return e;
+    }
+    /* an integer is already rounded to any decimal place */
+    if (!is_signif && nd == 1 && pdig[0] != NA_INTEGER && pdig[0] >= 0) {
+	UNPROTECT(1);
+	return x;
+    }
+
+    R_xlen_t n = nx > nd ? nx : nd;
     const int64_t *p = i64_data(x);
     int has_na, uns = i64_unsigned(x);
     int64_t na = i64_na_test(x, &has_na);
@@ -3425,23 +3558,42 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
     SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int64_t *out = i64_data(ans);
     int overflow = FALSE;
+    R_xlen_t ix = 0, id = 0;
 
-    for (R_xlen_t i = 0; i < n; i++) {
-	int64_t v = p[i];
-	if (has_na && v == na) {
+    for (R_xlen_t i = 0; i < n; i++, ix++, id++) {
+	if (ix == nx) ix = 0;
+	if (id == nd) id = 0;
+
+	int64_t v = p[ix];
+	int digits = pdig[id];
+
+	/* NA in either operand gives NA, as if_NA_Math2_set() does */
+	if ((has_na && v == na) || digits == NA_INTEGER) {
+	    if (!has_na) {
+		UNPROTECT(2);
+		errorcall(call, _("'%s' is NA, and this %s vector cannot represent NA"),
+			  "digits", i64_name(x));
+	    }
 	    out[i] = na;
+	    continue;
+	}
+
+	if (is_signif && digits < 1)
+	    digits = 1; /* as in do_Math2() for the base types */
+	if (!is_signif && digits >= 0) {
+	    out[i] = v;
 	    continue;
 	}
 
 	int k;
 	if (is_signif) {
 	    /* how many digits to drop to leave 'digits' of them */
-	    int nd = 0;
+	    int ndig = 0;
 	    for (uint64_t u = uns ? (uint64_t) v
 		     : (uint64_t) (v < 0 ? -(uint64_t) v : (uint64_t) v);
 		 u != 0; u /= 10)
-		nd++;
-	    k = nd - digits;
+		ndig++;
+	    k = ndig - digits;
 	    if (k <= 0) {
 		out[i] = v;
 		continue;
@@ -3487,7 +3639,7 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 
 	if (bad) {
 	    if (!has_na) {
-		UNPROTECT(1);
+		UNPROTECT(2);
 		errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
 			  i64_name(x));
 	    }
@@ -3501,7 +3653,7 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
     if (overflow)
 	warning(_("NAs produced by 64-bit integer overflow"));
 
-    UNPROTECT(1);
+    UNPROTECT(2); /* ans, dv */
     return ans;
 }
 

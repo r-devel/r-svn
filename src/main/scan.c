@@ -485,7 +485,8 @@ static R_INLINE int isNAstring(const char *buf, int mode, LocalData *d)
     return 0;
 }
 
-NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
+NORET static R_INLINE void expected(const char *what, const char *got,
+				    LocalData *d)
 {
     int c;
     if (d->ttyflag) { /* This is safe in a MBCS */
@@ -493,6 +494,30 @@ NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
 	    ;
     }
     error(_("scan() expected '%s', got '%s'"), what, got);
+}
+
+/* An opaque column is read as text and handed to the class in one piece, so
+   scan()'s own field-by-field type check never runs: a field the class cannot
+   parse comes back as NA with nothing but a coercion warning, where every
+   other 'what' stops.  Silent NA substitution is the wrong answer for an
+   exact 64-bit key column, so the first unparseable field is reported the
+   way scanVector() would have reported it. */
+static void checkScanned(SEXP val, SEXP str, SEXP what, LocalData *d)
+{
+    if (TYPEOF(val) != ALTSXP)
+	return;
+
+    R_xlen_t n = XLENGTH(str);
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP e = STRING_ELT(str, i);
+	if (e == NA_STRING || isNAstring(CHAR(e), 0, d))
+	    continue;
+
+	int na;
+	R_altsxp_is_na_region(val, i, 1, &na);
+	if (na)
+	    expected(R_typeToChar(what), CHAR(e), d);
+    }
 }
 
 static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
@@ -854,8 +879,10 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    if (conv == NULL)
 		error(_("scan() cannot read into a vector of type '%s'"),
 		      R_typeToChar(VECTOR_ELT(what, i)));
+	    PROTECT(conv);
+	    checkScanned(conv, new, VECTOR_ELT(what, i), d);
 	    new = conv;
-	    UNPROTECT(1);
+	    UNPROTECT(2); /* conv, new */
 	}
 	SET_VECTOR_ELT(ans, i, new);
     }
@@ -1027,7 +1054,9 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (ans == NULL)
 	    error(_("scan() cannot read into a vector of type '%s'"),
 		  R_typeToChar(what));
-	UNPROTECT(1);
+	PROTECT(ans);
+	checkScanned(ans, str, what, &data);
+	UNPROTECT(2);
 	break;
     }
 

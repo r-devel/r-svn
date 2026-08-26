@@ -371,6 +371,10 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	R_xlen_t n = XLENGTH(x);
 	if (n != XLENGTH(y)) return FALSE;
 	if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y)) return FALSE;
+	/* two classes may share an element type deliberately, but sharing the
+	   name is a promise about the layout, and the memcmp below is sized
+	   from x alone */
+	if (ALTSXP_ELT_SIZE(x) != ALTSXP_ELT_SIZE(y)) return FALSE;
 	if (R_altsxp_nullable(x) != R_altsxp_nullable(y)) return FALSE;
 	if (n == 0) return TRUE;
 

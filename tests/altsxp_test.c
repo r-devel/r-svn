@@ -16,21 +16,38 @@
 enum { META_GET_CALLS, META_SET_CALLS, META_N };
 enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
 
-static R_altrep_class_t byte_class;
-static R_altrep_class_t wide_class;
-static SEXP byte_type;
-static SEXP wide_type;
+/* The classes differ only in what they promise about their elements:
+   K_BYTE and K_WIDE are two unrelated element types; K_TWIN reports
+   K_BYTE's element type at sixteen times the width, which nothing may
+   take as licence to read one at the other's size; K_PLAIN registers no
+   Elt_type method at all, so it exercises the default; and K_CMP is the
+   one with an ordering, so that sort() can reach its Set_region. */
+enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_N };
 
-static int test_is_wide(SEXP x)
+static R_altrep_class_t test_classes[K_N];
+static SEXP test_type_syms[K_N];
+
+static const size_t test_elt_sizes[K_N] = {
+    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1
+};
+
+static const char *const test_class_names[K_N] = {
+    "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte"
+};
+
+static int test_kind(SEXP x)
 {
-    if (ALTREP(x))
-	return R_altrep_inherits(x, wide_class);
-    return x == R_SEXP(wide_class); /* class object passed to New() */
+    for (int k = 0; k < K_N; k++) {
+	if (ALTREP(x) ? R_altrep_inherits(x, test_classes[k])
+	    : x == R_SEXP(test_classes[k])) /* class object passed to New() */
+	    return k;
+    }
+    error("not a test ALTSXP object");
 }
 
 static R_altrep_class_t test_class(SEXP proto)
 {
-    return test_is_wide(proto) ? wide_class : byte_class;
+    return test_classes[test_kind(proto)];
 }
 
 static R_xlen_t test_ncopy(SEXP x, R_xlen_t i, R_xlen_t n)
@@ -58,12 +75,19 @@ static R_xlen_t test_length(SEXP x)
 
 static SEXP test_elt_type(SEXP x)
 {
-    return test_is_wide(x) ? wide_type : byte_type;
+    return test_type_syms[test_kind(x)];
 }
 
 static size_t test_elt_size(SEXP x)
 {
-    return test_is_wide(x) ? WIDE_ELT_SIZE : 1;
+    return test_elt_sizes[test_kind(x)];
+}
+
+/* Only K_CMP has one, and R asks only about elements of one element type */
+static int test_compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    Rbyte a = RAW(R_altrep_data1(x))[i], b = RAW(R_altrep_data1(y))[j];
+    return (a > b) - (a < b);
 }
 
 static SEXP test_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
@@ -126,7 +150,6 @@ static unsigned int test_traits(SEXP x)
 static void init_test_class(R_altrep_class_t cls)
 {
     R_set_altrep_Length_method(cls, test_length);
-    R_set_altsxp_Elt_type_method(cls, test_elt_type);
     R_set_altsxp_Elt_size_method(cls, test_elt_size);
     R_set_altsxp_New_method(cls, test_new);
     R_set_altsxp_Get_region_method(cls, test_get_region);
@@ -144,7 +167,28 @@ static SEXP test_constructor(SEXP data, SEXP wide)
 	error("invalid wide flag");
 
     SEXP copy = PROTECT(duplicate(data));
-    SEXP ans = test_make(is_wide ? wide_class : byte_class, copy);
+    SEXP ans = test_make(test_classes[is_wide ? K_WIDE : K_BYTE], copy);
+    UNPROTECT(1);
+    return ans;
+}
+
+/* the same, naming any of the classes above */
+static SEXP test_constructor2(SEXP kind, SEXP data)
+{
+    if (TYPEOF(data) != RAWSXP)
+	error("test ALTSXP data must be raw");
+    if (TYPEOF(kind) != STRSXP || XLENGTH(kind) != 1)
+	error("invalid test class name");
+
+    const char *name = CHAR(STRING_ELT(kind, 0));
+    int k = 0;
+    while (k < K_N && strcmp(name, test_class_names[k]) != 0)
+	k++;
+    if (k == K_N)
+	error("no such test class: %s", name);
+
+    SEXP copy = PROTECT(duplicate(data));
+    SEXP ans = test_make(test_classes[k], copy);
     UNPROTECT(1);
     return ans;
 }
@@ -192,6 +236,7 @@ static SEXP test_as_list_vmax(SEXP x)
 
 static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_constructor", (DL_FUNC) &test_constructor, 2},
+    {"C_altsxp_test_constructor2", (DL_FUNC) &test_constructor2, 2},
     {"C_altsxp_test_contents", (DL_FUNC) &test_contents, 1},
     {"C_altsxp_test_counts", (DL_FUNC) &test_counts, 1},
     {"C_altsxp_test_copy", (DL_FUNC) &test_copy, 4},
@@ -201,12 +246,24 @@ static const R_CallMethodDef call_methods[] = {
 
 void attribute_visible R_init_altsxp_test(DllInfo *dll)
 {
-    byte_type = install("altsxp_test_byte");
-    wide_type = install("altsxp_test_wide");
-    byte_class = R_make_altsxp_class("short_byte", "altsxpTest", dll);
-    wide_class = R_make_altsxp_class("wide_byte", "altsxpTest", dll);
-    init_test_class(byte_class);
-    init_test_class(wide_class);
+    SEXP byte_type = install("altsxp_test_byte");
+    test_type_syms[K_BYTE] = byte_type;
+    test_type_syms[K_WIDE] = install("altsxp_test_wide");
+    /* deliberately K_BYTE's element type at a different width */
+    test_type_syms[K_TWIN] = byte_type;
+    test_type_syms[K_PLAIN] = NULL;    /* no Elt_type method: see below */
+    test_type_syms[K_CMP] = install("altsxp_test_cmp");
+
+    for (int k = 0; k < K_N; k++) {
+	test_classes[k] = R_make_altsxp_class(test_class_names[k],
+					      "altsxpTest", dll);
+	init_test_class(test_classes[k]);
+	/* K_PLAIN takes the default, which has to name the package as well as
+	   the class or it would collide with any other "plain_byte" */
+	if (k != K_PLAIN)
+	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
+    }
+    R_set_altsxp_Compare_method(test_classes[K_CMP], test_compare);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

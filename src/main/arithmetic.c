@@ -1423,7 +1423,10 @@ static SEXP altsxp_math(SEXP call, SEXP op, SEXP args)
 	return NULL;
 
     SEXP val = ALTSXP_MATH(call, op, args);
-    if (val != NULL && val != x) {
+    /* as math2() does: the attributes come from the operand that gave the
+       result its length, so a recycled second argument does not leave the
+       answer wearing a names vector shorter than itself */
+    if (val != NULL && val != x && XLENGTH(val) == XLENGTH(x)) {
 	PROTECT(val);
 	DUPLICATE_ATTRIB(val, x);
 	UNPROTECT(1);

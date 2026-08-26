@@ -762,6 +762,7 @@ SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
 SEXP ALTSXP_DEPARSE(SEXP x);
 SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width);
 R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n);
+SEXP R_altsxp_arith_sym(SEXP call, const char *name, SEXP x, SEXP y);
 /* How many elements to stage at a time when moving them through the region
    methods: enough to amortise the calls, and bounded so that filling or
    comparing a long vector needs no second copy of it. */

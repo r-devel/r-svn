@@ -1320,6 +1320,10 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 {
     int c, i, j, h, t, lo = 0, hi = n-1;
     int itmp, *isna = NULL, numna = 0;
+    /* isna is live across Is_na_region() and Compare(), which a class may
+       answer with an error: R_alloc unwinds with the context, R_Calloc does
+       not, and a failed order() would leak n ints every time */
+    const void *vmax = vmaxget();
     int *ix = NULL /* -Wall */;
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
@@ -1344,7 +1348,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 
     if(isNull(rho)) {
 	/* First sort NAs to one end */
-	isna = R_Calloc(n, int);
+	isna = (int *) R_alloc((size_t) n, sizeof(int));
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1385,7 +1389,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 		sort2_with_index
 #undef less
 		if (n - numna < 2) {
-		    R_Free(isna);
+		    vmaxset(vmax);
 		    return;
 		}
 		if (nalast) hi -= numna; else lo += numna;
@@ -1453,7 +1457,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 #undef less
 	}
     }
-    if(isna) R_Free(isna);
+    vmaxset(vmax);
 }
 
 /* version for long vectors */
@@ -1464,6 +1468,8 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 {
     R_xlen_t c, i, j, h, t, lo = 0, hi = n-1;
     int *isna = NULL, numna = 0;
+    /* as in orderVector1(): live across methods that may error */
+    const void *vmax = vmaxget();
     int *ix = NULL /* -Wall */;
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
@@ -1489,7 +1495,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 
     if(isNull(rho)) {
 	/* First sort NAs to one end */
-	isna = R_Calloc(n, int);
+	isna = (int *) R_alloc((size_t) n, sizeof(int));
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1530,7 +1536,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 		sort2_with_index
 #undef less
 		if (n - numna < 2) {
-		    R_Free(isna);
+		    vmaxset(vmax);
 		    return;
 		}
 		if (nalast) hi -= numna; else lo += numna;
@@ -1598,7 +1604,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 #undef less
 	}
     }
-    if(isna) R_Free(isna);
+    vmaxset(vmax);
 }
 #endif
 

@@ -476,13 +476,26 @@ altsxp_eltptr(SEXP x, R_xlen_t i, size_t esz, unsigned char *buf)
     return buf;
 }
 
+/* The staging buffers below are sized from the operand's own Elt_size, and
+   HashTableSetup() only ever sees one of the two operands: match() hashes x
+   against a table built for table, and 'incomparables' is a third object
+   again.  Each of them is checked here, where its element is about to be
+   copied onto the stack. */
+static size_t altsxp_hash_esz(SEXP x)
+{
+    size_t esz = ALTSXP_ELT_SIZE(x);
+    if (esz > ALTREP_ELT_MAX_SIZE)
+	error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
+    return esz;
+}
+
 static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
 {
     int na;
     R_altsxp_is_na_region(x, indx, 1, &na);
     if (na) return scatter(0u, d); /* all NAs hash alike */
 
-    size_t esz = ALTSXP_ELT_SIZE(x);
+    size_t esz = altsxp_hash_esz(x);
     unsigned char buf[ALTREP_ELT_MAX_SIZE];
     const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
 
@@ -511,7 +524,13 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     R_altsxp_is_na_region(y, j, 1, &nay);
     if (nax || nay) return nax && nay; /* NA matches only NA */
 
-    size_t esz = ALTSXP_ELT_SIZE(x);
+    size_t esz = altsxp_hash_esz(x);
+    /* Sharing an element type is a promise about the layout, so two operands
+       that disagree on the width are not comparable -- and reading either
+       one at the other's size would run off the end of its element. */
+    if (ALTSXP_ELT_SIZE(y) != esz)
+	return 0;
+
     unsigned char bx[ALTREP_ELT_MAX_SIZE], by[ALTREP_ELT_MAX_SIZE];
     const unsigned char *px = altsxp_eltptr(x, i, esz, bx);
     const unsigned char *py = altsxp_eltptr(y, j, esz, by);
@@ -581,17 +600,36 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other)
 }
 
 /* coerceVector() cannot allocate an opaque element type from its SEXPTYPE;
-   use the vector being matched as the required class prototype instead. */
+   use the vector being matched as the required class prototype instead.
+
+   The promotion has to be exact.  Coerce_from truncates, so a fractional
+   incomparable would otherwise be rounded onto a neighbour and make *that*
+   value incomparable -- unique(<int64>, incomparables = 2.5) would drop the
+   2s.  A value the class cannot hold equals no element, which is what base R
+   already does with unique(1:3, incomparables = 2.5), so it is dropped;
+   altsxp_match_operand() is the same exactness check match() applies to its
+   other operand. */
 static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
 {
     if (TYPEOF(proto) != ALTSXP)
 	return coerceVector(incomp, TYPEOF(proto));
 
-    SEXP ans = R_altsxp_coerce_from(proto, incomp);
-    if (ans == NULL)
-	error(_("'incomparables' cannot be coerced to type '%s'"),
-	      R_typeToChar(proto));
-    return ans;
+    if (TYPEOF(incomp) == ALTSXP) {
+	if (ALTSXP_ELT_TYPE(incomp) != ALTSXP_ELT_TYPE(proto))
+	    error(_("'%s' has a different element type from the table"),
+		  "incomparables");
+	return incomp;
+    }
+
+    SEXP nullable = R_altsxp_nullable(proto) ? proto : R_altsxp_na_widen(proto);
+    SEXP ans = NULL;
+    if (nullable != NULL) {
+	PROTECT(nullable);
+	ans = altsxp_match_operand(nullable, incomp);
+	UNPROTECT(1);
+    }
+
+    return ans != NULL ? ans : R_allocVectorLike(proto, 0, FALSE);
 }
 
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)

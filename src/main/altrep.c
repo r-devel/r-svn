@@ -836,6 +836,12 @@ R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
 	      "R_altsxp_copy_region");
     if (ALTSXP_DISPATCH(Elt_type, dst) != ALTSXP_DISPATCH(Elt_type, src))
 	error("cannot copy between ALTSXP objects with different element types");
+    /* Two classes may share an element type deliberately, which is how a
+       package class interoperates with a base one.  Sharing the name is a
+       promise about the layout, so it has to include the width: the copy
+       below is sized from one side and written into the other. */
+    if (ALTSXP_DISPATCH(Elt_size, dst) != ALTSXP_DISPATCH(Elt_size, src))
+	error("cannot copy between ALTSXP objects with different element sizes");
 
     R_xlen_t ns = ALTREP_LENGTH(src), nd = ALTREP_LENGTH(dst);
     if (si < 0 || di < 0 || si >= ns || di >= nd || n <= 0)
@@ -897,6 +903,8 @@ attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 	error("ALTSXP comparison needs two ALTSXP objects");
     if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
 	error("cannot compare ALTSXP objects with different element types");
+    if (ALTSXP_ELT_SIZE(x) != ALTSXP_ELT_SIZE(y))
+	error("cannot compare ALTSXP objects with different element sizes");
     return ALTSXP_DISPATCH(Compare, x, i, y, j);
 }
 
@@ -938,6 +946,22 @@ attribute_hidden SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y)
 	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
     if (val == NULL && y != NULL && IS_ALTSXP(y))
 	val = ALTSXP_METHODS_TABLE(y)->Arith(call, sym, x, y);
+    return val;
+}
+
+/* The same dispatch for a caller inside base that has an operator name but
+   no PRIMSXP to hand -- seq() building its steps by exact addition, say. */
+attribute_hidden
+SEXP R_altsxp_arith_sym(SEXP call, const char *name, SEXP x, SEXP y)
+{
+    SEXP sym = install(name);
+    SEXP val = NULL;
+
+    if (IS_ALTSXP(x))
+	val = ALTSXP_METHODS_TABLE(x)->Arith(call, sym, x, y);
+    if (val == NULL && y != NULL && IS_ALTSXP(y))
+	val = ALTSXP_METHODS_TABLE(y)->Arith(call, sym, x, y);
+
     return val;
 }
 
@@ -1330,8 +1354,37 @@ static const void *altlist_Dataptr_or_null_default(SEXP x)
 
 static SEXP altsxp_Elt_type_default(SEXP x)
 {
-    /* A class that declares no element type is its own element type. */
-    return ALTREP_OBJECT_CLSSYM(x);
+    /* A class that declares no element type is its own element type -- but
+       the registry keys a class on its package as well as its name, so the
+       package belongs in the symbol too.  Without it two classes that merely
+       happen to share a name would promise each other a memory layout
+       neither knows anything about, and the copies and comparisons that key
+       off the element type would run on the wrong element width.  A class
+       that means to share a representation with another says so by giving an
+       Elt_type method of its own.
+
+       install() is a hash lookup and this is asked once per comparison, so
+       the answer is remembered for the last class seen: class objects are
+       preserved for the life of the session and symbols are never collected,
+       so neither the key nor the value can go stale. */
+    static SEXP last_class = NULL, last_sym = NULL;
+
+    SEXP class = ALTREP_CLASS(x);
+    if (class == last_class)
+	return last_sym;
+
+    const char *cn = CHAR(PRINTNAME(ALTREP_OBJECT_CLSSYM(x)));
+    const char *pn = CHAR(PRINTNAME(ALTREP_OBJECT_PKGSYM(x)));
+    size_t len = strlen(pn) + strlen(cn) + 3;
+
+    const void *vmax = vmaxget();
+    char *buf = R_alloc(len, 1);
+    snprintf(buf, len, "%s::%s", pn, cn);
+    last_sym = install(buf);
+    vmaxset(vmax);
+    last_class = class;
+
+    return last_sym;
 }
 
 static size_t altsxp_Elt_size_default(SEXP x)
