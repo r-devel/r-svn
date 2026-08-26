@@ -2055,6 +2055,42 @@ local({
               identical(match("1e3", as.int64(1000)), NA_integer_))
 })
 
+## isNumeric() is TRUE for an opaque vector whose class says so, but a guard
+## that then reads REAL()/INTEGER() directly reinterprets the payload rather
+## than erroring: inside R those are the unchecked Defn.h macros.  Both sites
+## below took the "not a real vector, so it must be an integer one" branch.
+local({
+    ## tspgets(): the bytes were read as three int32s.  Chosen so the garbage
+    ## passes tspgets()'s own validation -- low32(v0)=1, high32(v0)=10,
+    ## low32(v1)=1 spelled a perfectly plausible tsp of (1, 10, 1).
+    z <- 1:10
+    tsp(z) <- as.int64(c(1L, 10L, 1L))
+    stopifnot(identical(tsp(z), c(1, 10, 1)))
+
+    z2 <- 1:10
+    forged <- c(as.int64("42949672961"), as.int64("1"), as.int64(0))
+    e <- tryCatch({ tsp(z2) <- forged; tsp(z2) }, error = identity)
+    stopifnot(inherits(e, "error"), is.null(tsp(z2)))
+
+    ## and a value the class holds but tsp cannot use is still refused
+    assertError(`tsp<-`(1:10, as.int64(c(1L, 10L, 0L))))
+
+    ## C_plot_window(): the 16-byte int64 payload was read as two doubles,
+    ## which set the window to ~4.9e-324 .. 4.9e-323 without complaint
+    f <- tempfile(fileext = ".pdf")
+    pdf(f)
+    on.exit({ dev.off(); unlink(f) })
+    plot.window(as.int64(c(1L, 10L)), c(0, 1))
+    alt <- par("usr")
+    plot.window(c(1, 10), c(0, 1))
+    stopifnot(identical(alt, par("usr")))
+
+    plot.window(c(0, 1), as.int64(c(1L, 10L)))
+    alt <- par("usr")
+    plot.window(c(0, 1), c(1, 10))
+    stopifnot(identical(alt, par("usr")))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2249,6 +2285,20 @@ if (length(dll.paths)) local({
     ## NAs and anyNA() then contradicted is.na().  No base caller reaches
     ## set_na_region on an object that has been asked yet, so it takes the
     ## public entry point a package would use.
+    ## The default Elt_type built its "pkg::class" symbol on every call, with
+    ## a one-slot cache that alternating two classes defeats -- and the header
+    ## promises the method does not allocate.  It is now built once per class,
+    ## so the answer has to stay right no matter what is asked in between.
+    plain2 <- new.kind("plain_byte", as.raw(1:4))
+    other <- new.test(as.raw(1:4))
+    gctorture(TRUE)
+    for (i in 1:20)
+        stopifnot(identical(typeof(plain2), "altsxpTest::plain_byte"),
+                  identical(typeof(other), "altsxp_test_byte"),
+                  identical(typeof(plain2), typeof(new.kind("plain_byte",
+                                                            as.raw(1:2)))))
+    gctorture(FALSE)
+
     set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
     for (v in list(as.int64(1:5), as.uint64(1:5))) {
         stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness

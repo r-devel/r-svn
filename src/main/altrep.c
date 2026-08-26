@@ -52,6 +52,9 @@
 
 static SEXP Registry = NULL;
 
+/* defined below, with the method tables it writes into */
+static void set_altsxp_default_elt_type(SEXP class);
+
 static SEXP LookupClassEntry(SEXP csym, SEXP psym)
 {
     for (SEXP chain = CDR(Registry); chain != R_NilValue; chain = CDR(chain))
@@ -86,6 +89,8 @@ RegisterClass(SEXP class, int type, const char *cname, const char *pname,
 	SETCAR(CDR(CDR(CDR(entry))), iptr);
     }
     SET_ALTREP_CLASS_SERIALIZED_CLASS(class, csym, psym, stype);
+    if (type == ALTSXP)
+	set_altsxp_default_elt_type(class);
     UNPROTECT(2); /* class, stype */
 }
 
@@ -228,7 +233,8 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altsxp_Is_sorted_method_t Is_sorted;		\
     R_altsxp_No_NA_method_t No_NA;			\
     R_altsxp_Math_method_t Math;			\
-    R_altsxp_Deparse_method_t Deparse
+    R_altsxp_Deparse_method_t Deparse;		\
+    SEXP Default_elt_type
 
 typedef struct { ALTREP_METHODS; } altrep_methods_t;
 typedef struct { ALTVEC_METHODS; } altvec_methods_t;
@@ -1453,39 +1459,40 @@ static const void *altlist_Dataptr_or_null_default(SEXP x)
  ** int64, uint64, float16, decimal128, fixed-width UUIDs, and so on.
  **/
 
-static SEXP altsxp_Elt_type_default(SEXP x)
+/* A class that declares no element type is its own element type -- but the
+   registry keys a class on its package as well as its name, so the package
+   belongs in the symbol too.  Without it two classes that merely happen to
+   share a name would promise each other a memory layout neither knows
+   anything about, and the copies and comparisons that key off the element
+   type would run on the wrong element width.  A class that means to share a
+   representation with another says so by giving an Elt_type method of its
+   own.
+
+   The symbol is built once per class, when the class is registered, because
+   R_ext/Altrep.h promises Elt_type does not allocate: R calls it from
+   R_typeToChar() while building an error message, and on both operands of
+   every element pair match() and the region copies compare.  Symbols are
+   never collected, so the method table -- which the GC does not scan --
+   cannot hold a stale one. */
+static void set_altsxp_default_elt_type(SEXP class)
 {
-    /* A class that declares no element type is its own element type -- but
-       the registry keys a class on its package as well as its name, so the
-       package belongs in the symbol too.  Without it two classes that merely
-       happen to share a name would promise each other a memory layout
-       neither knows anything about, and the copies and comparisons that key
-       off the element type would run on the wrong element width.  A class
-       that means to share a representation with another says so by giving an
-       Elt_type method of its own.
-
-       install() is a hash lookup and this is asked once per comparison, so
-       the answer is remembered for the last class seen: class objects are
-       preserved for the life of the session and symbols are never collected,
-       so neither the key nor the value can go stale. */
-    static SEXP last_class = NULL, last_sym = NULL;
-
-    SEXP class = ALTREP_CLASS(x);
-    if (class == last_class)
-	return last_sym;
-
-    const char *cn = CHAR(PRINTNAME(ALTREP_OBJECT_CLSSYM(x)));
-    const char *pn = CHAR(PRINTNAME(ALTREP_OBJECT_PKGSYM(x)));
+    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(class);
+    const char *cn = CHAR(PRINTNAME(ALTREP_SERIALIZED_CLASS_CLSSYM(info)));
+    const char *pn = CHAR(PRINTNAME(ALTREP_SERIALIZED_CLASS_PKGSYM(info)));
     size_t len = strlen(pn) + strlen(cn) + 3;
 
     const void *vmax = vmaxget();
     char *buf = R_alloc(len, 1);
     snprintf(buf, len, "%s::%s", pn, cn);
-    last_sym = install(buf);
+    SEXP sym = install(buf);
     vmaxset(vmax);
-    last_class = class;
 
-    return last_sym;
+    ((altsxp_methods_t *) CLASS_METHODS_TABLE(class))->Default_elt_type = sym;
+}
+
+static SEXP altsxp_Elt_type_default(SEXP x)
+{
+    return ALTSXP_METHODS_TABLE(x)->Default_elt_type;
 }
 
 static size_t altsxp_Elt_size_default(SEXP x)
@@ -2104,6 +2111,9 @@ static void reinit_altrep_class(SEXP class)
     case ALTSXP: INIT_CLASS(class, altsxp); break;
     default: error("unsupported ALTREP class");
     }
+    /* INIT_CLASS overwrites the whole table, the cached element type with it */
+    if (ALTREP_CLASS_BASE_TYPE(class) == ALTSXP)
+	set_altsxp_default_elt_type(class);
 }
 
 

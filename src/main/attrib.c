@@ -476,6 +476,16 @@ SEXP tspgets(SEXP vec, SEXP val)
 	end = REAL(val)[1];
 	frequency = REAL(val)[2];
     }
+    else if (TYPEOF(val) == ALTSXP) {
+	/* isNumeric() is TRUE for an opaque vector whose class says so, but
+	   its elements have no C type to read here: let the class render
+	   them, which is also the form the attribute is stored in below. */
+	SEXP d = PROTECT(coerceVector(val, REALSXP));
+	start = REAL(d)[0];
+	end = REAL(d)[1];
+	frequency = REAL(d)[2];
+	UNPROTECT(1);
+    }
     else {
 	start = (INTEGER(val)[0] == NA_INTEGER) ?
 	    NA_REAL : INTEGER(val)[0];
