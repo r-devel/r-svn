@@ -1740,6 +1740,45 @@ local({
     stopifnot(identical(format.info(int64()), format.info(integer())))
 })
 
+## all.equal.numeric() computes target - current in the operands' own type,
+## so an exact bounded type overflows on exactly the pair it is being asked to
+## report on.  The function has always promoted an integer pair to double for
+## that reason; is.integer() does not see the opaque exact types, so an
+## unsigned pair underflowed in one direction and a signed pair overflowed at
+## the ends of its range.
+local({
+    ## unsigned: target - current underflows when current is the larger
+    stopifnot(identical(all.equal(as.uint64(1:3), as.uint64(5:7)),
+                        all.equal(1:3, 5:7)),
+              identical(all.equal(as.uint64(5:7), as.uint64(1:3)),
+                        all.equal(5:7, 1:3)))
+
+    ## signed: the difference does not fit in the type at all
+    hi <- as.int64("9223372036854775807")
+    lo <- as.int64("-9223372036854775806")
+    stopifnot(identical(all.equal(hi, lo), "Mean relative difference: 2"),
+              identical(all.equal(as.int64(1:3), as.int64(c(1L, 2L, 4L))),
+                        all.equal(1:3, c(1L, 2L, 4L))),
+              isTRUE(all.equal(as.int64(1:3), as.int64(1:3))))
+
+    ## a difference below the tolerance is still equal, as it is for integer
+    stopifnot(isTRUE(all.equal(as.int64("9007199254740993"),
+                               as.int64("9007199254740992"))),
+              isTRUE(all.equal(.Machine$integer.max,
+                               .Machine$integer.max - 1L)))
+
+    ## and the base types are untouched -- in particular complex, which
+    ## is.numeric() keeps out of the promotion because as.double() would
+    ## drop its imaginary part
+    stopifnot(identical(all.equal(.Machine$integer.max, -.Machine$integer.max),
+                        "Mean relative difference: 2"),
+              isTRUE(all.equal(1L, 1)),
+              isTRUE(all.equal(1 + 2i, 1 + 2i)),
+              identical(all.equal(1 + 0i, 1 + 1i),
+                        "Mean relative Mod difference: 1"),
+              isTRUE(all.equal(as.Date("2020-01-01"), as.Date("2020-01-01"))))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
