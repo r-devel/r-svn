@@ -277,10 +277,10 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
     ## typeof(), which is "character", and silently read strings.  A name of
     ## that shape but an unsupported width deliberately keeps that older
     ## character interpretation too.
-    if(!(.isXIntTypeName1(what) ||
-         (is.character(what) && length(what) == 1L && !is.na(what) &&
-          what %in% c("numeric", "double", "integer", "int", "logical",
-                      "complex", "character", "raw")))) {
+    if(!(is.character(what) && length(what) == 1L && !is.na(what) &&
+         (what %in% c("numeric", "double", "integer", "int", "logical",
+                      "complex", "character", "raw") ||
+          .isXIntTypeName(what)))) {
         if(!is.xinteger(what))
             what <- typeof(what)
     }

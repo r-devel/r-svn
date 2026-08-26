@@ -13,7 +13,6 @@
 %\alias{testPlatformEquivalence}
 \alias{.isMethodsDispatchOn}
 \alias{.isXIntTypeName}
-\alias{.isXIntTypeName1}
 \alias{sys.save.image}
 \alias{sys.load.image}
 \alias{.row_names_info}
@@ -90,7 +89,6 @@
 %
 .isMethodsDispatchOn(onOff = NULL)
 .isXIntTypeName(s)
-.isXIntTypeName1(s)
 
 sys.load.image(name, quiet)
 sys.save.image(name)
@@ -230,9 +228,7 @@ lazyLoadDBfetch(key, file, compressed, hook)
   loading package \pkg{methods}).  It is meant for \R internal use only.
 
   \code{.isXIntTypeName()} recognizes the supported detailed
-  \link{xinteger} storage-mode names, and \code{.isXIntTypeName1()} the
-  same for a single such name, i.e., a length-one non-\code{NA} character
-  vector.  They are meant for \R internal use only.
+  \link{xinteger} storage-mode names.  It is meant for \R internal use only.
 
   \code{sys.save.image} is a system function that is called by \code{q()}
   and its GUI analogs; \code{sys.load.image} is called by the startup code.

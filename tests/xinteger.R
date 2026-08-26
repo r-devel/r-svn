@@ -639,18 +639,41 @@ stopifnot(identical(readBin(f, character(1), 2L), c("ab", "cd")),
 	  identical(readBin(f, c("int64", "int64"), 2L), c("ab", "cd")))
 unlink(f)
 
-### scan() accepts the same detailed names as prototypes
+### scan() reads an 'xinteger' prototype
 
-v <- scan(text = "9223372036854775807 -1 NA 0", what = "int64", quiet = TRUE)
+v <- scan(text = "9223372036854775807 -1 NA 0",
+	  what = xinteger(0L, 8L, "signed"), quiet = TRUE)
 d <- scan(text = "18446744073709551614 7",
-          what = list(id = "uint64", value = 0L), quiet = TRUE)
+          what = list(id = xinteger(0L, 8L, "unsigned"), value = 0L),
+	  quiet = TRUE)
 stopifnot(storage.mode(v) == "int64",
 	  identical(as.character(v), c("9223372036854775807", "-1", NA, "0")),
 	  storage.mode(d$id) == "uint64",
 	  identical(as.character(d$id), "18446744073709551614"),
 	  identical(d$value, 7L),
-	  ## only the ten supported names change meaning
-	  identical(scan(text = "int64", what = "int24", quiet = TRUE), "int64"))
+	  ## a prototype also carries the NA-sentinel policy, which no
+	  ## storage-mode name spells
+	  !xintegerHasNA(scan(text = "1 2",
+			      what = xinteger(0L, 8L, "signed", na = FALSE),
+			      quiet = TRUE)),
+	  ## and 'what' is a prototype for this type as for every other:
+	  ## a name is a character vector and reads as character, the
+	  ## same answer "integer" and "double" give
+	  identical(scan(text = "1 2", what = "int64", quiet = TRUE),
+		    c("1", "2")),
+	  identical(scan(text = "1 2", what = "integer", quiet = TRUE),
+		    c("1", "2")))
+
+## read.table() is the one that names a type, and builds the prototype
+## for scan() itself
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    writeLines(c("1 2", "3 4"), f)
+    z <- read.table(f, colClasses = c("int64", "uint32"))
+    stopifnot(identical(unname(vapply(z, storage.mode, "")),
+		        c("int64", "uint32")))
+})
 
 ### vector(), storage.mode<- and mode<-
 
