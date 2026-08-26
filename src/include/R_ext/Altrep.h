@@ -374,8 +374,10 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
 
    R stages an element on the stack to hash or memcmp it, so the byte route
    also caps the element width; a class whose elements are wider than that
-   escapes the cap by supplying Hash and Compare, which read the element
-   wherever it already lives.
+   escapes the cap by supplying Hash and Compare *instead of* declaring
+   R_ALTREP_TRAITS_BITWISE_EQ, since they read the element wherever it
+   already lives.  Declaring the bit as well does not lift the cap: the bit
+   is what selects the byte route, and R takes it.
 */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\

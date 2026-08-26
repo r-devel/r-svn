@@ -1477,11 +1477,24 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	len = imax2(len, n);
     }
     if(anstype < INTSXP) anstype = INTSXP;
+    /* Which opaque argument the answer is built from: the traits of the
+       result must not depend on how long the arguments happen to be, so this
+       is settled before the zero-length shortcut rather than inside it. */
+    SEXP proto = NULL;
+    if (anstype == ALTSXP)
+	for(a = args; a != R_NilValue; a = CDR(a)) {
+	    SEXP u = CAR(a);
+	    if (TYPEOF(u) != ALTSXP)
+		continue;
+	    /* the result must be able to hold NA if any argument can */
+	    if (proto == NULL ||
+		(! R_altsxp_nullable(proto) && R_altsxp_nullable(u)))
+		proto = u;
+	}
+
     if(len == 0) {
 	if (anstype != ALTSXP) return allocVector(anstype, 0);
-	for(a = args; a != R_NilValue; a = CDR(a))
-	    if (TYPEOF(CAR(a)) == ALTSXP)
-		return R_allocVectorLike(CAR(a), 0, FALSE);
+	if (proto != NULL) return R_allocVectorLike(proto, 0, FALSE);
     }
     /* Check for fractional recycling (added in 2.14.0) */
     for(a = args; a != R_NilValue; a = CDR(a)) {
@@ -1498,17 +1511,6 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   class moves whole elements and answers the comparisons; the NA
 	   tests below are the base arms', with Is_na_region in place of the
 	   type's own sentinel. */
-	SEXP proto = NULL;
-	for(a = args; a != R_NilValue; a = CDR(a)) {
-	    SEXP u = CAR(a);
-	    if (TYPEOF(u) != ALTSXP)
-		continue;
-	    /* the result must be able to hold NA if any argument can */
-	    if (proto == NULL ||
-		(! R_altsxp_nullable(proto) && R_altsxp_nullable(u)))
-		proto = u;
-	}
-
 	PROTECT(ans = R_allocVectorLike(proto, len, FALSE));
 
 	PROTECT(x = PmaxAltsxpArg(proto, CAR(args), call));

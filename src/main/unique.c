@@ -82,6 +82,7 @@ struct _HashData {
        it has to take the same route, so the decision belongs to the table
        and not to whichever object altsxphash() is looking at. */
     Rboolean altsxpClassHash;
+
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -506,20 +507,26 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
        value in two spellings.  It also reads the element where it lies, so
        nothing is staged and the width cap below does not apply.
 
-       Which route it is was settled for the table in HashTableSetup(), and
-       every operand hashed against that table has to take the same one:
-       sharing an element type is what lets two *different* classes be
-       matched, and one that hashes for itself would otherwise never land in
-       the bucket the other's bytes chose.  (Two classes that share an
-       element type and both hash for themselves must agree on the values,
-       which is part of what sharing the type promises; nothing here can
-       check that.) */
-    if (d->altsxpClassHash != R_altsxp_hashable(x))
-	error(_("cannot match elements of type '%s': one operand's class hashes for itself and the other's does not"),
+       The trait bit is what chooses, exactly as it does in altsxpequal()
+       below, so the two always agree about a given pair.  Which route it is
+       was settled for the table in HashTableSetup(), and every operand
+       hashed against that table has to take the same one: sharing an element
+       type is what lets two *different* classes be matched, and one that
+       hashes for itself would otherwise never land in the bucket the other's
+       bytes chose.  (Two classes that share an element type and both hash
+       for themselves must agree on the values, which is part of what sharing
+       the type promises; nothing here can check that.) */
+    Rboolean class_hash = ! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ);
+    if (class_hash != d->altsxpClassHash)
+	error(_("cannot match elements of type '%s': one operand's class decides equality by its bytes and the other's does not"),
 	      R_typeToChar(x));
 
-    if (d->altsxpClassHash)
+    if (class_hash) {
+	if (! R_altsxp_hashable(x))
+	    error(_("cannot hash elements of type '%s': the class declares neither R_ALTREP_TRAITS_BITWISE_EQ nor a 'Hash' method with a 'Compare' to go with it"),
+		  R_typeToChar(x));
 	return scatter(ALTSXP_HASH(x, indx), d);
+    }
 
     size_t esz = altsxp_hash_esz(x);
     unsigned char buf[ALTREP_ELT_MAX_SIZE];
@@ -761,10 +768,12 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	    if (! R_altsxp_hashable(x))
 		error(_("cannot hash elements of type '%s': the class declares neither R_ALTREP_TRAITS_BITWISE_EQ nor a 'Hash' method with a 'Compare' to go with it"),
 		      R_typeToChar(x));
+	    d->altsxpClassHash = TRUE;
 	}
-	else
+	else {
 	    altsxp_hash_esz(x);
-	d->altsxpClassHash = R_altsxp_hashable(x);
+	    d->altsxpClassHash = FALSE;
+	}
 	d->hash = altsxphash;
 	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);

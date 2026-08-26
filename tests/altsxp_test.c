@@ -28,19 +28,23 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    K_MOD hashes for itself like K_HASH but reports K_CMP's element type at
    K_CMP's width, so the two are matchable against each other while
    disagreeing about how equality is decided -- the one pairing that can
-   put two different hash routes on the same table. */
-enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_N };
+   put two different hash routes on the same table.  K_BOTH declares
+   BITWISE_EQ *and* registers Hash and Compare, at K_CMP's element type
+   again: the header says the bit wins and the Hash is not consulted, so it
+   has to keep interoperating with K_CMP through the byte route. */
+enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
+       K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
-    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1
+    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
-    "bare_byte", "hash_byte", "mod_byte"
+    "bare_byte", "hash_byte", "mod_byte", "both_byte"
 };
 
 static int test_kind(SEXP x)
@@ -296,6 +300,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_CMP] = cmp_type;
     /* deliberately K_CMP's element type, at K_CMP's width */
     test_type_syms[K_MOD] = cmp_type;
+    test_type_syms[K_BOTH] = cmp_type;
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -307,7 +312,8 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	   the class or it would collide with any other "plain_byte" */
 	if (k != K_PLAIN)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
-	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ */
+	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ.
+	   K_BOTH does declare it, and registers Hash and Compare as well. */
 	if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
     }
@@ -316,6 +322,10 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Hash_method(test_classes[K_HASH], test_mod_hash);
     R_set_altsxp_Compare_method(test_classes[K_MOD], test_mod_compare);
     R_set_altsxp_Hash_method(test_classes[K_MOD], test_mod_hash);
+    /* deliberately the modulo pair, which BITWISE_EQ contradicts: R must
+       take the bit and never call these */
+    R_set_altsxp_Compare_method(test_classes[K_BOTH], test_mod_compare);
+    R_set_altsxp_Hash_method(test_classes[K_BOTH], test_mod_hash);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

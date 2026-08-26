@@ -956,7 +956,25 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 		/* the rendering carries the shape, so an opaque matrix or
 		   array prints as one rather than as a flat vector */
 		PROTECT(t = getAttrib(s, R_DimSymbol));
-		if (TYPEOF(t) == INTSXP && LENGTH(t) > 1) {
+		if (TYPEOF(t) == INTSXP && LENGTH(t) == 1) {
+		    /* as for the base types: a 1-D array is labelled by its
+		       dimnames, and the name of that dimnames element is a
+		       title above them.  getAttrib() already answers the
+		       labels for R_NamesSymbol here, but not the title. */
+		    const void *vmax = vmaxget();
+		    SEXP dn = PROTECT(getAttrib(s, R_DimNamesSymbol));
+		    if (dn != R_NilValue && VECTOR_ELT(dn, 0) != R_NilValue) {
+			SEXP nn = getAttrib(dn, R_NamesSymbol);
+			const char *title = isNull(nn) ? NULL
+			    : translateChar(STRING_ELT(nn, 0));
+			printNamedVector(fmt, VECTOR_ELT(dn, 0), 0, title);
+		    }
+		    else if (n_ > 0)
+			printVector(fmt, 1, 0);
+		    UNPROTECT(1); /* dn */
+		    vmaxset(vmax);
+		}
+		else if (TYPEOF(t) == INTSXP && LENGTH(t) > 1) {
 		    SEXP dnms = PROTECT(getAttrib(s, R_DimNamesSymbol));
 		    setAttrib(fmt, R_DimSymbol, t);
 		    setAttrib(fmt, R_DimNamesSymbol, dnms);

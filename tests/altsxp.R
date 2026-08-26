@@ -2191,6 +2191,47 @@ local({
     gctorture(FALSE)
 })
 
+## A 1-D opaque array is labelled by its dimnames like any other, and the
+## name of that dimnames element is a title above them -- the arm reached the
+## labels through getAttrib(names), which answers them for a 1-D array, but
+## never the title.
+local({
+    labs <- c("a", "b", "c")
+    body <- function(x) {
+        out <- capture.output(print(x))
+        out[!grepl("^<int64\\[", out)]      # drop the opaque type header
+    }
+    stopifnot(identical(body(array(as.int64(1:3), 3L, list(g = labs))),
+                        capture.output(print(array(1:3, 3L, list(g = labs))))),
+              identical(body(array(as.int64(1:3), 3L, list(labs))),
+                        capture.output(print(array(1:3, 3L, list(labs))))),
+              identical(body(array(as.int64(1:3), 3L)),
+                        capture.output(print(array(1:3, 3L)))))
+    ## a zero-extent 1-D array still says only what it is, as before
+    stopifnot(identical(capture.output(print(array(as.int64(integer(0)), 0L))),
+                        "<int64[0]>"))
+})
+
+## pmin()/pmax() picked the argument the answer is built from inside the
+## zero-length shortcut, before the rule that prefers an operand whose domain
+## includes NA.  The traits of the result must not depend on the length.
+local({
+    nullable <- function(x)
+        grepl("nullable=1", capture.output(.Internal(inspect(x)))[1L])
+    nn <- as.int64(1:3, na = FALSE)
+    ok <- as.int64(1:3)
+    nn0 <- as.int64(integer(0), na = FALSE)
+    ok0 <- as.int64(integer(0))
+    for (f in list(pmin, pmax)) {
+        stopifnot(nullable(f(nn, ok)), nullable(f(ok, nn)),
+                  ## same rule when there is nothing to compare
+                  nullable(f(nn0, ok0)), nullable(f(ok0, nn0)),
+                  ## and no argument that can be NA still means it cannot
+                  !nullable(f(nn0, nn0)), !nullable(f(nn, nn)))
+        stopifnot(identical(length(f(nn0, ok0)), 0L))
+    }
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2398,7 +2439,8 @@ if (length(dll.paths)) local({
                    quote(modb %in% cmpb), quote(cmpb %in% modb))) {
         err <- tryCatch(eval(e), error = identity)
         stopifnot(inherits(err, "error"),
-                  grepl("hashes for itself", conditionMessage(err)))
+                  grepl("decides equality by its bytes",
+                        conditionMessage(err), fixed = TRUE))
     }
     ## each class on its own is unaffected, mod_byte's own hash included:
     ## 0x01 and 0x11 are one value to it, two to a byte-wise class
@@ -2410,6 +2452,37 @@ if (length(dll.paths)) local({
               identical(match(new.kind("cmp_byte", as.raw(c(0x01, 0x11))),
                               new.kind("cmp_byte", as.raw(c(0x01, 0x11)))),
                         c(1L, 2L)))
+
+    ## It is the BITWISE_EQ bit that chooses the route, not the presence of a
+    ## Hash method: both_byte declares the bit *and* registers hash_byte's
+    ## modulo-16 pair, and the header says the bit wins.  So it must still
+    ## interoperate with cmp_byte, which has the bit and no Hash -- and its
+    ## own Hash must never be consulted, or 0x01 and 0x11 would merge.
+    bothb <- new.kind("both_byte", as.raw(c(1, 2, 3)))
+    stopifnot(identical(typeof(bothb), typeof(cmpb)),
+              identical(match(bothb, cmpb), 1:3),
+              identical(match(cmpb, bothb), 1:3),
+              identical(bothb %in% cmpb, rep(TRUE, 3)),
+              identical(match(new.kind("both_byte", as.raw(c(0x01, 0x11))),
+                              new.kind("both_byte", as.raw(c(0x01, 0x11)))),
+                        c(1L, 2L)),
+              identical(match(new.kind("both_byte", as.raw(c(0x01, 0x11))),
+                              new.kind("cmp_byte", as.raw(c(0x01, 0x11)))),
+                        c(1L, 2L)))
+    ## mod_byte disagrees with both of them, and still says so
+    for (e in list(quote(match(modb, bothb)), quote(match(bothb, modb))))
+        stopifnot(inherits(tryCatch(eval(e), error = identity), "error"))
+
+    ## the width cap goes with the route: a wide class escapes it by
+    ## supplying Hash and Compare *instead of* the bit, not as well as it
+    stopifnot(identical(match(new.test(as.raw(1:6)), new.test(as.raw(1:6))),
+                        1:6),
+              identical(match(new.kind("hash_byte", as.raw(1:6)),
+                              new.kind("hash_byte", as.raw(1:6))), 1:6))
+    err <- tryCatch(match(new.kind("wide_byte", as.raw(1:6)),
+                          new.kind("wide_byte", as.raw(1:6))), error = identity)
+    stopifnot(inherits(err, "error"),
+              grepl("more than", conditionMessage(err), fixed = TRUE))
 
     ## The default Elt_type built its "pkg::class" symbol on every call, with
     ## a one-slot cache that alternating two classes defeats -- and the header
