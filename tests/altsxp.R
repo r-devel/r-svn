@@ -1779,6 +1779,58 @@ local({
               isTRUE(all.equal(as.Date("2020-01-01"), as.Date("2020-01-01"))))
 })
 
+## An opaque numeric vector is a valid subscript.  Every index R can address
+## is exactly representable as a double -- R_XLEN_T_MAX is 2^52 and a double
+## is exact to 2^53 -- so this is the double subscript path, and a value too
+## large to be an index is out of bounds either way.  The two single-index
+## entry points render one element rather than the whole subscript.
+local({
+    v <- 1:10
+    names(v) <- letters[1:10]
+    m <- matrix(1:12, 3L, 4L)
+    L <- as.list(1:5)
+    i <- as.int64(2L)
+
+    ## [ , including the shapes that are not a plain positive index
+    stopifnot(identical(v[i], v[2]),
+              identical(v[c(i, as.int64(5L))], v[c(2, 5)]),
+              identical(v[-i], v[-2]),
+              identical(v[as.int64(0L)], v[0]),
+              identical(v[as.int64(NA_integer_)], v[NA_integer_]),
+              identical(v[as.int64(20L)], v[20]),
+              identical(v[as.int64(integer())], v[integer()]),
+              identical(names(v[c(i, as.int64(3L))]), names(v[c(2, 3)])))
+
+    ## [[ , including recursive indexing, where pos is not 0
+    stopifnot(identical(v[[i]], v[[2]]), identical(L[[i]], L[[2]]))
+    l <- list(list(1, 2), list(3, 4))
+    stopifnot(identical(l[[as.int64(c(2L, 1L))]], l[[c(2, 1)]]))
+
+    ## assignment, including growing
+    stopifnot(identical({z <- v; z[i] <- 99L; z}, {z <- v; z[2] <- 99L; z}),
+              identical({z <- v; z[[i]] <- 99L; z}, {z <- v; z[[2]] <- 99L; z}),
+              identical({z <- v; z[-i] <- 0L; z}, {z <- v; z[-2] <- 0L; z}),
+              identical({z <- v; z[as.int64(13L)] <- 1L; z},
+                        {z <- v; z[13] <- 1L; z}))
+
+    ## matrix and array margins, which narrow to integer as a double does
+    stopifnot(identical(m[i, as.int64(3L)], m[2, 3]),
+              identical(m[i, ], m[2, ]),
+              identical(m[, i], m[, 2]),
+              identical(m[-i, ], m[-2, ]),
+              identical({z <- m; z[i, as.int64(1L)] <- 0L; z},
+                        {z <- m; z[2, 1] <- 0L; z}))
+    a <- array(1:8, c(2L, 2L, 2L))
+    stopifnot(identical(a[i, i, i], a[2, 2, 2]))
+
+    ## uint64 indexes the same way
+    stopifnot(identical(v[as.uint64(2L)], v[2]),
+              identical(m[as.uint64(2L), as.uint64(3L)], m[2, 3]))
+
+    ## an empty subscript selects nothing, as an empty double one does
+    stopifnot(identical(v[int64()], v[integer()]))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -1887,6 +1939,17 @@ if (length(dll.paths)) local({
                   grepl("R_ALTREP_TRAITS_BITWISE_EQ", m, fixed = TRUE),
                   grepl("equality", m, fixed = TRUE))
     }
+    ## A class that does not call itself numeric is not a subscript: the
+    ## arms added for that gate on the NUMERIC trait, not on ALTSXP.
+    stopifnot(!is.numeric(narrow))
+    one <- new.test(as.raw(1L))   # [[ rejects a longer subscript first
+    for (e in list(tryCatch((1:10)[narrow], error = identity),
+                   tryCatch((1:10)[[one]], error = identity),
+                   tryCatch(matrix(1:4, 2L)[narrow, 1L], error = identity)))
+        stopifnot(inherits(e, "error"),
+                  grepl("invalid subscript type", conditionMessage(e),
+                        fixed = TRUE))
+
     ## The hash table refuses for two unrelated reasons, and they want
     ## different things done about them: no BITWISE_EQ, or an element wider
     ## than the staging buffers.  One message for both said neither.
