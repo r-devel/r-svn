@@ -1441,9 +1441,22 @@ altsxp_Is_na_region_default(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     return ncopy;
 }
 
+/* Reached from sorting and from identical(), which want different things:
+   an order, and a notion of equality.  A class that declares BITWISE_EQ has
+   the second already -- identical() and the hash table use the bytes and
+   never arrive here -- so only the ordering is missing.  A class that
+   declares neither is missing both, and naming both is what tells its author
+   that either method would do for equality alone. */
 static int altsxp_Compare_default(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    ALTREP_ERROR_IN_CLASS("ALTSXP class provides no ordering", x);
+    if (ALTSXP_DISPATCH(Traits, x) & R_ALTREP_TRAITS_BITWISE_EQ)
+	ALTREP_ERROR_IN_CLASS("ALTSXP class registers no 'Compare' method, "
+			      "so its elements cannot be ordered", x);
+
+    ALTREP_ERROR_IN_CLASS("ALTSXP class registers no 'Compare' method and "
+			  "does not declare R_ALTREP_TRAITS_BITWISE_EQ, so "
+			  "its elements can be neither ordered nor compared "
+			  "for equality", x);
 }
 
 static SEXP altsxp_Format_default(SEXP x, R_xlen_t i, R_xlen_t n)

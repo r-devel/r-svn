@@ -1826,6 +1826,46 @@ if (length(dll.paths)) local({
     assertError(order(narrow))
     assertError(sort(narrow))
 
+    ## The message has to say what is missing.  short_byte declares
+    ## BITWISE_EQ, so identical() and the hash table are already served and
+    ## only the ordering is absent; bare_byte declares neither, so it has no
+    ## equality either and identical() -- which is not asking about order --
+    ## must not be told that an ordering is what it wants.
+    bare <- new.kind("bare_byte", as.raw(1:4))
+    stopifnot(identical(bare, bare))          # same object short-circuits
+    for (e in list(tryCatch(sort(narrow), error = identity),
+                   tryCatch(order(narrow), error = identity))) {
+        m <- conditionMessage(e)
+        stopifnot(grepl("no 'Compare' method", m, fixed = TRUE),
+                  grepl("cannot be ordered", m, fixed = TRUE),
+                  !grepl("BITWISE_EQ", m, fixed = TRUE))
+    }
+    for (e in list(tryCatch(identical(bare, new.kind("bare_byte", as.raw(1:4))),
+                            error = identity),
+                   tryCatch(sort(bare), error = identity))) {
+        m <- conditionMessage(e)
+        stopifnot(grepl("no 'Compare' method", m, fixed = TRUE),
+                  grepl("R_ALTREP_TRAITS_BITWISE_EQ", m, fixed = TRUE),
+                  grepl("equality", m, fixed = TRUE))
+    }
+    ## The hash table refuses for two unrelated reasons, and they want
+    ## different things done about them: no BITWISE_EQ, or an element wider
+    ## than the staging buffers.  One message for both said neither.
+    e <- tryCatch(unique(bare), error = identity)
+    stopifnot(grepl("R_ALTREP_TRAITS_BITWISE_EQ", conditionMessage(e),
+                    fixed = TRUE))
+    e <- tryCatch(unique(new.test(as.raw(1:4), wide = TRUE)), error = identity)
+    stopifnot(grepl("4096 bytes", conditionMessage(e), fixed = TRUE),
+              !grepl("BITWISE_EQ", conditionMessage(e), fixed = TRUE))
+
+    ## the shape methods alone still carry everything the header promises
+    ## them for: subsetting, concatenation, duplication, serialization
+    stopifnot(identical(contents(bare[2:3]), as.raw(2:3)),
+              identical(contents(c(bare, bare)), as.raw(c(1:4, 1:4))),
+              identical(contents(rev(bare)), as.raw(4:1)),
+              identical(contents(unserialize(serialize(bare, NULL))),
+                        as.raw(1:4)))
+
     ## cmp_byte has one, so sort() reaches the write-back that hands the
     ## ordered elements to Set_region -- two at a time, here.
     jumbled <- as.raw(c(3, 1, 4, 1, 5, 9, 2, 6))

@@ -485,7 +485,8 @@ static size_t altsxp_hash_esz(SEXP x)
 {
     size_t esz = ALTSXP_ELT_SIZE(x);
     if (esz > ALTREP_ELT_MAX_SIZE)
-	error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
+	error(_("cannot hash elements of type '%s': they are %d bytes, more than the %d this can stage"),
+	      R_typeToChar(x), (int) esz, (int) ALTREP_ELT_MAX_SIZE);
     return esz;
 }
 
@@ -684,9 +685,14 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case ALTSXP:
-	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
-	    ALTSXP_ELT_SIZE(x) > ALTREP_ELT_MAX_SIZE)
-	    error(_("cannot hash elements of type '%s'"), R_typeToChar(x));
+	/* Two unrelated reasons, and they want different things done about
+	   them: the class has not said that bytes decide equality, or its
+	   element is wider than the staging buffers below.  A Compare method
+	   does not help either way -- this table hashes bytes. */
+	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ))
+	    error(_("cannot hash elements of type '%s': the class does not declare R_ALTREP_TRAITS_BITWISE_EQ"),
+		  R_typeToChar(x));
+	altsxp_hash_esz(x);
 	d->hash = altsxphash;
 	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);

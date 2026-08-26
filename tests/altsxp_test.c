@@ -20,19 +20,22 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    K_BYTE and K_WIDE are two unrelated element types; K_TWIN reports
    K_BYTE's element type at sixteen times the width, which nothing may
    take as licence to read one at the other's size; K_PLAIN registers no
-   Elt_type method at all, so it exercises the default; and K_CMP is the
-   one with an ordering, so that sort() can reach its Set_region. */
-enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_N };
+   Elt_type method at all, so it exercises the default; K_CMP is the
+   one with an ordering, so that sort() can reach its Set_region; and K_BARE
+   registers neither a Traits method nor a Compare, which is the class
+   R_ext/Altrep.h says has no notion of equality R could use. */
+enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
-    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1
+    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1
 };
 
 static const char *const test_class_names[K_N] = {
-    "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte"
+    "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
+    "bare_byte"
 };
 
 static int test_kind(SEXP x)
@@ -155,7 +158,6 @@ static void init_test_class(R_altrep_class_t cls)
     R_set_altsxp_Get_region_method(cls, test_get_region);
     R_set_altsxp_Set_region_method(cls, test_set_region);
     R_set_altsxp_Is_na_region_method(cls, test_is_na_region);
-    R_set_altsxp_Traits_method(cls, test_traits);
 }
 
 static SEXP test_constructor(SEXP data, SEXP wide)
@@ -253,6 +255,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_TWIN] = byte_type;
     test_type_syms[K_PLAIN] = NULL;    /* no Elt_type method: see below */
     test_type_syms[K_CMP] = install("altsxp_test_cmp");
+    test_type_syms[K_BARE] = install("altsxp_test_bare");
 
     for (int k = 0; k < K_N; k++) {
 	test_classes[k] = R_make_altsxp_class(test_class_names[k],
@@ -262,6 +265,9 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	   the class or it would collide with any other "plain_byte" */
 	if (k != K_PLAIN)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
+	/* K_BARE takes the default Traits, so it declares no BITWISE_EQ */
+	if (k != K_BARE)
+	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
     }
     R_set_altsxp_Compare_method(test_classes[K_CMP], test_compare);
 

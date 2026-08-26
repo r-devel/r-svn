@@ -188,6 +188,11 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  elements that Is_na_region reported as non-NA, so a class
  *                  need handle neither case.  It must be a consistent total
  *                  order: R's comparison sorts misbehave otherwise.
+ *
+ *                  A class must supply this or declare
+ *                  R_ALTREP_TRAITS_BITWISE_EQ -- see the note on equality
+ *                  below.  Only this one gives an order, so sort(), order(),
+ *                  rank(), median() and the reductions need it either way.
  *   Format         a character vector rendering positions i..i+n-1, or NULL
  *                  to decline.  Optional, because a class may exist only to
  *                  carry bytes between two places that understand them; R
@@ -306,7 +311,9 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
                                  their bytes are equal, so R may hash and
                                  compare elements generically.  Do not set
                                  this for a floating element type: NaN and
-                                 signed zero break it.
+                                 signed zero break it, nor for one whose
+                                 element has padding bytes, which two equal
+                                 values need not agree on.
 
    R_ALTREP_TRAITS_NOT_NULLABLE  this object cannot be NA: its value domain
                                  excludes a missing value, and in exchange
@@ -325,7 +332,18 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
                                  all gets this bit whenever it also registers
                                  no Set_na_region method: with no way to
                                  store an NA it is not nullable, whatever it
-                                 might prefer to claim. */
+                                 might prefer to claim.
+
+   Equality is not optional.  A class must either declare
+   R_ALTREP_TRAITS_BITWISE_EQ, which lets R compare and hash the bytes
+   itself, or register a Compare method, which R then uses for equality as
+   well as for order.  A class that does neither has no notion of equality
+   that R could use, and identical(), match(), unique(), duplicated(), %in%,
+   table() and factor() all raise rather than guess: reading equal values as
+   unequal, or the reverse, is not something R can discover afterwards.  The
+   shape methods alone are still enough for subsetting, concatenation,
+   duplication and serialisation, which ask no such question.
+*/
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
