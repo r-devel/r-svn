@@ -1666,6 +1666,25 @@ local({
     stopifnot(as.numeric(object.size(list(int64(n)))) > 8 * n)
 })
 
+## printMatrix() had no ALTSXP arm, so prmatrix() reported "unimplemented
+## type" for a matrix that print() renders happily -- print() gets there by
+## formatting first and handing over a character matrix.  Doing that inside
+## printMatrix() reaches every caller.
+local({
+    m <- as.int64(1:6)
+    dim(m) <- c(2L, 3L)
+    body <- capture.output(print(m))[-1L]   # drop the <int64[6]> header
+    stopifnot(identical(capture.output(prmatrix(m)), body))
+
+    ## the labels prmatrix() was given are used, and NA prints as such
+    n <- as.int64(c(1L, NA, 3L, 4L))
+    dim(n) <- c(2L, 2L)
+    out <- capture.output(prmatrix(n, rowlab = c("r1", "r2"),
+                                   collab = c("c1", "c2")))
+    stopifnot(grepl("c1", out[[1L]]), grepl("c2", out[[1L]]),
+              grepl("^r1", out[[2L]]), grepl("NA", out[[3L]]))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
