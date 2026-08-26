@@ -951,11 +951,18 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 		    et == R_NilValue ? "altrep" : CHAR(PRINTNAME(et)),
 		    (long long) n_);
 	    if (fmt != NULL) {
-		REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
-
 		/* the rendering carries the shape, so an opaque matrix or
 		   array prints as one rather than as a flat vector */
 		PROTECT(t = getAttrib(s, R_DimSymbol));
+
+		/* A matrix or array is laid out column by column by its own
+		   printer, as the base numeric types are, so its rendering is
+		   handed over unpadded; padding to one width across the whole
+		   slice first would print every column at the width of the
+		   widest cell.  A vector does take one common width. */
+		Rboolean shaped = TYPEOF(t) == INTSXP && LENGTH(t) > 1;
+		REPROTECT(fmt = R_altsxp_format_common(fmt, shaped, 0), fpi);
+
 		if (TYPEOF(t) == INTSXP && LENGTH(t) == 1) {
 		    /* as for the base types: a 1-D array is labelled by its
 		       dimnames, and the name of that dimnames element is a

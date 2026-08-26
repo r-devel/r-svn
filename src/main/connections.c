@@ -5109,7 +5109,14 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	default:
 	    UNIMPLEMENTED_TYPE("writeBin", object);
 	}
-	char *buf = R_chk_calloc(len, size);
+	/* R_alloc, not R_Calloc: the ALTSXP arm below calls into class code,
+	   which may raise an error, and the R_Free() at the end of the block
+	   would be jumped over -- len * size bytes, unbounded for a long
+	   vector.  R_alloc unwinds with the context, as readBin's opaque arm
+	   and orderVector1() already do.  Every arm fills the whole buffer,
+	   so nothing here wanted the zeroing. */
+	const void *vmax = vmaxget();
+	char *buf = R_alloc((size_t) len, size);
 	R_xlen_t j;
 	switch(TYPEOF(object)) {
 	case LGLSXP:
@@ -5217,7 +5224,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    size_t nwrite = con->write(buf, size, len, con);
 	    if(nwrite < len) warning(_("problem writing to connection"));
 	}
-	R_Free(buf);
+	vmaxset(vmax);
     }
 
     if(!wasopen) {

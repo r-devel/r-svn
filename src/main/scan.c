@@ -508,12 +508,19 @@ static void checkScanned(SEXP val, SEXP str, SEXP what, LocalData *d)
 	return;
 
     R_xlen_t n = XLENGTH(str);
+    /* the loop reads position i of val for every field of str, so a class
+       that answered Coerce_from with a shorter vector would be indexed out
+       of range */
+    if (XLENGTH(val) != n)
+	error(_("'%s' method returned %lld elements, not the %lld it was given"),
+	      "Coerce_from", (long long) XLENGTH(val), (long long) n);
+
     for (R_xlen_t i = 0; i < n; i++) {
 	SEXP e = STRING_ELT(str, i);
 	if (e == NA_STRING || isNAstring(CHAR(e), 0, d))
 	    continue;
 
-	int na;
+	int na = 0;
 	R_altsxp_is_na_region(val, i, 1, &na);
 	if (na)
 	    expected(R_typeToChar(what), CHAR(e), d);

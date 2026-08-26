@@ -2284,6 +2284,52 @@ local({
     stopifnot(identical(as.double(unique(n2, incomparables = 1)), c(1, 2)))
 })
 
+## Coercion from a double truncates toward zero, so the range test has to be
+## against the truncated value: -0.5 is 0, which uint64 holds perfectly well.
+## The unsigned arm rejected on the raw sign instead, so a value in range came
+## back NA -- and an error for a vector that cannot hold NA.
+local({
+    for (na in c(TRUE, FALSE))
+        stopifnot(identical(as.double(as.uint64(-0.5, na = na)), 0),
+                  identical(as.double(as.uint64(-0.999, na = na)), 0),
+                  identical(as.double(as.uint64("-0.5", na = na)), 0),
+                  identical(as.double(as.uint64(-0, na = na)), 0))
+    ## the same answers the signed class and as.integer() give
+    stopifnot(identical(as.double(as.uint64(-0.5)), as.double(as.int64(-0.5))),
+              identical(as.double(as.uint64(-0.5)), as.double(as.integer(-0.5))))
+    ## and a value that really is out of range is still NA
+    stopifnot(is.na(suppressWarnings(as.uint64(-1))),
+              is.na(suppressWarnings(as.uint64(-1.5))),
+              is.na(suppressWarnings(as.uint64(-1e18))))
+    stopifnot(identical(as.double(as.uint64(c(-0.5, 1.5, 2))), c(0, 1, 2)))
+})
+
+## An opaque matrix is laid out column by column, as the base numeric types
+## are: the rendering used to be padded to one width across the whole slice
+## first, so every column printed at the width of the widest cell.
+local({
+    body <- function(x) capture.output(print(x))[-1L]   # drop the type header
+    cases <- list(
+        list(matrix(as.int64(c(1, 1000000)), 1, 2), matrix(c(1L, 1000000L), 1, 2)),
+        list(matrix(as.int64(1:6), 3, 2), matrix(1:6, 3, 2)),
+        list(matrix(as.int64(c(1, NA, 3, 1e6)), 2, 2),
+             matrix(c(1L, NA, 3L, 1000000L), 2, 2)),
+        list(array(as.int64(1:8), c(2, 2, 2)), array(1:8, c(2, 2, 2))),
+        list(matrix(as.int64(1:4), 2, 2, dimnames = list(c("r1", "r2"),
+                                                         c("c1", "c2"))),
+             matrix(1:4, 2, 2, dimnames = list(c("r1", "r2"), c("c1", "c2")))))
+    for (p in cases)
+        stopifnot(identical(body(p[[1L]]), capture.output(print(p[[2L]]))))
+
+    ## prmatrix() reaches the other arm, in printarray.c
+    stopifnot(identical(capture.output(prmatrix(matrix(as.int64(c(1, 1e6)), 1, 2))),
+                        capture.output(prmatrix(matrix(c(1L, 1000000L), 1, 2)))))
+
+    ## a plain vector still takes one common width, as before
+    stopifnot(identical(body(as.int64(c(1, 1000000))),
+                        capture.output(print(c(1L, 1000000L)))))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set

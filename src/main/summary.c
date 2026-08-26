@@ -651,7 +651,15 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		PROTECT(one);
 
-		int na;
+		/* the fold below indexes element 0 of it, and reads whatever
+		   Is_na_region reports about it: a class that answered with
+		   anything but the single value it was asked for would leave
+		   both undefined */
+		if (XLENGTH(one) != 1)
+		    error(_("'%s' method did not return a single element"),
+			  want < 0 ? "Min" : "Max");
+
+		int na = 0;
 		R_altsxp_is_na_region(one, 0, 1, &na);
 		if (na) {
 		    if (!narm) {

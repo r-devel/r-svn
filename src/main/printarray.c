@@ -385,7 +385,11 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	    UNIMPLEMENTED_TYPE("printMatrix", x);
 	PROTECT_INDEX fpi;
 	PROTECT_WITH_INDEX(fmt, &fpi);
-	REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
+	/* trimmed, so that printStringMatrix() measures each column for
+	   itself: padding to one width across the whole slice first would lay
+	   every column out at the width of the widest cell in the matrix,
+	   where the base numeric arms format column by column */
+	REPROTECT(fmt = R_altsxp_format_common(fmt, TRUE, 0), fpi);
 	printStringMatrix (fmt, 0, r_pr, r, c_pr, 0, 1, rl, cl, rn, cn, true);
 	UNPROTECT(1); /* fmt */
 	break;

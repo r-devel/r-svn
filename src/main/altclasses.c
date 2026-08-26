@@ -2326,11 +2326,14 @@ static R_INLINE int i64_cmp(int64_t a, int64_t b, int uns)
 
 /* Truncate v toward zero into the 64-bit domain, as as.integer() does with a
    double; FALSE when the value has nowhere to land. */
+/* The range test is against the *truncated* value, since that is what gets
+   stored: as.integer() truncates toward zero, so -0.5 is 0 and is as much in
+   range for an unsigned target as it is for a signed one. */
 static Rboolean i64_from_double(double v, int uns, int64_t *out)
 {
     if (ISNAN(v))
 	return FALSE;
-    if (uns ? (v < 0 || v >= 18446744073709551616.0)
+    if (uns ? (v <= -1.0 || v >= 18446744073709551616.0)
 	    : (v >= 9223372036854775808.0 || v < -9223372036854775808.0))
 	return FALSE;
 
@@ -2395,7 +2398,9 @@ static SEXP i64_from(SEXP x, int uns, int nullable)
 		out[i] = na;
 		na_seen = TRUE;
 	    }
-	    else if (uns ? (v < 0 || v >= 18446744073709551616.0)
+	    /* as in i64_from_double(): the truncated value is what is stored,
+	       so -0.5 is 0 for an unsigned target too */
+	    else if (uns ? (v <= -1.0 || v >= 18446744073709551616.0)
 		     : (v >= 9223372036854775808.0 ||
 			v < -9223372036854775808.0)) {
 		out[i] = na;
