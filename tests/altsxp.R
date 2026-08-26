@@ -1537,12 +1537,47 @@ local({
 })
 
 ## The summary result must remain rooted while its empty-input warning is
-## allocated and dispatched.
+## allocated and dispatched.  The answer itself is the identity, +/-Inf, as
+## it is for every other numeric type; see the min()/max() regression above.
 local({
     gctorture(TRUE)
     on.exit(gctorture(FALSE))
     z <- suppressWarnings(min(int64()))
-    stopifnot(typeof(z) == "int64", length(z) == 1L, is.na(z))
+    stopifnot(identical(z, Inf))
+    stopifnot(identical(suppressWarnings(max(int64())), -Inf))
+})
+
+## --- fixes from the fifth review round -------------------------------
+
+## isNumber() has to agree with isNumeric(): the logical operators reach for
+## it, so an object that is.numeric() calls a number must answer `!`, `&`,
+## `|`, `&&` and `||` rather than "invalid argument type".
+local({
+    x <- as.int64(c(0L, 2L, NA))
+    stopifnot(is.numeric(x),
+              identical(!x, c(TRUE, FALSE, NA)),
+              identical(x & TRUE, c(FALSE, TRUE, NA)),
+              identical(x | FALSE, c(FALSE, TRUE, NA)),
+              identical(TRUE & x, c(FALSE, TRUE, NA)),
+              identical(x & x, c(FALSE, TRUE, NA)),
+              identical(as.int64(1L) && TRUE, TRUE),
+              identical(as.int64(0L) || FALSE, FALSE))
+
+    ## `!` keeps the shape, as it does for the base types
+    names(x) <- c("a", "b", "c")
+    stopifnot(identical(names(!x), c("a", "b", "c")))
+    m <- as.int64(1:4)
+    dim(m) <- c(2L, 2L)
+    stopifnot(identical(dim(!m), c(2L, 2L)))
+
+    ## the byte-compiled `&&` / `||` reach isNumber() through a different path
+    f <- compiler::cmpfun(function(a, b) a && b)
+    g <- compiler::cmpfun(function(a, b) a || b)
+    stopifnot(identical(f(as.int64(1L), TRUE), TRUE),
+              identical(g(as.int64(0L), FALSE), FALSE))
+
+    ## a class whose traits do not claim to be numeric is still refused
+    stopifnot(identical(!int64(), logical()))
 })
 
 ## --- generic ALTSXP region-contract regressions ----------------------

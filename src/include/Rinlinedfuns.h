@@ -1029,6 +1029,12 @@ INLINE_FUN Rboolean isNumber(SEXP s)
     case REALSXP:
     case CPLXSXP:
 	return TRUE;
+    case ALTSXP:
+	/* as in isNumeric(): whether an opaque element type counts as a
+	   number is the class's decision, not the SEXPTYPE's.  The two have
+	   to agree, or `!x` and `x & y` refuse an object that is.numeric()
+	   reports as a number. */
+	return (ALTREP_TRAITS(s) & R_ALTREP_TRAITS_NUMERIC) ? TRUE : FALSE;
     default:
 	return FALSE;
     }
