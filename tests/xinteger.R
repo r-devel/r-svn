@@ -853,6 +853,29 @@ local({
 	      file.exists(f), file.size(f) == prior)
 })
 
+## the guard is "this call wrote it", not "the version preflight caught
+## it": any other failure that leaves the destination alone must leave it
+## alone too, and a save that does reach the writer must still replace it
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    stopifnot(inherits(tryCatch(save.image(file = f, safe = FALSE,
+					   compress = "bogus"),
+				error = identity), "error"),
+	      !file.exists(f))
+
+    writeLines("previous .RData", f)
+    prior <- file.size(f)
+    stopifnot(inherits(tryCatch(save.image(file = f, safe = FALSE,
+					   compress = "bogus"),
+				error = identity), "error"),
+	      file.exists(f), file.size(f) == prior)
+
+    suppressMessages(save.image(file = f, safe = FALSE))
+    e <- new.env(); load(f, envir = e)
+    stopifnot(identical(e$b, b))
+})
+
 f <- tempfile()
 suppressMessages(save(list = "b", file = f, envir = environment()))
 e <- new.env(); load(f, envir = e)
@@ -964,6 +987,20 @@ stopifnot(identical(x %in% 1L, c(TRUE, FALSE, FALSE)), identical(1L %in% x, TRUE
 	  inherits(tryCatch(as.xinteger(1:2, 4L, "unsigned") %in%
 			    as.xinteger(1:2, 8L, "unsigned"),
 			    error = identity), "error"))
+
+## a NULL operand is an absent one, not a foreign type: the set
+## operations reach match() with one whenever an argument is empty,
+## and must be answered there as they are for every other type
+stopifnot(identical(x %in% NULL, rep(FALSE, 3L)),
+	  identical(match(x, NULL), rep(NA_integer_, 3L)),
+	  identical(match(x, NULL, nomatch = 0L), rep(0L, 3L)),
+	  identical(match(NULL, x), integer(0)),
+	  identical(is.element(x, NULL), rep(FALSE, 3L)),
+	  identical(setdiff(x, NULL), x),
+	  identical(union(x, NULL), x),
+	  ## intersect() short circuits a NULL to NULL ahead of match(),
+	  ## for this type as for any other
+	  is.null(intersect(x, NULL)))
 
 ### the constructors take scalars
 

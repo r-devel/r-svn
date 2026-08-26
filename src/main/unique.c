@@ -1484,8 +1484,15 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     /* Handle zero length arguments -- except with an 'xinteger' operand in
        the pair: its foreign-type refusals live in the type settlement
        below and must apply at every length, so those pairs pass through
-       it first and take the same short circuits after it. */
-    bool anyXInt = (TYPEOF(ix) == XINTSXP || TYPEOF(itable) == XINTSXP);
+       it first and take the same short circuits after it.
+
+       A NULL operand is an absent one rather than a foreign type, as
+       do_relop_dflt() has it in rewriting NULL to integer(0) ahead of its
+       own dispatch, so it keeps the short circuits and never reaches
+       those refusals: setdiff(x, NULL) and the rest of the set operations
+       ask this for an empty table and must be answered, not refused. */
+    bool anyXInt = (TYPEOF(ix) == XINTSXP || TYPEOF(itable) == XINTSXP) &&
+	ix != R_NilValue && itable != R_NilValue;
     if (!anyXInt && n == 0) return allocVector(INTSXP, 0);
 
     SEXP ans;

@@ -169,12 +169,18 @@ save.image <- function (file = ".RData", version = NULL, ascii = FALSE,
     else outfile <- file
 
     ## save() can now fail before it opens anything -- a version too low
-    ## for what is being saved is settled first -- so with safe = FALSE
-    ## the destination may still be the caller's previous file, untouched.
-    ## Remove only a file this call is responsible for, and only if it is
-    ## there: removing one that was never created merely warns.
-    preexisting <- !safe && file.exists(outfile)
-    on.exit(if (!preexisting && file.exists(outfile)) file.remove(outfile))
+    ## for what is being saved is settled first -- so the destination can
+    ## come through exactly as it was.  Remove what this call wrote and
+    ## nothing else: with safe = FALSE that destination is the caller's own
+    ## file, which an error before the open must not cost them, while one
+    ## the writer did reach and left partial is still ours to clean up.
+    ## The safe = TRUE loop above picked a name nothing was at, so this
+    ## records it absent and every outcome there is a file we wrote.
+    before <- unlist(file.info(outfile)[c("size", "mtime")])
+    on.exit(if (file.exists(outfile) &&
+                !identical(before,
+                           unlist(file.info(outfile)[c("size", "mtime")])))
+                file.remove(outfile))
     save(list = names(.GlobalEnv), file = outfile,
          version = version, ascii = ascii, compress = compress,
          envir = .GlobalEnv, precheck = FALSE)
