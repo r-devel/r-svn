@@ -3506,13 +3506,12 @@ static SEXP i64_cumulate(SEXP call, const char *op, SEXP x)
     return ans;
 }
 
-static SEXP i64_absolute(SEXP call, const char *op, SEXP x)
+static SEXP i64_absolute(SEXP call, SEXP x)
 {
     R_xlen_t n = i64_length(x);
     const int64_t *p = i64_data(x);
     int has_na, uns = i64_unsigned(x);
     int64_t na = i64_na_test(x, &has_na);
-    int sign = !strcmp(op, "sign");
 
     SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
     int64_t *out = i64_data(ans);
@@ -3521,8 +3520,6 @@ static SEXP i64_absolute(SEXP call, const char *op, SEXP x)
 	int64_t v = p[i];
 	if (has_na && v == na)
 	    out[i] = na;
-	else if (sign)
-	    out[i] = uns ? (v != 0) : ((v > 0) - (v < 0));
 	else if (uns || v >= 0)
 	    out[i] = v;
 	else if (v == INT64_MIN) {
@@ -3702,8 +3699,13 @@ static SEXP i64_Math(SEXP call, SEXP opsym, SEXP args)
     if (!strcmp(op, "cumsum") || !strcmp(op, "cummax") || !strcmp(op, "cummin"))
 	return i64_cumulate(call, op, x);
 
-    if (!strcmp(op, "abs") || !strcmp(op, "sign"))
-	return i64_absolute(call, op, x);
+    /* abs() keeps the type, as it does for an integer vector.  sign() is
+       deliberately not here: it answers a double for every other numeric
+       type, so it is left to math1(), which renders the vector first.
+       Rounding cannot change a sign, and going through a double also keeps
+       the answer clear of this vector's NA domain. */
+    if (!strcmp(op, "abs"))
+	return i64_absolute(call, x);
 
     /* an integer is already rounded to any non-negative number of places */
     if (!strcmp(op, "floor") || !strcmp(op, "ceiling") || !strcmp(op, "trunc"))

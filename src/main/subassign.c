@@ -2312,9 +2312,6 @@ do_subassign2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("incompatible types (from %s to %s) in [[ assignment"),
 		  R_typeToChar(x), R_typeToChar(y));
 	}
-	UNPROTECT(2); /* x, y */
-	PROTECT(x);
-	PROTECT(y);
 
     altsxp_done:
 	/* If we stretched, we may have a new name. */

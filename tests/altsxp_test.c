@@ -24,19 +24,23 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    one with an ordering, so that sort() can reach its Set_region; and K_BARE
    registers neither a Traits method nor a Compare, which is the class
    R_ext/Altrep.h says has no notion of equality R could use; and K_HASH
-   hashes and compares for itself, so its bytes need not decide equality. */
-enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_N };
+   hashes and compares for itself, so its bytes need not decide equality.
+   K_MOD hashes for itself like K_HASH but reports K_CMP's element type at
+   K_CMP's width, so the two are matchable against each other while
+   disagreeing about how equality is decided -- the one pairing that can
+   put two different hash routes on the same table. */
+enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
-    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE
+    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
-    "bare_byte", "hash_byte"
+    "bare_byte", "hash_byte", "mod_byte"
 };
 
 static int test_kind(SEXP x)
@@ -288,7 +292,10 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     /* deliberately K_BYTE's element type at a different width */
     test_type_syms[K_TWIN] = byte_type;
     test_type_syms[K_PLAIN] = NULL;    /* no Elt_type method: see below */
-    test_type_syms[K_CMP] = install("altsxp_test_cmp");
+    SEXP cmp_type = install("altsxp_test_cmp");
+    test_type_syms[K_CMP] = cmp_type;
+    /* deliberately K_CMP's element type, at K_CMP's width */
+    test_type_syms[K_MOD] = cmp_type;
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -300,13 +307,15 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	   the class or it would collide with any other "plain_byte" */
 	if (k != K_PLAIN)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
-	/* K_BARE and K_HASH take the default Traits: no BITWISE_EQ */
-	if (k != K_BARE && k != K_HASH)
+	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ */
+	if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
     }
     R_set_altsxp_Compare_method(test_classes[K_CMP], test_compare);
     R_set_altsxp_Compare_method(test_classes[K_HASH], test_mod_compare);
     R_set_altsxp_Hash_method(test_classes[K_HASH], test_mod_hash);
+    R_set_altsxp_Compare_method(test_classes[K_MOD], test_mod_compare);
+    R_set_altsxp_Hash_method(test_classes[K_MOD], test_mod_hash);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

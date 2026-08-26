@@ -77,6 +77,11 @@ struct _HashData {
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
+    /* for ALTSXP: whether the table was hashed by its class's own Hash
+       method rather than by its element bytes.  Every operand hashed against
+       it has to take the same route, so the decision belongs to the table
+       and not to whichever object altsxphash() is looking at. */
+    Rboolean altsxpClassHash;
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -499,8 +504,21 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
     /* A class that hashes for itself is the only route when the bytes do not
        decide equality -- a float element type, say, where +0 and -0 are one
        value in two spellings.  It also reads the element where it lies, so
-       nothing is staged and the width cap below does not apply. */
-    if (R_altsxp_hashable(x))
+       nothing is staged and the width cap below does not apply.
+
+       Which route it is was settled for the table in HashTableSetup(), and
+       every operand hashed against that table has to take the same one:
+       sharing an element type is what lets two *different* classes be
+       matched, and one that hashes for itself would otherwise never land in
+       the bucket the other's bytes chose.  (Two classes that share an
+       element type and both hash for themselves must agree on the values,
+       which is part of what sharing the type promises; nothing here can
+       check that.) */
+    if (d->altsxpClassHash != R_altsxp_hashable(x))
+	error(_("cannot match elements of type '%s': one operand's class hashes for itself and the other's does not"),
+	      R_typeToChar(x));
+
+    if (d->altsxpClassHash)
 	return scatter(ALTSXP_HASH(x, indx), d);
 
     size_t esz = altsxp_hash_esz(x);
@@ -686,6 +704,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 {
     d->useUTF8 = FALSE;
     d->useCache = TRUE;
+    d->altsxpClassHash = FALSE;
     switch (TYPEOF(x)) {
     case LGLSXP:
 	d->hash = lhash;
@@ -745,6 +764,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	}
 	else
 	    altsxp_hash_esz(x);
+	d->altsxpClassHash = R_altsxp_hashable(x);
 	d->hash = altsxphash;
 	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);

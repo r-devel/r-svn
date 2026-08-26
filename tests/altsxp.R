@@ -2145,6 +2145,52 @@ local({
     stopifnot(is.list(c(i, u)))
 })
 
+## sign() answers a double for every numeric type, integer included, so it
+## does for these too -- it used to keep the opaque type, which also put the
+## answer under the input's NA domain.  abs() does keep the type, as it does
+## for an integer vector.
+local({
+    for (v in list(as.int64(c(-5, 0, 7)), as.uint64(c(0, 7)),
+                   as.int64(c(NA, -3)))) {
+        d <- as.double(v)
+        stopifnot(identical(typeof(sign(v)), "double"),
+                  identical(sign(v), sign(d)))
+    }
+    ## exact past 2^53, where the rendering rounds but the sign cannot
+    stopifnot(identical(sign(as.int64(c("9007199254740993",
+                                        "-9007199254740993", "0"))),
+                        c(1, -1, 0)))
+    ## and a whole-range vector is no longer read in its own NA domain
+    w <- as.int64(c("-9223372036854775808", "9223372036854775807"),
+                  na = FALSE)
+    stopifnot(identical(sign(w), c(-1, 1)))
+
+    stopifnot(identical(typeof(abs(as.int64(1:3))), "int64"),
+              identical(typeof(abs(as.uint64(1:3))), "uint64"),
+              identical(as.double(abs(as.int64(c(-5, 5)))), c(5, 5)))
+})
+
+## x[[i]] <- v on an opaque vector reaches the shared tail through a goto,
+## which used to be preceded by an UNPROTECT(2)/PROTECT/PROTECT that only the
+## fall-through path ran.  Exercise both paths with the GC on every allocation.
+local({
+    gctorture(TRUE)
+    for (i in 1:15) {
+        x <- as.int64(1:5); names(x) <- letters[1:5]
+        x[[2]] <- as.int64(99)
+        x[["f"]] <- as.int64(6)
+        stopifnot(identical(as.double(x), c(1, 99, 3, 4, 5, 6)),
+                  identical(names(x), c(letters[1:5], "f")))
+        m <- as.int64(1:6); dim(m) <- c(2L, 3L)
+        m[[2, 3]] <- as.int64(60)
+        stopifnot(identical(as.double(m), c(1, 2, 3, 4, 5, 60)))
+        l <- list(a = 1)
+        l[["b"]] <- as.int64(2)
+        stopifnot(identical(as.double(l$b), 2))
+    }
+    gctorture(FALSE)
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2339,6 +2385,32 @@ if (length(dll.paths)) local({
     ## NAs and anyNA() then contradicted is.na().  No base caller reaches
     ## set_na_region on an object that has been asked yet, so it takes the
     ## public entry point a package would use.
+    ## Which hash a table is keyed with is a property of the class, but the
+    ## table is built from one operand and probed with another: mod_byte
+    ## reports cmp_byte's element type, so the two are matchable, yet one
+    ## hashes for itself and the other by its bytes.  That used to key the
+    ## table one way and probe it the other, finding nothing and saying so
+    ## with an ordinary NA.
+    cmpb <- new.kind("cmp_byte", as.raw(c(1, 2, 3)))
+    modb <- new.kind("mod_byte", as.raw(c(1, 2, 3)))
+    stopifnot(identical(typeof(cmpb), typeof(modb)))
+    for (e in list(quote(match(modb, cmpb)), quote(match(cmpb, modb)),
+                   quote(modb %in% cmpb), quote(cmpb %in% modb))) {
+        err <- tryCatch(eval(e), error = identity)
+        stopifnot(inherits(err, "error"),
+                  grepl("hashes for itself", conditionMessage(err)))
+    }
+    ## each class on its own is unaffected, mod_byte's own hash included:
+    ## 0x01 and 0x11 are one value to it, two to a byte-wise class
+    stopifnot(identical(match(modb, modb), 1:3),
+              identical(match(cmpb, cmpb), 1:3),
+              identical(match(new.kind("mod_byte", as.raw(c(0x01, 0x11))),
+                              new.kind("mod_byte", as.raw(c(0x01, 0x11)))),
+                        c(1L, 1L)),
+              identical(match(new.kind("cmp_byte", as.raw(c(0x01, 0x11))),
+                              new.kind("cmp_byte", as.raw(c(0x01, 0x11)))),
+                        c(1L, 2L)))
+
     ## The default Elt_type built its "pkg::class" symbol on every call, with
     ## a one-slot cache that alternating two classes defeats -- and the header
     ## promises the method does not allocate.  It is now built once per class,
