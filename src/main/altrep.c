@@ -215,6 +215,7 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altsxp_Set_na_region_method_t Set_na_region;	\
     R_altsxp_Is_na_region_method_t Is_na_region;	\
     R_altsxp_Compare_method_t Compare;		\
+    R_altsxp_Hash_method_t Hash;			\
     R_altsxp_Format_method_t Format;			\
     R_altsxp_Arith_method_t Arith;			\
     R_altsxp_Relop_method_t Relop;			\
@@ -1459,6 +1460,32 @@ static int altsxp_Compare_default(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 			  "for equality", x);
 }
 
+/* Not reached: R_altsxp_hashable() below reports that this class has no hash
+   of its own, and the byte route is taken instead.  A class that declares
+   BITWISE_EQ needs no Hash method, since the bytes are the hash. */
+static unsigned int altsxp_Hash_default(SEXP x, R_xlen_t i)
+{
+    ALTREP_ERROR_IN_CLASS("ALTSXP class registers no 'Hash' method", x);
+}
+
+/* Whether this object can key a hash table on its own terms: it supplies a
+   Hash, and a Compare for the table to settle collisions with.  The other
+   route is R_ALTREP_TRAITS_BITWISE_EQ, which lets R do both from the bytes. */
+Rboolean R_altsxp_hashable(SEXP x)
+{
+    if (! IS_ALTSXP(x))
+	return FALSE;
+
+    altsxp_methods_t *m = ALTSXP_METHODS_TABLE(x);
+    return (Rboolean) (m->Hash != altsxp_Hash_default &&
+		       m->Compare != altsxp_Compare_default);
+}
+
+attribute_hidden unsigned int ALTSXP_HASH(SEXP x, R_xlen_t i)
+{
+    return ALTSXP_DISPATCH(Hash, x, i);
+}
+
 static SEXP altsxp_Format_default(SEXP x, R_xlen_t i, R_xlen_t n)
 {
     return NULL; /* the printer falls back to a summary line */
@@ -1869,6 +1896,7 @@ static altsxp_methods_t altsxp_default_methods = {
     .Set_na_region = altsxp_Set_na_region_default,
     .Is_na_region = altsxp_Is_na_region_default,
     .Compare = altsxp_Compare_default,
+    .Hash = altsxp_Hash_default,
     .Format = altsxp_Format_default,
     .Arith = altsxp_Arith_default,
     .Relop = altsxp_Relop_default,
@@ -2048,6 +2076,7 @@ DEFINE_METHOD_SETTER(altsxp, Set_region)
 DEFINE_METHOD_SETTER(altsxp, Set_na_region)
 DEFINE_METHOD_SETTER(altsxp, Is_na_region)
 DEFINE_METHOD_SETTER(altsxp, Compare)
+DEFINE_METHOD_SETTER(altsxp, Hash)
 DEFINE_METHOD_SETTER(altsxp, Format)
 DEFINE_METHOD_SETTER(altsxp, Arith)
 DEFINE_METHOD_SETTER(altsxp, Relop)

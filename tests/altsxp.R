@@ -1996,12 +1996,36 @@ if (length(dll.paths)) local({
                   grepl("invalid subscript type", conditionMessage(e),
                         fixed = TRUE))
 
+    ## A class whose bytes do not decide equality supplies its own Hash, and
+    ## a Compare for the table to settle collisions with.  hash_byte reads its
+    ## byte modulo 16, so 0x01 and 0x11 are one value in two spellings -- the
+    ## shape a floating element type has with +0 and -0, where declaring
+    ## BITWISE_EQ would be a lie.  Its elements are also 4096 bytes wide, and
+    ## Hash and Compare read them where they lie, so the staging-buffer cap
+    ## that stops wide_byte does not apply.
+    h <- new.kind("hash_byte", as.raw(c(1, 17, 2, 1)))
+    stopifnot(!is.numeric(h),
+              ## by value, not by bytes: 0x11 counts as 0x01
+              identical(contents(unique(h)), as.raw(c(1, 2))),
+              identical(match(h, h), c(1L, 1L, 3L, 1L)),
+              identical(duplicated(h), c(FALSE, TRUE, FALSE, TRUE)),
+              identical(anyDuplicated(h), 2L),
+              identical(h %in% new.kind("hash_byte", as.raw(17)),
+                        c(TRUE, TRUE, FALSE, TRUE)),
+              ## and Compare still orders it
+              identical(contents(sort(h)), as.raw(c(1, 17, 1, 2))))
+
+    ## the width cap is the byte route's, and only the byte route's
+    e <- tryCatch(unique(new.test(as.raw(1:4), wide = TRUE)), error = identity)
+    stopifnot(grepl("4096 bytes", conditionMessage(e), fixed = TRUE))
+
     ## The hash table refuses for two unrelated reasons, and they want
     ## different things done about them: no BITWISE_EQ, or an element wider
     ## than the staging buffers.  One message for both said neither.
     e <- tryCatch(unique(bare), error = identity)
     stopifnot(grepl("R_ALTREP_TRAITS_BITWISE_EQ", conditionMessage(e),
-                    fixed = TRUE))
+                    fixed = TRUE),
+              grepl("'Hash' method", conditionMessage(e), fixed = TRUE))
     e <- tryCatch(unique(new.test(as.raw(1:4), wide = TRUE)), error = identity)
     stopifnot(grepl("4096 bytes", conditionMessage(e), fixed = TRUE),
               !grepl("BITWISE_EQ", conditionMessage(e), fixed = TRUE))

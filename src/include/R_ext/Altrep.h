@@ -193,6 +193,14 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  R_ALTREP_TRAITS_BITWISE_EQ -- see the note on equality
  *                  below.  Only this one gives an order, so sort(), order(),
  *                  rank(), median() and the reductions need it either way.
+ *   Hash           a hash of x[i], for the table match() and unique() build.
+ *                  Optional, and only consulted when the class does not
+ *                  declare R_ALTREP_TRAITS_BITWISE_EQ -- with that bit R
+ *                  hashes the bytes itself.  Must agree with Compare: two
+ *                  elements Compare calls equal have to hash alike, or the
+ *                  table will not find them.  The reverse is free, as a hash
+ *                  may collide.  Like Compare it must not allocate, and it
+ *                  is asked only about elements Is_na_region called non-NA.
  *   Format         a character vector rendering positions i..i+n-1, or NULL
  *                  to decline.  Optional, because a class may exist only to
  *                  carry bytes between two places that understand them; R
@@ -279,6 +287,7 @@ typedef R_xlen_t
 typedef R_xlen_t
 (*R_altsxp_Is_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t, int *);
 typedef int (*R_altsxp_Compare_method_t)(SEXP, R_xlen_t, SEXP, R_xlen_t);
+typedef unsigned int (*R_altsxp_Hash_method_t)(SEXP, R_xlen_t);
 typedef SEXP (*R_altsxp_Format_method_t)(SEXP, R_xlen_t, R_xlen_t);
 typedef SEXP (*R_altsxp_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
 typedef SEXP (*R_altsxp_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
@@ -334,15 +343,29 @@ typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
                                  store an NA it is not nullable, whatever it
                                  might prefer to claim.
 
-   Equality is not optional.  A class must either declare
-   R_ALTREP_TRAITS_BITWISE_EQ, which lets R compare and hash the bytes
-   itself, or register a Compare method, which R then uses for equality as
-   well as for order.  A class that does neither has no notion of equality
-   that R could use, and identical(), match(), unique(), duplicated(), %in%,
-   table() and factor() all raise rather than guess: reading equal values as
-   unequal, or the reverse, is not something R can discover afterwards.  The
-   shape methods alone are still enough for subsetting, concatenation,
-   duplication and serialisation, which ask no such question.
+   Equality is not optional, and it is asked for in two strengths.
+
+   To be *compared* -- identical(), and the sorts, which need an order as
+   well -- a class must declare R_ALTREP_TRAITS_BITWISE_EQ, so that R may
+   use the bytes, or register a Compare method.
+
+   To be *hashed* -- match(), unique(), duplicated(), %in%, table() and
+   factor(), which build a hash table -- it must declare
+   R_ALTREP_TRAITS_BITWISE_EQ, or register both a Hash method and a Compare
+   for the table to settle collisions with.  Compare on its own is not
+   enough: without either the trait or a Hash there is nothing to key the
+   table on.
+
+   A class that offers none of these raises rather than guess, because
+   reading equal values as unequal, or the reverse, is not something R can
+   discover afterwards.  The shape methods alone remain enough for
+   subsetting, concatenation, duplication and serialisation, which ask no
+   such question.
+
+   R stages an element on the stack to hash or memcmp it, so the byte route
+   also caps the element width; a class whose elements are wider than that
+   escapes the cap by supplying Hash and Compare, which read the element
+   wherever it already lives.
 */
 
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
@@ -407,6 +430,7 @@ DECLARE_METHOD_SETTER(altsxp, Set_region)
 DECLARE_METHOD_SETTER(altsxp, Set_na_region)
 DECLARE_METHOD_SETTER(altsxp, Is_na_region)
 DECLARE_METHOD_SETTER(altsxp, Compare)
+DECLARE_METHOD_SETTER(altsxp, Hash)
 DECLARE_METHOD_SETTER(altsxp, Format)
 DECLARE_METHOD_SETTER(altsxp, Arith)
 DECLARE_METHOD_SETTER(altsxp, Relop)
@@ -442,6 +466,7 @@ SEXP R_allocVectorLike(SEXP proto, R_xlen_t n, Rboolean zeroinit);
 SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol, Rboolean zeroinit);
 SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
 Rboolean R_altsxp_nullable(SEXP x);
+Rboolean R_altsxp_hashable(SEXP x);
 SEXP R_altsxp_na_widen(SEXP x);
 
 const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type);

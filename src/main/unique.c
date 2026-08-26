@@ -496,6 +496,13 @@ static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
     R_altsxp_is_na_region(x, indx, 1, &na);
     if (na) return scatter(0u, d); /* all NAs hash alike */
 
+    /* A class that hashes for itself is the only route when the bytes do not
+       decide equality -- a float element type, say, where +0 and -0 are one
+       value in two spellings.  It also reads the element where it lies, so
+       nothing is staged and the width cap below does not apply. */
+    if (R_altsxp_hashable(x))
+	return scatter(ALTSXP_HASH(x, indx), d);
+
     size_t esz = altsxp_hash_esz(x);
     unsigned char buf[ALTREP_ELT_MAX_SIZE];
     const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
@@ -524,6 +531,14 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     R_altsxp_is_na_region(x, i, 1, &nax);
     R_altsxp_is_na_region(y, j, 1, &nay);
     if (nax || nay) return nax && nay; /* NA matches only NA */
+
+    /* Equality follows the same split as the hash: the bytes decide it only
+       for a class that says they do, and otherwise Compare does.  Both
+       operands are asked, since traits belong to the object rather than to
+       the class. */
+    if (! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
+	! (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ))
+	return ALTSXP_COMPARE(x, i, y, j) == 0;
 
     size_t esz = altsxp_hash_esz(x);
     /* Sharing an element type is a promise about the layout, so two operands
@@ -689,10 +704,13 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 	   them: the class has not said that bytes decide equality, or its
 	   element is wider than the staging buffers below.  A Compare method
 	   does not help either way -- this table hashes bytes. */
-	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ))
-	    error(_("cannot hash elements of type '%s': the class does not declare R_ALTREP_TRAITS_BITWISE_EQ"),
-		  R_typeToChar(x));
-	altsxp_hash_esz(x);
+	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ)) {
+	    if (! R_altsxp_hashable(x))
+		error(_("cannot hash elements of type '%s': the class declares neither R_ALTREP_TRAITS_BITWISE_EQ nor a 'Hash' method with a 'Compare' to go with it"),
+		      R_typeToChar(x));
+	}
+	else
+	    altsxp_hash_esz(x);
 	d->hash = altsxphash;
 	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);

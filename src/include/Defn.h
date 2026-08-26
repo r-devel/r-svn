@@ -750,6 +750,7 @@ R_xlen_t ALTREP_LENGTH(SEXP x);
 R_xlen_t ALTREP_TRUELENGTH(SEXP x);
 void *ALTVEC_DATAPTR(SEXP x);
 SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n);
+unsigned int ALTSXP_HASH(SEXP x, R_xlen_t i);
 int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j);
 SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y);
 SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y);
