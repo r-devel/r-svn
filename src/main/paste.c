@@ -536,11 +536,11 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	switch (TYPEOF(x)) {
 
 	case XINTSXP:
-	    /* hex elements are all the same width; decimal ones are not,
-	       so the common width has to be measured.  Rendered into the
-	       answer as they are measured rather than a second time, and
-	       padded only if there is padding to do -- rendering a
-	       128-bit decimal element is repeated division. */
+	    /* Decimal renderings vary in width, so the common width is
+	       measured rather than computed from XINT_WIDTH().  Rendered
+	       into the answer as they are measured rather than a second
+	       time, and padded only if there is padding to do -- rendering
+	       a 128-bit decimal element is repeated division. */
 	    {
 		PROTECT(y = allocVector(STRSXP, n));
 		w = 0;

@@ -1687,7 +1687,7 @@ static void xint2buff(SEXP v, LocalParseData *d)
 	    if (XINT_HAS_NA(v) && R_xintEltIsNA(p, w, k))
 		print2buff("NA_character_", d);
 	    else {
-		/* digits, '-' and hex only, so no escaping is in question */
+		/* digits and '-' only, so no escaping is in question */
 		print2buff("\"", d);
 		print2buff(R_xintEltRender(v, i), d);
 		print2buff("\"", d);
