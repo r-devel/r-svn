@@ -811,6 +811,17 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
     if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
 	mode = REALSXP;
+
+    if (mode == -1) {
+	/* Not a SEXPTYPE, so it may be the element type of an opaque class,
+	   which allocates and zeroes for itself -- only it knows what its
+	   zero is.  Consulted after str2type(), so no class can take over the
+	   meaning of a base type's name. */
+	SEXP proto = R_altsxp_type_prototype(CHAR(STRING_ELT(s, 0)));
+	if (proto != NULL)
+	    return R_allocVectorLike(proto, len, TRUE);
+    }
+
     switch (mode) {
     case LGLSXP:
     case INTSXP:

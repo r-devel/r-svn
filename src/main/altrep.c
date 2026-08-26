@@ -723,6 +723,106 @@ SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
     return ALTSXP_DISPATCH(New, proto, n, zeroinit);
 }
 
+/*
+ * Element type names
+ *
+ * vector("int64", n) and as.vector(x, "int64") name a type, and for an
+ * ordinary vector str2type() turns that name into the SEXPTYPE they allocate
+ * or coerce to.  An opaque class has no SEXPTYPE of its own -- every ALTSXP
+ * class shares one -- so a name has to resolve to a class instead.  What
+ * those functions need from a class is an object to build from, since
+ * R_allocVectorLike() and R_altsxp_coerce_from() both take a prototype.  So
+ * this table maps a name to a prototype rather than to a class, which also
+ * settles what a name can say about a trait belonging to the object rather
+ * than to the class: vector("int64", n) gives the type's default form, just
+ * as vector("integer", n) gives an ordinary integer vector, and
+ * .allocVectorLike() stays the way to keep a particular object's traits.
+ *
+ * The key is the element type, because that is what typeof() reports and so
+ * what a name has to mean here.  A class is entered only when it asks to be:
+ * an element type names a representation, two classes may share one, and R
+ * has no way to pick the owner by itself.  The name is still taken from the
+ * class's own Elt_type rather than passed in, so vector(typeof(x), n) cannot
+ * resolve to something typeof() would not call by that name.
+ */
+
+static SEXP EltTypeNames = NULL;
+
+/* Whether two class objects are the same class rather than two claiming one
+   name.  make_altrep_class() builds a fresh class object every time it runs,
+   so a reloaded package arrives with a new one; identity is the registered
+   (class, package) pair, which is what the serialization registry above keys
+   on too. */
+static Rboolean same_altrep_class(SEXP c1, SEXP c2)
+{
+    SEXP s1 = ALTREP_CLASS_SERIALIZED_CLASS(c1);
+    SEXP s2 = ALTREP_CLASS_SERIALIZED_CLASS(c2);
+
+    return (Rboolean)
+	(ALTREP_SERIALIZED_CLASS_CLSSYM(s1) == ALTREP_SERIALIZED_CLASS_CLSSYM(s2) &&
+	 ALTREP_SERIALIZED_CLASS_PKGSYM(s1) == ALTREP_SERIALIZED_CLASS_PKGSYM(s2));
+}
+
+attribute_hidden void R_register_altsxp_type(SEXP class)
+{
+    /* The class object is an acceptable prototype for New(); see the note on
+       the New method in R_ext/Altrep.h.  Length zero, so a class with no
+       meaningful zero is not asked to invent one here -- it refuses when
+       vector() asks for elements, which is where the refusal belongs. */
+    SEXP proto = PROTECT(((altsxp_methods_t *) CLASS_METHODS_TABLE(class))
+			 ->New(class, 0, FALSE));
+    if (! IS_ALTSXP(proto) || ALTREP_CLASS(proto) != class)
+	error("'%s' method did not return an object of its own class", "New");
+
+    SEXP name = ALTSXP_DISPATCH(Elt_type, proto);
+
+    if (EltTypeNames == NULL) {
+	EltTypeNames = CONS(R_NilValue, R_NilValue);
+	R_PreserveObject(EltTypeNames);
+    }
+
+    for (SEXP chain = CDR(EltTypeNames); chain != R_NilValue; chain = CDR(chain))
+	if (TAG(chain) == name) {
+	    if (same_altrep_class(ALTREP_CLASS(CAR(chain)), class))
+		SETCAR(chain, proto); /* re-registered, e.g. package reloaded */
+	    else
+		/* First registration wins.  A name reaches every caller of
+		   vector(), so a later class taking one over would change
+		   what unrelated code builds.  The loser keeps its own
+		   constructors, and a class that would rather not contest a
+		   bare name already has a qualified one: the default
+		   Elt_type is pkg::class. */
+		warning(_("element type '%s' is already registered by class '%s' in package '%s'"),
+			CHAR(PRINTNAME(name)),
+			CHAR(PRINTNAME(ALTREP_OBJECT_CLSSYM(CAR(chain)))),
+			CHAR(PRINTNAME(ALTREP_OBJECT_PKGSYM(CAR(chain)))));
+	    UNPROTECT(1); /* proto */
+	    return;
+	}
+
+    SEXP cell = CONS(proto, CDR(EltTypeNames));
+    SET_TAG(cell, name);
+    SETCDR(EltTypeNames, cell);
+    UNPROTECT(1); /* proto */
+}
+
+/* The prototype registered under this element type name, or NULL.  Callers
+   consult it only after str2type() has found nothing, so a class can never
+   take over the meaning of a base type's name. */
+attribute_hidden SEXP R_altsxp_type_prototype(const char *name)
+{
+    if (EltTypeNames == NULL || name == NULL)
+	return NULL;
+
+    /* compared as text rather than through install(): resolving to nothing
+       is the common case here, and symbols are never collected */
+    for (SEXP chain = CDR(EltTypeNames); chain != R_NilValue; chain = CDR(chain))
+	if (streql(CHAR(PRINTNAME(TAG(chain))), name))
+	    return CAR(chain);
+
+    return NULL;
+}
+
 /* How many of the n elements at i are actually in x.  Clamped at zero: a
    region method is a no-op when it is handed a start index past the end, and
    a negative count would otherwise reach pointer arithmetic as a huge

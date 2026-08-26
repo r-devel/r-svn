@@ -1832,10 +1832,10 @@ local({
 })
 
 ## mode(x) reports an opaque class's element type, but the type table maps
-## names to SEXPTYPEs and an element type is not one, so as.vector(x, mode(x))
-## and storage.mode(x) <- storage.mode(x) -- round trips that hold for every
-## other type -- both failed.  Both now match the name against the object's
-## own, which is what is.vector() has always done.
+## names to SEXPTYPEs and an element type is not one.  Two resolutions follow
+## from that, and the order between them matters: the object's own name is
+## the identity case, which keeps a trait belonging to this object that no
+## name could carry, and a registered name resolves to a class to build from.
 local({
     x <- as.int64(1:3)
     names(x) <- c("a", "b", "c")
@@ -1853,28 +1853,107 @@ local({
     storage.mode(y) <- storage.mode(y)
     stopifnot(identical(y, x))
 
+    ## The identity case is decided against the object, so it keeps the NA
+    ## domain, which is per object; resolving the same name through the class
+    ## would have replaced it with the type's default form.
+    nn <- as.int64(1:3, na = FALSE)
+    stopifnot(identical(as.vector(nn, "int64"), nn))
+    v <- as.vector(nn, "int64")
+    assertError(v[1L] <- NA)
+    w <- nn
+    storage.mode(w) <- "int64"
+    stopifnot(identical(w, nn))
+
     ## The two classes must not become synonyms: they share a SEXPTYPE, so
-    ## resolving either name to ALTSXP would make this silently answer with
-    ## the other one.
+    ## resolving either name to ALTSXP alone would make this silently answer
+    ## with the other one.  Here the class declines -- int64 and uint64 have
+    ## no common representation -- and as.uint64() is the explicit route.
     assertError(as.vector(x, "uint64"))
     assertError(as.vector(u, "int64"))
     assertError(`storage.mode<-`(x, "uint64"))
     stopifnot(!is.vector(x, "uint64"), is.vector(x, "int64"))
 
-    ## Converting *into* an opaque class by name is a different question and
-    ## is still not this; as.int64() and mode<- are the routes that work.
-    assertError(as.vector(1:3, "int64"))
-    assertError(vector("int64", 3L))
-    assertError(`storage.mode<-`(1:3, "int64"))
+    ## converting *into* a class by name, which is what a name resolving to a
+    ## class buys: the class builds the object from the ordinary vector
+    stopifnot(identical(as.vector(1:3, "int64"), as.int64(1:3)),
+              identical(as.vector(c(1, 2, 3), "int64"), as.int64(1:3)),
+              identical(as.vector("9007199254740993", "int64"),
+                        as.int64("9007199254740993")),
+              typeof(as.vector(1:3, "uint64")) == "uint64",
+              is.null(names(as.vector(c(a = 1L), "int64"))))
+    assertError(as.vector(list(1), "int64"))
+
+    z <- 1:3
+    storage.mode(z) <- "int64"
+    stopifnot(identical(z, as.int64(1:3)))
     z <- 1:3
     mode(z) <- "int64"
     stopifnot(typeof(z) == "int64")
+
+    ## storage.mode<- keeps attributes, as it does for the base types
+    m <- matrix(1:6, 2L, 3L)
+    storage.mode(m) <- "int64"
+    stopifnot(typeof(m) == "int64", identical(dim(m), c(2L, 3L)),
+              identical(as.double(m), as.double(1:6)))
 
     ## nothing moved for the base types
     stopifnot(identical(as.vector(1:3, "integer"), 1:3),
               identical(as.vector(1:3, mode(1:3)), as.double(1:3)),
               identical(as.vector(x, "double"), as.double(1:3)),
               typeof(as.vector(x, "altrep")) == "int64")
+    assertError(as.vector(1:3, "altrep"))
+})
+
+## vector() resolves its mode through the type table too, and an element type
+## is not a SEXPTYPE, so an opaque class was unreachable by name.  A class
+## that has claimed its element type builds the zero-filled vector itself --
+## only it knows what its zero is.
+local({
+    stopifnot(identical(vector("int64", 3L), int64(3L)),
+              identical(vector("int64"), int64()),
+              identical(vector("uint64", 3L), uint64(3L)),
+              identical(vector("int64", 3L), .allocVectorLike(int64(), 3L)),
+              typeof(vector("uint64", 2L)) == "uint64")
+
+    ## the elements are the type's zero, as they are for every other mode
+    stopifnot(identical(as.double(vector("int64", 4L)), rep(0, 4L)),
+              !anyNA(vector("int64", 4L)),
+              identical(as.double(vector("uint64", 4L)), rep(0, 4L)))
+
+    ## A name gives the type's default form.  A trait that belongs to the
+    ## object rather than to the type is what .allocVectorLike() carries over
+    ## instead, and no name could.
+    v <- vector("int64", 2L)
+    v[1L] <- NA
+    stopifnot(is.na(v[1L]))
+    w <- .allocVectorLike(as.int64(1L, na = FALSE), 2L)
+    assertError(w[1L] <- NA)
+
+    ## the length argument is checked as it is for the base types
+    assertError(vector("int64", -1L))
+    assertError(vector("int64", c(1L, 2L)))
+    assertError(vector("int64", NA_integer_))
+
+    ## the type table still wins, and a name no class has claimed is still an
+    ## error -- with the message vector() has always given
+    stopifnot(identical(vector("integer", 2L), c(0L, 0L)),
+              identical(vector("numeric", 2L), c(0, 0)),
+              identical(vector("list", 2L), list(NULL, NULL)))
+    e <- tryCatch(vector("no_such_type", 2L), error = identity)
+    stopifnot(grepl("cannot make a vector of mode", conditionMessage(e),
+                    fixed = TRUE))
+    assertError(vector("altrep", 2L))
+
+    ## vector(typeof(x), n) round trips, which is why the name a class claims
+    ## is its own element type rather than one it registers separately
+    for (p in list(int64(1L), uint64(1L), TRUE, 1L, 1.5, 1i, "a", as.raw(1),
+                   list()))
+        stopifnot(identical(vector(typeof(p), 3L), .allocVectorLike(p, 3L)))
+
+    gctorture(TRUE)
+    stopifnot(identical(vector("int64", 40L), int64(40L)),
+              identical(as.vector(1:5, "uint64"), as.uint64(1:5)))
+    gctorture(FALSE)
 })
 
 ## --- generic ALTSXP region-contract regressions ----------------------
@@ -2046,6 +2125,24 @@ if (length(dll.paths)) local({
                         as.raw(sort(as.integer(jumbled)))),
               identical(contents(cmp[3:5]), jumbled[3:5]),
               identical(match(cmp, cmp), match(jumbled, jumbled)))
+
+    ## Reaching a class by name is opt-in: an element type names a
+    ## representation and two classes may share one (twin_byte shares
+    ## short_byte's), so R cannot pick the owner by itself.  None of these
+    ## classes has claimed a name, so none is reachable by one -- including
+    ## the qualified name the default Elt_type builds for plain_byte.
+    b <- new.test(as.raw(1:4))
+    plain <- new.kind("plain_byte", as.raw(1:4))
+    stopifnot(typeof(b) == "altsxp_test_byte",
+              typeof(plain) == "altsxpTest::plain_byte")
+    for (nm in c("altsxp_test_byte", "altsxpTest::plain_byte")) {
+        assertError(vector(nm, 2L))
+        assertError(as.vector(as.raw(1:2), nm))
+        assertError(`storage.mode<-`(as.raw(1:2), nm))
+    }
+    ## the identity resolution needs no registration, and still works
+    stopifnot(identical(as.vector(b, typeof(b)), b),
+              identical(as.vector(plain, typeof(plain)), plain))
 })
 
 cat("altsxp tests OK\n")

@@ -1546,20 +1546,25 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
     const char *modestr = CHAR(STRING_ELT(CADR(args), 0)); /* ASCII */
     int type = (!strcmp("function", modestr)) ? CLOSXP : str2type(modestr);
 
-    /* A registered ALTSXP class names itself by its element type, which is
-       not a SEXPTYPE and so is not in the type table.  Matching that name
-       against the object's own -- which is what is.vector() does -- is all
-       as.vector(x, mode(x)) needs to be the identity-and-drop-attributes it
-       is for every other type.  Only when str2type() found nothing, so a
-       class whose element type shadows a base type name does not take that
-       name's meaning here.  Converting *into* an opaque class by name is a
-       different question, and needs a registry keyed on the element type. */
-    if ((SEXPTYPE) type == (SEXPTYPE) -1 && TYPEOF(x) == ALTSXP &&
-	streql(modestr, R_typeToChar(x)))
-	type = ALTSXP;
+    /* An ALTSXP class names itself by its element type, which is not a
+       SEXPTYPE and so is not in the type table.  Two resolutions, and the
+       order matters: the object's own name is the identity case, which
+       preserves traits belonging to this object that no name could carry,
+       and a registered name is a conversion into that class.  Both only
+       when str2type() found nothing, so a class whose element type shadows
+       a base type name does not take that name's meaning here. */
+    SEXP proto = NULL;
+    if ((SEXPTYPE) type == (SEXPTYPE) -1) {
+	if (TYPEOF(x) == ALTSXP && streql(modestr, R_typeToChar(x)))
+	    type = ALTSXP;
+	else if ((proto = R_altsxp_type_prototype(modestr)) != NULL)
+	    type = ALTSXP;
+    }
 
-    /* "any" case added in 2.13.0 */
-    if(type == ANYSXP || TYPEOF(x) == type) {
+    /* "any" case added in 2.13.0.  Not for a conversion into a named class:
+       x may already be an ALTSXP, and every ALTSXP shares one SEXPTYPE, so
+       TYPEOF(x) == type would return an object of the wrong class here. */
+    if(proto == NULL && (type == ANYSXP || TYPEOF(x) == type)) {
 	switch(TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1600,6 +1605,23 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(v == R_NilValue)
 	    error(_("no method for coercing this S4 class to a vector"));
 	x = v;
+    }
+
+    if(proto != NULL) {
+	/* Into an opaque class: the class builds the object, since only it
+	   knows its representation.  Declining is a type error, as having no
+	   conversion between two types is anywhere else. */
+	ans = R_altsxp_coerce_from(proto, x);
+	if(ans == NULL)
+	    error(_(COERCE_ERROR_STRING), R_typeToChar(x), modestr);
+	if(ATTRIB(ans) != R_NilValue) { /* as above, dropped on a copy */
+	    PROTECT(ans);
+	    if(MAYBE_REFERENCED(ans))
+		ans = duplicate(ans);
+	    UNPROTECT(1);
+	    CLEAR_ATTRIB(ans);
+	}
+	return ans;
     }
 
     switch(type) {/* only those are valid : */
@@ -3234,10 +3256,15 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
     const char *valstr = CHAR(STRING_ELT(value, 0));
     SEXPTYPE type = str2type(valstr);
     /* as in do_asvector(): an opaque class names itself by its element type,
-       so storage.mode(x) <- storage.mode(x) resolves against the object */
-    if(type == (SEXPTYPE) -1 && TYPEOF(obj) == ALTSXP &&
-       streql(valstr, R_typeToChar(obj)))
-	type = ALTSXP;
+       the object's own name being the identity case and a registered one a
+       conversion */
+    SEXP proto = NULL;
+    if(type == (SEXPTYPE) -1) {
+	if(TYPEOF(obj) == ALTSXP && streql(valstr, R_typeToChar(obj)))
+	    type = ALTSXP;
+	else if((proto = R_altsxp_type_prototype(valstr)) != NULL)
+	    type = ALTSXP;
+    }
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {
 	    error("use of 'real' is defunct: use 'double' instead");
@@ -3246,10 +3273,21 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else
 	    error(_("invalid value"));
     }
-    if(TYPEOF(obj) == type) return obj;
+    /* not on a conversion into a named class: every ALTSXP shares one
+       SEXPTYPE, so this would make storage.mode(<uint64>) <- "int64" a
+       silent no-op rather than a conversion */
+    if(proto == NULL && TYPEOF(obj) == type) return obj;
     if(isFactor(obj))
 	error(_("invalid to change the storage mode of a factor"));
-    SEXP ans = PROTECT(coerceVector(obj, type));
+    SEXP ans;
+    if(proto != NULL) {
+	ans = R_altsxp_coerce_from(proto, obj);
+	if(ans == NULL)
+	    error(_(COERCE_ERROR_STRING), R_typeToChar(obj), valstr);
+    }
+    else
+	ans = coerceVector(obj, type);
+    PROTECT(ans);
     SHALLOW_DUPLICATE_ATTRIB(ans, obj); // keeping attributes plus OBJECT & S4 bits
     UNPROTECT(1);
     return ans;

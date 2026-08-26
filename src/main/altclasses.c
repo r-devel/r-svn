@@ -3776,6 +3776,11 @@ static void Init64BitIntegerClasses(void)
 
     InitOne64Class(int64_class);
     InitOne64Class(uint64_class);
+
+    /* so that vector("int64", n), as.vector(x, "int64") and
+       storage.mode(x) <- "int64" resolve the name to this class */
+    R_register_altsxp_type(R_SEXP(int64_class));
+    R_register_altsxp_type(R_SEXP(uint64_class));
 }
 
 /* .Internal(as.int64(x, unsigned, na)) -- the one entry point behind

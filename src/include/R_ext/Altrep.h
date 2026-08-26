@@ -168,6 +168,16 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  object's NA domain is a trait R has to negotiate (see
  *                  R_ALTREP_TRAITS_NOT_NULLABLE and Na_widen), so R asks for
  *                  NA through Set_na_region, where a refusal can be handled.
+ *
+ *                  New is also what makes a class reachable by name, from
+ *                  vector("int64", n) and as.vector(x, "int64"): a class may
+ *                  claim its Elt_type as a type name, and R then keeps a
+ *                  zero-length instance of it to build from.  Claiming a
+ *                  name is deliberately separate from having an Elt_type,
+ *                  since an element type names a representation and two
+ *                  classes may share one, and the first claim on a name
+ *                  wins.  Only base's classes do so far -- the entry point
+ *                  is not part of the API yet.
  *   Get_region     copy n elements starting at i into buf.
  *   Set_region     copy n elements from buf into positions i..i+n-1.
  *   Set_na_region  set positions i..i+n-1 to the class's NA element.

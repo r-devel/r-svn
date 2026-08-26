@@ -58,6 +58,14 @@ is.uint64(x)
   fails if the whole-range operand actually holds the reserved value, just
   as \code{\link{c}} does.
 
+  Both types are reachable by name, so \code{\link{vector}("int64", n)},
+  \code{\link{as.vector}(x, "int64")} and \code{\link{storage.mode}(x) <-
+  "int64"} work as they do for the built-in types.  A name gives the
+  default form, which reserves a pattern for \code{NA}; \code{as.int64(x,
+  na = FALSE)} is the only way to ask for the other one, since whether a
+  vector can be \code{NA} is a property of the object rather than of the
+  type.
+
   \code{\link{typeof}} is also the implicit class, so \code{print.int64}
   or \code{format.uint64} methods are dispatched to as usual.
   \code{\link{deparse}} and \code{\link{dput}} write a call to
