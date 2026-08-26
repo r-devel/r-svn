@@ -2892,13 +2892,19 @@ static int i64_No_NA(SEXP x)
     if (m[I64_NO_NA])
 	return TRUE;
 
-    R_xlen_t n = i64_length(x);
-    const int64_t *p = i64_data(x);
     int has_na;
     int64_t na = i64_na_test(x, &has_na);
 
+    /* a vector whose domain excludes NA has none by construction */
+    if (! has_na) {
+	m[I64_NO_NA] = TRUE;
+	return TRUE;
+    }
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
     for (R_xlen_t i = 0; i < n; i++)
-	if (has_na && p[i] == na)
+	if (p[i] == na)
 	    return FALSE;
 
     m[I64_NO_NA] = TRUE;

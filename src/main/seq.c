@@ -223,6 +223,16 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     }
     PROTECT(by);
 
+    /* A zero step divides by zero below.  A class whose domain excludes NA
+       answers that with an error rather than an NA, and the message would be
+       about NA representability where the real complaint is about 'by', so
+       the division is not reached at all: the caller has the message. */
+    double dby = asReal(by);
+    if (dby == 0 || ISNAN(dby)) {
+	UNPROTECT(4);
+	return NULL;
+    }
+
     SEXP nsteps = R_altsxp_arith_sym(call, "%/%", diff, by);
     double dn = (nsteps == NULL) ? NA_REAL : asReal(nsteps);
     /* a wrong-signed or zero step gives a negative or infinite count; the

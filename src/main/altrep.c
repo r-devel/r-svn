@@ -1017,7 +1017,17 @@ attribute_hidden int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 
 attribute_hidden SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n)
 {
-    return IS_ALTSXP(x) ? ALTSXP_DISPATCH(Format, x, i, n) : NULL;
+    if (! IS_ALTSXP(x))
+	return NULL;
+
+    SEXP val = ALTSXP_DISPATCH(Format, x, i, n);
+    /* Callers index the answer at the count they asked for, so a class that
+       under-delivers has to be caught here rather than surfacing as an
+       out-of-range STRING_ELT() somewhere downstream. */
+    if (val != NULL && (TYPEOF(val) != STRSXP || XLENGTH(val) != n))
+	error(_("'%s' method reported too few elements"), "Format");
+
+    return val;
 }
 
 /* Methods are handed the operator as a symbol rather than the PRIMSXP, which

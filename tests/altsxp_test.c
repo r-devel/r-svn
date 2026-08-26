@@ -36,21 +36,24 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    claims base int64's element type at int64's width without being one of
    its objects, which is what the header offers as the interop mechanism: it
    must be read through its region method, never by casting whatever it
-   keeps in data1 (one byte per element, here). */
+   keeps in data1 (one byte per element, here).  K_SHORTFMT registers a
+   Format method that answers one element fewer than it was asked for, which
+   pins the count contract for Format as the region methods above pin theirs. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_FAKE64, K_N };
+       K_FAKE64, K_SHORTFMT, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
     1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
-    sizeof(int64_t)
+    sizeof(int64_t), 1
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
-    "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64"
+    "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64",
+    "shortfmt_byte"
 };
 
 static int test_kind(SEXP x)
@@ -127,6 +130,22 @@ static int test_mod_compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 static unsigned int test_mod_hash(SEXP x, R_xlen_t i)
 {
     return (unsigned int) test_mod_value(x, i) * 2654435761u;
+}
+
+/* deliberately one element short of what it was asked for: every consumer
+   indexes the answer at the count it requested */
+static SEXP test_short_format(SEXP x, R_xlen_t i, R_xlen_t n)
+{
+    R_xlen_t give = n > 0 ? n - 1 : 0;
+    SEXP ans = PROTECT(allocVector(STRSXP, give));
+    const Rbyte *p = RAW(R_altrep_data1(x));
+    char buf[32];
+    for (R_xlen_t k = 0; k < give; k++) {
+	snprintf(buf, sizeof buf, "%d", (int) p[i + k]);
+	SET_STRING_ELT(ans, k, mkChar(buf));
+    }
+    UNPROTECT(1);
+    return ans;
 }
 
 static SEXP test_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
@@ -330,6 +349,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_BOTH] = cmp_type;
     /* deliberately base int64's element type, at base int64's width */
     test_type_syms[K_FAKE64] = install("int64");
+    test_type_syms[K_SHORTFMT] = install("altsxp_test_shortfmt");
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -358,6 +378,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Compare_method(test_classes[K_BOTH], test_mod_compare);
     R_set_altsxp_Hash_method(test_classes[K_BOTH], test_mod_hash);
     R_set_altsxp_Compare_method(test_classes[K_FAKE64], test_fake64_compare);
+    R_set_altsxp_Format_method(test_classes[K_SHORTFMT], test_short_format);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

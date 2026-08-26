@@ -5109,14 +5109,18 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	default:
 	    UNIMPLEMENTED_TYPE("writeBin", object);
 	}
-	/* R_alloc, not R_Calloc: the ALTSXP arm below calls into class code,
-	   which may raise an error, and the R_Free() at the end of the block
-	   would be jumped over -- len * size bytes, unbounded for a long
-	   vector.  R_alloc unwinds with the context, as readBin's opaque arm
-	   and orderVector1() already do.  Every arm fills the whole buffer,
-	   so nothing here wanted the zeroing. */
+	/* Only the ALTSXP arm below calls into class code, which may raise an
+	   error and longjmp past the R_Free() -- len * size bytes, unbounded
+	   for a long vector.  Its buffer comes from R_alloc, which unwinds
+	   with the context, as readBin's opaque arm and orderVector1() do.
+	   The base types keep malloc: R_alloc would draw len * size bytes
+	   from the R heap, where they count against --max-vsize and can
+	   trigger a GC that writeBin() has never needed.  Every arm fills the
+	   whole buffer, so the ALTSXP one does not want the zeroing. */
+	Rboolean altsxp = TYPEOF(object) == ALTSXP;
 	const void *vmax = vmaxget();
-	char *buf = R_alloc((size_t) len, size);
+	char *buf = altsxp ? R_alloc((size_t) len, size)
+	                   : R_chk_calloc(len, size);
 	R_xlen_t j;
 	switch(TYPEOF(object)) {
 	case LGLSXP:
@@ -5224,6 +5228,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    size_t nwrite = con->write(buf, size, len, con);
 	    if(nwrite < len) warning(_("problem writing to connection"));
 	}
+	if (!altsxp) R_Free(buf);
 	vmaxset(vmax);
     }
 

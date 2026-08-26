@@ -2330,6 +2330,29 @@ local({
                         capture.output(print(c(1L, 1000000L)))))
 })
 
+## A zero 'by' divides by zero building the step count.  A vector whose
+## domain excludes NA answers that with an error of its own, so seq() reported
+## a problem with NA representability where the complaint is about 'by'.
+local({
+    ref <- tryCatch(seq(1L, 5L, by = 0), error = conditionMessage)
+    for (na in c(TRUE, FALSE)) {
+        one <- as.int64(1, na = na)
+        five <- as.int64(5, na = na)
+        stopifnot(identical(tryCatch(seq(one, five, by = as.int64(0, na = na)),
+                                     error = conditionMessage), ref),
+                  identical(tryCatch(seq(one, five, by = 0),
+                                     error = conditionMessage), ref))
+        ## the neighbouring complaints are unchanged
+        stopifnot(identical(tryCatch(seq(one, five, by = as.int64(-1, na = na)),
+                                     error = conditionMessage),
+                            tryCatch(seq(1L, 5L, by = -1),
+                                     error = conditionMessage)))
+        ## and an ordinary step still works
+        stopifnot(identical(as.double(seq(one, five, by = as.int64(2, na = na))),
+                            c(1, 3, 5)))
+    }
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2524,6 +2547,25 @@ if (length(dll.paths)) local({
     ## NAs and anyNA() then contradicted is.na().  No base caller reaches
     ## set_na_region on an object that has been asked yet, so it takes the
     ## public entry point a package would use.
+    ## Every consumer indexes the Format method's answer at the count it
+    ## asked for, so a class that under-delivers has to be told off by name
+    ## rather than surfacing as an out-of-range STRING_ELT downstream.  The
+    ## region methods have had this contract from the start; Format did not.
+    short <- new.kind("shortfmt_byte", as.raw(c(1, 2, 3)))
+    for (e in list(quote(print(short)), quote(format(short)),
+                   quote(cat(short, "\n")),
+                   quote({ m <- short; dim(m) <- c(3L, 1L); print(m) }),
+                   quote(write.table(short, tempfile())))) {
+        err <- tryCatch(eval(e), error = identity)
+        stopifnot(inherits(err, "error"),
+                  identical(conditionMessage(err),
+                            "'Format' method reported too few elements"))
+    }
+    ## a class with no Format at all still just says so
+    stopifnot(grepl("no method to format",
+                    conditionMessage(tryCatch(format(new.test(as.raw(1:3))),
+                                              error = identity))))
+
     ## A class that shares base int64's element type is not one of int64's
     ## objects: the shared name promises the C type of an element, not where
     ## the other class keeps it.  fake_int64 stores one byte per element, so
