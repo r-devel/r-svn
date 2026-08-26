@@ -1719,6 +1719,27 @@ local({
     stopifnot(identical(names(u), c("a", "b")))
 })
 
+## format.info() rejected an opaque vector with "atomic vector arguments
+## only", though is.atomic() calls it one.  It reports the width format()
+## lays the vector out to, so the two have to agree.
+local({
+    x <- as.int64(c(1L, 22L, 333L))
+    stopifnot(identical(format.info(x), format.info(c(1L, 22L, 333L))),
+              identical(format.info(x)[[1L]], max(nchar(format(x)))))
+
+    ## an NA counts for the width of the na.print string, as for an integer
+    y <- as.int64(c(1L, NA))
+    stopifnot(identical(format.info(y), format.info(c(1L, NA))),
+              identical(format.info(y)[[1L]], max(nchar(format(y)))))
+
+    ## and the wide values format() exists for
+    big <- as.int64("9223372036854775807")
+    stopifnot(identical(format.info(big)[[1L]], 19L))
+
+    ## an empty vector reports formatInteger()'s floor, not zero
+    stopifnot(identical(format.info(int64()), format.info(integer())))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
