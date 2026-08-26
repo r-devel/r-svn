@@ -1649,6 +1649,23 @@ local({
     stopifnot(identical(as.character(na.omit(d)$a), c("1", "3")))
 })
 
+## object.size() errored on any opaque vector.  The element type is opaque
+## but its width is not, so the vector is charged for the bytes it would take
+## laid out -- what object.size() already reports for a compact ALTREP
+## integer, which it also charges as if it were materialised.
+local({
+    n <- 100L
+    small <- object.size(int64(n))
+    stopifnot(inherits(small, "object_size"),
+              as.numeric(small) > 8 * n,
+              ## and it grows with the length, so the payload is counted
+              as.numeric(object.size(int64(2L * n))) >
+              as.numeric(small) + 8 * n - 64)
+
+    ## an opaque vector reached through a list is charged too
+    stopifnot(as.numeric(object.size(list(int64(n)))) > 8 * n)
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
