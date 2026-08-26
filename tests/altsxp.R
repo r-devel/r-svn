@@ -1580,6 +1580,28 @@ local({
     stopifnot(identical(!int64(), logical()))
 })
 
+## print() of an empty opaque vector reported the *rendering* it had just
+## built -- "character(0)" -- under the header line.  The header already says
+## the type and the length, which is all "integer(0)" says for a base vector.
+local({
+    stopifnot(identical(capture.output(print(int64())), "<int64[0]>"))
+
+    z <- int64()
+    names(z) <- character()
+    stopifnot(identical(capture.output(print(z)), "<int64[0]>"))
+
+    ## inside a list, where the element printer runs recursively
+    stopifnot(identical(capture.output(print(list(int64()))),
+                        c("[[1]]", "<int64[0]>", "")))
+
+    ## a zero-extent array keeps its margins, as an empty base one does
+    m <- int64()
+    dim(m) <- c(0L, 3L)
+    stopifnot(identical(capture.output(print(m)),
+                        c("<int64[0]>", capture.output(print(array(integer(),
+                                                                  c(0L, 3L)))))))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set

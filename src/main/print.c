@@ -974,13 +974,19 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 			UNPROTECT(1);
 		    }
 		}
-		else {
+		else if (n_ > 0) {
 		    SEXP nms = getAttrib(s, R_NamesSymbol);
 		    if (nms != R_NilValue)
 			printNamedVector(fmt, nms, 0, NULL);
 		    else
 			printVector(fmt, 1, 0);
 		}
+		/* Nothing more for an empty vector: the header already gave
+		   the type and the length, which is all "integer(0)" says
+		   for an ordinary one.  The vector printers would announce
+		   the *rendering* instead, as "character(0)".  A zero-extent
+		   array still takes the branch above, which prints its
+		   margins. */
 		UNPROTECT(1); /* t */
 	    }
 	    UNPROTECT(1); /* fmt */
