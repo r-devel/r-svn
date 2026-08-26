@@ -2149,6 +2149,12 @@ static SEXP UInt64Symbol = NULL;
 
 enum { I64_SORTED = 0, I64_NO_NA, I64_NULLABLE_FIELD, I64_META_N };
 
+/* I64_NO_NA is three-valued, so that a vector known to *contain* an NA is
+   not rescanned either: a scan that finds one is as final an answer as a
+   scan that does not.  Zero is "not looked yet", which is what a fresh
+   vector and a writable Dataptr both leave behind. */
+enum { I64_NA_UNKNOWN = 0, I64_NA_ABSENT, I64_NA_PRESENT };
+
 /* Whether the domain includes NA is a property of the object, not of the
    class or of the element type.  A nullable vector reserves one bit pattern
    (INT64_MIN, or UINT64_MAX when unsigned) as NA; a non-nullable one has the
@@ -2225,7 +2231,7 @@ static SEXP i64_alloc(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 	memset(RAW(data), 0, (size_t) n * sizeof(int64_t));
     SEXP meta = PROTECT(allocVector(INTSXP, I64_META_N));
     INTEGER(meta)[I64_SORTED] = UNKNOWN_SORTEDNESS;
-    INTEGER(meta)[I64_NO_NA] = 0;
+    INTEGER(meta)[I64_NO_NA] = I64_NA_UNKNOWN;
     INTEGER(meta)[I64_NULLABLE_FIELD] = ALTREP(proto) ? I64_NULLABLE(proto) : 1;
 
     SEXP ans = R_new_altrep(i64_class_of(proto), data, meta);
@@ -2564,7 +2570,7 @@ static void *i64_Dataptr(SEXP x, Rboolean writable)
     if (writable) {
 	int *m = INTEGER(I64_META(x));
 	m[I64_SORTED] = UNKNOWN_SORTEDNESS;
-	m[I64_NO_NA] = 0;
+	m[I64_NO_NA] = I64_NA_UNKNOWN;
     }
     return DATAPTR_RW(I64_DATA(x));
 }
@@ -2865,6 +2871,10 @@ static int i64_Is_sorted(SEXP x)
     int *m = INTEGER(I64_META(x));
     if (m[I64_SORTED] != UNKNOWN_SORTEDNESS)
 	return m[I64_SORTED];
+    /* an NA anywhere makes the answer unknown, and that will not change
+       until the contents do */
+    if (m[I64_NO_NA] == I64_NA_PRESENT)
+	return UNKNOWN_SORTEDNESS;
 
     R_xlen_t n = i64_length(x);
     const int64_t *p = i64_data(x);
@@ -2873,8 +2883,10 @@ static int i64_Is_sorted(SEXP x)
     int uns = i64_unsigned(x), incr = TRUE, decr = TRUE;
 
     for (R_xlen_t i = 0; i < n; i++) {
-	if (has_na && p[i] == na)
+	if (has_na && p[i] == na) {
+	    m[I64_NO_NA] = I64_NA_PRESENT;
 	    return UNKNOWN_SORTEDNESS;
+	}
 	if (i > 0) {
 	    int c = i64_cmp(p[i], p[i - 1], uns);
 	    if (c < 0) incr = FALSE;
@@ -2882,6 +2894,8 @@ static int i64_Is_sorted(SEXP x)
 	}
     }
 
+    /* the scan reached the end, so there is no NA either */
+    m[I64_NO_NA] = I64_NA_ABSENT;
     m[I64_SORTED] = incr ? SORTED_INCR : (decr ? SORTED_DECR : KNOWN_UNSORTED);
     return m[I64_SORTED];
 }
@@ -2889,25 +2903,27 @@ static int i64_Is_sorted(SEXP x)
 static int i64_No_NA(SEXP x)
 {
     int *m = INTEGER(I64_META(x));
-    if (m[I64_NO_NA])
-	return TRUE;
+    if (m[I64_NO_NA] != I64_NA_UNKNOWN)
+	return m[I64_NO_NA] == I64_NA_ABSENT;
 
     int has_na;
     int64_t na = i64_na_test(x, &has_na);
 
     /* a vector whose domain excludes NA has none by construction */
     if (! has_na) {
-	m[I64_NO_NA] = TRUE;
+	m[I64_NO_NA] = I64_NA_ABSENT;
 	return TRUE;
     }
 
     R_xlen_t n = i64_length(x);
     const int64_t *p = i64_data(x);
     for (R_xlen_t i = 0; i < n; i++)
-	if (p[i] == na)
+	if (p[i] == na) {
+	    m[I64_NO_NA] = I64_NA_PRESENT;
 	    return FALSE;
+	}
 
-    m[I64_NO_NA] = TRUE;
+    m[I64_NO_NA] = I64_NA_ABSENT;
     return TRUE;
 }
 

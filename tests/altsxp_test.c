@@ -36,9 +36,11 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    claims base int64's element type at int64's width without being one of
    its objects, which is what the header offers as the interop mechanism: it
    must be read through its region method, never by casting whatever it
-   keeps in data1 (one byte per element, here).  K_SHORTFMT registers a
-   Format method that answers one element fewer than it was asked for, which
-   pins the count contract for Format as the region methods above pin theirs. */
+   keeps in data1 (one byte per element, here).  K_SHORTFMT answers one
+   element fewer than it was asked for, from Format and from Coerce_from
+   alike, which pins the count contract for those two as the region methods
+   above pin theirs.  It takes the open traits so that match() can reach its
+   Coerce_from at all: a class that cannot be NA is never promoted into. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
        K_FAKE64, K_SHORTFMT, K_N };
 
@@ -144,6 +146,19 @@ static SEXP test_short_format(SEXP x, R_xlen_t i, R_xlen_t n)
 	snprintf(buf, sizeof buf, "%d", (int) p[i + k]);
 	SET_STRING_ELT(ans, k, mkChar(buf));
     }
+    UNPROTECT(1);
+    return ans;
+}
+
+/* the same one short, for the other method whose count consumers rely on */
+static SEXP test_short_coerce_from(SEXP proto, SEXP from)
+{
+    R_xlen_t n = XLENGTH(from);
+    R_xlen_t give = n > 0 ? n - 1 : 0;
+    SEXP data = PROTECT(allocVector(RAWSXP, give));
+    for (R_xlen_t k = 0; k < give; k++)
+	RAW(data)[k] = (Rbyte) (k + 1);
+    SEXP ans = test_make(test_class(proto), data);
     UNPROTECT(1);
     return ans;
 }
@@ -363,7 +378,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
 	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ.
 	   K_BOTH does declare it, and registers Hash and Compare as well. */
-	if (k == K_FAKE64)
+	if (k == K_FAKE64 || k == K_SHORTFMT)
 	    R_set_altsxp_Traits_method(test_classes[k], test_open_traits);
 	else if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
@@ -379,6 +394,10 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Hash_method(test_classes[K_BOTH], test_mod_hash);
     R_set_altsxp_Compare_method(test_classes[K_FAKE64], test_fake64_compare);
     R_set_altsxp_Format_method(test_classes[K_SHORTFMT], test_short_format);
+    R_set_altsxp_Coerce_from_method(test_classes[K_SHORTFMT],
+				    test_short_coerce_from);
+    R_set_altsxp_Compare_method(test_classes[K_SHORTFMT], test_compare);
+    R_set_altsxp_Hash_method(test_classes[K_SHORTFMT], test_mod_hash);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

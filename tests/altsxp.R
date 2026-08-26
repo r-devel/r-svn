@@ -2353,6 +2353,49 @@ local({
     }
 })
 
+## sort() went straight to the order-and-permute for an opaque vector, where
+## the base arms first ask isUnsorted().  And the class's two cached answers
+## only recorded good news: a vector found to contain an NA was rescanned by
+## every later is.unsorted() and anyNA(), which can never improve on it.
+local({
+    meta <- function(x)
+        capture.output(.Internal(inspect(x)))[1L]
+    has.na <- function(x) grepl("no_na=2", meta(x), fixed = TRUE)
+    no.na <- function(x) grepl("no_na=1", meta(x), fixed = TRUE)
+    unknown <- function(x) grepl("no_na=0", meta(x), fixed = TRUE)
+
+    v <- as.int64(c(1, NA, 3))
+    stopifnot(unknown(v))
+    stopifnot(is.na(is.unsorted(v)), has.na(v))   # the scan records the NA
+    stopifnot(is.na(is.unsorted(v)), anyNA(v), has.na(v))
+
+    ## and a write puts it back to knowing nothing
+    v[2] <- as.int64(2)
+    stopifnot(unknown(v))
+    stopifnot(!anyNA(v), no.na(v), !is.unsorted(v))
+
+    ## a whole-range vector answers from its trait without a scan
+    w <- as.int64(c(1, 2, 3), na = FALSE)
+    stopifnot(!anyNA(w), no.na(w))
+
+    ## sorting is unchanged, fast path or not
+    for (x in list(as.int64(c(3, 1, 2)), as.int64(1:5), as.int64(5:1),
+                   as.int64(c(2, 2, 1)), as.int64(c(3, NA, 1)),
+                   as.int64(integer(0)), as.int64(7))) {
+        d <- as.double(x)
+        stopifnot(identical(as.double(sort(x)), sort(d)),
+                  identical(as.double(sort(x, decreasing = TRUE)),
+                            sort(d, decreasing = TRUE)),
+                  identical(as.double(sort(x, na.last = TRUE)),
+                            sort(d, na.last = TRUE)))
+    }
+    ## an already-ordered vector comes back untouched, in both directions
+    inc <- as.int64(1:5)
+    dec <- as.int64(5:1)
+    stopifnot(identical(sort(inc), inc),
+              identical(sort(dec, decreasing = TRUE), dec))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2565,6 +2608,19 @@ if (length(dll.paths)) local({
     stopifnot(grepl("no method to format",
                     conditionMessage(tryCatch(format(new.test(as.raw(1:3))),
                                               error = identity))))
+
+    ## Coerce_from has the same contract: match() promotes the other operand
+    ## and then reads the answer at the length it handed over, so a class
+    ## that under-delivers has to be named rather than leaving the check
+    ## reading past the end of what it got back.
+    for (e in list(quote(match(1L, short)), quote(1L %in% short),
+                   quote(match(short, 1L)),
+                   quote(unique(short, incomparables = 1L)))) {
+        err <- tryCatch(eval(e), error = identity)
+        stopifnot(inherits(err, "error"),
+                  grepl("'Coerce_from' method returned 0 elements",
+                        conditionMessage(err), fixed = TRUE))
+    }
 
     ## A class that shares base int64's element type is not one of int64's
     ## objects: the shared name promises the C type of an element, not where

@@ -88,7 +88,7 @@ static int scmp(SEXP x, SEXP y, bool nalast)
    and Is_na_region methods. */
 static int altsxp_isna(SEXP x, R_xlen_t i)
 {
-    int na;
+    int na = 0;
     R_altsxp_is_na_region(x, i, 1, &na);
     return na;
 }
@@ -678,6 +678,14 @@ static void altsxpSort(SEXP s, bool decreasing)
 {
     R_xlen_t n = XLENGTH(s);
     if (n < 2) return;
+
+    /* The base arms reach this through isUnsorted(), so an already-ordered
+       vector costs one scan there and a full order-plus-permute here, with a
+       second copy of the payload to permute through.  The class already
+       answers the question. */
+    int sorted = ALTSXP_IS_SORTED(s);
+    if (sorted == (decreasing ? SORTED_DECR : SORTED_INCR))
+	return;
 
     const void *vmax = vmaxget();
     size_t esz = ALTSXP_ELT_SIZE(s);

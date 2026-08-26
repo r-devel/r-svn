@@ -1294,7 +1294,7 @@ attribute_hidden SEXP do_first_min(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   result for values no double can hold. */
 	int want = (PRIMVAL(op) == 0) ? -1 : 1;
 	for (i = 0; i < n; i++) {
-	    int na;
+	    int na = 0;
 	    R_altsxp_is_na_region(sx, i, 1, &na);
 	    if (na) continue;
 	    if (indx == -1) {
@@ -1515,10 +1515,16 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 		proto = u;
 	}
 
-    if(len == 0) {
-	if (anstype != ALTSXP) return allocVector(anstype, 0);
-	if (proto != NULL) return R_allocVectorLike(proto, 0, FALSE);
-    }
+    if (anstype == ALTSXP && proto == NULL)
+	/* unreachable: anstype is ALTSXP only because the scan above saw an
+	   ALTSXP argument, and this scan visits the same list.  Stated so
+	   that it stays an error rather than becoming a NULL dereference in
+	   R_allocVectorLike() if either loop is ever changed. */
+	errorcall(call, _("no opaque argument to build the result from"));
+
+    if(len == 0)
+	return anstype == ALTSXP ? R_allocVectorLike(proto, 0, FALSE)
+	                         : allocVector(anstype, 0);
     /* Check for fractional recycling (added in 2.14.0) */
     for(a = args; a != R_NilValue; a = CDR(a)) {
 	n = xlength(CAR(a));
@@ -1545,7 +1551,7 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    n = XLENGTH(x);
 	    for(i = 0, i1 = 0; i < len; i++, i1++) {
 		if (i1 == n) i1 = 0;
-		int na_ans, na_x;
+		int na_ans = 0, na_x = 0;
 		R_altsxp_is_na_region(ans, i, 1, &na_ans);
 		R_altsxp_is_na_region(x, i1, 1, &na_x);
 		int cmp = (na_ans || na_x) ? 0 : ALTSXP_COMPARE(x, i1, ans, i);

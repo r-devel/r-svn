@@ -1000,7 +1000,7 @@ static bool isna(SEXP x, R_xlen_t indx)
     case ALTSXP:
     {
 	/* only the class knows which values it treats as missing */
-	int na;
+	int na = 0;
 	R_altsxp_is_na_region(x, indx, 1, &na);
 	return na != 0;
     }

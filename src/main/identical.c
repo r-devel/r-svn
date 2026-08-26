@@ -384,7 +384,7 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	if (! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
 	    ! (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ)) {
 	    for (R_xlen_t i = 0; i < n; i++) {
-		int nax, nay;
+		int nax = 0, nay = 0;
 		R_altsxp_is_na_region(x, i, 1, &nax);
 		R_altsxp_is_na_region(y, i, 1, &nay);
 		if (nax || nay) {

@@ -498,7 +498,7 @@ static size_t altsxp_hash_esz(SEXP x)
 
 static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
 {
-    int na;
+    int na = 0;
     R_altsxp_is_na_region(x, indx, 1, &na);
     if (na) return scatter(0u, d); /* all NAs hash alike */
 
@@ -552,7 +552,7 @@ static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
 	return 0;
 
-    int nax, nay;
+    int nax = 0, nay = 0;
     R_altsxp_is_na_region(x, i, 1, &nax);
     R_altsxp_is_na_region(y, j, 1, &nay);
     if (nax || nay) return nax && nay; /* NA matches only NA */
@@ -679,10 +679,19 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
     PROTECT(ans);
 
     /* an NA in the result that was not one in the input is a value the
-       class could not hold, so it must not be allowed to match NA */
+       class could not hold, so it must not be allowed to match NA.  The loop
+       indexes ans at the length of 'other', so the class has to have
+       answered with one element per input, as checkScanned() also requires
+       of Coerce_from. */
+    if (XLENGTH(ans) != n) {
+	UNPROTECT(1); /* ans */
+	error(_("'%s' method returned %lld elements, not the %lld it was given"),
+	      "Coerce_from", (long long) XLENGTH(ans), (long long) n);
+    }
+
     Rboolean ok = TRUE;
     for (R_xlen_t i = 0; i < n && ok; i++) {
-	int na;
+	int na = 0;
 	R_altsxp_is_na_region(ans, i, 1, &na);
 	if (na && ! match_operand_isna(other, i))
 	    ok = FALSE;

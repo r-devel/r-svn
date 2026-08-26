@@ -149,7 +149,7 @@ SEXP compcases(SEXP args)
 		    case ALTSXP: {
 			/* an opaque element has no C type this switch could read,
 			   so the class reports its own missing values */
-			int na;
+			int na = 0;
 			R_altsxp_is_na_region(u, i, 1, &na);
 			if (na)
 			    INTEGER(rval)[i % len] = 0;
@@ -190,7 +190,7 @@ SEXP compcases(SEXP args)
 		    case ALTSXP: {
 			/* an opaque element has no C type this switch could read,
 			   so the class reports its own missing values */
-			int na;
+			int na = 0;
 			R_altsxp_is_na_region(u, i, 1, &na);
 			if (na)
 			    INTEGER(rval)[i % len] = 0;
@@ -227,7 +227,7 @@ SEXP compcases(SEXP args)
 		case ALTSXP: {
 		    /* an opaque element has no C type this switch could read,
 		       so the class reports its own missing values */
-		    int na;
+		    int na = 0;
 		    R_altsxp_is_na_region(u, i, 1, &na);
 		    if (na)
 			INTEGER(rval)[i % len] = 0;
