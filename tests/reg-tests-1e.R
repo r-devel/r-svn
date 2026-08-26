@@ -3697,6 +3697,12 @@ stopifnot(
     identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
 
+## match.arg handling of non-character input
+stopifnot(identical(
+  tryCmsg(match.arg(TRUE, c('a', 'b', 'c'))),
+  tryCmsg(match.arg('d',  c('a', 'b', 'c')))
+))
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
