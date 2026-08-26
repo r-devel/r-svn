@@ -809,6 +809,15 @@ static SEXP AltsxpVectorAssign(SEXP call, SEXP x, SEXP indx,
 		      R_typeToChar(y), R_typeToChar(x));
 	}
     }
+    /* When array elements are being permuted the RHS must be duplicated or
+       the elements get trashed, as VectorAssign() and MatrixAssign() both
+       guard: the loop below would read source positions that earlier
+       iterations have already overwritten.  Every caller today hands over an
+       x that do_subassign_dflt() has already duplicated, so this defends the
+       invariant rather than a reachable case. */
+    if (yy == x)
+	yy = shallow_duplicate(yy);
+
     PROTECT(yy);
     if (n > 0 && n % ny)
 	warning(_("number of items to replace is not a multiple of replacement length"));

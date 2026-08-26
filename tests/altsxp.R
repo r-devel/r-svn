@@ -2091,6 +2091,60 @@ local({
     stopifnot(identical(alt, par("usr")))
 })
 
+## format()'s opaque arm used to return before the argument checks, so every
+## argument it does not itself use went unvalidated -- and it rejected a
+## negative 'width' the base path accepts.  The answer for an opaque vector
+## still comes from the class; only the checking is shared.
+local({
+    bad <- list(quote(format(X, nsmall = -1)),
+                quote(format(X, nsmall = 21)),
+                quote(format(X, digits = 1e6)),
+                quote(format(X, digits = -99)),
+                quote(format(X, scientific = list())),
+                quote(format(X, scientific = character(0))),
+                quote(format(X, na.encode = NA)),
+                quote(format(X, decimal.mark = 1)),
+                quote(format(X, decimal.mark = character(0))),
+                quote(format(X, trim = NA)))
+    msg <- function(e, v)
+        tryCatch({ eval(e, list(X = v)); NA_character_ },
+                 error = conditionMessage)
+    for (e in bad) {
+        alt <- msg(e, as.int64(1))
+        int <- msg(e, 1L)
+        stopifnot(!is.na(alt), identical(alt, int))
+    }
+
+    ## a negative width is accepted, as it is for an integer vector
+    stopifnot(identical(format(as.int64(1), width = -1), "1"),
+              identical(format(1L, width = -1), "1"))
+
+    ## and the arguments that do reach the answer still do
+    stopifnot(identical(format(as.int64(1:3), width = 5),
+                        format(1:3, width = 5)),
+              identical(format(as.int64(1:3), trim = TRUE), c("1", "2", "3")),
+              identical(format(as.int64(c(1, NA))), format(c(1L, NA))))
+})
+
+## int64 and uint64 have no conversion between them, so the routes that ask
+## the class for one report an error while the explicit constructors, which
+## range-check each value, do not.  int64.Rd documents the split.
+local({
+    u <- as.uint64(1:3)
+    i <- as.int64(1:3)
+    stopifnot(identical(as.double(as.int64(u)), c(1, 2, 3)),
+              identical(as.double(as.uint64(i)), c(1, 2, 3)))
+    v <- u; mode(v) <- "int64"
+    stopifnot(identical(v, i))
+
+    assertError(as.vector(u, "int64"))
+    assertError(as.vector(i, "uint64"))
+    assertError(`storage.mode<-`(u, "int64"))
+    assertError(`storage.mode<-`(i, "uint64"))
+    ## the same answer is what makes these two a list rather than a vector
+    stopifnot(is.list(c(i, u)))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set

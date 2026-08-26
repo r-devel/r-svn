@@ -60,11 +60,11 @@ is.uint64(x)
 
   Both types are reachable by name, so \code{\link{vector}("int64", n)},
   \code{\link{as.vector}(x, "int64")} and \code{\link{storage.mode}(x) <-
-  "int64"} work as they do for the built-in types.  A name gives the
-  default form, which reserves a pattern for \code{NA}; \code{as.int64(x,
-  na = FALSE)} is the only way to ask for the other one, since whether a
-  vector can be \code{NA} is a property of the object rather than of the
-  type.
+  "int64"} work as they do for the built-in types, for any \code{x} the
+  class has a conversion from.  A name gives the default form, which
+  reserves a pattern for \code{NA}; \code{as.int64(x, na = FALSE)} is the
+  only way to ask for the other one, since whether a vector can be
+  \code{NA} is a property of the object rather than of the type.
 
   \code{\link{typeof}} is also the implicit class, so \code{print.int64}
   or \code{format.uint64} methods are dispatched to as usual.
@@ -92,6 +92,15 @@ is.uint64(x)
   64-bit integer vector; values outside the representable range become
   \code{NA} with a warning.  Reading from character is how a value beyond
   the exact range of a \code{double} is entered.
+
+  Converting between \code{int64} and \code{uint64} is available only as
+  an explicit request: \code{as.int64(x)}, \code{as.uint64(x)} and
+  \code{mode(x) <- "int64"} check each value against the target range,
+  whereas \code{as.vector(x, "int64")} and
+  \code{storage.mode(x) <- "int64"} report an error.  Those two ask the
+  class for a conversion, and the two classes deliberately have none
+  between them: it is the same answer that makes \code{c(x, y)} a list
+  and refuses to mix them in arithmetic.
 
   \code{is.int64} and \code{is.uint64} return \code{TRUE} or \code{FALSE}.
 }
