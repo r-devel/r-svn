@@ -722,11 +722,40 @@ SEXP R_allocVectorLike(SEXP proto, R_xlen_t n, Rboolean zeroinit)
     return ans;
 }
 
+/* Whether x is an ALTSXP *class* object rather than an instance of one.  A
+   class object is a RAWSXP carrying its registration in ATTRIB, so the
+   attribute has to be checked before it is read: a bare RAWSXP handed in by
+   mistake has none. */
+static Rboolean is_altsxp_class(SEXP x)
+{
+    if (TYPEOF(x) != RAWSXP || ALTREP(x))
+	return FALSE;
+
+    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(x);
+    if (TYPEOF(info) != LISTSXP || length(info) != 3)
+	return FALSE;
+
+    SEXP stype = CADDR(info);
+
+    return (Rboolean) (TYPEOF(stype) == INTSXP && XLENGTH(stype) == 1 &&
+		       INTEGER0(stype)[0] == ALTSXP);
+}
+
 SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit)
 {
-    if (! IS_ALTSXP(proto))
-	error("%s can only be applied to an ALTSXP object", "R_altsxp_new");
-    return ALTSXP_DISPATCH(New, proto, n, zeroinit);
+    if (IS_ALTSXP(proto))
+	return ALTSXP_DISPATCH(New, proto, n, zeroinit);
+
+    /* The New method contract admits the class object itself: a class has to
+       be able to make its first instance, and there is no instance to build
+       from yet.  R_altsxp_register_type() has always relied on that, but
+       reaching it meant going through the method table by hand. */
+    if (is_altsxp_class(proto))
+	return ((altsxp_methods_t *) CLASS_METHODS_TABLE(proto))
+	    ->New(proto, n, zeroinit);
+
+    error("%s can only be applied to an ALTSXP object or class",
+	  "R_altsxp_new");
 }
 
 /*
@@ -769,18 +798,41 @@ static Rboolean same_altrep_class(SEXP c1, SEXP c2)
 	 ALTREP_SERIALIZED_CLASS_PKGSYM(s1) == ALTREP_SERIALIZED_CLASS_PKGSYM(s2));
 }
 
-attribute_hidden void R_register_altsxp_type(SEXP class)
+/* Whether a name carries a package qualifier.  Every class already has a
+   pkg::class element type by default, which is unique by construction; an
+   unqualified name is a claim on a representation R itself specifies, and is
+   the one name space two unrelated classes can collide in. */
+static Rboolean altsxp_name_is_qualified(const char *name)
 {
+    return (Rboolean) (strstr(name, "::") != NULL);
+}
+
+void R_altsxp_register_type(R_altrep_class_t cls)
+{
+    SEXP class = R_SEXP(cls);
+
+    if (! is_altsxp_class(class))
+	error("%s can only be applied to an ALTSXP class",
+	      "R_altsxp_register_type");
+
     /* The class object is an acceptable prototype for New(); see the note on
        the New method in R_ext/Altrep.h.  Length zero, so a class with no
        meaningful zero is not asked to invent one here -- it refuses when
        vector() asks for elements, which is where the refusal belongs. */
-    SEXP proto = PROTECT(((altsxp_methods_t *) CLASS_METHODS_TABLE(class))
-			 ->New(class, 0, FALSE));
+    SEXP proto = PROTECT(R_altsxp_new(class, 0, FALSE));
     if (! IS_ALTSXP(proto) || ALTREP_CLASS(proto) != class)
 	error("'%s' method did not return an object of its own class", "New");
 
     SEXP name = ALTSXP_DISPATCH(Elt_type, proto);
+
+    /* A registered name reaches every caller of vector(), as.vector(),
+       readBin(), scan() and read.table(), so it has to be one no other
+       package can mean by accident.  The pkg::class default is; an
+       unqualified name is base's to give. */
+    if (! altsxp_name_is_qualified(CHAR(PRINTNAME(name))) &&
+	! streql(CHAR(PRINTNAME(ALTREP_OBJECT_PKGSYM(proto))), "base"))
+	error(_("element type '%s' is unqualified: a package registers its element type under a '%s' name"),
+	      CHAR(PRINTNAME(name)), "package::class");
 
     if (EltTypeNames == NULL) {
 	EltTypeNames = CONS(R_NilValue, R_NilValue);
@@ -815,7 +867,7 @@ attribute_hidden void R_register_altsxp_type(SEXP class)
 /* The prototype registered under this element type name, or NULL.  Callers
    consult it only after str2type() has found nothing, so a class can never
    take over the meaning of a base type's name. */
-attribute_hidden SEXP R_altsxp_type_prototype(const char *name)
+SEXP R_altsxp_prototype(const char *name)
 {
     if (EltTypeNames == NULL || name == NULL)
 	return NULL;
@@ -827,6 +879,61 @@ attribute_hidden SEXP R_altsxp_type_prototype(const char *name)
 	    return CAR(chain);
 
     return NULL;
+}
+
+/* Whether a name resolves, for a reader deciding what to map a source column
+   onto: it can pick another representation instead of taking an R error out
+   of the middle of a half-built result. */
+Rboolean R_altsxp_type_supported(const char *name)
+{
+    return (Rboolean) (R_altsxp_prototype(name) != NULL);
+}
+
+/* Allocate by name, the way Rf_allocVector() allocates by SEXPTYPE.  This is
+   what C code that has no instance to build from needs, since an ALTSXP
+   cannot be allocated from its type alone. */
+SEXP R_altsxp_alloc(const char *name, R_xlen_t n, Rboolean zeroinit)
+{
+    SEXP proto = R_altsxp_prototype(name);
+    if (proto == NULL)
+	error(_("no ALTSXP class is registered for element type '%s'"), name);
+    return R_altsxp_new(proto, n, zeroinit);
+}
+
+/* Adopt an element type another class has published, which is how two
+   classes promise each other a layout.  Validated rather than left to an
+   Elt_type method of one's own: the name has to be one somebody owns and the
+   widths have to agree, or the promise is empty and the classes interoperate
+   on bytes neither understands.  What R cannot check is the semantics, which
+   is why an unqualified name stays base's to give -- see
+   R_altsxp_register_type().
+
+   The class must have its methods set already, and must not also install an
+   Elt_type method: this sets the one the default method reports. */
+void R_altsxp_share_type(R_altrep_class_t cls, const char *name)
+{
+    SEXP class = R_SEXP(cls);
+
+    if (! is_altsxp_class(class))
+	error("%s can only be applied to an ALTSXP class", "R_altsxp_share_type");
+
+    SEXP proto = R_altsxp_prototype(name);
+    if (proto == NULL)
+	error(_("no ALTSXP class is registered for element type '%s'"), name);
+
+    SEXP mine = PROTECT(R_altsxp_new(class, 0, FALSE));
+    if (! IS_ALTSXP(mine) || ALTREP_CLASS(mine) != class)
+	error("'%s' method did not return an object of its own class", "New");
+
+    size_t want = ALTSXP_DISPATCH(Elt_size, proto);
+    size_t have = ALTSXP_DISPATCH(Elt_size, mine);
+    if (have != want)
+	error(_("element type '%s' is %lld bytes wide, but this class declares %lld"),
+	      name, (long long) want, (long long) have);
+    UNPROTECT(1); /* mine */
+
+    ((altsxp_methods_t *) CLASS_METHODS_TABLE(class))->Default_elt_type =
+	install(name);
 }
 
 /* How many of the n elements at i are actually in x.  Clamped at zero: a
@@ -1228,19 +1335,54 @@ attribute_hidden SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y)
 }
 
 /* The point of the element type symbol: a consumer that does not know the
-   class can still recognise the representation and cast safely. */
-const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type)
+   class can still recognise the representation and cast safely.  The width
+   is part of what sharing a name promises -- two classes may report one
+   element type deliberately -- so it is checked here as
+   R_altsxp_copy_region() and ALTSXP_COMPARE() already check it.  Passing the
+   caller's own sizeof() is what makes the cast on the other side sound. */
+static Rboolean altsxp_elt_matches(SEXP x, SEXP elt_type, size_t elt_size)
 {
-    if (! IS_ALTSXP(x) || ALTSXP_DISPATCH(Elt_type, x) != elt_type)
+    return (Rboolean) (IS_ALTSXP(x) &&
+		       ALTSXP_DISPATCH(Elt_type, x) == elt_type &&
+		       ALTSXP_DISPATCH(Elt_size, x) == elt_size);
+}
+
+const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type, size_t elt_size)
+{
+    if (! altsxp_elt_matches(x, elt_type, elt_size))
 	return NULL;
     return ALTVEC_DATAPTR_OR_NULL(x);
 }
 
-void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type)
+void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type, size_t elt_size)
 {
-    if (! IS_ALTSXP(x) || ALTSXP_DISPATCH(Elt_type, x) != elt_type)
+    if (! altsxp_elt_matches(x, elt_type, elt_size))
 	return NULL;
     return ALTVEC_DATAPTR(x);
+}
+
+/* One code path for a consumer that only reads: the class's own pointer
+   where there is one, a copy on the R_alloc stack where there is not.  The
+   caller brackets it with vmaxget()/vmaxset() as for any other R_alloc.  The
+   name says the copy is possible, because for a long vector it is not free
+   and the caller may prefer R_altsxp_get_region() a block at a time. */
+const void *R_altsxp_dataptr_or_copy(SEXP x, SEXP elt_type, size_t elt_size)
+{
+    if (! altsxp_elt_matches(x, elt_type, elt_size))
+	return NULL;
+
+    const void *p = ALTVEC_DATAPTR_OR_NULL(x);
+    if (p != NULL)
+	return p;
+
+    /* one element for an empty vector, so the answer is never NULL: that
+       means "not this element type" here, not "nothing to read" */
+    R_xlen_t n = ALTREP_LENGTH(x);
+    void *buf = R_alloc((size_t) (n > 0 ? n : 1), elt_size);
+    if (n > 0 && R_altsxp_get_region(x, 0, n, buf) != n)
+	error("'%s' method read too few elements", "Get_region");
+
+    return buf;
 }
 
 

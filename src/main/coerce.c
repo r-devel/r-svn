@@ -1557,7 +1557,7 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if ((SEXPTYPE) type == (SEXPTYPE) -1) {
 	if (TYPEOF(x) == ALTSXP && streql(modestr, R_typeToChar(x)))
 	    type = ALTSXP;
-	else if ((proto = R_altsxp_type_prototype(modestr)) != NULL)
+	else if ((proto = R_altsxp_prototype(modestr)) != NULL)
 	    type = ALTSXP;
     }
 
@@ -3262,7 +3262,7 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
     if(type == (SEXPTYPE) -1) {
 	if(TYPEOF(obj) == ALTSXP && streql(valstr, R_typeToChar(obj)))
 	    type = ALTSXP;
-	else if((proto = R_altsxp_type_prototype(valstr)) != NULL)
+	else if((proto = R_altsxp_prototype(valstr)) != NULL)
 	    type = ALTSXP;
     }
     if(type == (SEXPTYPE) -1) {

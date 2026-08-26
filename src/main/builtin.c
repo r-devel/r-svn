@@ -817,7 +817,7 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	   which allocates and zeroes for itself -- only it knows what its
 	   zero is.  Consulted after str2type(), so no class can take over the
 	   meaning of a base type's name. */
-	SEXP proto = R_altsxp_type_prototype(CHAR(STRING_ELT(s, 0)));
+	SEXP proto = R_altsxp_prototype(CHAR(STRING_ELT(s, 0)));
 	if (proto != NULL)
 	    return R_allocVectorLike(proto, len, TRUE);
     }

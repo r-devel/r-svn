@@ -183,9 +183,27 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
     names(what) <- col.names
 
     colClasses[colClasses %in% c("real", "double")] <- "numeric"
+    modes <- c("logical", "integer", "numeric", "double", "complex",
+               "character", "raw", "list", "expression")
     known <- colClasses %in% c("logical", "integer", "numeric", "complex",
-                               "character", "raw", "int64", "uint64")
+                               "character", "raw")
     what[known] <- lapply(colClasses[known], do.call, list(0))
+
+    ## An opaque vector type ("int64", or one a package registered) has no
+    ## SEXPTYPE to name it by, so it resolves through the same registry
+    ## vector() uses rather than a list kept here.  Only names that are not
+    ## already a vector mode are tried, so nothing base handles changes, and
+    ## a colClass that is a class rather than a type -- "factor", "Date" --
+    ## still falls through to the conversion loop below.
+    for (i in which(!known & !is.na(colClasses) &
+                    !(colClasses %in% c("NULL", modes)))) {
+        proto <- tryCatch(vector(colClasses[i], 0L), error = function(e) NULL)
+        if(!is.null(proto)) {
+            what[[i]] <- proto
+            known[i] <- TRUE
+        }
+    }
+
     what[colClasses %in% "NULL"] <- list(NULL)
     keep <- !vapply(what, is.null, NA)
 

@@ -449,6 +449,22 @@ stopifnot(nrow(df2) == 2L, typeof(df2$id) == "int64",
           ## 2^53 + 1 has no double
           identical(utils::read.csv(tf)$id, c(9007199254740992, 9007199254740992)))
 stopifnot(any(grepl("int64", utils::capture.output(utils::str(df2)))))
+
+## colClasses resolves an opaque element type through the same registry
+## vector() uses rather than a list kept in utils, so a name a package
+## registered works here too.  Only names that are not already a vector mode
+## are tried, so a colClass that is a class rather than a type still reaches
+## the conversion loop, and the base modes are untouched.
+df3 <- utils::read.csv(tf, colClasses = c("character", "factor"))
+stopifnot(is.character(df3$id), is.factor(df3$val))
+tf2 <- tempfile()
+writeLines(c("d,n", "2026-08-26,1", "2026-08-27,2"), tf2)
+df4 <- utils::read.csv(tf2, colClasses = c("Date", "numeric"))
+stopifnot(inherits(df4$d, "Date"), is.double(df4$n),
+          identical(as.character(df4$d), c("2026-08-26", "2026-08-27")))
+## and a name that is neither resolves the way it always did
+assertError(utils::read.csv(tf2, colClasses = c("no_such_type", "numeric")))
+unlink(tf2)
 unlink(tf)
 
 ## --- sorting and the summaries built on it ---------------------------
@@ -2603,6 +2619,89 @@ if (length(dll.paths)) local({
     ## the identity resolution needs no registration, and still works
     stopifnot(identical(as.vector(b, typeof(b)), b),
               identical(as.vector(plain, typeof(plain)), plain))
+
+    ## A registered name reaches every caller of vector(), as.vector(),
+    ## readBin(), scan() and read.csv(), so it has to be one no other package
+    ## can mean by accident.  The pkg::class default is; an unqualified name
+    ## is a claim on a representation R itself specifies, and cmp_byte asking
+    ## for its own is refused rather than taken on trust.
+    assertError(call.test("C_altsxp_test_register_type", "cmp_byte"))
+    stopifnot(!call.test("C_altsxp_test_type_supported", "altsxp_test_cmp"))
+
+    ## share_byte registers no Elt_type method, so it takes the qualified
+    ## default, and claiming that is what makes it reachable by name.
+    stopifnot(!call.test("C_altsxp_test_type_supported",
+                         "altsxpTest::share_byte"))
+    call.test("C_altsxp_test_register_type", "share_byte")
+    stopifnot(call.test("C_altsxp_test_type_supported",
+                        "altsxpTest::share_byte"),
+              call.test("C_altsxp_test_type_supported", "int64"),
+              !call.test("C_altsxp_test_type_supported", "no_such_type"))
+
+    named <- vector("altsxpTest::share_byte", 3L)
+    stopifnot(identical(typeof(named), "altsxpTest::share_byte"),
+              identical(length(named), 3L),
+              identical(contents(named), as.raw(c(0, 0, 0))))
+
+    ## the same route from C, for a reader with no instance to build from
+    from.c <- call.test("C_altsxp_test_alloc_by_name",
+                        "altsxpTest::share_byte", 4L)
+    stopifnot(identical(typeof(from.c), "altsxpTest::share_byte"),
+              identical(contents(from.c), as.raw(rep(0, 4))))
+    i64 <- call.test("C_altsxp_test_alloc_by_name", "int64", 3L)
+    stopifnot(identical(typeof(i64), "int64"),
+              identical(as.character(i64), rep("0", 3)))
+    assertError(call.test("C_altsxp_test_alloc_by_name", "no_such_type", 1L))
+
+    ## the class object is a prototype for New(): a class has to be able to
+    ## make its first instance, and there is no instance to build from yet
+    stopifnot(identical(contents(call.test("C_altsxp_test_new_from_class",
+                                           "share_byte", 2L)),
+                        as.raw(c(0, 0))))
+
+    ## Adopting a published name is how two classes promise each other a
+    ## layout.  R checks that somebody owns the name and that the widths
+    ## agree; it cannot check the semantics, which is why the name has to
+    ## belong to somebody in the first place.
+    assertError(call.test("C_altsxp_test_share_type", "share2_byte",
+                          "no_such_type"))
+    assertError(call.test("C_altsxp_test_share_type", "sharew_byte",
+                          "altsxpTest::share_byte"))
+    call.test("C_altsxp_test_share_type", "share2_byte",
+              "altsxpTest::share_byte")
+
+    ## and now the two interoperate on the element type alone, as a package
+    ## class does with a base one
+    shared <- new.kind("share_byte", as.raw(1:3))
+    shared2 <- new.kind("share2_byte", as.raw(4:5))
+    stopifnot(identical(typeof(shared), typeof(shared2)),
+              identical(contents(c(shared, shared2)), as.raw(1:5)),
+              identical(match(shared2, c(shared, shared2)), 4:5))
+
+    ## The guarded pointer promises the element type *and* the width, since
+    ## two classes may report one element type deliberately: twin_byte
+    ## reports short_byte's at sixteen times the width.  A caller passes its
+    ## own sizeof() and gets NULL rather than a stride it would misread.
+    stopifnot(!call.test("C_altsxp_test_dataptr", twin,
+                         "altsxp_test_byte", 1L),
+              !call.test("C_altsxp_test_dataptr", b,
+                         "altsxp_test_byte", 4096L),
+              ## and NULL for these anyway, which have no Dataptr method
+              !call.test("C_altsxp_test_dataptr", b, "altsxp_test_byte", 1L))
+
+    ## R_altsxp_dataptr_or_copy() is that guard with the fallback folded in,
+    ## so a consumer has one code path rather than two.  These classes have
+    ## no data pointer at all, so it is always the copy.
+    stopifnot(identical(call.test("C_altsxp_test_dataptr_or_copy", b,
+                                  "altsxp_test_byte", 1L), as.raw(1:4)),
+              is.null(call.test("C_altsxp_test_dataptr_or_copy", b,
+                                "altsxp_test_byte", 4096L)),
+              is.null(call.test("C_altsxp_test_dataptr_or_copy", b,
+                                "int64", 1L)))
+    ## base int64 does have one, so the same call reaches the payload itself
+    stopifnot(identical(length(call.test("C_altsxp_test_dataptr_or_copy",
+                                         as.int64(c("1", "2")), "int64", 8L)),
+                        16L))
 
     ## Set_na_region() has to invalidate whatever the class cached about its
     ## contents, exactly as a writable Dataptr does.  int64 wrote straight to

@@ -833,12 +833,8 @@ Rboolean R_cycle_detected(SEXP s, SEXP child);
 void R_init_altrep(void);
 void R_reinit_altrep_classes(DllInfo *);
 
-/* Element type names: which ALTSXP class a name in vector("int64", n) or
-   as.vector(x, "int64") resolves to, as a prototype to build from.  The
-   argument to the first is a class object, R_SEXP() of an R_altrep_class_t;
-   the type is not named here because Defn.h does not include Altrep.h. */
-void R_register_altsxp_type(SEXP class);
-SEXP R_altsxp_type_prototype(const char *name);
+/* R_altsxp_prototype() and the rest of the element type name entry points
+   are public API, declared in R_ext/Altrep.h. */
 
 
 SEXP Rf_allocVector3(SEXPTYPE, R_xlen_t, R_allocator_t*);

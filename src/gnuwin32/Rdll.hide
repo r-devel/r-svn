@@ -284,7 +284,6 @@
  R_altsxp_arith_sym
  R_altsxp_format_common
  R_altsxp_recycle_region
- R_altsxp_type_prototype
  R_args_enable_refcnt
  R_binary
  R_checkConstants
@@ -381,7 +380,6 @@
  R_possible_dispatch
  R_pretty
  R_registerBC
- R_register_altsxp_type
  R_reinit_altrep_classes
  R_restore_globals
  R_run_onexits

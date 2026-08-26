@@ -40,22 +40,28 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    element fewer than it was asked for, from Format and from Coerce_from
    alike, which pins the count contract for those two as the region methods
    above pin theirs.  It takes the open traits so that match() can reach its
-   Coerce_from at all: a class that cannot be NA is never promoted into. */
+   Coerce_from at all: a class that cannot be NA is never promoted into.
+
+   The last three register no Elt_type method either, so they take the
+   qualified pkg::class default and can adopt a published name instead:
+   K_SHARE claims its own with R_altsxp_register_type(), K_SHARE2 adopts it
+   with R_altsxp_share_type() at the same width, and K_SHAREW tries to adopt
+   it at a different one, which is the promise R can actually check. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_FAKE64, K_SHORTFMT, K_N };
+       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
     1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
-    sizeof(int64_t), 1
+    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
     "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64",
-    "shortfmt_byte"
+    "shortfmt_byte", "share_byte", "share2_byte", "sharew_byte"
 };
 
 static int test_kind(SEXP x)
@@ -265,11 +271,8 @@ static SEXP test_constructor(SEXP data, SEXP wide)
     return ans;
 }
 
-/* the same, naming any of the classes above */
-static SEXP test_constructor2(SEXP kind, SEXP data)
+static int test_kind_by_name(SEXP kind)
 {
-    if (TYPEOF(data) != RAWSXP)
-	error("test ALTSXP data must be raw");
     if (TYPEOF(kind) != STRSXP || XLENGTH(kind) != 1)
 	error("invalid test class name");
 
@@ -279,6 +282,17 @@ static SEXP test_constructor2(SEXP kind, SEXP data)
 	k++;
     if (k == K_N)
 	error("no such test class: %s", name);
+
+    return k;
+}
+
+/* the same, naming any of the classes above */
+static SEXP test_constructor2(SEXP kind, SEXP data)
+{
+    if (TYPEOF(data) != RAWSXP)
+	error("test ALTSXP data must be raw");
+
+    int k = test_kind_by_name(kind);
 
     SEXP copy = PROTECT(duplicate(data));
     SEXP ans = test_make(test_classes[k], copy);
@@ -338,6 +352,89 @@ static SEXP test_as_list_vmax(SEXP x)
     return ans;
 }
 
+/* R_altsxp_register_type() and R_altsxp_share_type() are load-time calls in
+   real package code.  They are reachable from R here so that the rules they
+   enforce -- and the ones that raise -- can be tested from tests/altsxp.R. */
+static SEXP test_register_type(SEXP kind)
+{
+    R_altsxp_register_type(test_classes[test_kind_by_name(kind)]);
+    return R_NilValue;
+}
+
+static SEXP test_share_type(SEXP kind, SEXP name)
+{
+    if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+	error("invalid element type name");
+
+    R_altsxp_share_type(test_classes[test_kind_by_name(kind)],
+			CHAR(STRING_ELT(name, 0)));
+    return R_NilValue;
+}
+
+static SEXP test_type_supported(SEXP name)
+{
+    if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+	error("invalid element type name");
+
+    return ScalarLogical(R_altsxp_type_supported(CHAR(STRING_ELT(name, 0))));
+}
+
+/* allocating by name, with no instance to build from -- the shape an ingest
+   package has when it is filling a column it was not handed */
+static SEXP test_alloc_by_name(SEXP name, SEXP n)
+{
+    if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+	error("invalid element type name");
+
+    return R_altsxp_alloc(CHAR(STRING_ELT(name, 0)),
+			  (R_xlen_t) asInteger(n), TRUE);
+}
+
+/* the class object as a prototype: a class making its first instance */
+static SEXP test_new_from_class(SEXP kind, SEXP n)
+{
+    return R_altsxp_new(R_SEXP(test_classes[test_kind_by_name(kind)]),
+			(R_xlen_t) asInteger(n), TRUE);
+}
+
+/* Whether the guarded pointer opens for this (element type, width) pair.
+   The test classes have no Dataptr method at all, so it never does for one
+   of them -- which is the case R_altsxp_dataptr_or_copy() below exists to
+   spare every consumer from handling twice. */
+static SEXP test_dataptr(SEXP x, SEXP name, SEXP size)
+{
+    if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+	error("invalid element type name");
+
+    const void *p = R_altsxp_dataptr_ro(x, install(CHAR(STRING_ELT(name, 0))),
+					(size_t) asInteger(size));
+    return ScalarLogical(p != NULL);
+}
+
+static SEXP test_dataptr_or_copy(SEXP x, SEXP name, SEXP size)
+{
+    if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+	error("invalid element type name");
+
+    size_t esz = (size_t) asInteger(size);
+    const void *vmax = vmaxget();
+    const void *p = R_altsxp_dataptr_or_copy(x,
+					     install(CHAR(STRING_ELT(name, 0))),
+					     esz);
+    if (p == NULL) {
+	vmaxset(vmax);
+	return R_NilValue;
+    }
+
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(allocVector(RAWSXP, n * (R_xlen_t) esz));
+    if (n > 0) memcpy(RAW(ans), p, (size_t) n * esz);
+    UNPROTECT(1);
+    vmaxset(vmax);
+
+    return ans;
+}
+
 static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_constructor", (DL_FUNC) &test_constructor, 2},
     {"C_altsxp_test_constructor2", (DL_FUNC) &test_constructor2, 2},
@@ -346,6 +443,13 @@ static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_copy", (DL_FUNC) &test_copy, 4},
     {"C_altsxp_test_set_na", (DL_FUNC) &test_set_na, 3},
     {"C_altsxp_test_as_list_vmax", (DL_FUNC) &test_as_list_vmax, 1},
+    {"C_altsxp_test_register_type", (DL_FUNC) &test_register_type, 1},
+    {"C_altsxp_test_share_type", (DL_FUNC) &test_share_type, 2},
+    {"C_altsxp_test_type_supported", (DL_FUNC) &test_type_supported, 1},
+    {"C_altsxp_test_alloc_by_name", (DL_FUNC) &test_alloc_by_name, 2},
+    {"C_altsxp_test_new_from_class", (DL_FUNC) &test_new_from_class, 2},
+    {"C_altsxp_test_dataptr", (DL_FUNC) &test_dataptr, 3},
+    {"C_altsxp_test_dataptr_or_copy", (DL_FUNC) &test_dataptr_or_copy, 3},
     {NULL, NULL, 0}
 };
 
@@ -356,7 +460,11 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_WIDE] = install("altsxp_test_wide");
     /* deliberately K_BYTE's element type at a different width */
     test_type_syms[K_TWIN] = byte_type;
-    test_type_syms[K_PLAIN] = NULL;    /* no Elt_type method: see below */
+    /* no Elt_type method: see below */
+    test_type_syms[K_PLAIN] = NULL;
+    test_type_syms[K_SHARE] = NULL;
+    test_type_syms[K_SHARE2] = NULL;
+    test_type_syms[K_SHAREW] = NULL;
     SEXP cmp_type = install("altsxp_test_cmp");
     test_type_syms[K_CMP] = cmp_type;
     /* deliberately K_CMP's element type, at K_CMP's width */
@@ -372,9 +480,10 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	test_classes[k] = R_make_altsxp_class(test_class_names[k],
 					      "altsxpTest", dll);
 	init_test_class(test_classes[k]);
-	/* K_PLAIN takes the default, which has to name the package as well as
-	   the class or it would collide with any other "plain_byte" */
-	if (k != K_PLAIN)
+	/* K_PLAIN and the K_SHARE* trio take the default, which has to name
+	   the package as well as the class or it would collide with any other
+	   "plain_byte" */
+	if (k != K_PLAIN && k != K_SHARE && k != K_SHARE2 && k != K_SHAREW)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
 	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ.
 	   K_BOTH does declare it, and registers Hash and Compare as well. */

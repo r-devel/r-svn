@@ -176,8 +176,9 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *                  name is deliberately separate from having an Elt_type,
  *                  since an element type names a representation and two
  *                  classes may share one, and the first claim on a name
- *                  wins.  Only base's classes do so far -- the entry point
- *                  is not part of the API yet.
+ *                  wins.  R_altsxp_register_type() is how a class claims
+ *                  one; R_altsxp_share_type() is how a second class adopts
+ *                  a name the first published.
  *   Get_region     copy n elements starting at i into buf.
  *   Set_region     copy n elements from buf into positions i..i+n-1.
  *   Set_na_region  set positions i..i+n-1 to the class's NA element.
@@ -462,15 +463,22 @@ DECLARE_METHOD_SETTER(altsxp, Deparse)
 
    R_altsxp_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
    returns NULL unless the object really is an ALTSXP whose element type is
-   `elt_type`, so a caller cannot cast the result to the wrong C type by
-   accident.  It also returns NULL if the class cannot supply a contiguous
-   pointer, in which case use R_altsxp_get_region().
+   `elt_type` *and* whose elements are `elt_size` bytes wide, so a caller
+   cannot cast the result to the wrong C type by accident.  Pass your own
+   sizeof(): sharing an element type is a promise about the layout, and the
+   width is part of it.  It also returns NULL if the class cannot supply a
+   contiguous pointer, in which case use R_altsxp_get_region(), or
+   R_altsxp_dataptr_or_copy() to have R stage the copy for you.
 
    R_altsxp_copy_region() moves whole elements between two objects of the
    same element type -- the shape of every generic copy in base -- clamping
    the count to what both hold and returning how many it moved.  It uses a
    data pointer where the source offers one and stages through a buffer
-   otherwise, so a class need only implement Get_region and Set_region. */
+   otherwise, so a class need only implement Get_region and Set_region.
+
+   R_altsxp_new() builds an object like `proto`.  `proto` is normally an
+   instance, but the class object -- R_SEXP() of an R_altrep_class_t -- is
+   also accepted, which is how a class makes its first instance. */
 SEXP ALTSXP_ELT_TYPE(SEXP x);
 size_t ALTSXP_ELT_SIZE(SEXP x);
 unsigned int ALTREP_TRAITS(SEXP x);
@@ -481,8 +489,9 @@ Rboolean R_altsxp_nullable(SEXP x);
 Rboolean R_altsxp_hashable(SEXP x);
 SEXP R_altsxp_na_widen(SEXP x);
 
-const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type);
-void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type);
+const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type, size_t elt_size);
+void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type, size_t elt_size);
+const void *R_altsxp_dataptr_or_copy(SEXP x, SEXP elt_type, size_t elt_size);
 R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
 R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
 R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
@@ -490,6 +499,41 @@ R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
 R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
 			      R_xlen_t n);
 SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit);
+
+/* Element type names.  An ALTSXP cannot be allocated from its type alone, so
+   a name resolves to a prototype -- a zero-length instance of the class that
+   claimed it -- rather than to a SEXPTYPE.  This is what vector("int64", n),
+   as.vector(x, "int64") and read.csv(colClasses = "int64") go through, and
+   R_altsxp_alloc() is the same route for C code with no instance to hand.
+
+   R_altsxp_type_supported() is the question to ask before committing: a
+   reader that finds its element type unavailable can choose another
+   representation, where R_altsxp_alloc() would raise an R error out of the
+   middle of a half-built result.
+
+   A prototype returned here stays valid for the rest of the session, so a
+   caller may cache it in a static without preserving it.
+
+   R_altsxp_register_type() claims a name for a class, which is how the
+   class becomes reachable by one.  The name is the class's own element type,
+   so vector(typeof(x), n) cannot resolve to something typeof() would not
+   call by that name; it must carry a package qualifier, since an unqualified
+   name is a claim on a representation R itself specifies.  Every class
+   already has a qualified pkg::class element type by default.  The first
+   claim on a name wins and a later one warns, so a representation is
+   registered once, by whoever publishes it.
+
+   R_altsxp_share_type() is the other side: a class adopting a name another
+   class published, which is how two classes promise each other a layout.
+   R checks that the name resolves and that the widths agree; it cannot check
+   the semantics, which is why the name has to belong to somebody.  Call it
+   after the method setters, and do not also install an Elt_type method --
+   this sets the one the default method reports. */
+SEXP R_altsxp_prototype(const char *name);
+Rboolean R_altsxp_type_supported(const char *name);
+SEXP R_altsxp_alloc(const char *name, R_xlen_t n, Rboolean zeroinit);
+void R_altsxp_register_type(R_altrep_class_t cls);
+void R_altsxp_share_type(R_altrep_class_t cls, const char *name);
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */
