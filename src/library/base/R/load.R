@@ -168,10 +168,13 @@ save.image <- function (file = ".RData", version = NULL, ascii = FALSE,
     }
     else outfile <- file
 
-    ## file.exists(): save() can now fail before it opens anything --
-    ## a version too low for what is being saved is settled first --
-    ## and removing a file that was never created only warns.
-    on.exit(if (file.exists(outfile)) file.remove(outfile))
+    ## save() can now fail before it opens anything -- a version too low
+    ## for what is being saved is settled first -- so with safe = FALSE
+    ## the destination may still be the caller's previous file, untouched.
+    ## Remove only a file this call is responsible for, and only if it is
+    ## there: removing one that was never created merely warns.
+    preexisting <- !safe && file.exists(outfile)
+    on.exit(if (!preexisting && file.exists(outfile)) file.remove(outfile))
     save(list = names(.GlobalEnv), file = outfile,
          version = version, ascii = ascii, compress = compress,
          envir = .GlobalEnv, precheck = FALSE)

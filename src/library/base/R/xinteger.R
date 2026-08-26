@@ -74,3 +74,9 @@ as.uint128 <- function(x, na = TRUE) as.xinteger(x, 16L, "unsigned", na)
     paste0(rep(c("int", "uint"), each = 5L), rep(c(8L, 16L, 32L, 64L, 128L), 2L))
 
 .isXIntTypeName <- function(s) s %in% .XIntTypeNames
+
+## The same rule for a single name.  readBin() and scan() screen an
+## argument with this before treating it as a storage mode rather than
+## as a prototype, so anything that is not one string cannot be one.
+.isXIntTypeName1 <- function(s)
+    is.character(s) && length(s) == 1L && !is.na(s) && .isXIntTypeName(s)

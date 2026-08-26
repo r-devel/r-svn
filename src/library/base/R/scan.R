@@ -25,13 +25,10 @@ function(file = "", what = double(), nmax = -1L, n = -1L, sep = "",
          multi.line = TRUE, comment.char = "", allowEscapes = FALSE,
          fileEncoding = "", encoding = "unknown", text, skipNul = FALSE)
 {
-    isXIntName <- function(x)
-        is.character(x) && length(x) == 1L && !is.na(x) &&
-        .isXIntTypeName(x)
     if(is.list(what))
         what <- lapply(what, function(x)
-            if(isXIntName(x)) vector(x, 0L) else x)
-    else if(isXIntName(what))
+            if(.isXIntTypeName1(x)) vector(x, 0L) else x)
+    else if(.isXIntTypeName1(what))
         what <- vector(what, 0L)
 
     na.strings <- as.character(na.strings)# allow it to be NULL

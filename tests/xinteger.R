@@ -509,7 +509,16 @@ stopifnot(identical(formatC(wide), as.character(wide)),
 		    formatC(NA_integer_, width = 5L, flag = "0")),
 	  identical(formatC(as.int64(2), digits = 2L, format = "f"), "2.00"),
 	  inherits(tryCatch(formatC(s2, width = 0L, digits = 0L),
-			    error = identity), "error"))
+			    error = identity), "error"),
+	  ## the two flags R's own sprintf() has no spelling for: "'"
+	  ## groups as big.mark does and "I" is ignored, rather than
+	  ## either reaching sprintf() and failing there
+	  identical(formatC(wide, flag = "'"),
+		    formatC(wide, big.mark =
+				  Sys.localeconv()[["thousands_sep"]])),
+	  identical(formatC(wide, flag = "I"), formatC(wide)),
+	  identical(formatC(wide, flag = "'", big.mark = ","),
+		    formatC(wide, big.mark = ",")))
 
 ### round trips
 
@@ -829,6 +838,19 @@ local({
 				error = identity), "error"),
 	      file.size(f) == prior,
 	      !file.exists(paste0(f, "Tmp")))
+})
+
+## with safe = FALSE there is no temporary file: the destination is the
+## workspace file, so a failure that wrote nothing must leave it alone
+local({
+    f <- tempfile()
+    on.exit(unlink(f))
+    writeLines("previous .RData", f)
+    prior <- file.size(f)
+    stopifnot(inherits(tryCatch(save.image(file = f, safe = FALSE,
+					   version = 2),
+				error = identity), "error"),
+	      file.exists(f), file.size(f) == prior)
 })
 
 f <- tempfile()

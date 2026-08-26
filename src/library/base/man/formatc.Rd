@@ -107,6 +107,10 @@ prettyNum(x, big.mark = "",   big.interval = 3L,
     There can be more than one of these flags, in any order.  Other characters
     used to have no effect for \code{character} formatting, but signal
     an error since \R 3.4.0.
+
+    For an \link{xinteger} \code{x}, \code{"'"} groups with the
+    locale's separator as \code{big.mark} would, and \code{"I"} is
+    ignored: \R has no equivalent of that \file{glibc} extension.
   }
 
   \item{mode}{\code{"double"} (or \code{"real"}), \code{"integer"} or

@@ -223,6 +223,15 @@ formatC <- function (x, digits = NULL, width = NULL,
 	    width <- -width
 	    if (!any(nf == "-")) flag <- paste0("-", flag)
 	}
+	## R's sprintf() takes only the C89 flags, so the two GNU ones
+	## formatC also accepts must be settled here rather than passed on:
+	## "'" is thousands grouping, which the prettyNum() tail below does
+	## with the separator C would have used, and "I" (the locale's
+	## alternative digits) has no equivalent at R level.
+	if (any(nf == "'") && !nzchar(big.mark))
+	    big.mark <- Sys.localeconv()[["thousands_sep"]]
+	flag <- gsub("['I]", "", flag)
+
 	r <- sprintf(paste0("%", flag, width, "d"), x)
     } else {
 	i.strlen <-
