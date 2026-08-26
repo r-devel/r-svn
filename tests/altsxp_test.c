@@ -7,6 +7,7 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Altrep.h>
+#include <stdint.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
@@ -31,20 +32,25 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    put two different hash routes on the same table.  K_BOTH declares
    BITWISE_EQ *and* registers Hash and Compare, at K_CMP's element type
    again: the header says the bit wins and the Hash is not consulted, so it
-   has to keep interoperating with K_CMP through the byte route. */
+   has to keep interoperating with K_CMP through the byte route.  K_FAKE64
+   claims base int64's element type at int64's width without being one of
+   its objects, which is what the header offers as the interop mechanism: it
+   must be read through its region method, never by casting whatever it
+   keeps in data1 (one byte per element, here). */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_N };
+       K_FAKE64, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
-    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1
+    1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
+    sizeof(int64_t)
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
-    "bare_byte", "hash_byte", "mod_byte", "both_byte"
+    "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64"
 };
 
 static int test_kind(SEXP x)
@@ -180,6 +186,27 @@ static unsigned int test_traits(SEXP x)
     return R_ALTREP_TRAITS_BITWISE_EQ | R_ALTREP_TRAITS_NOT_NULLABLE;
 }
 
+/* K_FAKE64's: no BITWISE_EQ, so identical() has to ask Compare rather than
+   memcmp, and nullable, so it is comparable with a default as.int64() vector
+   at all. */
+static unsigned int test_open_traits(SEXP x)
+{
+    return 0u;
+}
+
+/* Sharing an element type means this is handed base int64 objects as well as
+   its own, and the only thing the shared name promises is the C type of an
+   element -- not where the other class keeps it.  So both operands are read
+   through the region method, which is exactly what i64_Compare() has to do
+   in the other direction. */
+static int test_fake64_compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    int64_t a, b;
+    R_altsxp_get_region(x, i, 1, &a);
+    R_altsxp_get_region(y, j, 1, &b);
+    return (a > b) - (a < b);
+}
+
 static void init_test_class(R_altrep_class_t cls)
 {
     R_set_altrep_Length_method(cls, test_length);
@@ -301,6 +328,8 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     /* deliberately K_CMP's element type, at K_CMP's width */
     test_type_syms[K_MOD] = cmp_type;
     test_type_syms[K_BOTH] = cmp_type;
+    /* deliberately base int64's element type, at base int64's width */
+    test_type_syms[K_FAKE64] = install("int64");
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -314,7 +343,9 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
 	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ.
 	   K_BOTH does declare it, and registers Hash and Compare as well. */
-	if (k != K_BARE && k != K_HASH && k != K_MOD)
+	if (k == K_FAKE64)
+	    R_set_altsxp_Traits_method(test_classes[k], test_open_traits);
+	else if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
     }
     R_set_altsxp_Compare_method(test_classes[K_CMP], test_compare);
@@ -326,6 +357,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
        take the bit and never call these */
     R_set_altsxp_Compare_method(test_classes[K_BOTH], test_mod_compare);
     R_set_altsxp_Hash_method(test_classes[K_BOTH], test_mod_hash);
+    R_set_altsxp_Compare_method(test_classes[K_FAKE64], test_fake64_compare);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

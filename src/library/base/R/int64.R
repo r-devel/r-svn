@@ -22,8 +22,11 @@
 as.int64  <- function(x, na = TRUE) .Internal(as.int64(x, FALSE, na))
 as.uint64 <- function(x, na = TRUE) .Internal(as.int64(x, TRUE,  na))
 
-int64  <- function(length = 0L) as.int64(integer(length))
-uint64 <- function(length = 0L) as.uint64(integer(length))
+## through vector(), which reaches the class's own allocator: going via
+## as.int64(integer(length)) would build an n-element integer vector and
+## convert it, for the same answer at 1.5x the peak memory
+int64  <- function(length = 0L) vector("int64",  length)
+uint64 <- function(length = 0L) vector("uint64", length)
 
 is.int64  <- function(x) typeof(x) == "int64"
 is.uint64 <- function(x) typeof(x) == "uint64"

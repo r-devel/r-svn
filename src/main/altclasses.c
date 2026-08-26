@@ -2783,7 +2783,18 @@ static R_xlen_t i64_Is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 
 static int i64_Compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
 {
-    return i64_cmp(i64_data(x)[i], i64_data(y)[j], i64_unsigned(x));
+    int64_t b;
+
+    /* Sharing an element type promises the same C representation, not the
+       same place to find it: only this class keeps its payload in data1, so
+       any other one is asked for the element through the region method, as
+       every other entry point here does with i64_is(). */
+    if (i64_is(y))
+	b = i64_data(y)[j];
+    else
+	R_altsxp_get_region(y, j, 1, &b);
+
+    return i64_cmp(i64_data(x)[i], b, i64_unsigned(x));
 }
 
 static unsigned int i64_Traits(SEXP x)

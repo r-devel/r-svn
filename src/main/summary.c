@@ -719,6 +719,27 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	(CDR(args) == R_NilValue || TAG(CDR(args)) == R_NaRmSymbol)) {
 	SEXP toret = NULL;
 	SEXP vec = CAR(args);
+
+	/* With nothing to reduce base R warns and answers with the identity,
+	   +/-Inf, and does so as a double even for integer(0).  An exact
+	   element type has no infinity of its own, so it borrows that same
+	   double answer rather than returning NA: NA would turn an ordinary
+	   `if (min(x, na.rm = TRUE) < 5)` over an empty selection into an
+	   error where every other numeric type just works.
+
+	   Asked before the class rather than after it, because a class whose
+	   domain excludes NA has no answer to give for a reduction of
+	   nothing, and would rightly refuse one. */
+	if (TYPEOF(vec) == ALTSXP && XLENGTH(vec) == 0 &&
+	    (PRIMVAL(op) == 2 || PRIMVAL(op) == 3)) {
+	    if (PRIMVAL(op) == 2)
+		warning(_("no non-missing arguments to min; returning Inf"));
+	    else
+		warning(_("no non-missing arguments to max; returning -Inf"));
+	    UNPROTECT(1); /* args */
+	    return ScalarReal(PRIMVAL(op) == 2 ? R_PosInf : R_NegInf);
+	}
+
 	switch(PRIMVAL(op)) {
 	case 0:
 	    if(TYPEOF(vec) == INTSXP) 
@@ -749,19 +770,13 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if(toret != NULL) {
 	    PROTECT(toret);
-	    /* With nothing to reduce base R warns and answers with the identity,
-	       +/-Inf, and does so as a double even for integer(0).  An exact
-	       element type has no infinity of its own, so it borrows that same
-	       double answer rather than returning NA: NA would turn an ordinary
-	       `if (min(x, na.rm = TRUE) < 5)` over an empty selection into an
-	       error where every other numeric type just works.
-	       With na.rm an NA answer means every element was missing, since
-	       min() and max() return one of their inputs. */
-	    if (TYPEOF(vec) == ALTSXP &&
+	    /* The empty case was answered above; with na.rm an NA answer means
+	       every element was missing, since min() and max() return one of
+	       their inputs, and base R treats that the same way. */
+	    if (TYPEOF(vec) == ALTSXP && narm && TYPEOF(toret) == ALTSXP &&
 		(PRIMVAL(op) == 2 || PRIMVAL(op) == 3)) {
-		int empty = XLENGTH(vec) == 0;
-		if (!empty && narm && TYPEOF(toret) == ALTSXP)
-		    R_altsxp_is_na_region(toret, 0, 1, &empty);
+		int empty = 0;
+		R_altsxp_is_na_region(toret, 0, 1, &empty);
 		if (empty) {
 		    if (PRIMVAL(op) == 2)
 			warning(_("no non-missing arguments to min; returning Inf"));

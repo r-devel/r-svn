@@ -2232,6 +2232,58 @@ local({
     }
 })
 
+## The non-nullable (na = FALSE) corner: a vector that gave up its NA had
+## three paths that asked it for one anyway.
+local({
+    ## min()/max() of nothing: base R warns and answers +/-Inf as a double,
+    ## which is what makes `if (min(x, na.rm = TRUE) < 5)` over an empty
+    ## selection work.  The class was asked first, and a class with no NA to
+    ## offer rightly refused a reduction of nothing.
+    for (v in list(int64(0), as.int64(integer(0), na = FALSE),
+                   as.uint64(integer(0), na = FALSE))) {
+        stopifnot(identical(tryCatch(min(v), warning = function(w) w$message),
+                            "no non-missing arguments to min; returning Inf"),
+                  identical(tryCatch(max(v), warning = function(w) w$message),
+                            "no non-missing arguments to max; returning -Inf"),
+                  identical(suppressWarnings(min(v)), Inf),
+                  identical(suppressWarnings(max(v)), -Inf))
+    }
+    x <- as.int64(1:3, na = FALSE)
+    stopifnot(identical(suppressWarnings(min(x[x > 99])), Inf))
+    ## with elements, the class still answers
+    stopifnot(identical(as.double(min(x)), 1), identical(as.double(max(x)), 3))
+    ## and an all-NA nullable vector keeps the base answer
+    stopifnot(identical(suppressWarnings(min(as.int64(c(NA, NA)), na.rm = TRUE)),
+                        Inf),
+              is.na(min(as.int64(c(NA, 1)))))
+
+    ## match() promotes the other operand so that values are compared rather
+    ## than renderings.  It used to decline whenever the opaque operand was
+    ## whole-range, which sent exactly those vectors down the character path:
+    ## "1e+06" is not "1000000".
+    for (na in c(TRUE, FALSE)) {
+        stopifnot(1e6 %in% as.int64(1e6, na = na),
+                  1e15 %in% as.int64(1e15, na = na),
+                  identical(match(1e6, as.int64(1e6, na = na)), 1L),
+                  identical(match(as.int64(c(2, 5), na = na), c(1, 2, 3)),
+                            c(2L, NA)))
+    }
+    ## a value the class cannot hold still matches nothing rather than erroring
+    stopifnot(!(1.5 %in% as.int64(1:3, na = FALSE)))
+
+    ## incomparables needs a nullable *prototype*, not a nullable copy of the
+    ## table: widening the data errors on a whole-range vector that actually
+    ## holds the pattern its class reserves for NA.
+    w <- as.int64(c("1", "-9223372036854775808"), na = FALSE)
+    stopifnot(identical(format(unique(w, incomparables = 1)), format(w)),
+              identical(duplicated(w, incomparables = 1), c(FALSE, FALSE)),
+              identical(anyDuplicated(w, incomparables = 1), 0L),
+              identical(match(w, w, incomparables = 1), c(NA_integer_, 2L)))
+    ## and the ordinary whole-range case keeps working
+    n2 <- as.int64(c("1", "2", "2"), na = FALSE)
+    stopifnot(identical(as.double(unique(n2, incomparables = 1)), c(1, 2)))
+})
+
 ## --- generic ALTSXP region-contract regressions ----------------------
 
 ## Source-tree tests build a tiny pointer-less ALTSXP class whose Get/Set
@@ -2426,6 +2478,25 @@ if (length(dll.paths)) local({
     ## NAs and anyNA() then contradicted is.na().  No base caller reaches
     ## set_na_region on an object that has been asked yet, so it takes the
     ## public entry point a package would use.
+    ## A class that shares base int64's element type is not one of int64's
+    ## objects: the shared name promises the C type of an element, not where
+    ## the other class keeps it.  fake_int64 stores one byte per element, so
+    ## reading its data1 as an int64 array runs off the end of it.  Its
+    ## element for byte b is b repeated across all eight bytes.
+    fake <- new.kind("fake_int64", as.raw(c(1, 2)))
+    twin64 <- c(as.int64("72340172838076673"),    # 0x0101010101010101
+                as.int64("144680345676153346"))  # 0x0202020202020202
+    stopifnot(identical(typeof(fake), "int64"),
+              identical(length(fake), 2L),
+              ## identical() compares through Compare, since fake_int64 does
+              ## not declare BITWISE_EQ -- and it must agree both ways round
+              identical(twin64, fake),
+              identical(fake, twin64),
+              !identical(as.int64(1:2), fake))
+    ## min()/max() fold across arguments by Compare too
+    stopifnot(identical(format(min(twin64, fake)), "72340172838076673"),
+              identical(format(max(twin64, fake)), "144680345676153346"))
+
     ## Which hash a table is keyed with is a property of the class, but the
     ## table is built from one operand and probed with another: mod_byte
     ## reports cmp_byte's element type, so the two are matchable, yet one

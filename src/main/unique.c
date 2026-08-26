@@ -589,14 +589,34 @@ static int match_operand_isna(SEXP x, R_xlen_t i)
     }
 }
 
+/* A nullable prototype of x's class.  Only the class and its traits are ever
+   used, never the contents, so a zero-length instance is widened rather than
+   the data: widening the data would copy the whole vector, and for a
+   whole-range vector that actually holds the pattern its class reserves for
+   NA it would fail outright.  NULL when the class cannot widen at all. */
+static SEXP altsxp_nullable_proto(SEXP x)
+{
+    if (R_altsxp_nullable(x))
+	return x;
+
+    SEXP empty = PROTECT(R_allocVectorLike(x, 0, FALSE));
+    SEXP ans = R_altsxp_na_widen(empty);
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* Promote an ordinary vector into the class of an opaque one so that match()
    compares values rather than renderings: 1e18 and "1000000000000000000" are
    the same number but not the same string.  Returns NULL when the promotion
    would change a value, and the caller falls back to comparing as character.
 
-   Only a vector that can hold NA is promoted into, so that a value the class
-   cannot represent becomes NA -- which the check below then spots -- instead
-   of raising an error from inside match().  Such a value still draws the
+   The promotion goes into a vector that can hold NA, so that a value the
+   class cannot represent becomes NA -- which the check below then spots --
+   instead of raising an error from inside match().  That is a property of
+   the prototype, not of the operand being matched: each object is read in
+   its own domain by altsxpequal(), so a whole-range vector is matched
+   against a nullable rendering of the other side quite happily.  Such a value still draws the
    class's own coercion warning before the fallback; there is no quiet form
    of Coerce_from, and a value the type cannot hold is worth mentioning.
 
@@ -607,7 +627,8 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
 {
     R_xlen_t n = XLENGTH(other);
 
-    if (! R_altsxp_nullable(alt))
+    SEXP proto = altsxp_nullable_proto(alt);
+    if (proto == NULL)
 	return NULL;
 
     switch (TYPEOF(other)) {
@@ -650,7 +671,9 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
 	return NULL;
     }
 
-    SEXP ans = R_altsxp_coerce_from(alt, other);
+    PROTECT(proto);
+    SEXP ans = R_altsxp_coerce_from(proto, other);
+    UNPROTECT(1); /* proto */
     if (ans == NULL)
 	return NULL;
     PROTECT(ans);
@@ -696,7 +719,7 @@ static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
 	return incomp;
     }
 
-    SEXP nullable = R_altsxp_nullable(proto) ? proto : R_altsxp_na_widen(proto);
+    SEXP nullable = altsxp_nullable_proto(proto);
     SEXP ans = NULL;
     if (nullable != NULL) {
 	PROTECT(nullable);
