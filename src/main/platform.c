@@ -2218,8 +2218,9 @@ attribute_hidden SEXP do_getlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
     default: cat = NA_INTEGER;
     }
     if (cat != NA_INTEGER) p = setlocale(cat, NULL);
-    return ScalarString(mkCharCE(reEnc(p ? p : "", CE_NATIVE, CE_UTF8, 1),
-				 CE_UTF8));
+    const char *utf8 = reEnc(p ? p : "", CE_NATIVE, CE_UTF8, 1);
+    SEXP string = mkCharCE(utf8, CE_UTF8);
+    return ScalarString(string);
 }
 
 attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
