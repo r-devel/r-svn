@@ -438,18 +438,17 @@ if(onWindows && UTF8) local({
 	invisible(Sys.setlocale("LC_TIME", old[["time"]]))
     })
 
-    ## UCRT may expand this ASCII alias to a name containing "Bokm\u00e5l".
-    setloc <- suppressWarnings(Sys.setlocale("LC_TIME", "Norwegian_Norway.UTF-8"))
-    if(nzchar(setloc) && any(as.integer(charToRaw(setloc)) > 127L)) {
+    locale <- enc2utf8("Norwegian Bokm\u00e5l_Norway.utf8")
+    setloc <- suppressWarnings(Sys.setlocale("LC_TIME", locale))
+    if(nzchar(setloc)) {
 	getloc <- Sys.getlocale("LC_TIME")
 	stopifnot(identical(Encoding(getloc), "UTF-8"),
 		  identical(Encoding(setloc), "UTF-8"))
 
 	## A declared UTF-8 locale name is converted to UTF-16 before the CRT
 	## sees it, even when the current native encoding is not UTF-8.
-	setloc <- enc2utf8(setloc)
 	invisible(Sys.setlocale("LC_CTYPE", "C"))
-	setloc2 <- suppressWarnings(Sys.setlocale("LC_TIME", setloc))
+	setloc2 <- suppressWarnings(Sys.setlocale("LC_TIME", locale))
 	getloc2 <- Sys.getlocale("LC_TIME")
 	invisible(Sys.setlocale("LC_CTYPE", old[["ctype"]]))
 	stopifnot(nzchar(setloc2), identical(getloc2, setloc2),
