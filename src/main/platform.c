@@ -2188,10 +2188,24 @@ attribute_hidden SEXP do_unlink(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 #endif
 
+#ifdef Win32
+# define LOCALE_CHAR wchar_t
+# define SETLOCALE _wsetlocale
+# define LOCALE_ARG wtransChar
+# define LOCALE_IS_C(x) (!wcscmp((x), L"C"))
+# define LOCALE_MKCHAR mkCharWUTF8
+#else
+# define LOCALE_CHAR char
+# define SETLOCALE setlocale
+# define LOCALE_ARG CHAR
+# define LOCALE_IS_C(x) (!strcmp((x), "C"))
+# define LOCALE_MKCHAR mkChar
+#endif
+
 attribute_hidden SEXP do_getlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int cat;
-    char *p = NULL;
+    const LOCALE_CHAR *p = NULL;
 
     checkArity(op, args);
     cat = asInteger(CAR(args));
@@ -2217,16 +2231,21 @@ attribute_hidden SEXP do_getlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 #endif
     default: cat = NA_INTEGER;
     }
-    if (cat != NA_INTEGER) p = setlocale(cat, NULL);
-    return mkString(p ? p : "");
+    if (cat != NA_INTEGER) p = SETLOCALE(cat, NULL);
+#ifdef Win32
+    SEXP string = p ? LOCALE_MKCHAR(p) : mkChar("");
+#else
+    const char *utf8 = reEnc(p ? p : "", CE_NATIVE, CE_UTF8, 1);
+    SEXP string = mkCharCE(utf8, CE_UTF8);
+#endif
+    return ScalarString(string);
 }
 
-/* Locale specs are always ASCII */
 attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP locale = CADR(args), ans;
     int cat;
-    const char *p;
+    const LOCALE_CHAR *p, *l;
     bool warned = FALSE;
 
     checkArity(op, args);
@@ -2235,56 +2254,54 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "category");
     if (!isString(locale) || LENGTH(locale) != 1)
 	error(_("invalid '%s' argument"), "locale");
+    l = LOCALE_ARG(STRING_ELT(locale, 0));
     switch(cat) {
     case 1:
     {
-	const char *l = CHAR(STRING_ELT(locale, 0));
 	cat = LC_ALL;
 	/* assume we can set LC_CTYPE iff we can set the rest */
-	if ((p = setlocale(LC_CTYPE, l))) {
-	    setlocale(LC_COLLATE, l);
+	if ((p = SETLOCALE(LC_CTYPE, l))) {
+	    SETLOCALE(LC_COLLATE, l);
 	    /* disable the collator when setting to C to take
 	       precedence over R_ICU_LOCALE */
-	    resetICUcollator(!strcmp(l, "C"));
-	    setlocale(LC_MONETARY, l);
-	    setlocale(LC_TIME, l);
+	    resetICUcollator(LOCALE_IS_C(l));
+	    SETLOCALE(LC_MONETARY, l);
+	    SETLOCALE(LC_TIME, l);
 	    dt_invalidate_locale();
 	    /* Need to return value of LC_ALL */
-	    p = setlocale(cat, NULL);
+	    p = SETLOCALE(cat, NULL);
 	}
 	break;
     }
     case 2:
     {
-	const char *l = CHAR(STRING_ELT(locale, 0));
 	cat = LC_COLLATE;
-	p = setlocale(cat, l);
+	p = SETLOCALE(cat, l);
 	/* disable the collator when setting to C to take
 	   precedence over R_ICU_LOCALE */
-	resetICUcollator(!strcmp(l, "C"));
+	resetICUcollator(LOCALE_IS_C(l));
 	break;
     }
     case 3:
 	cat = LC_CTYPE;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	break;
     case 4:
 	cat = LC_MONETARY;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	break;
     case 5:
 	cat = LC_NUMERIC;
 	{
-	    const char *new_lc_num = CHAR(STRING_ELT(locale, 0));
-	    if (strcmp(new_lc_num, "C")) /* do not complain about C locale - that's the only
-					    reliable way to restore sanity */
+	    if (!LOCALE_IS_C(l)) /* do not complain about C locale - that's the only
+				    reliable way to restore sanity */
 		warning(_("setting 'LC_NUMERIC' may cause R to function strangely"));
-	    p = setlocale(cat, new_lc_num);
+	    p = SETLOCALE(cat, l);
 	}
 	break;
     case 6:
 	cat = LC_TIME;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	dt_invalidate_locale();
 	break;
 #ifdef Win32
@@ -2302,19 +2319,19 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 # ifdef LC_MESSAGES
     case 7:
 	cat = LC_MESSAGES;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	break;
 # endif
 # ifdef LC_PAPER
     case 8:
 	cat = LC_PAPER;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	break;
 # endif
 # ifdef	LC_MEASUREMENT
     case 9:
 	cat = LC_MEASUREMENT;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
+	p = SETLOCALE(cat, l);
 	break;
 # endif
 #endif
@@ -2323,7 +2340,7 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "category");
     }
     PROTECT(ans = allocVector(STRSXP, 1));
-    if (p) SET_STRING_ELT(ans, 0, mkChar(p));
+    if (p) SET_STRING_ELT(ans, 0, LOCALE_MKCHAR(p));
     else  {
 	SET_STRING_ELT(ans, 0, mkChar(""));
 	if (!warned)
@@ -2346,6 +2363,12 @@ attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
     UNPROTECT(1);
     return ans;
 }
+
+#undef LOCALE_CHAR
+#undef SETLOCALE
+#undef LOCALE_ARG
+#undef LOCALE_IS_C
+#undef LOCALE_MKCHAR
 
 
 
