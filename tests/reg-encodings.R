@@ -430,13 +430,11 @@ if(!is.null(lc <- lcct) && nzchar(lc)) Sys.setlocale("LC_CTYPE", lc) # revert
 
 
 ## Sys.[gs]etlocale() handle non-ASCII locale names and their encoding
-if(onWindows && UTF8) local({
-    old <- c(ctype = Sys.getlocale("LC_CTYPE"),
-	     time = Sys.getlocale("LC_TIME"))
-    on.exit({
-	invisible(Sys.setlocale("LC_CTYPE", old[["ctype"]]))
-	invisible(Sys.setlocale("LC_TIME", old[["time"]]))
-    })
+if(onWindows) local({
+    cats <- c("LC_COLLATE", "LC_CTYPE", "LC_MONETARY", "LC_TIME")
+    old <- vapply(cats, Sys.getlocale, "")
+    on.exit(for(category in cats)
+	invisible(Sys.setlocale(category, old[[category]])))
 
     locale <- enc2utf8("Norwegian Bokm\u00e5l_Norway.utf8")
     setloc <- suppressWarnings(Sys.setlocale("LC_TIME", locale))
@@ -450,8 +448,17 @@ if(onWindows && UTF8) local({
 	invisible(Sys.setlocale("LC_CTYPE", "C"))
 	setloc2 <- suppressWarnings(Sys.setlocale("LC_TIME", locale))
 	getloc2 <- Sys.getlocale("LC_TIME")
-	invisible(Sys.setlocale("LC_CTYPE", old[["ctype"]]))
+	invisible(Sys.setlocale("LC_CTYPE", old[["LC_CTYPE"]]))
 	stopifnot(nzchar(setloc2), identical(getloc2, setloc2),
+		  identical(Sys.getlocale("LC_TIME"), setloc))
+
+	## "LC_ALL" sets each category from the one name and reports the
+	## resulting compound locale, again from the C locale.
+	invisible(Sys.setlocale("LC_CTYPE", "C"))
+	setall <- suppressWarnings(Sys.setlocale("LC_ALL", locale))
+	stopifnot(nzchar(setall), identical(Encoding(setall), "UTF-8"),
+		  identical(Sys.getlocale("LC_CTYPE"), setloc),
+		  identical(Sys.getlocale("LC_COLLATE"), setloc),
 		  identical(Sys.getlocale("LC_TIME"), setloc))
     }
 })

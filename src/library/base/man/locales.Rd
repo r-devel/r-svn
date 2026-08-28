@@ -89,7 +89,8 @@ Sys.setlocale (category = "LC_ALL", locale = "")
   A character string of length one describing the locale in use (after
   setting for \code{Sys.setlocale}), or an empty character string if the
   current locale settings are invalid or \code{NULL} if locale
-  information is unavailable.
+  information is unavailable.  A locale name containing non-ASCII
+  characters (as some do on Windows) is returned encoded in UTF-8.
 
   For \code{category = "LC_ALL"} the details of the string are
   system-specific: it might be a single locale name or a set of locale

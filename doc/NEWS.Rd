@@ -294,6 +294,17 @@
 
       \item Fix for \PR{19035} (piping \code{postscript()} output)
       thanks to \I{Jeroen Ooms} and \I{Ivan Krylov}.
+
+      \item \code{Sys.setlocale()} on Windows now passes the locale name
+      to the C runtime as UTF-16, so that a name containing non-ASCII
+      characters -- such as \code{"Norwegian Bokmål_Norway.utf8"} or
+      \code{"Turkish_Türkiye.utf8"}, the default names on recent Windows
+      versions -- can be set from any locale, including \code{"C"}.
+      Previously the name was passed as bytes to be interpreted in the
+      \emph{current} locale, so that, e.g., restoring a locale saved by
+      \code{Sys.getlocale()} after switching to \code{"C"} failed.  On
+      all platforms, \code{Sys.getlocale()} and \code{Sys.setlocale()}
+      now return non-ASCII locale names marked as \abbr{UTF-8}.
     }
   }
 }

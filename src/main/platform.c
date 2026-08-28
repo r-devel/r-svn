@@ -2188,18 +2188,25 @@ attribute_hidden SEXP do_unlink(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 #endif
 
+/* Locale names are passed to the C library in its native encoding (UTF-16
+   on Windows) and returned to R as UTF-8, so that a name obtained from
+   Sys.getlocale() can be given back to Sys.setlocale() whatever the
+   current locale is.  With narrow locale names, a name containing
+   non-ASCII characters (as the Norwegian Bokmal and Turkish locales do
+   on recent versions of Windows) could not be set again once the C
+   locale was in effect. */
 #ifdef Win32
 # define R_LOCALE_CHAR wchar_t
 # define R_SETLOCALE _wsetlocale
 # define R_LOCALE_ARG wtransChar
 # define R_LOCALE_IS_C(x) (!wcscmp((x), L"C"))
-# define R_LOCALE_MKCHAR mkCharWUTF8
+# define R_LOCALE_MKCHAR(x) mkCharWUTF8(x)
 #else
 # define R_LOCALE_CHAR char
 # define R_SETLOCALE setlocale
-# define R_LOCALE_ARG CHAR
+# define R_LOCALE_ARG translateChar
 # define R_LOCALE_IS_C(x) (!strcmp((x), "C"))
-# define R_LOCALE_MKCHAR mkChar
+# define R_LOCALE_MKCHAR(x) mkCharCE(reEnc((x), CE_NATIVE, CE_UTF8, 1), CE_UTF8)
 #endif
 
 attribute_hidden SEXP do_getlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -2232,13 +2239,7 @@ attribute_hidden SEXP do_getlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
     default: cat = NA_INTEGER;
     }
     if (cat != NA_INTEGER) p = R_SETLOCALE(cat, NULL);
-#ifdef Win32
-    SEXP string = p ? R_LOCALE_MKCHAR(p) : mkChar("");
-#else
-    const char *utf8 = reEnc(p ? p : "", CE_NATIVE, CE_UTF8, 1);
-    SEXP string = mkCharCE(utf8, CE_UTF8);
-#endif
-    return ScalarString(string);
+    return ScalarString(p ? R_LOCALE_MKCHAR(p) : mkChar(""));
 }
 
 attribute_hidden SEXP do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
