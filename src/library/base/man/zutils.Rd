@@ -16,4 +16,7 @@
   \code{valid_package_version} with the obvious meanings.  The regexps
   are not anchored.
 }
+\examples{
+.standard_regexps()
+}
 \keyword{utilities}
