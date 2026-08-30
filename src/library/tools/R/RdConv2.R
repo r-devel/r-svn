@@ -212,7 +212,8 @@ processRdChunk <- function(code, stage, options, env, macros)
     ## We may want to provide Rdfile and other information for the whole
     ## prepare_Rd() processing, but that recalls itself so dropping the
     ## information on exit is not straightforward.
-    processRdChunk_data_store(list(Rdfile = Rdfile))
+    processRdChunk_data_store(list(Rdfile = Rdfile,
+                                   dir = Rd_find_package_dir(Rdfile)))
     on.exit(processRdChunk_data_store(NULL))
     options <- utils:::SweaveParseOptions(opts, options, RweaveRdOptions)
     if (stage == options$stage) {
@@ -375,6 +376,22 @@ processRdChunk <- function(code, stage, options, env, macros)
     } else res <- code
     ## return :
     replaceRdSrcrefs(res, codesrcref)
+}
+
+Rd_find_package_dir <- function(rdfile)
+{
+    if(!is.character(rdfile) || length(rdfile) != 1L || !nzchar(rdfile))
+        return(".")
+    cur <- dirname(normalizePath(rdfile, mustWork = FALSE))
+    repeat {
+        p <- dirname(cur)
+        if (p == cur) break
+        if (basename(cur) %in% c("man", "inst") &&
+            file_test("-f", file.path(p, "DESCRIPTION")))
+            return(p)
+        cur <- p
+    }
+    "."
 }
 
 processRdChunk_data_store <- local({

@@ -50,6 +50,11 @@ for (encoding in c("UTF-8", "latin1"))
     Rcmd(c("Rd2pdf", Rd2pdf_opts, paste0("--encoding=", encoding),
            sprintf("--output=%s-figure.pdf", pkgname), rdfile)) == 0L ||
         stop("failed to render ", sQuote(rdfile))
+    ## and another with \packageFOO macros (PR#18960)
+    rdfile_pkg <- file.path(pkgdir, "man", paste0(pkgname, "-package.Rd"))
+    Rcmd(c("Rd2pdf", Rd2pdf_opts, paste0("--encoding=", encoding),
+           sprintf("--output=%s-package.pdf", pkgname), rdfile_pkg)) == 0L ||
+        stop("failed to render ", sQuote(rdfile_pkg))
 
     ## Render the package manual
     ## - the following three variants all (over)write <pkgname>.pdf
