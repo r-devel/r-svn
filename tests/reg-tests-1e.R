@@ -419,7 +419,7 @@ op <- options(download.file.method = "no way")
 # website does not matter as will not be contacted.
 Edl <- tryCid(download.file("http://cran.r-project.org/", "ping.txt"))
 stopifnot(inherits(Edl, "error"),
-          !englishMsgs || grepl("should be one of .auto.,", conditionMessage(Edl)))
+          !englishMsgs || grepl("should be NULL or one of .auto.,", conditionMessage(Edl)))
 options(op)
 ## error was  "object 'status' not found"  in R <= 4.2.2
 
@@ -3698,6 +3698,12 @@ stopifnot(
     identical(drop(aperm(a, c("Y", "X", "Z"))), aperm(m, c("Y", "X"))),
     identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
+
+## match.arg handling of non-character input
+stopifnot(identical(
+  tryCmsg(match.arg(TRUE, c('a', 'b', 'c'))),
+  tryCmsg(match.arg('d',  c('a', 'b', 'c')))
+))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
