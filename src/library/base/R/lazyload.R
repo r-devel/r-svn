@@ -40,7 +40,7 @@ lazyLoadDBexec <- function(filebase, fun, filter)
         if (! is.character(file)) halt("bad file name")
         con <- gzfile(file, "rb")
         on.exit(close(con))
-        .Internal(unserializeFromConn(con, baseenv()))
+        .Internal(unserializeFromConn(con, baseenv(), TRUE))
     }
     `parent.env<-` <-
         function (env, value) .Internal(`parent.env<-`(env, value))

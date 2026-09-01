@@ -2212,20 +2212,6 @@ attribute_hidden void R_XDREncodeDouble(double d, void *buf)
 	error(_("XDR write failed"));
 }
 
-attribute_hidden double R_XDRDecodeDouble(void *buf)
-{
-    XDR xdrs;
-    double d;
-    int success;
-
-    xdrmem_create(&xdrs, (char *) buf, R_XDR_DOUBLE_SIZE, XDR_DECODE);
-    success = xdr_double(&xdrs, &d);
-    xdr_destroy(&xdrs);
-    if (! success)
-	error(_("XDR read failed"));
-    return d;
-}
-
 attribute_hidden void R_XDREncodeInteger(int i, void *buf)
 {
     XDR xdrs;
@@ -2236,19 +2222,6 @@ attribute_hidden void R_XDREncodeInteger(int i, void *buf)
     xdr_destroy(&xdrs);
     if (! success)
 	error(_("XDR write failed"));
-}
-
-attribute_hidden int R_XDRDecodeInteger(void *buf)
-{
-    XDR xdrs;
-    int i, success;
-
-    xdrmem_create(&xdrs, (char *) buf, R_XDR_INTEGER_SIZE, XDR_DECODE);
-    success = xdr_int(&xdrs, &i);
-    xdr_destroy(&xdrs);
-    if (! success)
-	error(_("XDR read failed"));
-    return i;
 }
 
 /* Next two were used in gnomeGUI package, are in Rinterface.h  */

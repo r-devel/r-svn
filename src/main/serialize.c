@@ -375,6 +375,63 @@ static void OutString(R_outpstream_t stream, const char *s, int length)
  * Basic Input Routines
  */
 
+/* XDR integers are big-endian two's complement and XDR doubles are
+   big-endian IEEE 754, so they can be decoded with plain byte
+   arithmetic.  This avoids a round trip through the XDR library for
+   every value, which is a function pointer dispatch per element and
+   dominates the cost of reading large numeric vectors.  Assembling
+   the value from bytes is endianness-neutral, and compilers reduce it
+   to a byte swap. */
+
+static R_INLINE int DecodeXDRInteger(const unsigned char *p)
+{
+    unsigned int u = ((unsigned int) p[0] << 24) |
+	((unsigned int) p[1] << 16) |
+	((unsigned int) p[2] << 8) |
+	(unsigned int) p[3];
+    int i;
+
+    memcpy(&i, &u, sizeof(int));
+    return i;
+}
+
+static R_INLINE double DecodeXDRDouble(const unsigned char *p)
+{
+    uint64_t u = ((uint64_t) p[0] << 56) |
+	((uint64_t) p[1] << 48) |
+	((uint64_t) p[2] << 40) |
+	((uint64_t) p[3] << 32) |
+	((uint64_t) p[4] << 24) |
+	((uint64_t) p[5] << 16) |
+	((uint64_t) p[6] << 8) |
+	(uint64_t) p[7];
+    double d;
+
+    memcpy(&d, &u, sizeof(double));
+    return d;
+}
+
+/* Vectors are decoded in place: the raw XDR bytes are read straight
+   into the destination and converted there. */
+
+static R_INLINE void DecodeXDRIntegerVec(int *x, R_xlen_t n)
+{
+    for (R_xlen_t i = 0; i < n; i++) {
+	unsigned char b[sizeof(int)];
+	memcpy(b, x + i, sizeof(int));
+	x[i] = DecodeXDRInteger(b);
+    }
+}
+
+static R_INLINE void DecodeXDRDoubleVec(double *x, R_xlen_t n)
+{
+    for (R_xlen_t i = 0; i < n; i++) {
+	unsigned char b[sizeof(double)];
+	memcpy(b, x + i, sizeof(double));
+	x[i] = DecodeXDRDouble(b);
+    }
+}
+
 static void InWord(R_inpstream_t stream, char * buf, int size)
 {
     int c, i;
@@ -413,7 +470,7 @@ static int InInteger(R_inpstream_t stream)
 	return i;
     case R_pstream_xdr_format:
 	stream->InBytes(stream, buf, R_XDR_INTEGER_SIZE);
-	return R_XDRDecodeInteger(buf);
+	return DecodeXDRInteger((unsigned char *) buf);
     default:
 	return NA_INTEGER;
     }
@@ -456,7 +513,7 @@ static double InReal(R_inpstream_t stream)
 	return d;
     case R_pstream_xdr_format:
 	stream->InBytes(stream, buf, R_XDR_DOUBLE_SIZE);
-	return R_XDRDecodeDouble(buf);
+	return DecodeXDRDouble((unsigned char *) buf);
     default:
 	return NA_REAL;
     }
@@ -1520,24 +1577,18 @@ static SEXP InStringVec(R_inpstream_t stream, SEXP ref_table)
     return s;
 }
 
-/* use static buffer to reuse storage */
 static R_INLINE void
 InIntegerVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
 {
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(int)];
+	int *x = INTEGER(obj);
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(int) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(int)), XDR_DECODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_int(&xdrs, INTEGER(obj) + done + cnt))
-		    error(_("XDR read failed"));
-	    xdr_destroy(&xdrs);
+	    stream->InBytes(stream, x + done, (int)(sizeof(int) * this));
+	    DecodeXDRIntegerVec(x + done, this);
 	}
 	break;
     }
@@ -1563,17 +1614,12 @@ InRealVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(double)];
+	double *x = REAL(obj);
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(double) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(double)), XDR_DECODE);
-	    for(R_xlen_t cnt = 0; cnt < this; cnt++)
-		if(!xdr_double(&xdrs, REAL(obj) + done + cnt))
-		    error(_("XDR read failed"));
-	    xdr_destroy(&xdrs);
+	    stream->InBytes(stream, x + done, (int)(sizeof(double) * this));
+	    DecodeXDRDoubleVec(x + done, this);
 	}
 	break;
     }
@@ -1599,20 +1645,13 @@ InComplexVec(R_inpstream_t stream, SEXP obj, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(Rcomplex)];
+	Rcomplex *x = COMPLEX(obj);
 	R_xlen_t done, this;
-	XDR xdrs;
-	Rcomplex *output = COMPLEX(obj);
 	for (done = 0; done < length; done += this) {
 	    this = min2(CHUNK_SIZE, length - done);
-	    stream->InBytes(stream, buf, (int)(sizeof(Rcomplex) * this));
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(Rcomplex)), XDR_DECODE);
-	    for(R_xlen_t cnt = 0; cnt < this; cnt++) {
-		if(!xdr_double(&xdrs, &(output[done+cnt].r)) ||
-		   !xdr_double(&xdrs, &(output[done+cnt].i)))
-		    error(_("XDR read failed"));
-	    }
-	    xdr_destroy(&xdrs);
+	    stream->InBytes(stream, x + done, (int)(sizeof(Rcomplex) * this));
+	    /* an Rcomplex is two consecutive doubles */
+	    DecodeXDRDoubleVec((double *) (x + done), 2 * this);
 	}
 	break;
     }
@@ -2483,9 +2522,9 @@ static void CheckOutConn(Rconnection con)
 	error(_("cannot write to this connection"));
 }
 
-static void InBytesConn(R_inpstream_t stream, void *buf, int length)
+static void ReadConnBytes(Rconnection con, R_inpstream_t stream,
+			  void *buf, int length)
 {
-    Rconnection con = (Rconnection) stream->data;
     CheckInConn(con);
     if (con->text) {
 	int i;
@@ -2516,10 +2555,9 @@ static void InBytesConn(R_inpstream_t stream, void *buf, int length)
     }
 }
 
-static int InCharConn(R_inpstream_t stream)
+static int ReadConnChar(Rconnection con)
 {
     char buf[1];
-    Rconnection con = (Rconnection) stream->data;
     CheckInConn(con);
     if (con->text)
 	return Rconn_fgetc(con);
@@ -2529,6 +2567,127 @@ static int InCharConn(R_inpstream_t stream)
 		    con->description);
 	return buf[0];
     }
+}
+
+static void InBytesConn(R_inpstream_t stream, void *buf, int length)
+{
+    ReadConnBytes((Rconnection) stream->data, stream, buf, length);
+}
+
+static int InCharConn(R_inpstream_t stream)
+{
+    return ReadConnChar((Rconnection) stream->data);
+}
+
+/* Buffered connection input streams.
+
+   Reading every flags word, length and CHARSXP with its own
+   con->read() call is expensive, most of all for compressed
+   connections: zlib only takes its fast path when asked for at least
+   258 bytes of output, and each call pays for inflate() setup and a
+   crc32 update.  Objects made of many small elements spend most of
+   their time there, so a read-ahead buffer amortizes that cost.
+
+   Bytes read past the end of the serialized object are discarded, so
+   the buffer can only be used by callers which own the connection and
+   close it afterwards, such as readRDS() with a file name.  Streams
+   reading from a shared connection must keep consuming it exactly. */
+
+#define CONIN_BUFSIZE 65536
+/* requests at least this large are read straight into the caller's
+   memory: they are already efficient and would only be copied twice */
+#define CONIN_DIRECT_MIN 4096
+
+typedef struct conin_st {
+    Rconnection con;
+    unsigned char *buf;
+    size_t pos; /* next unread byte in buf */
+    size_t len; /* number of bytes held in buf */
+} *conin_t;
+
+static R_INLINE bool UseConnBuffer(conin_t cin, R_inpstream_t stream)
+{
+    /* Only binary formats are buffered.  The ascii format reads
+       through Rconn_getline() and text-mode connections through
+       Rconn_fgetc(), neither of which would see buffered bytes.  The
+       format is not known until the header has been read, and nothing
+       is buffered before then. */
+    return !cin->con->text &&
+	(stream->type == R_pstream_xdr_format ||
+	 stream->type == R_pstream_binary_format);
+}
+
+static void InBytesConnBuffered(R_inpstream_t stream, void *buf, int length)
+{
+    conin_t cin = stream->data;
+    Rconnection con = cin->con;
+
+    if (!UseConnBuffer(cin, stream)) {
+	ReadConnBytes(con, stream, buf, length);
+	return;
+    }
+    CheckInConn(con);
+    if (length <= 0)
+	return;
+
+    unsigned char *dst = buf;
+    size_t need = (size_t) length;
+    size_t avail = cin->len - cin->pos;
+    if (avail >= need) {
+	memcpy(dst, cin->buf + cin->pos, need);
+	cin->pos += need;
+	return;
+    }
+
+    /* drain the buffer, then read the rest directly or refill */
+    memcpy(dst, cin->buf + cin->pos, avail);
+    dst += avail;
+    need -= avail;
+    cin->pos = cin->len = 0;
+
+    if (need >= CONIN_DIRECT_MIN) {
+	if (need != con->read(dst, 1, need, con))
+	    error(_("error reading from connection '%s'"),
+		  con->description);
+	return;
+    }
+
+    while (cin->len < need) {
+	size_t n = con->read(cin->buf + cin->len, 1,
+			     CONIN_BUFSIZE - cin->len, con);
+	if (n == 0 || n > CONIN_BUFSIZE - cin->len)
+	    error(_("error reading from connection '%s'"),
+		  con->description);
+	cin->len += n;
+    }
+    memcpy(dst, cin->buf, need);
+    cin->pos = need;
+}
+
+static int InCharConnBuffered(R_inpstream_t stream)
+{
+    conin_t cin = stream->data;
+
+    /* Single characters are only read by the ascii format, which is
+       never buffered, but never skip over bytes already read ahead. */
+    if (cin->pos < cin->len)
+	return cin->buf[cin->pos++];
+    return ReadConnChar(cin->con);
+}
+
+static void InitBufferedConnInPStream(R_inpstream_t stream, conin_t cin,
+				      Rconnection con,
+				      SEXP (*phook)(SEXP, SEXP), SEXP pdata)
+{
+    CheckInConn(con);
+    cin->con = con;
+    cin->buf = (unsigned char *) R_alloc(CONIN_BUFSIZE, 1);
+    cin->pos = cin->len = 0;
+
+    R_pstream_format_t type =
+	con->text ? R_pstream_ascii_format : R_pstream_any_format;
+    R_InitInPStream(stream, (R_pstream_data_t) cin, type,
+		    InCharConnBuffered, InBytesConnBuffered, phook, pdata);
 }
 
 static void OutBytesConn(R_outpstream_t stream, void *buf, int length)
@@ -2684,20 +2843,21 @@ static SEXP checkNotPromise(SEXP val)
     return val;
 }
 
-/* unserializeFromConn(conn, hook) used from readRDS().
+/* unserializeFromConn(conn, hook, buffered) used from readRDS().
    It became public in R 2.13.0, and that version added support for
    connections internally */
 attribute_hidden SEXP
 do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    /* 0 .. unserializeFromConn(conn, hook) */
+    /* 0 .. unserializeFromConn(conn, hook, buffered) */
     /* 1 .. serializeInfoFromConn(conn) */
 
     struct R_inpstream_st in;
+    struct conin_st cin;
     Rconnection con;
     SEXP fun, ans;
     SEXP (*hook)(SEXP, SEXP);
-    bool wasopen;
+    bool wasopen, buffered;
     RCNTXT cntxt;
 
     checkArity(op, args);
@@ -2725,7 +2885,15 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     fun = PRIMVAL(op) == 0 ? CADR(args) : R_NilValue;
     hook = fun != R_NilValue ? CallHook : NULL;
-    R_InitConnInPStream(&in, con, R_pstream_any_format, hook, fun);
+
+    /* The caller asks for buffering only when it owns the connection
+       and closes it afterwards, so reading ahead cannot lose bytes
+       that anything else expects to find. */
+    buffered = PRIMVAL(op) == 0 && asRbool(CADDR(args), call);
+    if (buffered)
+	InitBufferedConnInPStream(&in, &cin, con, hook, fun);
+    else
+	R_InitConnInPStream(&in, con, R_pstream_any_format, hook, fun);
     ans = PRIMVAL(op) == 0 ? R_Unserialize(&in) : R_SerializeInfo(&in);
     if(!wasopen) {
 	PROTECT(ans); /* paranoia about next line */
