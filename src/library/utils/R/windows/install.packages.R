@@ -24,7 +24,12 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
     .zip.unpack <- function(zipname, dest)
     {
         if(file.exists(zipname)) {
-            if((unzip <- getOption("unzip")) != "internal") {
+            ## binary packages can be zip files or tarballs: dispatch on
+            ## the magic bytes as the file extension is not reliable
+            magic <- readBin(zipname, "raw", n = 4L)
+            if(!identical(magic, as.raw(c(0x50, 0x4b, 0x03, 0x04))))
+                utils::untar(zipname, exdir = dest)
+            else if((unzip <- getOption("unzip")) != "internal") {
                 system(paste(shQuote(unzip), "-oq", zipname, "-d", dest),
                        show.output.on.console = FALSE, invisible = TRUE)
             } else unzip(zipname, exdir = dest)

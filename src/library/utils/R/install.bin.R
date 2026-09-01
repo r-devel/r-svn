@@ -96,7 +96,15 @@
     }
 
     ## not sure why the above was used - possibly it pre-dates utils::untar()?
-    untar <- function(what, where) utils::untar(what, exdir=where)
+    ## binary packages can be tarballs or zip files: dispatch on the
+    ## magic bytes as the file extension is not reliable
+    untar <- function(what, where) {
+        magic <- readBin(what, "raw", n = 4L)
+        if (identical(magic, as.raw(c(0x50, 0x4b, 0x03, 0x04))))
+            unzip(what, exdir = where)
+        else
+            utils::untar(what, exdir = where)
+    }
 
     unpackPkg <- function(pkg, pkgname, lib, lock = FALSE)
     {
