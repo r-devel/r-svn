@@ -1851,9 +1851,6 @@ Rboolean R_HasFancyBindings(SEXP rho); // envir.c
 void R_RestoreHashCount(SEXP rho); // envir.c
 SEXP R_lsInternal(SEXP, Rboolean); // envir.c
 
-void R_XDREncodeDouble(double d, void *buf);
-void R_XDREncodeInteger(int i, void *buf);
-
 # define allocCharsxp		Rf_allocCharsxp
 # define asBool2	       	Rf_asBool2
 # define asRbool		Rf_asRbool

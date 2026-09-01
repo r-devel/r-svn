@@ -236,6 +236,54 @@ static int Rsnprintf(char *buf, size_t size, const char *format, ...)
  * Basic Output Routines
  */
 
+/* XDR integers are big-endian two's complement and XDR doubles are
+   big-endian IEEE 754, so they can be encoded and decoded with plain
+   byte arithmetic.  This avoids a round trip through the XDR library
+   for every value, which is a function pointer dispatch per element
+   and dominates the cost of writing and reading large numeric
+   vectors.  Working byte by byte is endianness-neutral, and compilers
+   reduce it to a byte swap. */
+
+static R_INLINE void EncodeXDRInteger(int i, unsigned char *p)
+{
+    unsigned int u;
+
+    memcpy(&u, &i, sizeof(int));
+    p[0] = (unsigned char) (u >> 24);
+    p[1] = (unsigned char) (u >> 16);
+    p[2] = (unsigned char) (u >> 8);
+    p[3] = (unsigned char) u;
+}
+
+static R_INLINE void EncodeXDRDouble(double d, unsigned char *p)
+{
+    uint64_t u;
+
+    memcpy(&u, &d, sizeof(double));
+    p[0] = (unsigned char) (u >> 56);
+    p[1] = (unsigned char) (u >> 48);
+    p[2] = (unsigned char) (u >> 40);
+    p[3] = (unsigned char) (u >> 32);
+    p[4] = (unsigned char) (u >> 24);
+    p[5] = (unsigned char) (u >> 16);
+    p[6] = (unsigned char) (u >> 8);
+    p[7] = (unsigned char) u;
+}
+
+static R_INLINE void
+EncodeXDRIntegerVec(const int *x, R_xlen_t n, unsigned char *p)
+{
+    for (R_xlen_t i = 0; i < n; i++)
+	EncodeXDRInteger(x[i], p + i * sizeof(int));
+}
+
+static R_INLINE void
+EncodeXDRDoubleVec(const double *x, R_xlen_t n, unsigned char *p)
+{
+    for (R_xlen_t i = 0; i < n; i++)
+	EncodeXDRDouble(x[i], p + i * sizeof(double));
+}
+
 static void OutInteger(R_outpstream_t stream, int i)
 {
     char buf[128];
@@ -252,7 +300,7 @@ static void OutInteger(R_outpstream_t stream, int i)
 	stream->OutBytes(stream, &i, sizeof(int));
 	break;
     case R_pstream_xdr_format:
-	R_XDREncodeInteger(i, buf);
+	EncodeXDRInteger(i, (unsigned char *) buf);
 	stream->OutBytes(stream, buf, R_XDR_INTEGER_SIZE);
 	break;
     default:
@@ -299,7 +347,7 @@ static void OutReal(R_outpstream_t stream, double d)
 	stream->OutBytes(stream, &d, sizeof(double));
 	break;
     case R_pstream_xdr_format:
-	R_XDREncodeDouble(d, buf);
+	EncodeXDRDouble(d, (unsigned char *) buf);
 	stream->OutBytes(stream, buf, R_XDR_DOUBLE_SIZE);
 	break;
     default:
@@ -375,13 +423,7 @@ static void OutString(R_outpstream_t stream, const char *s, int length)
  * Basic Input Routines
  */
 
-/* XDR integers are big-endian two's complement and XDR doubles are
-   big-endian IEEE 754, so they can be decoded with plain byte
-   arithmetic.  This avoids a round trip through the XDR library for
-   every value, which is a function pointer dispatch per element and
-   dominates the cost of reading large numeric vectors.  Assembling
-   the value from bytes is endianness-neutral, and compilers reduce it
-   to a byte swap. */
+/* Counterparts of EncodeXDRInteger() and EncodeXDRDouble() above. */
 
 static R_INLINE int DecodeXDRInteger(const unsigned char *p)
 {
@@ -957,9 +999,6 @@ static void OutStringVec(R_outpstream_t stream, SEXP s, SEXP ref_table)
     }
 }
 
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-
 #define CHUNK_SIZE 8096
 
 #define min2(a, b) ((a) < (b)) ? (a) : (b)
@@ -972,17 +1011,13 @@ OutIntegerVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(int)];
+	static unsigned char buf[CHUNK_SIZE * sizeof(int)];
+	const int *x = INTEGER(s);
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(int)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_int(&xdrs, INTEGER(s) + done + cnt))
-		    error(_("XDR write failed"));
-	    xdr_destroy(&xdrs);
+	    EncodeXDRIntegerVec(x + done, this, buf);
 	    stream->OutBytes(stream, buf, (int)(sizeof(int) * this));
 	}
 	break;
@@ -1014,17 +1049,13 @@ OutRealVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(double)];
+	static unsigned char buf[CHUNK_SIZE * sizeof(double)];
+	const double *x = REAL(s);
 	R_xlen_t done, this;
-	XDR xdrs;
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(double)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++)
-		if(!xdr_double(&xdrs, REAL(s) + done + cnt))
-		    error(_("XDR write failed"));
-	    xdr_destroy(&xdrs);
+	    EncodeXDRDoubleVec(x + done, this, buf);
 	    stream->OutBytes(stream, buf, (int)(sizeof(double) * this));
 	}
 	break;
@@ -1055,21 +1086,15 @@ OutComplexVec(R_outpstream_t stream, SEXP s, R_xlen_t length)
     switch (stream->type) {
     case R_pstream_xdr_format:
     {
-	static char buf[CHUNK_SIZE * sizeof(Rcomplex)];
+	static unsigned char buf[CHUNK_SIZE * sizeof(Rcomplex)];
+	const Rcomplex *x = COMPLEX(s);
 	R_xlen_t done, this;
-	XDR xdrs;
-	Rcomplex *c = COMPLEX(s);
 	for (done = 0; done < length; done += this) {
 	    IF_IC_R_CheckUserInterrupt();
 	    this = min2(CHUNK_SIZE, length - done);
-	    xdrmem_create(&xdrs, buf, (int)(this * sizeof(Rcomplex)), XDR_ENCODE);
-	    for(int cnt = 0; cnt < this; cnt++) {
-		if(!xdr_double(&xdrs, &(c[done+cnt].r)) ||
-		   !xdr_double(&xdrs, &(c[done+cnt].i)))
-		    error(_("XDR write failed"));
-	    }
+	    /* an Rcomplex is two consecutive doubles */
+	    EncodeXDRDoubleVec((const double *) (x + done), 2 * this, buf);
 	    stream->OutBytes(stream, buf, (int)(sizeof(Rcomplex) * this));
-	    xdr_destroy(&xdrs);
 	}
 	break;
     }
@@ -2749,6 +2774,62 @@ void R_InitConnInPStream(R_inpstream_t stream,  Rconnection con,
 		    InCharConn, InBytesConn, phook, pdata);
 }
 
+/*
+ * Persistent Buffered Binary Connection Streams
+ */
+
+/**** should eventually come from a public header file */
+size_t R_WriteConnection(Rconnection con, void *buf, size_t n);
+
+#define BCONBUFSIZ 4096
+
+typedef struct bconbuf_st {
+    Rconnection con;
+    int count;
+    unsigned char buf[BCONBUFSIZ];
+} *bconbuf_t;
+
+static void flush_bcon_buffer(bconbuf_t bb)
+{
+    if (R_WriteConnection(bb->con, bb->buf, bb->count) != bb->count)
+	error(_("error writing to connection"));
+    bb->count = 0;
+}
+
+static void OutCharBB(R_outpstream_t stream, int c)
+{
+    bconbuf_t bb = stream->data;
+    if (bb->count >= BCONBUFSIZ)
+	flush_bcon_buffer(bb);
+    bb->buf[bb->count++] = (char) c;
+}
+
+static void OutBytesBB(R_outpstream_t stream, void *buf, int length)
+{
+    bconbuf_t bb = stream->data;
+    if (bb->count + length > BCONBUFSIZ)
+	flush_bcon_buffer(bb);
+    if (length <= BCONBUFSIZ) {
+	if (length)
+	    memcpy(bb->buf + bb->count, buf, length);
+	bb->count += length;
+    }
+    else if (R_WriteConnection(bb->con, buf, length) != length)
+	error(_("error writing to connection"));
+}
+
+static void InitBConOutPStream(R_outpstream_t stream, bconbuf_t bb,
+			       Rconnection con,
+			       R_pstream_format_t type, int version,
+			       SEXP (*phook)(SEXP, SEXP), SEXP pdata)
+{
+    CheckOutConn(con);
+    bb->count = 0;
+    bb->con = con;
+    R_InitOutPStream(stream, (R_pstream_data_t) bb, type, version,
+		     OutCharBB, OutBytesBB, phook, pdata);
+}
+
 /* ought to quote the argument, but it should only be an ENVSXP or STRSXP */
 static SEXP CallHook(SEXP x, SEXP fun)
 {
@@ -2774,10 +2855,11 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     /* serializeToConn(object, conn, ascii, version, hook) */
 
     SEXP object, fun;
-    bool ascii, wasopen;
+    bool ascii, wasopen, buffered;
     int version;
     Rconnection con;
     struct R_outpstream_st out;
+    struct bconbuf_st bbs;
     R_pstream_format_t type;
     SEXP (*hook)(SEXP, SEXP);
     RCNTXT cntxt;
@@ -2829,8 +2911,17 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     if(!con->canwrite)
 	error(_("connection not open for writing"));
 
-    R_InitConnOutPStream(&out, con, type, version, hook, fun);
+    /* Binary-mode output is buffered, as every serialized item would
+       otherwise be its own con->write() call.  Text-mode connections
+       keep the unbuffered stream so that Rconn_printf() re-encodes. */
+    buffered = !con->text;
+    if (buffered)
+	InitBConOutPStream(&out, &bbs, con, type, version, hook, fun);
+    else
+	R_InitConnOutPStream(&out, con, type, version, hook, fun);
     R_Serialize(object, &out);
+    if (buffered)
+	flush_bcon_buffer(&bbs);
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
 
     return R_NilValue;
@@ -2902,61 +2993,6 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	UNPROTECT(1);
     }
     return checkNotPromise(ans);
-}
-
-/*
- * Persistent Buffered Binary Connection Streams
- */
-
-/**** should eventually come from a public header file */
-size_t R_WriteConnection(Rconnection con, void *buf, size_t n);
-
-#define BCONBUFSIZ 4096
-
-typedef struct bconbuf_st {
-    Rconnection con;
-    int count;
-    unsigned char buf[BCONBUFSIZ];
-} *bconbuf_t;
-
-static void flush_bcon_buffer(bconbuf_t bb)
-{
-    if (R_WriteConnection(bb->con, bb->buf, bb->count) != bb->count)
-	error(_("error writing to connection"));
-    bb->count = 0;
-}
-
-static void OutCharBB(R_outpstream_t stream, int c)
-{
-    bconbuf_t bb = stream->data;
-    if (bb->count >= BCONBUFSIZ)
-	flush_bcon_buffer(bb);
-    bb->buf[bb->count++] = (char) c;
-}
-
-static void OutBytesBB(R_outpstream_t stream, void *buf, int length)
-{
-    bconbuf_t bb = stream->data;
-    if (bb->count + length > BCONBUFSIZ)
-	flush_bcon_buffer(bb);
-    if (length <= BCONBUFSIZ) {
-	if (length)
-	    memcpy(bb->buf + bb->count, buf, length);
-	bb->count += length;
-    }
-    else if (R_WriteConnection(bb->con, buf, length) != length)
-	error(_("error writing to connection"));
-}
-
-static void InitBConOutPStream(R_outpstream_t stream, bconbuf_t bb,
-			       Rconnection con,
-			       R_pstream_format_t type, int version,
-			       SEXP (*phook)(SEXP, SEXP), SEXP pdata)
-{
-    bb->count = 0;
-    bb->con = con;
-    R_InitOutPStream(stream, (R_pstream_data_t) bb, type, version,
-		     OutCharBB, OutBytesBB, phook, pdata);
 }
 
 /* only for use by serialize(), with binary write to a socket connection */

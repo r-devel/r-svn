@@ -3700,8 +3700,9 @@ stopifnot(
 )
 
 ## readRDS() reads through a buffer when it created the connection itself,
-## and XDR numbers are decoded in place: exercise chunk boundaries, the
-## direct-read path for long strings and every representation of NA.
+## saveRDS() writes through one, and XDR numbers are encoded and decoded
+## without the XDR library: exercise chunk boundaries, the direct-read
+## path for long strings and every representation of NA.
 tf <- tempfile(fileext = ".rds")
 x <- list(i = c(NA, .Machine$integer.max, -.Machine$integer.max, 1:20000),
           d = c(-1.5, NA, NaN, Inf, -Inf, .Machine$double.xmax,
@@ -3721,15 +3722,19 @@ for(compress in c(list(TRUE, FALSE, "bzip2", "xz"),
 xa <- x[c("i", "l", "s", "r", "small", "f")]
 saveRDS(xa, tf, ascii = TRUE)
 stopifnot(identical(readRDS(tf), xa))
-## a connection supplied by the caller must still be consumed exactly
+## a connection supplied by the caller must still be consumed exactly, and
+## buffered output must be flushed before anything written after it
 con <- file(tf, "wb"); saveRDS(1:3, con); saveRDS(x, con); saveRDS("end", con)
+writeBin(as.raw(1:4), con)
 close(con)
 con <- file(tf, "rb")
 stopifnot(identical(readRDS(con), 1:3), identical(readRDS(con), x),
-          identical(readRDS(con), "end"))
+          identical(readRDS(con), "end"),
+          identical(readBin(con, "raw", 8L), as.raw(1:4)))
 close(con)
 unlink(tf)
-## readRDS() issued one connection read per serialized item in R <= 4.6.x
+## readRDS() and saveRDS() issued one connection read or write per
+## serialized item in R <= 4.6.x
 
 
 ## keep at end

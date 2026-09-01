@@ -2195,35 +2195,6 @@ attribute_hidden SEXP do_load(SEXP call, SEXP op, SEXP args, SEXP env)
     return val;
 }
 
-/* defined in Rinternals.h
-#define R_XDR_DOUBLE_SIZE 8
-#define R_XDR_INTEGER_SIZE 4
-*/
-
-attribute_hidden void R_XDREncodeDouble(double d, void *buf)
-{
-    XDR xdrs;
-    int success;
-
-    xdrmem_create(&xdrs, (char *) buf, R_XDR_DOUBLE_SIZE, XDR_ENCODE);
-    success = xdr_double(&xdrs, &d);
-    xdr_destroy(&xdrs);
-    if (! success)
-	error(_("XDR write failed"));
-}
-
-attribute_hidden void R_XDREncodeInteger(int i, void *buf)
-{
-    XDR xdrs;
-    int success;
-
-    xdrmem_create(&xdrs, (char *) buf, R_XDR_INTEGER_SIZE, XDR_ENCODE);
-    success = xdr_int(&xdrs, &i);
-    xdr_destroy(&xdrs);
-    if (! success)
-	error(_("XDR write failed"));
-}
-
 /* Next two were used in gnomeGUI package, are in Rinterface.h  */
 void R_SaveGlobalEnvToFile(const char *name)
 {
