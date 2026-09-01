@@ -1213,9 +1213,11 @@ metaNameUndo <- function(strings, prefix, searchForm = FALSE)
         FALSE
 }
 
-.NonstandardGenericTest <- function(body, fname, stdBody)
+.NonstandardGenericTest <- function(body, fname, stdBody, bracedBody)
 {
     if(identical(body, stdBody))
+        FALSE
+    else if(identical(body, bracedBody))
         FALSE
     else if(.recursiveCallTest(body, fname))
         TRUE
