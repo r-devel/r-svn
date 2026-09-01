@@ -1879,6 +1879,7 @@ static int RunGenCollect(R_size_t size_needed)
     {
 	SEXP t;
 	int nc = 0;
+	R_xlen_t ne = 0;
 	for (i = 0; i < LENGTH(R_StringHash); i++) {
 	    s = VECTOR_ELT_0(R_StringHash, i);
 	    t = R_NilValue;
@@ -1893,12 +1894,14 @@ static int RunGenCollect(R_size_t size_needed)
 		}
 		FORWARD_NODE(s);
 		FORWARD_NODE(CXHEAD(s));
+		ne++;
 		t = s;
 		s = CXTAIL(s);
 	    }
 	    if(VECTOR_ELT_0(R_StringHash, i) != R_NilValue) nc++;
 	}
 	SET_TRUELENGTH(R_StringHash, nc); /* SET_HASHPRI, really */
+	R_StringHashCount = ne;
     }
     /* chains are known to be marked so don't need to scan again */
     FORWARD_AND_PROCESS_ONE_NODE(R_StringHash, VECSXP);

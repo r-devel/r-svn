@@ -3699,6 +3699,34 @@ stopifnot(
     identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
 
+## The CHARSXP cache doubles at a configurable load factor, and
+## unserialize() reads character vectors in batches which prefetch the
+## cache: strings of every encoding, NA, empty, repeated and long strings
+## must round trip with their encodings, and a session started with a
+## tiny table and a low load factor (forcing many resizes) must work.
+x <- c(NA, "", "ascii", "\u00e9l\u00e8ve", iconv("caf\u00e9", "UTF-8", "latin1"),
+       strrep("z", 20000), paste0("id", 1:5000), "\u00e9", "ascii")
+y <- "\xff\xfe"; Encoding(y) <- "bytes"; x <- c(x, y)
+tf <- tempfile(fileext = ".rds")
+for(compress in c(TRUE, FALSE)) {
+    saveRDS(x, tf, compress = compress)
+    r <- readRDS(tf)
+    stopifnot(identical(r, x), identical(Encoding(r), Encoding(x)))
+}
+saveRDS(x, tf, ascii = TRUE)
+r <- readRDS(tf)
+stopifnot(identical(r, x), identical(Encoding(r), Encoding(x)))
+writeLines(c('x <- paste0("s", 1:2e5)',
+             'stopifnot(!anyDuplicated(x), identical(match(x, rev(x)), rev(seq_along(x))))',
+             'cat("ok\\n")'), tf)
+Sys.setenv(R_CHARSXP_CACHE_LOAD_FACTOR = "0.2", R_CHARSXP_CACHE_INITIAL_SIZE = "1024")
+out <- system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", tf), stdout = TRUE)
+Sys.unsetenv(c("R_CHARSXP_CACHE_LOAD_FACTOR", "R_CHARSXP_CACHE_INITIAL_SIZE"))
+stopifnot(identical(out, "ok"))
+unlink(tf)
+## new in R 4.7.0
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

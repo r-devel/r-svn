@@ -924,6 +924,7 @@ extern0 SEXP    R_dot_GenericCallEnv;  /* ".GenericCallEnv" */
 extern0 SEXP    R_dot_GenericDefEnv;  /* ".GenericDefEnv" */
 
 extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
+extern0 R_xlen_t R_StringHashCount; /* number of CHARSXPs in it */
 
 
  /* writable char access for R internal use only */
@@ -1850,6 +1851,13 @@ SEXP R_FindPackageEnv(SEXP info);
 Rboolean R_HasFancyBindings(SEXP rho); // envir.c
 void R_RestoreHashCount(SEXP rho); // envir.c
 SEXP R_lsInternal(SEXP, Rboolean); // envir.c
+
+/* interning many strings at once, see the CHARSXP cache in envir.c */
+unsigned int R_CharHash(const char *name, int len);
+void R_CharHashPrefetchBucket(unsigned int hash);
+void R_CharHashPrefetchChain(unsigned int hash);
+SEXP R_mkCharLenCEHash(const char *name, int len, cetype_t enc,
+		       unsigned int hash);
 
 void R_XDREncodeDouble(double d, void *buf);
 double R_XDRDecodeDouble(void *buf);

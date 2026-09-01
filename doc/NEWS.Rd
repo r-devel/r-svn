@@ -99,6 +99,17 @@
       \item \code{rfree1way} also accepts \code{offset} terms equal to
       the number of simulated observations, allowing to sample from more
       complex models.
+
+      \item Creating character strings is faster: the internal cache of
+      \code{CHARSXP}s now doubles its hash table at 0.75 strings per
+      bucket rather than at 85\% bucket occupancy (about 1.9 per
+      bucket), and \code{unserialize()} and hence \code{readRDS()} read
+      character vectors in batches which prefetch the cache entries
+      they will need.  Reading a file of a million distinct strings is
+      about twice as fast.  The load
+      factor and the initial size of the table can be set at startup
+      with environment variables \env{R_CHARSXP_CACHE_LOAD_FACTOR} and
+      \env{R_CHARSXP_CACHE_INITIAL_SIZE}, see \code{?EnvVar}.
     }
   }
 
