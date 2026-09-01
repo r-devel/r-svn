@@ -48,13 +48,17 @@ saveRDS <-
 
 readRDS <- function(file, refhook = NULL)
 {
+    ## Reading ahead through a buffer discards bytes beyond the end of
+    ## the object, so it is only used for connections created here.
     if(is.character(file)) {
         con <- gzfile(file, "rb")
         on.exit(close(con))
-    } else if (inherits(file, "connection"))
-	con <- if(inherits(file, "url")) gzcon(file) else file
-    else stop("bad 'file' argument")
-    .Internal(unserializeFromConn(con, refhook))
+        buffered <- TRUE
+    } else if (inherits(file, "connection")) {
+        buffered <- inherits(file, "url")
+        con <- if(buffered) gzcon(file) else file
+    } else stop("bad 'file' argument")
+    .Internal(unserializeFromConn(con, refhook, buffered))
 }
 
 infoRDS <- function(file)

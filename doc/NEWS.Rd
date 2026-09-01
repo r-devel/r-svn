@@ -99,6 +99,16 @@
       \item \code{rfree1way} also accepts \code{offset} terms equal to
       the number of simulated observations, allowing to sample from more
       complex models.
+
+      \item \code{readRDS()} and \code{saveRDS()} are faster.
+      \code{readRDS()} reads files and \abbr{URL}s through a read-ahead
+      buffer instead of issuing one connection read per serialized
+      item, \code{saveRDS()} likewise buffers its output, and both
+      encode and decode \abbr{XDR} numbers with byte arithmetic rather
+      than through the \abbr{XDR} library one value at a time.  Objects
+      made of many small elements are read about three times faster
+      and written up to three times faster, and large numeric vectors
+      in uncompressed files are read and written several times faster.
     }
   }
 
