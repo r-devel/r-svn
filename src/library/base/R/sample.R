@@ -21,16 +21,16 @@ sample <- function(x, size, replace = FALSE, prob = NULL,
 {
     if(length(x) == 1L && is.numeric(x) && is.finite(x) && x >= 1) {
 	if(missing(size)) size <- x
-	sample.int(x, size, replace, prob, method)
+	sample.int(x, size, replace, prob, method = method)
     } else {
 	if(missing(size)) size <- length(x)
-	x[sample.int(length(x), size, replace, prob, method)]
+	x[sample.int(length(x), size, replace, prob, method = method)]
     }
 }
 
 sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
-  method = c("sequential", "marginal", "poisson"),
-  useHash = (n > 1e7 && !replace && is.null(prob) && size <= n/2))
+  useHash = (n > 1e7 && !replace && is.null(prob) && size <= n/2),
+  method = c("sequential", "marginal", "poisson"))
 {
   stopifnot(length(n) == 1L)
   if (replace || is.null(prob)) {

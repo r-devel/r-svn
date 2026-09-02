@@ -18,8 +18,8 @@ sample(x, size, replace = FALSE, prob = NULL,
        method = c("sequential", "marginal", "poisson"))
 
 sample.int(n, size = n, replace = FALSE, prob = NULL,
-           method = c("sequential", "marginal", "poisson"),
-           useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2))
+           useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2),
+           method = c("sequential", "marginal", "poisson"))
 
 sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
 }
