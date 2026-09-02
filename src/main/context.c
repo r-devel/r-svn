@@ -170,6 +170,9 @@ attribute_hidden void R_run_onexits(RCNTXT *cptr)
 static void R_restore_globals(RCNTXT *cptr)
 {
     R_PPStackTop = cptr->cstacktop;
+#ifdef TESTING_WRITE_BARRIER
+    R_PPStackFloor = cptr->ppstackfloor;
+#endif
     R_GCEnabled = cptr->gcenabled;
     R_BCIntActive = cptr->bcintactive;
     R_BCpc = cptr->bcpc;
@@ -253,6 +256,9 @@ void begincontext(RCNTXT * cptr, int flags,
 		  SEXP promargs, SEXP callfun)
 {
     cptr->cstacktop = R_PPStackTop;
+#ifdef TESTING_WRITE_BARRIER
+    cptr->ppstackfloor = R_PPStackFloor;
+#endif
     cptr->gcenabled = R_GCEnabled;
     cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
     cptr->bcpc = R_BCpc;

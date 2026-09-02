@@ -3423,6 +3423,33 @@ NORET void R_signal_unprotect_error(void)
 	  R_PPStackTop);
 }
 
+#ifdef TESTING_WRITE_BARRIER
+/* Open a protection frame around a call into code that manages its own
+   protections; see the comment on R_PPStackFloor in Defn.h.  The frame
+   is closed on normal return by the caller and on a non-local exit by
+   R_restore_globals, which restores the floor saved by begincontext. */
+int R_OpenPPFrame(void)
+{
+    int savedfloor = R_PPStackFloor;
+    R_PPStackFloor = R_PPStackTop;
+    return savedfloor;
+}
+
+void R_ClosePPFrame(int savedfloor)
+{
+    R_PPStackFloor = savedfloor;
+}
+
+NORET static void R_signal_unprotect_floor_error(int l)
+{
+    int owned = R_PPStackTop - R_PPStackFloor;
+    error(ngettext("unprotect(%d): only %d protected item belongs to this call",
+		   "unprotect(%d): only %d protected items belong to this call",
+		   owned),
+	  l, owned);
+}
+#endif
+
 #ifndef INLINE_PROTECT
 SEXP protect(SEXP s)
 {
@@ -3439,6 +3466,10 @@ SEXP protect(SEXP s)
 void unprotect(int l)
 {
     R_CHECK_THREAD;
+#ifdef TESTING_WRITE_BARRIER
+    if (R_PPStackTop - l < R_PPStackFloor)
+	R_signal_unprotect_floor_error(l);
+#endif
     if (R_PPStackTop >=  l)
 	R_PPStackTop -= l;
     else R_signal_unprotect_error();
@@ -3460,6 +3491,11 @@ void unprotect_ptr(SEXP s)
     } while ( R_PPStack[--i] != s );
 
     /* OK, got it, and  i  is indexing its location */
+#ifdef TESTING_WRITE_BARRIER
+    if (i < R_PPStackFloor)
+	R_signal_unprotect_floor_error(1);
+#endif
+
     /* Now drop stack above it, if any */
 
     while (++i < R_PPStackTop) R_PPStack[i - 1] = R_PPStack[i];
@@ -3534,6 +3570,9 @@ attribute_hidden
 void initStack(void)
 {
     R_PPStackTop = 0;
+#ifdef TESTING_WRITE_BARRIER
+    R_PPStackFloor = 0;
+#endif
 }
 
 

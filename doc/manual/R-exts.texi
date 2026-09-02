@@ -9913,7 +9913,37 @@ Most calls to accessor functions check their @code{SEXP} inputs and
 The address of the node and the old type are included in the error
 message.
 
+@item
+Calls to a primitive's C function, and calls to a native routine through
+@code{.Call} or @code{.External}, are bracketed by a @dfn{protection
+frame}.  Entries on the pointer protection stack below the frame belong
+to the caller, and an @code{UNPROTECT} that would release one signals an
+error at the point of the offending call:
+
+@example
+unprotect(3): only 2 protected items belong to this call
+@end example
+
+@noindent
+This catches an @code{UNPROTECT} with too large a count, which otherwise
+silently releases a value belonging to the caller and is diagnosed only
+much later, if at all, when that value is collected and used.  Unlike
+the @code{FREESXP} checks above it does not depend on a garbage
+collection happening at the right moment, so it does not need
+@code{gctorture}.
+
 @end itemize
+
+Independently of @option{--enable-strict-barrier}, a primitive that
+returns with the pointer protection stack unbalanced is reported as
+
+@example
+Warning: stack imbalance in 'name', 12 then 13
+@end example
+
+@noindent
+This check applies to compiled code as well as to code evaluated by the
+@abbr{AST} interpreter.
 
 @code{R CMD check --use-gct} can be set to use
 @code{gctorture2(@var{n})} rather than @code{gctorture(TRUE)} by setting
