@@ -1923,8 +1923,6 @@ static int RunGenCollect(R_size_t size_needed)
 		    removed++;
 		    continue;
 		}
-		FORWARD_NODE(s);
-		FORWARD_NODE(CXHEAD(s));
 		unsigned char age = (unsigned char) (NODE_GENERATION(s) + 1);
 		if (age < youngest)
 		    youngest = age;

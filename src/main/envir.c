@@ -4642,11 +4642,14 @@ static unsigned int char_hash(const char *s, int len)
        differ only in a running number djb2 leaves those correlated, so
        such keys land in neighbouring buckets and their chains are about
        20% longer than for random keys.  Do not be tempted to fix that
-       with a finalizer mix (or a prime table size): the correlation
-       means a run of such strings is inserted, and later walked by the
-       garbage collector, in nearly sequential memory order, and mixing
-       the bits made collections with millions of cached strings four
-       times slower. */
+       with a finalizer mix, a prime table size or an open-addressed
+       table (which needs the mix): the correlation is what lets a run
+       of such keys walk the bucket array sequentially.  With a million
+       cached strings, mixing the bits took inserting consecutive keys
+       from 87 to 168 ns and looking them up in creation order from 29
+       to 42 ns, gained nothing on random keys, and made full
+       collections 10% slower, since the sweep visits the cache in
+       bucket order. */
     return h;
 }
 
