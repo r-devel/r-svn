@@ -2399,19 +2399,7 @@ newxzfile(const char *description, const char *mode, int type, int compress)
     return new;
 }
 
-
-#ifdef HAVE_ZSTD
-
-#ifndef HAVE_ZSTD_DECOMPRESSBOUND
-static unsigned long long ZSTD_decompressBound(const void* src, size_t srcSize) {
-    /* FIXME: it is stupid, but we could add a full streaming decompression pass as a fall-back */
-    error("The used zstd library does not include support for streaming decompression bounds so we cannot decompress streams in memory.");
-}
-#else
-/* seems silly, but this is needed to declare ZSTD_decompressBound */
 #define ZSTD_STATIC_LINKING_ONLY 1
-#endif
-
 #include <zstd.h>
 
 typedef struct zstdfileconn {
@@ -2660,15 +2648,6 @@ newzstdfile(const char *description, const char *mode, int compress)
     ((Rzstdfileconn) new->private)->compress = compress;
     return new;
 }
-
-#else
-static Rconnection
-newzstdfile(const char *description, const char *mode, int compress) {
-    error("Zstd compression support was not included in this R binary.");
-    /* unreachable */
-    return 0;
-}
-#endif
 
 typedef enum { COMP_UNKNOWN = 0, COMP_GZ, COMP_BZ, COMP_XZ, COMP_ZSTD } comp_type;
 
@@ -7025,7 +7004,6 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	lzma_end(&strm);
 #if 0 /* not enabled - just ready if we ever want to allow zstd */
     } else if (type == 'S') {
-#ifdef HAVE_ZSTD
 	unsigned long long sz = ZSTD_getFrameContentSize(p + 5, inlen - 5);
 	if (sz == ZSTD_CONTENTSIZE_UNKNOWN) /* possible streaming so no size in the header */
 	    sz = ZSTD_decompressBound(p + 5, inlen - 5);
@@ -7035,9 +7013,6 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	    *err = TRUE;
 	    return R_NilValue;
 	}
-#else
-	error("Zstd compression support was not included in this R binary.");
-#endif
 #endif
     } else if (type == '2') {
 	int res;
@@ -7172,7 +7147,6 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	break;
     }
     case 5: /* zstd */
-#ifdef HAVE_ZSTD
     {
 	size_t inlen = XLENGTH(from);
 	size_t outlen = ZSTD_compressBound(inlen);
@@ -7185,9 +7159,6 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	memcpy(RAW(ans), buf, res);
 	break;
     }
-#else
-    error("Zstd compression support was not included in this R binary.");
-#endif
     default:
 	break;
     }
@@ -7399,7 +7370,6 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	break;
     }
     case 6: /* zstd */
-#ifdef HAVE_ZSTD
     {
 	size_t inlen = XLENGTH(from), res;
 	unsigned long long outlen;
@@ -7419,9 +7389,6 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    memcpy(RAW(ans), buf, res);
 	break;
     }
-#else
-    error("Zstd compression support was not included in this R binary.");
-#endif
     // case 5 is "unknown', covered above
     default:
 	break;
