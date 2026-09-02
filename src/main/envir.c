@@ -3172,7 +3172,7 @@ static int BuiltinSize(int all, int intern)
     int count = 0;
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3193,7 +3193,7 @@ BuiltinNames(int all, int intern, SEXP names, int *indx)
 {
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3213,7 +3213,7 @@ BuiltinValues(int all, int intern, SEXP values, int *indx)
 {
     SEXP s, vl;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue) {
@@ -3694,7 +3694,7 @@ void R_LockEnvironment(SEXP env, Rboolean bindings)
 	if (bindings) {
 	    SEXP s;
 	    int j;
-	    for (j = 0; j < HSIZE; j++)
+	    for (j = 0; j < R_SymbolTableSize; j++)
 		for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s))
 		    if(SYMVALUE(CAR(s)) != R_UnboundValue)
 			LOCK_BINDING(CAR(s));

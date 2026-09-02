@@ -109,7 +109,9 @@
       about twice as fast.  The load
       factor and the initial size of the table can be set at startup
       with environment variables \env{R_CHARSXP_CACHE_LOAD_FACTOR} and
-      \env{R_CHARSXP_CACHE_INITIAL_SIZE}, see \code{?EnvVar}.
+      \env{R_CHARSXP_CACHE_INITIAL_SIZE}, and the size of the (fixed
+      size) symbol table with \env{R_SYMBOL_TABLE_SIZE}, see
+      \code{?EnvVar}.
     }
   }
 

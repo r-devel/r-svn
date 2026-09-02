@@ -86,6 +86,14 @@
       rehashing the cache as it grows.  Read at startup only.}
     \item{\env{R_COMPLETION}:}{Optional.  If set to \code{FALSE},
       command-line completion is not used.  (Not used by the macOS GUI.)}
+    \item{\env{R_SYMBOL_TABLE_SIZE}:}{Optional.  The number of buckets
+      in \R's internal symbol table, rounded up to a prime, between 1024
+      and \eqn{2^{26}} (default 49157).  The table does not grow, and
+      symbols are never removed, so a session which creates many more
+      symbols than that, for example by using an environment with a
+      million keys, looks them up faster with a larger table.  A session
+      with the standard packages attached holds about ten thousand
+      symbols.  Read at startup only.}
     \item{\env{R_DEFAULT_PACKAGES}:}{A comma-separated list of packages
       which are to be attached in every session.  See \code{\link{options}}.}
     \item{\env{R_DOC_DIR}:}{The location of the \R \file{doc}

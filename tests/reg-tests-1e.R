@@ -3718,10 +3718,15 @@ r <- readRDS(tf)
 stopifnot(identical(r, x), identical(Encoding(r), Encoding(x)))
 writeLines(c('x <- paste0("s", 1:2e5)',
              'stopifnot(!anyDuplicated(x), identical(match(x, rev(x)), rev(seq_along(x))))',
+             'e <- list2env(setNames(as.list(seq_along(x)), x))',
+             'stopifnot(identical(unname(unlist(mget(x[c(1, 77777, 2e5)], e))), c(1L, 77777L, 200000L)),',
+             '          identical(as.name(x[5]), as.symbol("s5")))',
              'cat("ok\\n")'), tf)
-Sys.setenv(R_CHARSXP_CACHE_LOAD_FACTOR = "0.2", R_CHARSXP_CACHE_INITIAL_SIZE = "1024")
+Sys.setenv(R_CHARSXP_CACHE_LOAD_FACTOR = "0.2", R_CHARSXP_CACHE_INITIAL_SIZE = "1024",
+           R_SYMBOL_TABLE_SIZE = "1024")
 out <- system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", tf), stdout = TRUE)
-Sys.unsetenv(c("R_CHARSXP_CACHE_LOAD_FACTOR", "R_CHARSXP_CACHE_INITIAL_SIZE"))
+Sys.unsetenv(c("R_CHARSXP_CACHE_LOAD_FACTOR", "R_CHARSXP_CACHE_INITIAL_SIZE",
+               "R_SYMBOL_TABLE_SIZE"))
 stopifnot(identical(out, "ok"))
 unlink(tf)
 ## new in R 4.7.0

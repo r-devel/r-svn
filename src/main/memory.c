@@ -1786,7 +1786,7 @@ static int RunGenCollect(R_size_t size_needed)
     FORWARD_NODE(R_print.na_string_noquote);
 
     if (R_SymbolTable != NULL)             /* in case of GC during startup */
-	for (i = 0; i < HSIZE; i++) {      /* Symbol table */
+	for (i = 0; i < R_SymbolTableSize; i++) { /* Symbol table */
 	    FORWARD_NODE(R_SymbolTable[i]);
 	    SEXP s;
 	    for (s = R_SymbolTable[i]; s != R_NilValue; s = CDR(s))
