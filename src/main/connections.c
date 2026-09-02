@@ -114,6 +114,7 @@
 #include <Internal.h>
 #include <Fileio.h>
 #include <Rconnections.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP region API */
 #include <R_ext/Complex.h>
 #include <R_ext/RS.h>		/* R_chk_calloc and R_Free */
 #include <R_ext/Riconv.h>
@@ -4706,9 +4707,14 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 
     args = CDR(args);
     swhat = CAR(args); args = CDR(args);
-    if(!isString(swhat) || LENGTH(swhat) != 1)
+    /* An opaque vector cannot be named by its type, so readBin() hands the
+       internal a prototype of the class instead of a type name. */
+    if(TYPEOF(swhat) == ALTSXP)
+	what = NULL;
+    else if(!isString(swhat) || LENGTH(swhat) != 1)
 	error(_("invalid '%s' argument"), "what");
-    what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
+    else
+	what = CHAR(STRING_ELT(swhat, 0)); /* ASCII */
     n = asVecSize(CAR(args)); args = CDR(args);
     if(n < 0) error(_("invalid '%s' argument"), "n");
     size = asInteger(CAR(args)); args = CDR(args);
@@ -4735,7 +4741,41 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
     }
-    if(!strcmp(what, "character")) {
+    if(what == NULL) {
+	/* Elements move as bytes: the class gives their width and takes them
+	   through Set_region, so nothing here knows what an element means.
+	   Reading a block at a time bounds the scratch buffer. */
+	size_t esz = ALTSXP_ELT_SIZE(swhat);
+	if(size == NA_INTEGER) size = (int) esz;
+	if(size != (int) esz)
+	    error(_("size %d is not the element size of '%s'"), size,
+		  R_typeToChar(swhat));
+	if(!signd)
+	    warning(_("'%s' is not used for '%s': the sign is part of the type"),
+		    "signed", R_typeToChar(swhat));
+
+	PROTECT(ans = R_allocVectorLike(swhat, n, FALSE));
+	const void *vmax = vmaxget();
+	R_xlen_t nb = (n > 0 && n < BLOCK) ? n : BLOCK;
+	char *buf = R_alloc((size_t) nb, esz);
+	for(m = 0; m < n; ) {
+	    R_xlen_t n1 = (n - m < nb) ? n - m : nb, m0;
+	    m0 = isRaw ? rawRead(buf, size, n1, bytes, nbytes, &np)
+		: (R_xlen_t) con->read(buf, size, n1, con);
+	    if(m0 < 0) error("error reading from the connection");
+	    if(m0 > 0) {
+		if(swap)
+		    for(i = 0; i < m0; i++)
+			swapb(buf + (size_t) i * esz, size);
+		if (R_altsxp_set_region(ans, m, m0, buf) != m0)
+		    error(_("'%s' method reported too few elements"),
+			  "Set_region");
+		m += m0;
+	    }
+	    if(m0 < n1) break;
+	}
+	vmaxset(vmax);
+    } else if(!strcmp(what, "character")) {
 	SEXP onechar;
 	PROTECT(ans = allocVector(STRSXP, n));
 	for(i = 0, m = 0; i < n; i++) {
@@ -5057,10 +5097,30 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(size != 1)
 		error(_("size changing is not supported for raw vectors"));
 	    break;
+	case ALTSXP:
+	{
+	    int esz = (int) ALTSXP_ELT_SIZE(object);
+	    if(size == NA_INTEGER) size = esz;
+	    if(size != esz)
+		error(_("size %d is not the element size of '%s'"), size,
+		      R_typeToChar(object));
+	    break;
+	}
 	default:
 	    UNIMPLEMENTED_TYPE("writeBin", object);
 	}
-	char *buf = R_chk_calloc(len, size);
+	/* Only the ALTSXP arm below calls into class code, which may raise an
+	   error and longjmp past the R_Free() -- len * size bytes, unbounded
+	   for a long vector.  Its buffer comes from R_alloc, which unwinds
+	   with the context, as readBin's opaque arm and orderVector1() do.
+	   The base types keep malloc: R_alloc would draw len * size bytes
+	   from the R heap, where they count against --max-vsize and can
+	   trigger a GC that writeBin() has never needed.  Every arm fills the
+	   whole buffer, so the ALTSXP one does not want the zeroing. */
+	Rboolean altsxp = TYPEOF(object) == ALTSXP;
+	const void *vmax = vmaxget();
+	char *buf = altsxp ? R_alloc((size_t) len, size)
+	                   : R_chk_calloc(len, size);
 	R_xlen_t j;
 	switch(TYPEOF(object)) {
 	case LGLSXP:
@@ -5136,6 +5196,11 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 		error(_("size %d is unknown on this machine"), size);
 	    }
 	    break;
+	case ALTSXP:
+	    if (R_altsxp_get_region(object, 0, len, buf) != len)
+		error(_("'%s' method reported too few elements"),
+		      "Get_region");
+	    break;
 	case CPLXSXP:
 	    memcpy(buf, COMPLEX(object), size * len);
 	    break;
@@ -5163,7 +5228,8 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    size_t nwrite = con->write(buf, size, len, con);
 	    if(nwrite < len) warning(_("problem writing to connection"));
 	}
-	R_Free(buf);
+	if (!altsxp) R_Free(buf);
+	vmaxset(vmax);
     }
 
     if(!wasopen) {

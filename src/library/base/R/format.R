@@ -74,9 +74,22 @@ format.default <-
 			     zero.print = zero.print, drop0trailing = drop0trailing,
 			     is.cmplx = is.complex(x),
 			     preserve.width = if (trim) "individual" else "common", ...),
-	       ## all others (for now):
-	       stop(gettextf("Found no format() method for class \"%s\"",
-			     class(x)), domain = NA))
+	       ## Anything else atomic -- notably an ALTSXP, whose element
+	       ## type formats itself -- goes through .Internal(format),
+	       ## and then the same prettyNum() as the numeric arm above.
+	       if(is.atomic(x))
+		   prettyNum(.Internal(format(x, trim, digits, nsmall, width, 3L,
+					      na.encode, scientific, decimal.mark)),
+			     big.mark = big.mark, big.interval = big.interval,
+			     small.mark = small.mark,
+			     small.interval = small.interval,
+			     decimal.mark = decimal.mark, input.d.mark = decimal.mark,
+			     zero.print = zero.print, drop0trailing = drop0trailing,
+			     is.cmplx = FALSE,
+			     preserve.width = if (trim) "individual" else "common", ...)
+	       else
+		   stop(gettextf("Found no format() method for class \"%s\"",
+				 class(x)), domain = NA))
     }
 }
 

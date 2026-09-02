@@ -23,9 +23,15 @@ seq.default <-
              length.out = NULL, along.with = NULL, ...)
 {
     is.logint <- function(.) (is.integer(.) || is.logical(.)) && !is.object(.)
+    ## An opaque vector is numeric without being one of the two base numeric
+    ## types, and can hold values a double cannot count exactly.  The
+    ## arithmetic below is all double: `:` and seq.int() are not, so an
+    ## endpoint of such a type is handed to them instead.
+    is.opaque <- function(.) is.numeric(.) &&
+        !(typeof(.) %in% c("double", "integer", "logical"))
     if((One <- nargs() == 1L) && !missing(from)) {
 	lf <- length(from)
-	return(if(mode(from) == "numeric" && lf == 1L) {
+	return(if((mode(from) == "numeric" || is.opaque(from)) && lf == 1L) {
 	    if(!is.finite(from)) stop("'from' must be a finite number")
             1L:from
         } else if(lf) 1L:lf else integer())
@@ -58,6 +64,12 @@ seq.default <-
 	if(missing(by))
 	    from:to
 	else { # dealing with 'by'
+	    ## del/by rounds an exact 64-bit difference, and the fudge factor
+	    ## below compares that difference against the magnitude of the
+	    ## endpoints -- which for such a type collapses a perfectly good
+	    ## sequence to its first element.  seq.int() has neither problem.
+	    if(is.opaque(from) || is.opaque(to))
+		return(seq.int(from, to, by))
 	    int <- is.logint(from) && is.logint(to)
 	    del <- to - if(int) as.double(from) else from
 	    if(del == 0 && to == 0) return(to)

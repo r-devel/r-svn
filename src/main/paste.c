@@ -29,6 +29,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 
 #define imax2(x, y) ((x < y) ? y : x)
@@ -449,6 +450,7 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     PrintDefaults();
+
     int scikeep = R_print.scipen;
 
     SEXP x = CAR(args), y, l;
@@ -525,6 +527,37 @@ attribute_hidden SEXP do_format(SEXP call, SEXP op, SEXP args, SEXP env)
 	strncpy(sdec, CHAR(STRING_ELT(CAR(args), 0)), 10);
 	sdec[10] = '\0';
 	my_OutDec = sdec;
+    }
+
+    if (TYPEOF(x) == ALTSXP) {
+	/* An opaque element type formats itself.  'digits', 'nsmall' and
+	   'scientific' describe a floating point rendering and 'justify' a
+	   character one, so as for an integer vector only 'trim' and 'width'
+	   reach the answer -- but every argument has been validated above,
+	   because format() rejects a malformed one whatever it is given. */
+	SEXP val = ALTSXP_FORMAT(x, 0, XLENGTH(x));
+	if (val == NULL)
+	    /* Format is optional -- print() falls back to a summary line --
+	       but format() has to return a character vector, so there is
+	       nothing to fall back to here. */
+	    error(_("no method to format '%s' objects"), R_typeToChar(x));
+
+	PROTECT_INDEX vpi;
+	PROTECT_WITH_INDEX(val, &vpi);
+	REPROTECT(val = R_altsxp_format_common(val, trim == TRUE, wd), vpi);
+	SEXP dims = getAttrib(x, R_DimSymbol);
+	if (dims != R_NilValue) {
+	    setAttrib(val, R_DimSymbol, dims);
+	    setAttrib(val, R_DimNamesSymbol, getAttrib(x, R_DimNamesSymbol));
+	}
+	else {
+	    SEXP nms = getAttrib(x, R_NamesSymbol);
+	    if (nms != R_NilValue) setAttrib(val, R_NamesSymbol, nms);
+	}
+	UNPROTECT(1);
+
+	R_print.scipen = scikeep;
+	return val;
     }
 
     R_xlen_t i, n = XLENGTH(x);
@@ -736,6 +769,27 @@ attribute_hidden SEXP do_formatinfo(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (il > w) w = il;
 	    }
 	break;
+
+    case ALTSXP: {
+	/* An opaque element has no C type this switch could measure, so the
+	   class renders the vector and the width of the rendering is the
+	   answer -- the same width R_altsxp_format_common() lays out to, so
+	   that this agrees with nchar(format(x)).  An NA is spelled out
+	   there, and counts here, as it does for an integer vector.  There is
+	   no decimal or exponent part to report either. */
+	SEXP fmt = ALTSXP_FORMAT(x, 0, n);
+	if (fmt == NULL)
+	    error(_("no method to format '%s' objects"), R_typeToChar(x));
+	PROTECT(fmt);
+	w = 1;		/* formatInteger()'s floor, so an empty vector agrees */
+	for (R_xlen_t i = 0; i < n; i++) {
+	    SEXP elt = STRING_ELT(fmt, i);
+	    int il = (elt == NA_STRING) ? R_print.na_width : Rstrlen(elt, 0);
+	    if (il > w) w = il;
+	}
+	UNPROTECT(1); /* fmt */
+	break;
+    }
 
     default:
 	error(_("atomic vector arguments only"));

@@ -370,6 +370,20 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	REPROTECT(y = coerceVector(y, CPLXSXP), ypi);
 	x = complex_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
     }
+    else if (TYPEOF(x) == ALTSXP || TYPEOF(y) == ALTSXP) {
+	/* An opaque vector has no base type to fall back on, so the class
+	   compares.  This sits inside the promotion ladder rather than at
+	   the top of the function so that the array conformability, ts and
+	   recycling rules above apply to it too, and so that an ALTSXP can
+	   never reach numeric_relop(), which would read its payload as
+	   doubles.  It is below the string and complex arms because an
+	   opaque element type ranks below both, exactly as in c().  Group
+	   dispatch has already run in do_relop(). */
+	SEXP val = ALTSXP_RELOP(call, op, x, y);
+	if (val == NULL)
+	    errorcall(call, _("comparison of these types is not implemented"));
+	x = val;
+    }
     else if ((isNumeric(x) || isLogical(x)) && (isNumeric(y) || isLogical(y))) {
         x = numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     } // rest of cases only apply when 'x' or 'y' is raw

@@ -136,6 +136,16 @@ typedef unsigned int SEXPTYPE;
 #define RAWSXP      24    /* raw bytes */
 #define OBJSXP      25    /* object, non-vector  */
 #define S4SXP       25    /* same as OBJSXP, retained for back compatability */
+#define ALTSXP      26    /* opaque ALTREP vector; element type is a property
+			     of the ALTREP class, not of the SEXPTYPE */
+
+/* What R may assume about an ALTREP object; see R_ext/Altrep.h.  An empty
+   mask means "assume nothing beyond an ordinary vector", so every bit is an
+   assertion that departs from that -- which is why the NA bit reads
+   NOT_NULLABLE rather than NULLABLE. */
+#define R_ALTREP_TRAITS_NUMERIC       1
+#define R_ALTREP_TRAITS_BITWISE_EQ    2
+#define R_ALTREP_TRAITS_NOT_NULLABLE  4
 
 /* used for detecting PROTECT issues in memory.c */
 #define NEWSXP      30    /* fresh node created in new page */
@@ -171,6 +181,7 @@ typedef enum {
     WEAKREFSXP	= 23,	/* weak reference */
     RAWSXP	= 24,	/* raw bytes */
     OBJSXP	= 25,	/* S4 non-vector */
+    ALTSXP	= 26,	/* opaque ALTREP vector */
 
     NEWSXP      = 30,   /* fresh node created in new page */
     FREESXP     = 31,   /* node released by GC */

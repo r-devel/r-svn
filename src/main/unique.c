@@ -77,6 +77,12 @@ struct _HashData {
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
+    /* for ALTSXP: whether the table was hashed by its class's own Hash
+       method rather than by its element bytes.  Every operand hashed against
+       it has to take the same route, so the decision belongs to the table
+       and not to whichever object altsxphash() is looking at. */
+    Rboolean altsxpClassHash;
+
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -460,10 +466,284 @@ static void MKsetup(R_xlen_t n, HashData *d, R_xlen_t nmax)
 }
 
 #define IMAX 4294967296L
+
+/* Hashing an opaque vector.  This works for any class that sets
+   R_ALTREP_TRAITS_BITWISE_EQ, i.e. promises that equal values have equal bytes,
+   because then hashing and comparing the raw element bytes is exact.  A
+   floating element type must not set that bit: NaN and signed zero break
+   the correspondence. */
+static R_INLINE const unsigned char *
+altsxp_eltptr(SEXP x, R_xlen_t i, size_t esz, unsigned char *buf)
+{
+    const unsigned char *p = (const unsigned char *) DATAPTR_OR_NULL(x);
+    if (p != NULL)
+	return p + (size_t) i * esz;
+    R_altsxp_get_region(x, i, 1, buf);
+    return buf;
+}
+
+/* The staging buffers below are sized from the operand's own Elt_size, and
+   HashTableSetup() only ever sees one of the two operands: match() hashes x
+   against a table built for table, and 'incomparables' is a third object
+   again.  Each of them is checked here, where its element is about to be
+   copied onto the stack. */
+static size_t altsxp_hash_esz(SEXP x)
+{
+    size_t esz = ALTSXP_ELT_SIZE(x);
+    if (esz > ALTREP_ELT_MAX_SIZE)
+	error(_("cannot hash elements of type '%s': they are %d bytes, more than the %d this can stage"),
+	      R_typeToChar(x), (int) esz, (int) ALTREP_ELT_MAX_SIZE);
+    return esz;
+}
+
+static hlen altsxphash(SEXP x, R_xlen_t indx, HashData *d)
+{
+    int na = 0;
+    R_altsxp_is_na_region(x, indx, 1, &na);
+    if (na) return scatter(0u, d); /* all NAs hash alike */
+
+    /* A class that hashes for itself is the only route when the bytes do not
+       decide equality -- a float element type, say, where +0 and -0 are one
+       value in two spellings.  It also reads the element where it lies, so
+       nothing is staged and the width cap below does not apply.
+
+       The trait bit is what chooses, exactly as it does in altsxpequal()
+       below, so the two always agree about a given pair.  Which route it is
+       was settled for the table in HashTableSetup(), and every operand
+       hashed against that table has to take the same one: sharing an element
+       type is what lets two *different* classes be matched, and one that
+       hashes for itself would otherwise never land in the bucket the other's
+       bytes chose.  (Two classes that share an element type and both hash
+       for themselves must agree on the values, which is part of what sharing
+       the type promises; nothing here can check that.) */
+    Rboolean class_hash = ! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ);
+    if (class_hash != d->altsxpClassHash)
+	error(_("cannot match elements of type '%s': one operand's class decides equality by its bytes and the other's does not"),
+	      R_typeToChar(x));
+
+    if (class_hash) {
+	if (! R_altsxp_hashable(x))
+	    error(_("cannot hash elements of type '%s': the class declares neither R_ALTREP_TRAITS_BITWISE_EQ nor a 'Hash' method with a 'Compare' to go with it"),
+		  R_typeToChar(x));
+	return scatter(ALTSXP_HASH(x, indx), d);
+    }
+
+    size_t esz = altsxp_hash_esz(x);
+    unsigned char buf[ALTREP_ELT_MAX_SIZE];
+    const unsigned char *p = altsxp_eltptr(x, indx, esz, buf);
+
+    /* FNV-1a over the element bytes */
+    unsigned int h = 2166136261u;
+    for (size_t k = 0; k < esz; k++) {
+	h ^= (unsigned int) p[k];
+	h *= 16777619u;
+    }
+    return scatter(h, d);
+}
+
+static int altsxpequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    /* UndoHashing marks incomparable table entries with a negative index;
+       equality predicates must ignore those tombstones. */
+    if (i < 0 || j < 0)
+	return 0;
+    if (TYPEOF(x) != ALTSXP || TYPEOF(y) != ALTSXP)
+	return 0;
+    if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y))
+	return 0;
+
+    int nax = 0, nay = 0;
+    R_altsxp_is_na_region(x, i, 1, &nax);
+    R_altsxp_is_na_region(y, j, 1, &nay);
+    if (nax || nay) return nax && nay; /* NA matches only NA */
+
+    /* Equality follows the same split as the hash: the bytes decide it only
+       for a class that says they do, and otherwise Compare does.  Both
+       operands are asked, since traits belong to the object rather than to
+       the class. */
+    if (! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
+	! (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ))
+	return ALTSXP_COMPARE(x, i, y, j) == 0;
+
+    size_t esz = altsxp_hash_esz(x);
+    /* Sharing an element type is a promise about the layout, so two operands
+       that disagree on the width are not comparable -- and reading either
+       one at the other's size would run off the end of its element. */
+    if (ALTSXP_ELT_SIZE(y) != esz)
+	return 0;
+
+    unsigned char bx[ALTREP_ELT_MAX_SIZE], by[ALTREP_ELT_MAX_SIZE];
+    const unsigned char *px = altsxp_eltptr(x, i, esz, bx);
+    const unsigned char *py = altsxp_eltptr(y, j, esz, by);
+    return memcmp(px, py, esz) == 0;
+}
+
+/* Whether element i of an ordinary numeric vector is missing. */
+static int match_operand_isna(SEXP x, R_xlen_t i)
+{
+    switch (TYPEOF(x)) {
+    case LGLSXP: case INTSXP: return INTEGER_ELT(x, i) == NA_INTEGER;
+    case REALSXP: return ISNAN(REAL_ELT(x, i));
+    case STRSXP: return STRING_ELT(x, i) == NA_STRING;
+    default: return FALSE; /* a raw byte is never missing */
+    }
+}
+
+/* A nullable prototype of x's class.  Only the class and its traits are ever
+   used, never the contents, so a zero-length instance is widened rather than
+   the data: widening the data would copy the whole vector, and for a
+   whole-range vector that actually holds the pattern its class reserves for
+   NA it would fail outright.  NULL when the class cannot widen at all. */
+static SEXP altsxp_nullable_proto(SEXP x)
+{
+    if (R_altsxp_nullable(x))
+	return x;
+
+    SEXP empty = PROTECT(R_allocVectorLike(x, 0, FALSE));
+    SEXP ans = R_altsxp_na_widen(empty);
+    UNPROTECT(1);
+
+    return ans;
+}
+
+/* Promote an ordinary vector into the class of an opaque one so that match()
+   compares values rather than renderings: 1e18 and "1000000000000000000" are
+   the same number but not the same string.  Returns NULL when the promotion
+   would change a value, and the caller falls back to comparing as character.
+
+   The promotion goes into a vector that can hold NA, so that a value the
+   class cannot represent becomes NA -- which the check below then spots --
+   instead of raising an error from inside match().  That is a property of
+   the prototype, not of the operand being matched: each object is read in
+   its own domain by altsxpequal(), so a whole-range vector is matched
+   against a nullable rendering of the other side quite happily.  Such a value still draws the
+   class's own coercion warning before the fallback; there is no quiet form
+   of Coerce_from, and a value the type cannot hold is worth mentioning.
+
+   'strings' is for a caller that has no character fallback to decline to;
+   match() itself compares a character operand as character, which is already
+   exact, so it leaves this off. */
+static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
+{
+    R_xlen_t n = XLENGTH(other);
+
+    SEXP proto = altsxp_nullable_proto(alt);
+    if (proto == NULL)
+	return NULL;
+
+    switch (TYPEOF(other)) {
+    case RAWSXP: case LGLSXP: case INTSXP:
+	break;
+    case REALSXP: {
+	/* a value with a fractional part equals no element of an exact
+	   type, and rounding it here would invent a match */
+	const double *p = REAL_RO(other);
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (!ISNAN(p[i]) && (!R_FINITE(p[i]) || p[i] != floor(p[i])))
+		return NULL;
+	break;
+    }
+    case STRSXP: {
+	if (! strings)
+	    return NULL;
+
+	/* the same exactness rule as the REALSXP arm, and a double is enough
+	   to apply it: a magnitude too large to be exact is integral anyway,
+	   so only a genuinely fractional or infinite string is rejected.  The
+	   value itself still comes from the class, which reads a plain
+	   decimal exactly over the whole 64-bit range.  A string that does
+	   not parse at all is left to Coerce_from, which turns it into an NA
+	   the round-trip check below then catches. */
+	for (R_xlen_t i = 0; i < n; i++) {
+	    SEXP s = STRING_ELT(other, i);
+	    if (s == NA_STRING)
+		continue;
+
+	    char *end;
+	    double v = R_strtod(CHAR(s), &end);
+	    if (isBlankString(end) && !ISNAN(v) &&
+		(!R_FINITE(v) || v != floor(v)))
+		return NULL;
+	}
+	break;
+    }
+    default:
+	return NULL;
+    }
+
+    PROTECT(proto);
+    SEXP ans = R_altsxp_coerce_from(proto, other);
+    UNPROTECT(1); /* proto */
+    if (ans == NULL)
+	return NULL;
+    PROTECT(ans);
+
+    /* an NA in the result that was not one in the input is a value the
+       class could not hold, so it must not be allowed to match NA.  The loop
+       indexes ans at the length of 'other', so the class has to have
+       answered with one element per input, as checkScanned() also requires
+       of Coerce_from. */
+    if (XLENGTH(ans) != n) {
+	UNPROTECT(1); /* ans */
+	error(_("'%s' method returned %lld elements, not the %lld it was given"),
+	      "Coerce_from", (long long) XLENGTH(ans), (long long) n);
+    }
+
+    Rboolean ok = TRUE;
+    for (R_xlen_t i = 0; i < n && ok; i++) {
+	int na = 0;
+	R_altsxp_is_na_region(ans, i, 1, &na);
+	if (na && ! match_operand_isna(other, i))
+	    ok = FALSE;
+    }
+    UNPROTECT(1);
+
+    return ok ? ans : NULL;
+}
+
+/* coerceVector() cannot allocate an opaque element type from its SEXPTYPE;
+   use the vector being matched as the required class prototype instead.
+
+   The promotion has to be exact.  Coerce_from truncates, so a fractional
+   incomparable would otherwise be rounded onto a neighbour and make *that*
+   value incomparable -- unique(<int64>, incomparables = 2.5) would drop the
+   2s.  A value the class cannot hold equals no element, which is what base R
+   already does with unique(1:3, incomparables = 2.5), so it is dropped;
+   altsxp_match_operand() is the same exactness check match() applies to its
+   other operand.
+
+   A character incomparable is promoted here though match() declines one,
+   because there is no character form of the answer to fall back to: the
+   result has to be in the class, so declining would silently drop a value
+   that as.int64("2") shows the class can hold. */
+static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
+{
+    if (TYPEOF(proto) != ALTSXP)
+	return coerceVector(incomp, TYPEOF(proto));
+
+    if (TYPEOF(incomp) == ALTSXP) {
+	if (ALTSXP_ELT_TYPE(incomp) != ALTSXP_ELT_TYPE(proto))
+	    error(_("'%s' has a different element type from the table"),
+		  "incomparables");
+	return incomp;
+    }
+
+    SEXP nullable = altsxp_nullable_proto(proto);
+    SEXP ans = NULL;
+    if (nullable != NULL) {
+	PROTECT(nullable);
+	ans = altsxp_match_operand(nullable, incomp, TRUE);
+	UNPROTECT(1);
+    }
+
+    return ans != NULL ? ans : R_allocVectorLike(proto, 0, FALSE);
+}
+
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 {
     d->useUTF8 = FALSE;
     d->useCache = TRUE;
+    d->altsxpClassHash = FALSE;
     switch (TYPEOF(x)) {
     case LGLSXP:
 	d->hash = lhash;
@@ -509,6 +789,25 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
     case VECSXP:
 	d->hash = vhash;
 	d->equal = vequal;
+	MKsetup(XLENGTH(x), d, nmax);
+	break;
+    case ALTSXP:
+	/* Two unrelated reasons, and they want different things done about
+	   them: the class has not said that bytes decide equality, or its
+	   element is wider than the staging buffers below.  A Compare method
+	   does not help either way -- this table hashes bytes. */
+	if (!(ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ)) {
+	    if (! R_altsxp_hashable(x))
+		error(_("cannot hash elements of type '%s': the class declares neither R_ALTREP_TRAITS_BITWISE_EQ nor a 'Hash' method with a 'Compare' to go with it"),
+		      R_typeToChar(x));
+	    d->altsxpClassHash = TRUE;
+	}
+	else {
+	    altsxp_hash_esz(x);
+	    d->altsxpClassHash = FALSE;
+	}
+	d->hash = altsxphash;
+	d->equal = altsxpequal;
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     default:
@@ -1035,7 +1334,7 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	}
 
     if(length(incomp)) {
-	PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+	PROTECT(incomp = coerce_incomparables(x, incomp));
 	m = length(incomp);
 	for (i = 0; i < n; i++)
 	    if(v[i]) {
@@ -1060,7 +1359,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
-    PROTECT(incomp = coerceVector(incomp, TYPEOF(x)));
+    PROTECT(incomp = coerce_incomparables(x, incomp));
     m = length(incomp);
 
     if(from_last)
@@ -1112,10 +1411,15 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 
     /* handle zero length vectors, and NULL */
     R_xlen_t n = xlength(x);
-    if (n == 0)
-	return(PRIMVAL(op) <= 1
-	       ? allocVector(PRIMVAL(op) != 1 ? LGLSXP : TYPEOF(x), 0)
-	       : ScalarInteger(0));
+    if (n == 0) {
+	if (PRIMVAL(op) > 1)		/* anyDuplicated() */
+	    return ScalarInteger(0);
+	if (PRIMVAL(op) != 1)		/* duplicated() */
+	    return allocVector(LGLSXP, 0);
+	/* unique(): an opaque vector cannot be allocated from its SEXPTYPE
+	   alone, so the class makes the empty one */
+	return R_allocVectorLike(x, 0, FALSE);
+    }
 
     if (!isVector(x)) {
 	error(_("%s() applies only to vectors"),
@@ -1161,6 +1465,20 @@ attribute_hidden SEXP do_duplicated(SEXP call, SEXP op, SEXP args, SEXP env)
 	    for(R_xlen_t j=0; j < nb; j++)
 		if(duptr[j] == 0) k++;
 	});
+
+    if (TYPEOF(x) == ALTSXP) {
+	/* build an index vector and let the class's Extract_subset do the
+	   copying: R still does not need to know what an element is */
+	SEXP idx = PROTECT(allocVector(REALSXP, k));
+	double *pidx = REAL(idx);
+	R_xlen_t m = 0;
+	for (i = 0; i < n; i++)
+	    if (LOGICAL_ELT(dup, i) == 0)
+		pidx[m++] = (double) (i + 1);
+	SEXP ans = ExtractSubset(x, idx, R_NilValue);
+	UNPROTECT(2); /* idx, dup */
+	return ans;
+    }
 
     SEXP ans = PROTECT(allocVector(TYPEOF(x), k));
 
@@ -1388,13 +1706,34 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
      * Note that above we coerce factors and "POSIXlt", only to character.
      * Hence, coerce to character or to `higher' type
      * (given that we have "Vector" or NULL) */
-    if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
+    if(TYPEOF(x) == ALTSXP && TYPEOF(table) == ALTSXP &&
+       ALTSXP_ELT_TYPE(x) == ALTSXP_ELT_TYPE(table))
+	type = ALTSXP; /* hash the elements directly */
+    else if(TYPEOF(x) == ALTSXP || TYPEOF(table) == ALTSXP) {
+	/* Exactly one side is opaque.  Promoting the other into the class's
+	   representation compares values rather than their renderings --
+	   1e18 and "1000000000000000000" are the same number but not the
+	   same string.  It is only sound where the promotion is exact, so
+	   altsxp_match_operand() declines otherwise and the pair falls back
+	   to the character comparison below. */
+	SEXP alt = TYPEOF(x) == ALTSXP ? x : table;
+	SEXP oth = TYPEOF(x) == ALTSXP ? table : x;
+	SEXP as_alt = altsxp_match_operand(alt, oth, FALSE);
+	if(as_alt != NULL) {
+	    type = ALTSXP;
+	    if(TYPEOF(x) == ALTSXP) REPROTECT(table = as_alt, tbpi);
+	    else                    REPROTECT(x     = as_alt, xpi);
+	}
+	else type = STRSXP;
+    }
+    else if(TYPEOF(x) >= STRSXP || TYPEOF(table) >= STRSXP) type = STRSXP;
     else type = TYPEOF(x) < TYPEOF(table) ? TYPEOF(table) : TYPEOF(x);
     REPROTECT(x	    = coerceVector(x,	  type),  xpi);
     REPROTECT(table = coerceVector(table, type), tbpi);
 
     // special case scalar x -- for speed only :
-    if(XLENGTH(x) == 1 && !incomp) {
+    // (not for ALTSXP: an opaque element has no C type to compare here)
+    if(XLENGTH(x) == 1 && !incomp && type != ALTSXP) {
       int val = nmatch;
       int ntable = LENGTH(table);
       switch (type) {
@@ -1454,7 +1793,10 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
     }
     else { // regular case
 	HashData data = { 0 };
-	if (incomp) { PROTECT(incomp = coerceVector(incomp, type)); nprot++; }
+	if (incomp) {
+	    PROTECT(incomp = coerce_incomparables(table, incomp));
+	    nprot++;
+	}
 	data.nomatch = nmatch;
 	HashTableSetup(table, &data, NA_INTEGER);
 	PROTECT(data.HashTable); nprot++;
@@ -1981,6 +2323,60 @@ attribute_hidden SEXP do_matchcall(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 
 
+/* Order the rows by group for the opaque rowsum() below: afterwards the rows
+   of group k, counting from one as HashLookup() does, are
+   perm[start[k]] .. perm[start[k+1] - 1].  'start' has ng + 2 entries. */
+static void rowsum_group_order(const int *pmatches, R_xlen_t n, R_xlen_t ng,
+			       R_xlen_t *perm, R_xlen_t *start)
+{
+    for (R_xlen_t k = 0; k <= ng + 1; k++)
+	start[k] = 0;
+    for (R_xlen_t j = 0; j < n; j++) {
+	if (pmatches[j] < 1 || pmatches[j] > ng)
+	    error(_("invalid '%s' argument"), "group");
+	start[pmatches[j]]++;
+    }
+    for (R_xlen_t k = 1; k <= ng; k++)
+	start[k] += start[k - 1];
+
+    /* start[k] is the end of group k; filling from the back turns each one
+       into the group's beginning */
+    for (R_xlen_t j = n; j > 0; j--)
+	perm[--start[pmatches[j - 1]]] = j - 1;
+    start[ng + 1] = n;
+}
+
+/* rowsum() over an opaque element type.  There is no generic zero to start
+   an accumulator from, so each cell is formed by handing the class the
+   elements that fall in it and asking for their sum.  'off' is where this
+   column starts in x, 'ansoff' where its results start in ans. */
+static void altsxp_rowsum(SEXP ans, R_xlen_t ansoff, SEXP x, R_xlen_t off,
+			  R_xlen_t ng, const R_xlen_t *perm,
+			  const R_xlen_t *start, Rboolean narm)
+{
+    SEXP idx = R_NilValue;
+    PROTECT_INDEX ipi;
+    PROTECT_WITH_INDEX(idx, &ipi);
+
+    for (R_xlen_t k = 1; k <= ng; k++) {
+	R_xlen_t m = start[k + 1] - start[k];
+	REPROTECT(idx = allocVector(REALSXP, m), ipi);
+	double *pidx = REAL(idx);
+	for (R_xlen_t t = 0; t < m; t++)
+	    pidx[t] = (double) (off + perm[start[k] + t] + 1);
+
+	SEXP sub = PROTECT(ExtractSubset(x, idx, R_NilValue));
+	SEXP s = ALTSXP_SUM(sub, narm);
+	if (s == NULL)
+	    error(_("invalid 'type' (%s) of argument"), R_typeToChar(x));
+	PROTECT(s);
+	R_altsxp_copy_region(ans, ansoff + k - 1, s, 0, 1);
+	UNPROTECT(2); /* s, sub */
+    }
+
+    UNPROTECT(1); /* idx */
+}
+
 static SEXP
 rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 {
@@ -2002,9 +2398,20 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
 
-    PROTECT(ans = allocMatrix(TYPEOF(x), ng, p));
+    PROTECT(ans = R_allocMatrixLike(x, ng, p, FALSE));
 
     switch(TYPEOF(x)){
+    case ALTSXP:
+    {
+	R_xlen_t *perm = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	R_xlen_t *start =
+	    (R_xlen_t *) R_alloc((size_t) ng + 2, sizeof(R_xlen_t));
+	rowsum_group_order(pmatches, n, ng, perm, start);
+	for(int i = 0; i < p; i++)
+	    altsxp_rowsum(ans, (R_xlen_t) i * ng, x, (R_xlen_t) i * n,
+			  ng, perm, start, (Rboolean) narm);
+    }
+	break;
     case REALSXP:
 	Memzero(REAL0(ans), ng*p);
 	for(int i = 0; i < p; i++) {
@@ -2078,6 +2485,10 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     PROTECT(ans = allocVector(VECSXP, p));
 
+    /* built on the first opaque column, and shared by the rest: the
+       ordering is the same for every column */
+    R_xlen_t *perm = NULL, *start = NULL;
+
     for(int i = 0; i < p; i++) {
 	xcol = VECTOR_ELT(x,i);
 	if (!isNumeric(xcol))
@@ -2113,6 +2524,22 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 	    }
 	    SET_VECTOR_ELT(ans, i, col);
 	    UNPROTECT(1);
+	    break;
+
+	case ALTSXP:
+	{
+	    if (perm == NULL) {
+		perm = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+		start = (R_xlen_t *)
+		    R_alloc((size_t) ng + 2, sizeof(R_xlen_t));
+		rowsum_group_order(pmatches, n, ng, perm, start);
+	    }
+
+	    PROTECT(col = R_allocVectorLike(xcol, ng, FALSE));
+	    altsxp_rowsum(col, 0, xcol, 0, ng, perm, start, (Rboolean) narm);
+	    SET_VECTOR_ELT(ans, i, col);
+	    UNPROTECT(1);
+	}
 	    break;
 
 	default:

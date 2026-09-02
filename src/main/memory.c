@@ -217,6 +217,7 @@ const char *sexptype2char(SEXPTYPE type) {
     case WEAKREFSXP:	return "WEAKREFSXP";
     case OBJSXP:	return "OBJSXP"; /* was S4SXP */
     case RAWSXP:	return "RAWSXP";
+    case ALTSXP:	return "ALTSXP";
     case NEWSXP:	return "NEWSXP"; /* should never happen */
     case FREESXP:	return "FREESXP";
     default:		return "<unknown>";
@@ -3342,9 +3343,16 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
     int i, tmp;
 
     checkArity(op, args);
-    PROTECT(ans = allocVector(INTSXP, 24));
-    PROTECT(nms = allocVector(STRSXP, 24));
-    for (i = 0; i < 24; i++) {
+    /* One slot per SEXPTYPE that can reach the heap: 0..LGLSXP, then
+       INTSXP..ALTSXP, since 11 and 12 are unused -- hence the offset by two
+       here and below.  Anchored to the last SEXPTYPE, and bounds-checked
+       below, so that adding one is a missing row rather than a write past
+       the end of the table. */
+    int ntype = ALTSXP - 1;
+
+    PROTECT(ans = allocVector(INTSXP, ntype));
+    PROTECT(nms = allocVector(STRSXP, ntype));
+    for (i = 0; i < ntype; i++) {
 	INTEGER(ans)[i] = 0;
 	SET_STRING_ELT(nms, i, type2str(i > LGLSXP? i+2 : i));
     }
@@ -3363,7 +3371,8 @@ attribute_hidden SEXP do_memoryprofile(SEXP call, SEXP op, SEXP args, SEXP env)
 	       s = NEXT_NODE(s)) {
 	      tmp = TYPEOF(s);
 	      if(tmp > LGLSXP) tmp -= 2;
-	      INTEGER(ans)[tmp]++;
+	      /* NEWSXP and FREESXP are past the end of the table */
+	      if(tmp < ntype) INTEGER(ans)[tmp]++;
 	  }
 	}
       }
@@ -4069,7 +4078,7 @@ static int nvec[32] = {
     1,1,1,1,1,1,1,1,
     1,0,0,1,1,0,0,0,
     0,1,1,0,0,1,1,0,
-    0,1,1,1,1,1,1,1
+    0,1,0,1,1,1,1,1  /* index 26 == ALTSXP has a length */
 };
 
 static R_INLINE SEXP CHK2(SEXP x)

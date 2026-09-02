@@ -749,6 +749,33 @@ SEXP ALTREP_UNSERIALIZE_EX(SEXP, SEXP, SEXP, int, int);
 R_xlen_t ALTREP_LENGTH(SEXP x);
 R_xlen_t ALTREP_TRUELENGTH(SEXP x);
 void *ALTVEC_DATAPTR(SEXP x);
+SEXP ALTSXP_FORMAT(SEXP x, R_xlen_t i, R_xlen_t n);
+unsigned int ALTSXP_HASH(SEXP x, R_xlen_t i);
+int ALTSXP_COMPARE(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j);
+SEXP ALTSXP_ARITH(SEXP call, SEXP op, SEXP x, SEXP y);
+SEXP ALTSXP_RELOP(SEXP call, SEXP op, SEXP x, SEXP y);
+SEXP ALTSXP_SUM(SEXP x, Rboolean narm);
+SEXP ALTSXP_MIN(SEXP x, Rboolean narm);
+SEXP ALTSXP_MAX(SEXP x, Rboolean narm);
+int ALTSXP_IS_SORTED(SEXP x);
+int ALTSXP_NO_NA(SEXP x);
+SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
+SEXP ALTSXP_DEPARSE(SEXP x);
+SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width);
+R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n);
+SEXP R_altsxp_arith_sym(SEXP call, const char *name, SEXP x, SEXP y);
+/* How many elements to stage at a time when moving them through the region
+   methods: enough to amortise the calls, and bounded so that filling or
+   comparing a long vector needs no second copy of it. */
+#define ALTSXP_REGION_CHUNK 512
+
+/* The largest element an ALTSXP class may declare, and so the size of the
+   buffers that hold one.  match() and unique() hash and compare raw
+   element bytes on the stack, and refuse a class that exceeds this. */
+#define ALTREP_ELT_MAX_SIZE 64
+/* the rest of the ALTSXP consumer API -- ALTSXP_ELT_TYPE, ALTREP_TRAITS,
+   R_allocVectorLike and friends -- is declared in R_ext/Altrep.h, which the
+   files that use it include */
 const void *ALTVEC_DATAPTR_RO(SEXP x);
 const void *ALTVEC_DATAPTR_OR_NULL(SEXP x);
 SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call);
@@ -805,6 +832,9 @@ Rboolean R_cycle_detected(SEXP s, SEXP child);
 
 void R_init_altrep(void);
 void R_reinit_altrep_classes(DllInfo *);
+
+/* R_altsxp_prototype() and the rest of the element type name entry points
+   are public API, declared in R_ext/Altrep.h. */
 
 
 SEXP Rf_allocVector3(SEXPTYPE, R_xlen_t, R_allocator_t*);

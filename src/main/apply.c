@@ -23,6 +23,7 @@
 
 #include <Defn.h>
 #include <Internal.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 
 static SEXP checkArgIsSymbol(SEXP x) {
     if (TYPEOF(x) != SYMSXP)
@@ -126,11 +127,13 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (commonType != CPLXSXP && commonType != REALSXP &&
 	commonType != INTSXP  && commonType != LGLSXP &&
 	commonType != RAWSXP  && commonType != STRSXP &&
-	commonType != VECSXP)
+	commonType != VECSXP  && commonType != ALTSXP)
 	error(_("type '%s' is not supported"), R_typeToChar(value));
     dim_v = getAttrib(value, R_DimSymbol);
     array_value = (TYPEOF(dim_v) == INTSXP && LENGTH(dim_v) >= 1);
-    PROTECT(ans = allocVector(commonType, n*commonLen));
+    /* an opaque vector cannot be allocated from its SEXPTYPE alone, so
+       FUN.VALUE is both the type check and the prototype */
+    PROTECT(ans = R_allocVectorLike(value, n*commonLen, FALSE));
     if (useNames) {
 	PROTECT(names = getAttrib(XX, R_NamesSymbol));
 	if (isNull(names) && TYPEOF(XX) == STRSXP) {
@@ -178,7 +181,31 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		error(_("values must be length %d,\n but FUN(X[[%lld]]) result is length %d"),
 		       commonLen, (long long)i+1, length(val));
 	    valType = TYPEOF(val);
-	    if (valType != commonType) {
+	    if (commonType == ALTSXP) {
+		/* An opaque result type is not reachable with coerceVector():
+		   the class promotes a value into its own representation.
+		   Only the types that widen into it in c()'s ladder are
+		   taken, so that a double or a character result is the type
+		   error it would be for any other FUN.VALUE.  Coerce_from
+		   also reconciles the two NA domains, and reports a clash. */
+		Rboolean same = (Rboolean)
+		    (valType == ALTSXP &&
+		     ALTSXP_ELT_TYPE(val) == ALTSXP_ELT_TYPE(value));
+		if (! (same || valType == RAWSXP || valType == LGLSXP ||
+		       valType == INTSXP))
+		    error(_("values must be type '%s',\n but FUN(X[[%lld]]) result is type '%s'"),
+			  R_typeToChar(value), (long long)i+1, R_typeToChar(val));
+		if (! same ||
+		    R_altsxp_nullable(val) != R_altsxp_nullable(value)) {
+		    SEXP v = R_altsxp_coerce_from(value, val);
+		    if (v == NULL)
+			error(_("values must be type '%s',\n but FUN(X[[%lld]]) result is type '%s'"),
+			      R_typeToChar(value), (long long)i+1,
+			      R_typeToChar(val));
+		    REPROTECT(val = v, indx);
+		}
+	    }
+	    else if (valType != commonType) {
 		bool okay = false;
 		switch (commonType) {
 		case CPLXSXP: okay = (valType == REALSXP) || (valType == INTSXP)
@@ -206,6 +233,7 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case RAWSXP:  RAW(ans)    [i] = RAW    (val)[0]; break;
 		case STRSXP:  SET_STRING_ELT(ans, i, STRING_ELT(val, 0)); break;
 		case VECSXP:  SET_VECTOR_ELT(ans, i, VECTOR_ELT(val, 0)); break;
+		case ALTSXP:  R_altsxp_copy_region(ans, i, val, 0, 1); break;
 		}
 	    } else if (commonLen) { // commonLen > 1
 		switch (commonType) {
@@ -231,6 +259,10 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 		case VECSXP:
 		    for (int j = 0; j < commonLen; j++)
 			SET_VECTOR_ELT(ans, common_len_offset + j, VECTOR_ELT(val, j));
+		    break;
+		case ALTSXP:
+		    R_altsxp_copy_region(ans, common_len_offset, val, 0,
+					 commonLen);
 		    break;
 		}
 		common_len_offset += commonLen;

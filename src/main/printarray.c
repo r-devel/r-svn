@@ -374,6 +374,26 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     case RAWSXP:
 	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
+    case ALTSXP: {
+	/* An opaque element has no C type this switch could read, so the
+	   class renders the block into a character matrix first -- the step
+	   PrintValueRec() takes before it prints one.  The rendering stands
+	   for a number rather than for a string, so it is right-justified and
+	   never quoted, whatever the caller asked for. */
+	SEXP fmt = ALTSXP_FORMAT(x, offset, (R_xlen_t) r * c);
+	if (fmt == NULL)
+	    UNIMPLEMENTED_TYPE("printMatrix", x);
+	PROTECT_INDEX fpi;
+	PROTECT_WITH_INDEX(fmt, &fpi);
+	/* trimmed, so that printStringMatrix() measures each column for
+	   itself: padding to one width across the whole slice first would lay
+	   every column out at the width of the widest cell in the matrix,
+	   where the base numeric arms format column by column */
+	REPROTECT(fmt = R_altsxp_format_common(fmt, TRUE, 0), fpi);
+	printStringMatrix (fmt, 0, r_pr, r, c_pr, 0, 1, rl, cl, rn, cn, true);
+	UNPROTECT(1); /* fmt */
+	break;
+    }
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }

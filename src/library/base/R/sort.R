@@ -96,6 +96,7 @@ sort.int <-
     method <- match.arg(method)
     if (method == "auto" && is.null(partial) &&
         (is.numeric(x) || is.factor(x) || is.logical(x)) &&
+                .radix.storage(x) &&
         is.integer(length(x)))
         method <- "radix"
     if (method == "radix") {
@@ -113,7 +114,7 @@ sort.int <-
         y <- .doSortWrap(y, decreasing, na.last)
         return(if (index.return) list(x = y, ix = o) else y)
     }
-    else if (method == "auto" || !is.numeric(x))
+    else if (method == "auto" || !is.numeric(x) || !.radix.storage(x))
           method <- "shell" # explicitly prevent 'quick' for non-numeric data
 
     if(isfact <- is.factor(x)) {
@@ -189,6 +190,17 @@ sort.int <-
         y
 }
 
+## The radix and quick sorts work on R's own storage types; an ALTSXP
+## element type is opaque to them, so such vectors must take the comparison
+## path.  A classed object is admitted on the strength of what it is built
+## on -- typeof() is
+## "integer" for a factor and "double" for a Date -- and an opaque vector
+## reports its element type here, so it never qualifies.
+.radix.storage <- function(x)
+    switch(typeof(x),
+           logical = , integer = , double = , character = , list = TRUE,
+           FALSE)
+
 order <- function(..., na.last = TRUE, decreasing = FALSE,
                   method = c("auto", "shell", "radix"))
 {
@@ -211,6 +223,7 @@ order <- function(..., na.last = TRUE, decreasing = FALSE,
     if (method == "auto") {
         useRadix <- all(vapply(z, function(x) {
             (is.numeric(x) || is.factor(x) || is.logical(x)) &&
+                .radix.storage(x) &&
                 is.integer(length(x))
         }, logical(1L)))
         method <- if (useRadix) "radix" else "shell"
@@ -250,8 +263,10 @@ sort.list <- function(x, partial = NULL, na.last = TRUE, decreasing = FALSE,
 
     method <- match.arg(method)
     if (method == "auto" &&
-        (is.numeric(x) || is.factor(x) || is.logical(x) ||
-         (is.object(x) && !is.atomic(x))) && is.integer(length(x)))
+        ((is.object(x) && !is.atomic(x)) ||
+         ((is.numeric(x) || is.factor(x) || is.logical(x)) &&
+          .radix.storage(x))) &&
+        is.integer(length(x)))
         method <- "radix"
     if(!is.null(partial))
         .NotYetUsed("partial != NULL")

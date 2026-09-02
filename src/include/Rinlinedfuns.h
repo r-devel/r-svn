@@ -118,6 +118,11 @@ SEXP CAR(SEXP e);
     case EXPRSXP:
     case RAWSXP:
     case WEAKREFSXP:
+
+    /* An ALTSXP is a vector: DATAPTR_RO() and DATAPTR_OR_NULL() dispatch to
+       the class, which may hand out a pointer the caller can only use once
+       it has checked the element type (R_altsxp_dataptr_ro). */
+    case ALTSXP:
 	break;
     default:
 	error("cannot get data pointer of '%s' objects", R_typeToChar(x));
@@ -397,6 +402,8 @@ HIDDEN INLINE_FUN Rbyte SCALAR_BVAL(SEXP x) {
     RAW(x)[0] = v;
 }
 
+unsigned int ALTREP_TRAITS(SEXP x);
+
 INLINE_FUN SEXP ALTREP_CLASS(SEXP x) { return TAG(x); }
 
 INLINE_FUN SEXP R_altrep_data1(SEXP x) { return CAR(x); }
@@ -548,6 +555,7 @@ INLINE_FUN R_len_t length(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case ALTSXP:
 	return LENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -583,6 +591,7 @@ INLINE_FUN R_xlen_t xlength(SEXP s)
     case VECSXP:
     case EXPRSXP:
     case RAWSXP:
+    case ALTSXP:
 	return XLENGTH(s);
     case LISTSXP:
     case LANGSXP:
@@ -884,6 +893,12 @@ INLINE_FUN Rboolean isVectorAtomic(SEXP s)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+
+    /* An ALTSXP holds one indivisible value per position, so it is atomic in
+       the sense R exposes to users.  C code that reaches a TYPEOF switch
+       from here lands on its default arm and errors, which is the intended
+       behaviour for a type it was never taught about. */
+    case ALTSXP:
 	return TRUE;
     default: /* including NULL */
 	return FALSE;
@@ -902,6 +917,11 @@ INLINE_FUN Rboolean isVector(SEXP s)/* === isVectorList() or isVectorAtomic() */
 
     case VECSXP:
     case EXPRSXP:
+
+    /* An ALTSXP has vector shape: a length, and elements that can be
+       subset and copied by index.  It is atomic too -- see
+       isVectorAtomic() above. */
+    case ALTSXP:
 	return TRUE;
     default:
 	return FALSE;
@@ -990,6 +1010,10 @@ INLINE_FUN Rboolean isNumeric(SEXP s)
     case LGLSXP:
     case REALSXP:
 	return TRUE;
+    case ALTSXP:
+	/* whether an opaque element type counts as numeric is the class's
+	   decision, not the SEXPTYPE's */
+	return (ALTREP_TRAITS(s) & R_ALTREP_TRAITS_NUMERIC) ? TRUE : FALSE;
     default:
 	return FALSE;
     }
@@ -1005,6 +1029,12 @@ INLINE_FUN Rboolean isNumber(SEXP s)
     case REALSXP:
     case CPLXSXP:
 	return TRUE;
+    case ALTSXP:
+	/* as in isNumeric(): whether an opaque element type counts as a
+	   number is the class's decision, not the SEXPTYPE's.  The two have
+	   to agree, or `!x` and `x & y` refuse an object that is.numeric()
+	   reports as a number. */
+	return (ALTREP_TRAITS(s) & R_ALTREP_TRAITS_NUMERIC) ? TRUE : FALSE;
     default:
 	return FALSE;
     }

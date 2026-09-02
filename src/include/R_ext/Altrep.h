@@ -61,6 +61,23 @@ R_make_altcomplex_class(const char *cname, const char *pname, DllInfo *info);
 R_altrep_class_t
 R_make_altlist_class(const char *cname, const char *pname, DllInfo *info);
 
+/* ALTSXP classes.  An ALTSXP is an opaque *atomic* vector: TYPEOF() reports
+   ALTSXP and says nothing about the element type, which is instead a
+   run-time property of the class (see the Elt_type/Elt_size methods below).
+   Code that has not been taught about a particular element type therefore
+   fails rather than silently reinterpreting the payload.
+
+   The shape is part of the contract, not just the element type: an ALTSXP
+   has a length, and n indivisible elements of one fixed width that can be
+   read and written by index.  That is what lets R subset, concatenate,
+   duplicate, sort and serialise it without knowing what an element means,
+   and it is why is.atomic() is TRUE for one.  An object that is not that
+   shape -- a hash table, a connection, a handle to something outside R --
+   does not belong here even though it is equally opaque: use an external
+   pointer, or an ALTREP class over one of R's own vector types. */
+R_altrep_class_t
+R_make_altsxp_class(const char *cname, const char *pname, DllInfo *info);
+
 Rboolean R_altrep_inherits(SEXP x, R_altrep_class_t);
 
 typedef SEXP (*R_altrep_UnserializeEX_method_t)(SEXP, SEXP, SEXP, int, int);
@@ -118,6 +135,252 @@ typedef int (*R_altstring_No_NA_method_t)(SEXP);
 typedef SEXP (*R_altlist_Elt_method_t)(SEXP, R_xlen_t);
 typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
 
+/* ALTSXP methods.
+ *
+ * The first group describes the *shape* of the data and is enough for R to
+ * implement subsetting, concatenation, duplication and serialisation
+ * generically, without knowing what an element means:
+ *
+ *   Elt_type       an installed symbol naming the C element type, e.g.
+ *                  install("int64").  Two classes that report the same
+ *                  symbol promise the same in-memory representation, so a
+ *                  consumer may cast a data pointer to the matching C type.
+ *   Elt_size       sizeof() that C type.
+ *   New            allocate a new object of this class with the given
+ *                  length.  The first argument is normally an existing
+ *                  instance to use as a prototype, but is the class object
+ *                  itself when called from the default Unserialize method,
+ *                  where no instance exists yet; a class that cares can tell
+ *                  the two apart with ALTREP().
+ *
+ *                  The last argument asks for the elements to be set to this
+ *                  class's zero -- whatever that is for its representation,
+ *                  which is why the decision belongs here and not to R.  For
+ *                  a two's complement integer or an IEEE float that is a
+ *                  memset of the payload; for something with a bias or a
+ *                  tag it is not, and a class with no meaningful zero should
+ *                  refuse rather than invent one.  A class with no
+ *                  contiguous payload can fill through its own Set_region.
+ *
+ *                  When it is FALSE the elements are left uninitialised, and
+ *                  the caller must write every one of them before the object
+ *                  is visible to R.  Note that NA is not on offer here: an
+ *                  object's NA domain is a trait R has to negotiate (see
+ *                  R_ALTREP_TRAITS_NOT_NULLABLE and Na_widen), so R asks for
+ *                  NA through Set_na_region, where a refusal can be handled.
+ *
+ *                  New is also what makes a class reachable by name, from
+ *                  vector("int64", n) and as.vector(x, "int64"): a class may
+ *                  claim its Elt_type as a type name, and R then keeps a
+ *                  zero-length instance of it to build from.  Claiming a
+ *                  name is deliberately separate from having an Elt_type,
+ *                  since an element type names a representation and two
+ *                  classes may share one, and the first claim on a name
+ *                  wins.  R_altsxp_register_type() is how a class claims
+ *                  one; R_altsxp_share_type() is how a second class adopts
+ *                  a name the first published.
+ *   Get_region     copy n elements starting at i into buf.
+ *   Set_region     copy n elements from buf into positions i..i+n-1.
+ *   Set_na_region  set positions i..i+n-1 to the class's NA element.
+ *
+ * Each of the three region methods, and Is_na_region below, returns how many
+ * elements it actually handled.  That is n unless i..i+n-1 runs off the end
+ * of the object.  The public R_altsxp_*_region() helpers clamp requests to the
+ * object, advance by a short positive return, and keep calling the method
+ * until the request is complete.  Returning zero before then is an error: it
+ * would leave R with no way to make progress without reading uninitialised
+ * buffer contents.
+ *
+ * The second group is element-type specific:
+ *
+ *   Is_na_region   fill buf with 0/1 for positions i..i+n-1.
+ *   Compare        three-way compare of x[i] and y[j].  R only ever asks
+ *                  about two objects with the same Elt_type, and only about
+ *                  elements that Is_na_region reported as non-NA, so a class
+ *                  need handle neither case.  It must be a consistent total
+ *                  order: R's comparison sorts misbehave otherwise.
+ *
+ *                  A class must supply this or declare
+ *                  R_ALTREP_TRAITS_BITWISE_EQ -- see the note on equality
+ *                  below.  Only this one gives an order, so sort(), order(),
+ *                  rank(), median() and the reductions need it either way.
+ *   Hash           a hash of x[i], for the table match() and unique() build.
+ *                  Optional, and only consulted when the class does not
+ *                  declare R_ALTREP_TRAITS_BITWISE_EQ -- with that bit R
+ *                  hashes the bytes itself.  Must agree with Compare: two
+ *                  elements Compare calls equal have to hash alike, or the
+ *                  table will not find them.  The reverse is free, as a hash
+ *                  may collide.  Like Compare it must not allocate, and it
+ *                  is asked only about elements Is_na_region called non-NA.
+ *   Format         a character vector rendering positions i..i+n-1, or NULL
+ *                  to decline.  Optional, because a class may exist only to
+ *                  carry bytes between two places that understand them; R
+ *                  has no generic rendering to fall back on, since the only
+ *                  thing it knows about an element is its bytes and their
+ *                  order in memory is not portable.  Without it print()
+ *                  reports the type and length, and format(), cat() and
+ *                  write.table() report that they cannot render the type.
+ *   Traits         a bitmask of R_ALTREP_TRAITS_* below, describing what R
+ *                  may assume about this object.
+ *   Coerce_from    build an object of this class from an ordinary R vector,
+ *                  or return NULL.  This is what lets c() and x[i] <- v mix
+ *                  an opaque vector with base types.
+ *   Na_widen       return an object with the same contents whose domain does
+ *                  include NA, or NULL if the class has no such form.  R
+ *                  calls this before an operation that must introduce NA
+ *                  into an object whose traits say it has no NA (growing it,
+ *                  subsetting out of bounds, assigning NA into it).
+ *   Sum/Min/Max    whole-vector reductions, or NULL to decline.
+ *   Is_sorted      one of the SORTED_* constants; UNKNOWN_SORTEDNESS if not
+ *                  known.  No_NA is TRUE only if the vector is known to
+ *                  contain no NA.
+ *   Math           handle a Math-group function (abs, cumsum, round, ...) or
+ *                  return NULL to decline.  The third argument is the whole
+ *                  argument list, so two-argument members such as round(x, d)
+ *                  and signif(x, d) are reachable too.
+ *   Deparse        an unevaluated R call that would rebuild this object, or
+ *                  NULL to decline.  deparse() and dput() have no other way
+ *                  to name a class that was registered from C, and without
+ *                  this they can only report the type and length.  The call
+ *                  is deparsed like any other, so it should be built from
+ *                  ordinary vectors and should name a function a user can
+ *                  actually reach -- see i64_Deparse() in altclasses.c,
+ *                  which returns as.int64(<character>) because the text form
+ *                  is the one that carries the whole 64-bit range.
+ * What a method may do
+ * --------------------
+ *
+ * Elt_type, Elt_size and Traits must not allocate, and must give the same
+ * answer for the whole lifetime of an object.  R consults them from places
+ * where allocating is either unsafe or ruinous:
+ *
+ *   - R_typeToChar() calls Elt_type while building an error message, and
+ *     keeps only a pointer into the symbol's PRINTNAME, so the symbol has to
+ *     be one that stays reachable.  Install it once when the class is
+ *     registered rather than building one per call.
+ *   - match(), unique() and friends call Elt_type on *both* operands and
+ *     Elt_size on one for every element pair they compare.
+ *   - is.numeric() reads Traits, and appears on plenty of hot paths.
+ *
+ * A class that wants an object's traits to differ -- say, one vector that
+ * reserves a pattern for NA and one that does not -- gives the two different
+ * objects rather than mutating one in place.
+ *
+ * Is_na_region and Compare must not allocate either: sorting, hashing and
+ * matching call them once per element.
+ *
+ * Get_region, Set_region and Set_na_region may allocate, but R calls them
+ * from copy loops that can already be holding a data pointer into the
+ * destination, so they must not invalidate one -- as elsewhere in ALTREP, an
+ * object's data pointer has to stay put once handed out.  They are called
+ * once per block, so they should still be cheap.
+ *
+ * The rest -- New, Format, Coerce_from, Na_widen, Sum, Min, Max, Math, Arith
+ * and Relop -- return R objects and are expected to allocate.
+ *
+ *   Arith, Relop   handle an arithmetic or comparison operation, or return
+ *                  NULL to decline.  The second argument is the operator as
+ *                  an installed symbol ("+", "<", ...); the fourth is NULL
+ *                  for a unary operator.  Consulted after S3/S4 group dispatch,
+ *                  so a class attribute still wins; without them an ALTSXP
+ *                  that has lost its class attribute has no arithmetic at
+ *                  all, since there is no base type to fall back on.
+ */
+typedef SEXP (*R_altsxp_Elt_type_method_t)(SEXP);
+typedef size_t (*R_altsxp_Elt_size_method_t)(SEXP);
+typedef SEXP (*R_altsxp_New_method_t)(SEXP, R_xlen_t, Rboolean);
+typedef R_xlen_t
+(*R_altsxp_Get_region_method_t)(SEXP, R_xlen_t, R_xlen_t, void *);
+typedef R_xlen_t
+(*R_altsxp_Set_region_method_t)(SEXP, R_xlen_t, R_xlen_t, const void *);
+typedef R_xlen_t
+(*R_altsxp_Set_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t);
+typedef R_xlen_t
+(*R_altsxp_Is_na_region_method_t)(SEXP, R_xlen_t, R_xlen_t, int *);
+typedef int (*R_altsxp_Compare_method_t)(SEXP, R_xlen_t, SEXP, R_xlen_t);
+typedef unsigned int (*R_altsxp_Hash_method_t)(SEXP, R_xlen_t);
+typedef SEXP (*R_altsxp_Format_method_t)(SEXP, R_xlen_t, R_xlen_t);
+typedef SEXP (*R_altsxp_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef SEXP (*R_altsxp_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef unsigned int (*R_altsxp_Traits_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Coerce_from_method_t)(SEXP, SEXP);
+typedef SEXP (*R_altsxp_Na_widen_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Sum_method_t)(SEXP, Rboolean);
+typedef SEXP (*R_altsxp_Min_method_t)(SEXP, Rboolean);
+typedef SEXP (*R_altsxp_Max_method_t)(SEXP, Rboolean);
+typedef int (*R_altsxp_Is_sorted_method_t)(SEXP);
+typedef int (*R_altsxp_No_NA_method_t)(SEXP);
+typedef SEXP (*R_altsxp_Math_method_t)(SEXP, SEXP, SEXP);
+typedef SEXP (*R_altsxp_Deparse_method_t)(SEXP);
+
+/* The trait bits themselves are in Rinternals.h, next to the ALTSXP type.
+   They describe what R may assume about a particular *object*: two objects
+   of the same class, with the same element type, may report different
+   traits.
+
+   Every bit asserts something that departs from an ordinary R vector, so an
+   empty mask -- what ALTREP_TRAITS() reports for anything that is not an
+   ALTSXP -- means "assume nothing special".  That is why the NA bit is
+   stated negatively: with a NULLABLE bit, a plain `traits & bit` test would
+   read as "cannot be NA" for every ordinary vector.
+
+   R_ALTREP_TRAITS_NUMERIC       is.numeric() is TRUE and arithmetic is
+                                 meaningful.
+
+   R_ALTREP_TRAITS_BITWISE_EQ    two non-NA elements are equal exactly when
+                                 their bytes are equal, so R may hash and
+                                 compare elements generically.  Do not set
+                                 this for a floating element type: NaN and
+                                 signed zero break it, nor for one whose
+                                 element has padding bytes, which two equal
+                                 values need not agree on.
+
+   R_ALTREP_TRAITS_NOT_NULLABLE  this object cannot be NA: its value domain
+                                 excludes a missing value, and in exchange
+                                 the whole width is available for data.  A
+                                 class sets this for, say, a column read from
+                                 a source with no concept of a missing value.
+                                 R calls the Na_widen method before storing
+                                 NA in such an object.
+
+                                 Note the difference from the No_NA method:
+                                 this trait is about what an object *can*
+                                 hold, No_NA about what it currently *does*
+                                 hold.
+
+                                 A class that registers no Traits method at
+                                 all gets this bit whenever it also registers
+                                 no Set_na_region method: with no way to
+                                 store an NA it is not nullable, whatever it
+                                 might prefer to claim.
+
+   Equality is not optional, and it is asked for in two strengths.
+
+   To be *compared* -- identical(), and the sorts, which need an order as
+   well -- a class must declare R_ALTREP_TRAITS_BITWISE_EQ, so that R may
+   use the bytes, or register a Compare method.
+
+   To be *hashed* -- match(), unique(), duplicated(), %in%, table() and
+   factor(), which build a hash table -- it must declare
+   R_ALTREP_TRAITS_BITWISE_EQ, or register both a Hash method and a Compare
+   for the table to settle collisions with.  Compare on its own is not
+   enough: without either the trait or a Hash there is nothing to key the
+   table on.
+
+   A class that offers none of these raises rather than guess, because
+   reading equal values as unequal, or the reverse, is not something R can
+   discover afterwards.  The shape methods alone remain enough for
+   subsetting, concatenation, duplication and serialisation, which ask no
+   such question.
+
+   R stages an element on the stack to hash or memcmp it, so the byte route
+   also caps the element width; a class whose elements are wider than that
+   escapes the cap by supplying Hash and Compare *instead of* declaring
+   R_ALTREP_TRAITS_BITWISE_EQ, since they read the element wherever it
+   already lives.  Declaring the bit as well does not lift the cap: the bit
+   is what selects the byte route, and R takes it.
+*/
+
 #define DECLARE_METHOD_SETTER(CNAME, MNAME)				\
     void								\
     R_set_##CNAME##_##MNAME##_method(R_altrep_class_t cls,		\
@@ -171,6 +434,106 @@ DECLARE_METHOD_SETTER(altstring, No_NA)
 
 DECLARE_METHOD_SETTER(altlist, Elt)
 DECLARE_METHOD_SETTER(altlist, Set_elt)
+
+DECLARE_METHOD_SETTER(altsxp, Elt_type)
+DECLARE_METHOD_SETTER(altsxp, Elt_size)
+DECLARE_METHOD_SETTER(altsxp, New)
+DECLARE_METHOD_SETTER(altsxp, Get_region)
+DECLARE_METHOD_SETTER(altsxp, Set_region)
+DECLARE_METHOD_SETTER(altsxp, Set_na_region)
+DECLARE_METHOD_SETTER(altsxp, Is_na_region)
+DECLARE_METHOD_SETTER(altsxp, Compare)
+DECLARE_METHOD_SETTER(altsxp, Hash)
+DECLARE_METHOD_SETTER(altsxp, Format)
+DECLARE_METHOD_SETTER(altsxp, Arith)
+DECLARE_METHOD_SETTER(altsxp, Relop)
+DECLARE_METHOD_SETTER(altsxp, Traits)
+DECLARE_METHOD_SETTER(altsxp, Coerce_from)
+DECLARE_METHOD_SETTER(altsxp, Na_widen)
+DECLARE_METHOD_SETTER(altsxp, Sum)
+DECLARE_METHOD_SETTER(altsxp, Min)
+DECLARE_METHOD_SETTER(altsxp, Max)
+DECLARE_METHOD_SETTER(altsxp, Is_sorted)
+DECLARE_METHOD_SETTER(altsxp, No_NA)
+DECLARE_METHOD_SETTER(altsxp, Math)
+DECLARE_METHOD_SETTER(altsxp, Deparse)
+
+/* ALTSXP consumer API.  ALTSXP_ELT_TYPE() returns R_NilValue for anything
+   that is not an ALTSXP, so it is safe to call on an arbitrary SEXP.
+
+   R_altsxp_dataptr_ro() is the misuse-resistant form of DATAPTR_RO(): it
+   returns NULL unless the object really is an ALTSXP whose element type is
+   `elt_type` *and* whose elements are `elt_size` bytes wide, so a caller
+   cannot cast the result to the wrong C type by accident.  Pass your own
+   sizeof(): sharing an element type is a promise about the layout, and the
+   width is part of it.  It also returns NULL if the class cannot supply a
+   contiguous pointer, in which case use R_altsxp_get_region(), or
+   R_altsxp_dataptr_or_copy() to have R stage the copy for you.
+
+   R_altsxp_copy_region() moves whole elements between two objects of the
+   same element type -- the shape of every generic copy in base -- clamping
+   the count to what both hold and returning how many it moved.  It uses a
+   data pointer where the source offers one and stages through a buffer
+   otherwise, so a class need only implement Get_region and Set_region.
+
+   R_altsxp_new() builds an object like `proto`.  `proto` is normally an
+   instance, but the class object -- R_SEXP() of an R_altrep_class_t -- is
+   also accepted, which is how a class makes its first instance. */
+SEXP ALTSXP_ELT_TYPE(SEXP x);
+size_t ALTSXP_ELT_SIZE(SEXP x);
+unsigned int ALTREP_TRAITS(SEXP x);
+SEXP R_allocVectorLike(SEXP proto, R_xlen_t n, Rboolean zeroinit);
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol, Rboolean zeroinit);
+SEXP R_altsxp_coerce_from(SEXP proto, SEXP from);
+Rboolean R_altsxp_nullable(SEXP x);
+Rboolean R_altsxp_hashable(SEXP x);
+SEXP R_altsxp_na_widen(SEXP x);
+
+const void *R_altsxp_dataptr_ro(SEXP x, SEXP elt_type, size_t elt_size);
+void *R_altsxp_dataptr_rw(SEXP x, SEXP elt_type, size_t elt_size);
+const void *R_altsxp_dataptr_or_copy(SEXP x, SEXP elt_type, size_t elt_size);
+R_xlen_t R_altsxp_get_region(SEXP x, R_xlen_t i, R_xlen_t n, void *buf);
+R_xlen_t R_altsxp_set_region(SEXP x, R_xlen_t i, R_xlen_t n, const void *buf);
+R_xlen_t R_altsxp_set_na_region(SEXP x, R_xlen_t i, R_xlen_t n);
+R_xlen_t R_altsxp_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf);
+R_xlen_t R_altsxp_copy_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t si,
+			      R_xlen_t n);
+SEXP R_altsxp_new(SEXP proto, R_xlen_t n, Rboolean zeroinit);
+
+/* Element type names.  An ALTSXP cannot be allocated from its type alone, so
+   a name resolves to a prototype -- a zero-length instance of the class that
+   claimed it -- rather than to a SEXPTYPE.  This is what vector("int64", n),
+   as.vector(x, "int64") and read.csv(colClasses = "int64") go through, and
+   R_altsxp_alloc() is the same route for C code with no instance to hand.
+
+   R_altsxp_type_supported() is the question to ask before committing: a
+   reader that finds its element type unavailable can choose another
+   representation, where R_altsxp_alloc() would raise an R error out of the
+   middle of a half-built result.
+
+   A prototype returned here stays valid for the rest of the session, so a
+   caller may cache it in a static without preserving it.
+
+   R_altsxp_register_type() claims a name for a class, which is how the
+   class becomes reachable by one.  The name is the class's own element type,
+   so vector(typeof(x), n) cannot resolve to something typeof() would not
+   call by that name; it must carry a package qualifier, since an unqualified
+   name is a claim on a representation R itself specifies.  Every class
+   already has a qualified pkg::class element type by default.  The first
+   claim on a name wins and a later one warns, so a representation is
+   registered once, by whoever publishes it.
+
+   R_altsxp_share_type() is the other side: a class adopting a name another
+   class published, which is how two classes promise each other a layout.
+   R checks that the name resolves and that the widths agree; it cannot check
+   the semantics, which is why the name has to belong to somebody.  Call it
+   after the method setters, and do not also install an Elt_type method --
+   this sets the one the default method reports. */
+SEXP R_altsxp_prototype(const char *name);
+Rboolean R_altsxp_type_supported(const char *name);
+SEXP R_altsxp_alloc(const char *name, R_xlen_t n, Rboolean zeroinit);
+void R_altsxp_register_type(R_altrep_class_t cls);
+void R_altsxp_share_type(R_altrep_class_t cls, const char *name);
 
 /* DATAPTR_RW is declared here since it should only be used to
    implement Dataptr methods. */

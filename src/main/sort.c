@@ -23,7 +23,8 @@
 #include <config.h>
 #endif
 
-#include <Defn.h> /* => Utils.h with the protos from here; Rinternals.h */
+#include <Defn.h>
+#include <R_ext/Altrep.h> /* => Utils.h with the protos from here; Rinternals.h */
 #include <Internal.h>
 #include <Rmath.h>
 #include <R_ext/RS.h>  /* for R_Calloc/R_Free */
@@ -83,6 +84,24 @@ static int scmp(SEXP x, SEXP y, bool nalast)
 }
 
 #define R_INT_MIN 1 + INT_MIN //INT_MIN is NA_INTEGER
+/* NA-aware ordering for an opaque vector, built from the class's Compare
+   and Is_na_region methods. */
+static int altsxp_isna(SEXP x, R_xlen_t i)
+{
+    int na = 0;
+    R_altsxp_is_na_region(x, i, 1, &na);
+    return na;
+}
+
+static int altsxpcmp(SEXP x, R_xlen_t i, R_xlen_t j, Rboolean nalast)
+{
+    int nai = altsxp_isna(x, i), naj = altsxp_isna(x, j);
+    if (nai && naj) return 0;
+    if (nai) return nalast ? 1 : -1;
+    if (naj) return nalast ? -1 : 1;
+    return ALTSXP_COMPARE(x, i, x, j);
+}
+
 // API: in Rinternals.h
 Rboolean isUnsorted(SEXP x, Rboolean strictly)
 {
@@ -203,6 +222,17 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 	    } else {
 		for(i = 0; i+1 < n ; i++)
 		    if(RAW(x)[i] > RAW(x)[i+1])
+			return TRUE;
+	    }
+	    break;
+	case ALTSXP:
+	    if(strictly) {
+		for(i = 0; i+1 < n ; i++)
+		    if(altsxpcmp(x, i, i+1, TRUE) >= 0)
+			return TRUE;
+	    } else {
+		for(i = 0; i+1 < n ; i++)
+		    if(altsxpcmp(x, i, i+1, TRUE) > 0)
 			return TRUE;
 	    }
 	    break;
@@ -451,6 +481,10 @@ static bool fastpass_sortcheck(SEXP x, int wanted) {
 	sorted = REAL_IS_SORTED(x);
 	noNA = (bool)REAL_NO_NA(x);
 	break;
+    case ALTSXP:
+	sorted = ALTSXP_IS_SORTED(x);
+	noNA = (bool)ALTSXP_NO_NA(x);
+	break;
     default:
 	/* keep sorted == UNKNOWN_SORTEDNESS */
 	break;
@@ -630,10 +664,59 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
 	}
 }
 
+#ifdef LONG_VECTOR_SUPPORT
+static void orderVector1l(R_xlen_t *, R_xlen_t, SEXP, bool, bool, SEXP);
+#endif
+
 /* The meat of sort.int() */
 // Used in envir.c library/utils/src/io.c
+/* Sorting an opaque vector: order the indices with the same shell sort
+   order() uses -- it already drives the class's Compare -- then permute
+   whole elements.  Done in place so that do_sort()'s duplicate-then-sort
+   contract still holds. */
+static void altsxpSort(SEXP s, bool decreasing)
+{
+    R_xlen_t n = XLENGTH(s);
+    if (n < 2) return;
+
+    /* The base arms reach this through isUnsorted(), so an already-ordered
+       vector costs one scan there and a full order-plus-permute here, with a
+       second copy of the payload to permute through.  The class already
+       answers the question. */
+    int sorted = ALTSXP_IS_SORTED(s);
+    if (sorted == (decreasing ? SORTED_DECR : SORTED_INCR))
+	return;
+
+    const void *vmax = vmaxget();
+    size_t esz = ALTSXP_ELT_SIZE(s);
+    char *tmp = R_alloc((size_t) n, esz);
+
+#ifdef LONG_VECTOR_SUPPORT
+    if (n > INT_MAX) {
+	R_xlen_t *pidx = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	for (R_xlen_t i = 0; i < n; i++) pidx[i] = i;
+	orderVector1l(pidx, n, s, TRUE, decreasing, R_NilValue);
+	for (R_xlen_t i = 0; i < n; i++)
+	    R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
+    }
+    else
+#endif
+    {
+	int *pidx = (int *) R_alloc((size_t) n, sizeof(int));
+	for (R_xlen_t i = 0; i < n; i++) pidx[i] = (int) i;
+	orderVector1(pidx, (int) n, s, TRUE, decreasing, R_NilValue);
+	for (R_xlen_t i = 0; i < n; i++)
+	    R_altsxp_get_region(s, pidx[i], 1, tmp + (size_t) i * esz);
+    }
+
+    R_altsxp_set_region(s, 0, n, tmp);
+    vmaxset(vmax);
+}
+
 void sortVector(SEXP s, bool decreasing)
 {
+    if (TYPEOF(s) == ALTSXP) { altsxpSort(s, decreasing); return; }
+
     R_xlen_t n = XLENGTH(s);
     if (n >= 2 && (decreasing || isUnsorted(s, FALSE)))
 	switch (TYPEOF(s)) {
@@ -755,6 +838,75 @@ static void Psort(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t k)
 }
 
 
+/* psort_body over an index array: an opaque element is moved by the class
+   rather than assigned, so the partitioning permutes indices and the data is
+   rearranged once, at the end.  Sorting the whole vector instead would be
+   O(n log n) where a partial sort is O(n) -- which is what median() asks
+   for. */
+static void altsxpPsort2(SEXP x, R_xlen_t *idx, R_xlen_t lo, R_xlen_t hi,
+			 R_xlen_t k)
+{
+    R_xlen_t L, R, i, j, v, w;
+
+    for (L = lo, R = hi; L < R; ) {
+	v = idx[k];
+	for (i = L, j = R; i <= j; ) {
+	    while (altsxpcmp(x, idx[i], v, TRUE) < 0) i++;
+	    while (altsxpcmp(x, v, idx[j], TRUE) < 0) j--;
+	    if (i <= j) { w = idx[i]; idx[i++] = idx[j]; idx[j--] = w; }
+	}
+	if (j < k) L = i;
+	if (k < i) R = j;
+    }
+}
+
+static void
+altsxpPsort0(SEXP x, R_xlen_t *idx, R_xlen_t lo, R_xlen_t hi,
+	     R_xlen_t *ind, int nind)
+{
+    if (nind < 1 || hi - lo < 1) return;
+    if (nind <= 1)
+	altsxpPsort2(x, idx, lo, hi, ind[0] - 1);
+    else {
+	int This = 0;
+	R_xlen_t mid = (lo + hi) / 2, z;
+	for (int i = 0; i < nind; i++) if (ind[i] - 1 <= mid) This = i;
+	z = ind[This] - 1;
+	altsxpPsort2(x, idx, lo, hi, z);
+	altsxpPsort0(x, idx, lo, z - 1, ind, This);
+	altsxpPsort0(x, idx, z + 1, hi, ind + This + 1, nind - This - 1);
+    }
+}
+
+/* Rearrange x so that x[i] becomes the element that was at idx[i], one cycle
+   at a time.  In place, so this needs room for one element rather than a
+   second copy of the vector; idx is consumed, each entry set to -1 as its
+   element is moved. */
+static void altsxpPermute(SEXP x, R_xlen_t *idx, R_xlen_t n)
+{
+    const void *vmax = vmaxget();
+    size_t esz = ALTSXP_ELT_SIZE(x);
+    char *hold = R_alloc(1, esz), *slot = R_alloc(1, esz);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (idx[i] < 0 || idx[i] == i) continue;
+
+	R_altsxp_get_region(x, i, 1, hold);
+	R_xlen_t j = i;
+	for (;;) {
+	    R_xlen_t src = idx[j];
+	    idx[j] = -1;
+	    if (src == i) break;
+	    R_altsxp_get_region(x, src, 1, slot);
+	    R_altsxp_set_region(x, j, 1, slot);
+	    j = src;
+	}
+	R_altsxp_set_region(x, j, 1, hold);
+    }
+
+    vmaxset(vmax);
+}
+
 /* Here ind are 1-based indices passed from R */
 static void
 Psort0(SEXP x, R_xlen_t lo, R_xlen_t hi, R_xlen_t *ind, int nind)
@@ -824,7 +976,17 @@ attribute_hidden SEXP do_psort(SEXP call, SEXP op, SEXP args, SEXP rho)
     SETCAR(args, duplicate(x));
     SET_ATTRIB(CAR(args), R_NilValue);  /* remove all attributes */
     SET_OBJECT(CAR(args), 0);           /* and the object bit    */
-    Psort0(CAR(args), 0, n - 1, l, nind);
+    if (TYPEOF(x) == ALTSXP) {
+	/* the same quickselect, over an index array the class can order */
+	const void *vmax = vmaxget();
+	R_xlen_t *idx = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
+	for (R_xlen_t i = 0; i < n; i++) idx[i] = i;
+	altsxpPsort0(CAR(args), idx, 0, n - 1, l, nind);
+	altsxpPermute(CAR(args), idx, n);
+	vmaxset(vmax);
+    }
+    else
+	Psort0(CAR(args), 0, n - 1, l, nind);
     return CAR(args);
 }
 
@@ -858,6 +1020,9 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
 	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("equal", x);
 	    break;
@@ -867,6 +1032,7 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	return 1;
     return 0;
 }
+
 
 static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 		   bool decreasing, SEXP rho)
@@ -895,6 +1061,9 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("greater", x);
@@ -927,6 +1096,9 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
@@ -1024,6 +1196,9 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	    break;
 	case STRSXP:
 	    c = scmp(STRING_ELT(x, i), STRING_ELT(x, j), nalast);
+	    break;
+	case ALTSXP:
+	    c = altsxpcmp(x, i, j, (Rboolean) nalast);
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("listgreater", x);
@@ -1153,6 +1328,10 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 {
     int c, i, j, h, t, lo = 0, hi = n-1;
     int itmp, *isna = NULL, numna = 0;
+    /* isna is live across Is_na_region() and Compare(), which a class may
+       answer with an error: R_alloc unwinds with the context, R_Calloc does
+       not, and a failed order() would leak n ints every time */
+    const void *vmax = vmaxget();
     int *ix = NULL /* -Wall */;
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
@@ -1177,7 +1356,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 
     if(isNull(rho)) {
 	/* First sort NAs to one end */
-	isna = R_Calloc(n, int);
+	isna = (int *) R_alloc((size_t) n, sizeof(int));
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1192,6 +1371,13 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case ALTSXP:
+	    /* insist the class report them all: a short answer would leave
+	       the tail of isna[] reading as non-NA */
+	    if (R_altsxp_is_na_region(key, 0, n, isna) != n)
+		error(_("'%s' method reported too few elements"),
+		      "Is_na_region");
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1204,13 +1390,14 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
 		sort2_with_index
 #undef less
 		if (n - numna < 2) {
-		    R_Free(isna);
+		    vmaxset(vmax);
 		    return;
 		}
 		if (nalast) hi -= numna; else lo += numna;
@@ -1278,7 +1465,7 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 #undef less
 	}
     }
-    if(isna) R_Free(isna);
+    vmaxset(vmax);
 }
 
 /* version for long vectors */
@@ -1289,6 +1476,8 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 {
     R_xlen_t c, i, j, h, t, lo = 0, hi = n-1;
     int *isna = NULL, numna = 0;
+    /* as in orderVector1(): live across methods that may error */
+    const void *vmax = vmaxget();
     int *ix = NULL /* -Wall */;
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
@@ -1314,7 +1503,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 
     if(isNull(rho)) {
 	/* First sort NAs to one end */
-	isna = R_Calloc(n, int);
+	isna = (int *) R_alloc((size_t) n, sizeof(int));
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1329,6 +1518,13 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	case CPLXSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(cx[i].r) || ISNAN(cx[i].i);
 	    break;
+	case ALTSXP:
+	    /* insist the class report them all: a short answer would leave
+	       the tail of isna[] reading as non-NA */
+	    if (R_altsxp_is_na_region(key, 0, n, isna) != n)
+		error(_("'%s' method reported too few elements"),
+		      "Is_na_region");
+	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("orderVector1", key);
 	}
@@ -1341,13 +1537,14 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	    case REALSXP:
 	    case STRSXP:
 	    case CPLXSXP:
+	    case ALTSXP:
 		if (!nalast) for (i = 0; i < n; i++) isna[i] = !isna[i];
 		for (t = 0; sincs[t] > n; t++);
 #define less(a, b) (isna[a] > isna[b] || (isna[a] == isna[b] && a > b))
 		sort2_with_index
 #undef less
 		if (n - numna < 2) {
-		    R_Free(isna);
+		    vmaxset(vmax);
 		    return;
 		}
 		if (nalast) hi -= numna; else lo += numna;
@@ -1415,7 +1612,7 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 #undef less
 	}
     }
-    if(isna) R_Free(isna);
+    vmaxset(vmax);
 }
 #endif
 

@@ -25,6 +25,7 @@
 # include <config.h>
 #endif
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <PrtUtil.h> // for IndexWidth
 #include <R_ext/Itermacros.h>
@@ -37,8 +38,8 @@ static R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
 
 #define LIST_ASSIGN(x) {SET_VECTOR_ELT(data->ans_ptr, data->ans_length, x); data->ans_length++;}
 
-static SEXP cbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
-static SEXP rbind(SEXP, SEXP, SEXPTYPE, SEXP, int);
+static SEXP cbind(SEXP, SEXP, SEXPTYPE, SEXP, int, SEXP);
+static SEXP rbind(SEXP, SEXP, SEXPTYPE, SEXP, int, SEXP);
 
 /* The following code establishes the return type for the */
 /* functions  unlist, c, cbind, and rbind and also determines */
@@ -50,6 +51,7 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
+ SEXP ans_proto;   /* first ALTSXP seen, used as the class prototype */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -97,6 +99,18 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 	break;
     case STRSXP:
 	data->ans_flags |= 128;
+	data->ans_length += XLENGTH(x);
+	break;
+    case ALTSXP:
+	if (data->ans_proto == NULL)
+	    data->ans_proto = x;
+	else if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(data->ans_proto))
+	    /* mixing two opaque element types: fall back to a list */
+	    data->ans_flags |= 256;
+	else if (! R_altsxp_nullable(data->ans_proto) && R_altsxp_nullable(x))
+	    /* the result must be able to hold NA if any input can */
+	    data->ans_proto = x;
+	data->ans_flags |= 1024;
 	data->ans_length += XLENGTH(x);
 	break;
 
@@ -169,6 +183,67 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
 /* The following functions are used to coerce arguments to the
  * appropriate type for inclusion in the returned value. */
 
+/* One c()/cbind()/rbind() argument, in the result's own representation.  An
+   argument that cannot be NA is widened first: moving whole-range data into
+   a vector that reserves a pattern for NA is only safe when that pattern is
+   unused, and Na_widen() is what reports the clash. */
+static SEXP AltsxpArg(SEXP result, SEXP u, SEXP call)
+{
+    SEXP uu;
+
+    /* NULL contributes no elements, as it does to every other mode, where
+       coerceVector() turns it into the zero-length vector the loops then
+       skip.  cbind()/rbind() still count it as a column in the all-zero-
+       length case, so it has to arrive here rather than be refused. */
+    if (u == R_NilValue)
+	return R_allocVectorLike(result, 0, FALSE);
+
+    if (TYPEOF(u) == ALTSXP) {
+	uu = u;
+	if (R_altsxp_nullable(result) && ! R_altsxp_nullable(uu)) {
+	    uu = R_altsxp_na_widen(uu);
+	    if (uu == NULL)
+		errorcall(call, _("'%s' cannot represent NA"), R_typeToChar(u));
+	}
+    }
+    else {
+	uu = R_altsxp_coerce_from(result, u);
+	if (uu == NULL)
+	    errorcall(call, _("cannot combine '%s' and '%s'"),
+		      R_typeToChar(result), R_typeToChar(u));
+    }
+
+    return uu;
+}
+
+/* Concatenating opaque vectors: the class promotes any ordinary vector into
+   its own representation, and everything after that is a region copy. */
+static void
+AltsxpAnswer(SEXP x, struct BindData *data, SEXP call)
+{
+    SEXP ans = data->ans_ptr;
+
+    if (x == R_NilValue) return;
+
+    if (TYPEOF(x) == VECSXP || TYPEOF(x) == EXPRSXP) {
+	for (R_xlen_t j = 0; j < XLENGTH(x); j++)
+	    AltsxpAnswer(VECTOR_ELT(x, j), data, call);
+	return;
+    }
+    if (TYPEOF(x) == LISTSXP) {
+	for (SEXP t = x; t != R_NilValue; t = CDR(t))
+	    AltsxpAnswer(CAR(t), data, call);
+	return;
+    }
+
+    SEXP src = PROTECT(AltsxpArg(ans, x, call));
+
+    R_xlen_t n = xlength(src);
+    R_altsxp_copy_region(ans, data->ans_length, src, 0, n);
+    data->ans_length += n;
+    UNPROTECT(1);
+}
+
 static void
 ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 {
@@ -212,6 +287,15 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 		LIST_ASSIGN(lazy_duplicate(VECTOR_ELT(x, i)));
 	}
 	break;
+    case ALTSXP: {
+	/* an opaque element has no ordinary R scalar form, so coerceVector()
+	   boxes each one as a length-one vector of the same class */
+	SEXP v = PROTECT(coerceVector(x, VECSXP));
+	for (i = 0; i < XLENGTH(v); i++)
+	    LIST_ASSIGN(VECTOR_ELT(v, i));
+	UNPROTECT(1);
+	break;
+    }
     case LISTSXP:
 	if (recurse) {
 	    while (x != R_NilValue) {
@@ -375,6 +459,18 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	for (i = 0; i < XLENGTH(x); i++)
 	    REAL(data->ans_ptr)[data->ans_length++] = (int)RAW(x)[i];
 	break;
+    case ALTSXP: {
+	/* an opaque vector has no C element type this loop could read, so
+	   ask the class to coerce first */
+	SEXP v = PROTECT(coerceVector(x, REALSXP));
+	if (TYPEOF(v) != REALSXP)
+	    errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		      R_typeToChar(x), "RealAnswer");
+	for (i = 0; i < XLENGTH(v); i++)
+	    REAL(data->ans_ptr)[data->ans_length++] = REAL(v)[i];
+	UNPROTECT(1);
+	break;
+    }
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
 		  R_typeToChar(x), "RealAnswer");
@@ -455,6 +551,17 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	    data->ans_length++;
 	}
 	break;
+    case ALTSXP: {
+	/* as in RealAnswer(): let the class supply an ordinary vector */
+	SEXP v = PROTECT(coerceVector(x, CPLXSXP));
+	if (TYPEOF(v) != CPLXSXP)
+	    errorcall(call, _("type '%s' is unimplemented in '%s'"),
+		      R_typeToChar(x), "ComplexAnswer");
+	for (i = 0; i < XLENGTH(v); i++)
+	    COMPLEX(data->ans_ptr)[data->ans_length++] = COMPLEX(v)[i];
+	UNPROTECT(1);
+	break;
+    }
 
     default:
 	errorcall(call, _("type '%s' is unimplemented in '%s'"),
@@ -634,6 +741,7 @@ static void namesCount(SEXP v, int recurse, struct NameData *nameData)
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case ALTSXP:
 	for (i = 0; i < n && nameData->count <= 1; i++)
 	    nameData->count++;
 	break;
@@ -702,6 +810,7 @@ static void NewExtractNames(SEXP v, SEXP base, SEXP tag, int recurse,
     case CPLXSXP:
     case STRSXP:
     case RAWSXP:
+    case ALTSXP:
 	for (i = 0; i < n; i++) {
 	    namei = ItemName(names, i);
 	    namei = NewName(base, namei, ++(nameData->seqno), nameData->count);
@@ -818,6 +927,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_proto = NULL;
 
     SEXP t, ans;
     for (t = args; t != R_NilValue; t = CDR(t)) {
@@ -838,6 +948,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = ALTSXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
@@ -845,12 +956,16 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = mode == ALTSXP
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length, FALSE)
+	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
 
-    if (mode == VECSXP || mode == EXPRSXP) {
+    if (mode == ALTSXP)
+	AltsxpAnswer(args, &data, call);
+    else if (mode == VECSXP || mode == EXPRSXP) {
 	if (!recurse) {
 	    while (args != R_NilValue) {
 		ListAnswer(CAR(args), 0, &data, call);
@@ -926,6 +1041,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_proto = NULL;
 
     if (isNewList(args)) {
 	n = xlength(args);
@@ -962,6 +1078,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = ALTSXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
@@ -969,12 +1086,16 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    PROTECT(ans = mode == ALTSXP
+	    ? R_allocVectorLike(data.ans_proto, data.ans_length, FALSE)
+	    : allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
 
-    if (mode == VECSXP || mode == EXPRSXP) {
+    if (mode == ALTSXP)
+	AltsxpAnswer(args, &data, call);
+    else if (mode == VECSXP || mode == EXPRSXP) {
 	if (!recurse) {
 	    if (TYPEOF(args) == VECSXP)
 		for (i = 0; i < n; i++)
@@ -1138,6 +1259,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_proto = NULL;
     for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	AnswerType(PRVALUE(CAR(t)), 0, 0, &data, call);
 
@@ -1153,6 +1275,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags & 128) mode = STRSXP;
     else if (data.ans_flags &  64) mode = CPLXSXP;
     else if (data.ans_flags &  32) mode = REALSXP;
+    else if (data.ans_flags & 1024) mode = ALTSXP;
     else if (data.ans_flags &  16) mode = INTSXP;
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
@@ -1170,15 +1293,17 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* we don't handle expressions: we could, but coercion of a matrix
 	   to an expression is not ideal.
 	   FIXME?  had  cbind(y ~ x, 1) work using lists, before */
+    case ALTSXP:
+	break;
     default:
 	error(_("cannot create a matrix from type '%s'"),
 	      type2char(mode)); /* mode can only be EXPRSXP here */
     }
 
     if (PRIMVAL(op) == 1)
-	a = cbind(call, args, mode, rho, deparse_level);
+	a = cbind(call, args, mode, rho, deparse_level, data.ans_proto);
     else
-	a = rbind(call, args, mode, rho, deparse_level);
+	a = rbind(call, args, mode, rho, deparse_level, data.ans_proto);
     UNPROTECT(1);
     return a;
 }
@@ -1207,8 +1332,9 @@ static void SetColNames(SEXP dimnames, SEXP x)
  * unless the result has zero rows, hence is of length zero and no
  * copying will be done.
  */
+
 static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
-		  int deparse_level)
+		  int deparse_level, SEXP proto)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
     int nnames, mnames;
@@ -1284,7 +1410,9 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    PROTECT(result = mode == ALTSXP
+	    ? R_allocMatrixLike(proto, rows, cols, FALSE)
+	    : allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
     if (mode == STRSXP) {
@@ -1296,6 +1424,21 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (!isMatrix(u)) ? rows : k;
 		xcopyStringWithRecycle(result, u, n, idx, k);
 		n += idx;
+	    }
+	}
+    }
+    else if (mode == ALTSXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    if (isMatrix(u) || length(u) >= lenmin) {
+		SEXP uu = PROTECT(AltsxpArg(result, u, call));
+		R_xlen_t k = XLENGTH(uu);
+		if (k > 0) {
+		    R_xlen_t idx = (!isMatrix(u)) ? rows : k;
+		    R_altsxp_recycle_region(result, n, uu, idx);
+		    n += idx;
+		}
+		UNPROTECT(1);
 	    }
 	}
     }
@@ -1316,6 +1459,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		case STRSXP:
 		case VECSXP:
 		case LISTSXP:
+		case ALTSXP:
 		    PROTECT(u = coerceVector(u, mode));
 		    R_xlen_t k = XLENGTH(u);
 		    if (k > 0) {
@@ -1386,6 +1530,23 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		else if (TYPEOF(u) == REALSXP) {
 		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
 		    n += idx;
+		}
+		else if (TYPEOF(u) == ALTSXP) {
+		    /* An opaque vector has no C element type the copies here
+		       could read, so the class supplies an ordinary one --
+		       as the CPLXSXP, STRSXP and VECSXP arms above and every
+		       rbind() arm below already do.  Only mode == REALSXP
+		       reaches this: an opaque element type outranks the
+		       integer types in do_bind()'s ladder, so a lower mode
+		       would have made the result opaque instead. */
+		    if (mode != REALSXP)
+			error(_("cannot create a matrix of type '%s'"),
+			      type2char(mode));
+
+		    PROTECT(u = coerceVector(u, REALSXP));
+		    xcopyRealWithRecycle(REAL(result), REAL(u), n, idx, k);
+		    n += idx;
+		    UNPROTECT(1);
 		}
 		else { /* u is a RAWSXP */
 		    /* FIXME: I'm not sure what the author intended when the sequence was
@@ -1482,7 +1643,7 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 } /* cbind */
 
 static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
-		  int deparse_level)
+		  int deparse_level, SEXP proto)
 {
     bool have_rnames = false, have_cnames = false, warned = false;
     int nnames, mnames;
@@ -1560,7 +1721,9 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    PROTECT(result = mode == ALTSXP
+	    ? R_allocMatrixLike(proto, rows, cols, FALSE)
+	    : allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
 
@@ -1573,6 +1736,24 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
 		xfillStringMatrixWithRecycle(result, u, n, rows, idx, cols, k);
 		n += idx;
+	    }
+	}
+    }
+    else if (mode == ALTSXP) {
+	for (t = args; t != R_NilValue; t = CDR(t)) {
+	    u = PRVALUE(CAR(t));
+	    /* rows of the result, not columns: the same layout every other
+	       rbind() arm uses, with FILL_MATRIX_ITERATE() doing the
+	       transposition and the recycling */
+	    int umatrix = isMatrix(u), urows = umatrix ? nrows(u) : 1;
+	    if (umatrix || length(u) >= lenmin) {
+		SEXP uu = PROTECT(AltsxpArg(result, u, call));
+		R_xlen_t k = XLENGTH(uu);
+		R_xlen_t idx = umatrix ? urows : (k > 0);
+		FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
+		    R_altsxp_copy_region(result, didx, uu, sidx, 1);
+		n += idx;
+		UNPROTECT(1);
 	    }
 	}
     }

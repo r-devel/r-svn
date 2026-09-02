@@ -25,6 +25,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 
 #ifdef Win32
 #include <trioremap.h> /* for %lld */
@@ -475,6 +476,16 @@ SEXP tspgets(SEXP vec, SEXP val)
 	end = REAL(val)[1];
 	frequency = REAL(val)[2];
     }
+    else if (TYPEOF(val) == ALTSXP) {
+	/* isNumeric() is TRUE for an opaque vector whose class says so, but
+	   its elements have no C type to read here: let the class render
+	   them, which is also the form the attribute is stored in below. */
+	SEXP d = PROTECT(coerceVector(val, REALSXP));
+	start = REAL(d)[0];
+	end = REAL(d)[1];
+	frequency = REAL(d)[2];
+	UNPROTECT(1);
+    }
     else {
 	start = (INTEGER(val)[0] == NA_INTEGER) ?
 	    NA_REAL : INTEGER(val)[0];
@@ -706,6 +717,10 @@ SEXP R_data_class(SEXP obj, Rboolean singleString)
 	  case OBJSXP:
 	    klass = mkChar(IS_S4_OBJECT(obj) ? "S4" : "object");
 	    break;
+	  case ALTSXP:
+	    /* the implicit class of an opaque vector is its element type */
+	    klass = mkChar(R_typeToChar(obj));
+	    break;
 	  default:
 	    klass = type2str(t);
 	  }
@@ -873,6 +888,30 @@ attribute_hidden SEXP R_data_class2 (SEXP obj)
 	int n = length(dim);
 	SEXPTYPE t = TYPEOF(obj);
 	SEXP defaultClass;
+
+	if (t == ALTSXP) {
+	    /* Dispatch on the element type, as R_data_class() already does:
+	       "altrep" names the mechanism, not the thing, and would make
+	       every opaque class indistinguishable to UseMethod().  Built
+	       per call rather than cached in Type2DefaultClass, since two
+	       objects of one SEXPTYPE can differ here. */
+	    SEXP et = ALTSXP_ELT_TYPE(obj);
+	    SEXP nm = (et != R_NilValue) ? PRINTNAME(et)
+				         : type2str_nowarn(ALTSXP);
+	    int num = (ALTREP_TRAITS(obj) & R_ALTREP_TRAITS_NUMERIC) ? 1 : 0;
+	    int shape = (n == 2) ? 2 : (n > 0 ? 1 : 0);
+
+	    PROTECT(nm);
+	    defaultClass = PROTECT(allocVector(STRSXP, shape + 1 + num));
+	    int i = 0;
+	    if (shape == 2) SET_STRING_ELT(defaultClass, i++, mkChar("matrix"));
+	    if (shape > 0)  SET_STRING_ELT(defaultClass, i++, mkChar("array"));
+	    SET_STRING_ELT(defaultClass, i++, nm);
+	    if (num) SET_STRING_ELT(defaultClass, i, mkChar("numeric"));
+	    UNPROTECT(2); /* defaultClass, nm */
+
+	    return defaultClass;
+	}
 
 	switch(n) {
 	case 0:  defaultClass = Type2DefaultClass[t].vector; break;

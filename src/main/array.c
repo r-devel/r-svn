@@ -26,6 +26,7 @@
 #include <Defn.h>
 #include <Internal.h>
 #include <Rmath.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include <R_ext/RS.h>     /* for R_Calloc/R_Free, F77_CALL */
 
 // calls BLAS routines dgemm dgemv zgemm
@@ -172,6 +173,27 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("too many elements specified"));
 #endif
 
+    if (TYPEOF(vals) == ALTSXP) {
+	/* Recycling into an opaque matrix is a subset with a computed index
+	   vector; NA where there is no data to recycle. */
+	R_xlen_t N = (R_xlen_t) nr * nc;
+	SEXP lidx = PROTECT(allocVector(REALSXP, N));
+	double *plidx = REAL(lidx);
+	for (R_xlen_t i = 0; i < N; i++) {
+	    if (lendat == 0) { plidx[i] = NA_REAL; continue; }
+	    R_xlen_t k = byrow ? ((i / nr) + (i % nr) * (R_xlen_t) nc) : i;
+	    plidx[i] = (double) (k % lendat + 1);
+	}
+	ans = PROTECT(ExtractSubset(vals, lidx, R_NilValue));
+	SEXP dm = PROTECT(allocVector(INTSXP, 2));
+	INTEGER(dm)[0] = nr; INTEGER(dm)[1] = nc;
+	setAttrib(ans, R_DimSymbol, dm);
+	UNPROTECT(2); /* dm, ans */
+	UNPROTECT(1); /* lidx */
+	PROTECT(ans);
+	goto matrix_dimnames;
+    }
+
     PROTECT(ans = allocMatrix(TYPEOF(vals), nr, nc));
     if(lendat)
 	copyMatrix(ans, vals, byrow);
@@ -211,6 +233,8 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    ;
 	}
     }
+
+ matrix_dimnames:
     if(!isNull(dimnames) && length(dimnames) > 0)
 	ans = dimnamesgets(ans, dimnames);
     UNPROTECT(1);
@@ -218,11 +242,10 @@ attribute_hidden SEXP do_matrix(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
-SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
+/* the number of elements in an nrow by ncol matrix, with the extent checks
+   shared by allocMatrix() and R_allocMatrixLike() */
+static R_xlen_t matrix_length(int nrow, int ncol)
 {
-    SEXP s, t;
-    R_xlen_t n;
-
     if (nrow < 0 || ncol < 0)
 	error(_("negative extents to matrix"));
 #ifdef LONG_VECTOR_SUPPORT
@@ -232,14 +255,91 @@ SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
     if ((double)nrow * (double)ncol > INT_MAX)
 	error(_("allocMatrix: too many elements specified"));
 #endif
-    n = ((R_xlen_t) nrow) * ncol;
-    PROTECT(s = allocVector(mode, n));
+
+    return ((R_xlen_t) nrow) * ncol;
+}
+
+SEXP allocMatrix(SEXPTYPE mode, int nrow, int ncol)
+{
+    SEXP s, t;
+
+    PROTECT(s = allocVector(mode, matrix_length(nrow, ncol)));
     PROTECT(t = allocVector(INTSXP, 2));
     INTEGER(t)[0] = nrow;
     INTEGER(t)[1] = ncol;
     setAttrib(s, R_DimSymbol, t);
     UNPROTECT(2);
+
     return s;
+}
+
+/* allocMatrix() for a prototype rather than a type: an ALTSXP cannot be
+   allocated from its SEXPTYPE alone, so the result takes its class from
+   proto.  The matrix counterpart of R_allocVectorLike(). */
+SEXP R_allocMatrixLike(SEXP proto, int nrow, int ncol, Rboolean zeroinit)
+{
+    SEXP s, t;
+
+    PROTECT(s = R_allocVectorLike(proto, matrix_length(nrow, ncol),
+				  zeroinit));
+    PROTECT(t = allocVector(INTSXP, 2));
+    INTEGER(t)[0] = nrow;
+    INTEGER(t)[1] = ncol;
+    setAttrib(s, R_DimSymbol, t);
+    UNPROTECT(2);
+
+    return s;
+}
+
+/* These build a vector, so they ask for a zeroed one: what vector() gives,
+   and never the uninitialised payload R_allocVectorLike() hands back
+   otherwise. */
+static SEXP allocLike(SEXP proto, R_xlen_t n, SEXP call)
+{
+    if (!isVector(proto))
+	errorcall(call, _("'%s' must be a vector"), "x");
+
+    return R_allocVectorLike(proto, n, TRUE);
+}
+
+/* The R-level counterparts of R_allocVectorLike() and R_allocMatrixLike():
+   vector() and matrix() name the type they build, which an opaque vector
+   cannot supply, so these take an example object instead. */
+attribute_hidden SEXP do_allocvectorlike(SEXP call, SEXP op, SEXP args,
+					 SEXP rho)
+{
+    checkArity(op, args);
+
+    if (length(CADR(args)) != 1)
+	errorcall(call, _("invalid '%s' argument"), "length");
+    R_xlen_t n = asVecSize(CADR(args));
+    if (n < 0)
+	errorcall(call, _("invalid '%s' argument"), "length");
+
+    return allocLike(CAR(args), n, call);
+}
+
+attribute_hidden SEXP do_allocmatrixlike(SEXP call, SEXP op, SEXP args,
+					 SEXP rho)
+{
+    checkArity(op, args);
+
+    int nrow = asInteger(CADR(args)), ncol = asInteger(CADDR(args));
+    if (nrow == NA_INTEGER)
+	errorcall(call, _("invalid '%s' argument"), "nrow");
+    if (ncol == NA_INTEGER)
+	errorcall(call, _("invalid '%s' argument"), "ncol");
+
+    /* matrix_length() does the extent and overflow checks allocMatrix()
+       makes, so a bad shape fails the same way here */
+    SEXP ans = PROTECT(allocLike(CAR(args), matrix_length(nrow, ncol), call));
+    SEXP dim = PROTECT(allocVector(INTSXP, 2));
+    INTEGER(dim)[0] = nrow;
+    INTEGER(dim)[1] = ncol;
+    setAttrib(ans, R_DimSymbol, dim);
+    UNPROTECT(2);
+
+    return ans;
 }
 
 /**
@@ -1642,6 +1742,19 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	goto not_matrix;
     PROTECT(dimnamesnames);
+    if (TYPEOF(a) == ALTSXP) {
+	SEXP lidx = PROTECT(allocVector(REALSXP, len));
+	double *plidx = REAL(lidx);
+	for (int i = 0; i < nrow; i++)
+	    for (int j = 0; j < ncol; j++)
+		plidx[(R_xlen_t) j + (R_xlen_t) i * ncol] =
+		    (double) ((R_xlen_t) i + (R_xlen_t) j * nrow + 1);
+	r = ExtractSubset(a, lidx, R_NilValue);
+	UNPROTECT(1); /* lidx */
+	PROTECT(r);
+	goto transpose_dims;
+    }
+
     PROTECT(r = allocVector(TYPEOF(a), len));
     R_xlen_t i, j, l_1 = len-1;
     switch (TYPEOF(a)) {
@@ -1687,6 +1800,8 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNPROTECT(2); /* r, dimnamesnames */
 	goto not_matrix;
     }
+
+ transpose_dims:
     PROTECT(dims = allocVector(INTSXP, 2));
     INTEGER(dims)[0] = ncol;
     INTEGER(dims)[1] = nrow;
@@ -1820,7 +1935,31 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     Memzero(iip, n);
 
     R_xlen_t len = XLENGTH(a);
-    SEXP r = PROTECT(allocVector(TYPEOF(a), len));
+    SEXP r;
+    if (TYPEOF(a) == ALTSXP) {
+	/* the same permutation, expressed as a linear index vector, so the
+	   class's Extract_subset does the element moves */
+	SEXP lidx = PROTECT(allocVector(REALSXP, len));
+	double *plidx = REAL(lidx);
+	Memzero(iip, n);
+	R_xlen_t lj_ = 0;
+	for (R_xlen_t li_ = 0; li_ < len; li_++) {
+	    plidx[li_] = (double) (lj_ + 1);
+	    for (int i_ = 0; i_ < n; i_++) {
+		if (iip[i_] == isr[i_] - 1) iip[i_] = 0;
+		else { iip[i_]++; break; }
+	    }
+	    lj_ = 0;
+	    for (int i_ = 0; i_ < n; i_++)
+		lj_ += iip[i_] * stride[i_];
+	}
+	r = ExtractSubset(a, lidx, R_NilValue);
+	UNPROTECT(1); /* lidx */
+	PROTECT(r);
+	goto aperm_dims;
+    }
+
+    r = PROTECT(allocVector(TYPEOF(a), len));
 
     R_xlen_t li, lj;
 
@@ -1891,6 +2030,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNIMPLEMENTED_TYPE("aperm", a);
     }
 
+ aperm_dims:
     /* handle names(dim(.)) and the dimnames if any */
     if (resize) {
 	SEXP nmdm = getAttrib(dimsa, R_NamesSymbol);
@@ -1941,6 +2081,13 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
+    /* The accumulator below works on R's own storage types, so it has no way
+       to add up opaque elements; the answer is a double whatever they are.
+       That is the trade mean() and prod() make in do_summary(), and without
+       it these refuse a matrix that is.numeric() calls numeric. */
+    if (TYPEOF(CAR(args)) == ALTSXP)
+	SETCAR(args, coerceVector(CAR(args), REALSXP));
+
     SEXP x = CAR(args); args = CDR(args);
     R_xlen_t n = asVecSize(CAR(args)); args = CDR(args);
     R_xlen_t p = asVecSize(CAR(args)); args = CDR(args);
@@ -2195,6 +2342,7 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP vals = CAR(args); // = data
     /* at least NULL can get here */
     switch(TYPEOF(vals)) {
+	case ALTSXP:
 	case LGLSXP:
 	case INTSXP:
 	case REALSXP:
@@ -2216,6 +2364,21 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t nans = dim2total(dims, &err);
     if(err) error(_("too many elements specified"));
     R_xlen_t lendat = XLENGTH(vals), i;
+
+    if (TYPEOF(vals) == ALTSXP) {
+	SEXP lidx = PROTECT(allocVector(REALSXP, nans));
+	double *plidx = REAL(lidx);
+	for (R_xlen_t i = 0; i < nans; i++)
+	    plidx[i] = lendat ? (double) (i % lendat + 1) : NA_REAL;
+
+	PROTECT_INDEX api;
+	PROTECT_WITH_INDEX(ans = ExtractSubset(vals, lidx, R_NilValue), &api);
+	REPROTECT(ans = dimgets(ans, dims), api);
+	if (!isNull(dimnames) && length(dimnames) > 0)
+	    REPROTECT(ans = dimnamesgets(ans, dimnames), api);
+	UNPROTECT(3); /* ans, lidx, dims */
+	return ans;
+    }
 
     PROTECT(ans = allocVector(TYPEOF(vals), nans));
     switch(TYPEOF(vals)) {
@@ -2455,7 +2618,7 @@ attribute_hidden SEXP do_maxcol(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #define ASPLIT_ITERATE( __body__ ) do {			\
 	for(i = 0; i < n2; i++) {			\
-	    PROTECT(e = allocVector(TYPEOF(x), n1));	\
+	    PROTECT(e = R_allocVectorLike(x, n1, FALSE));\
 	    for(j = 0; j < n1; j++, k++) {		\
 		__body__ ;				\
 	    }						\
@@ -2514,6 +2677,10 @@ attribute_hidden SEXP do_asplit(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     case RAWSXP:
 	ASPLIT_ITERATE( RAW(e)[j] = RAW(x)[k] );
+	break;
+    case ALTSXP:
+	/* only the class can move an opaque element */
+	ASPLIT_ITERATE( R_altsxp_copy_region(e, j, x, k, 1) );
 	break;
     default:
 	UNIMPLEMENTED_TYPE("asplit", x);

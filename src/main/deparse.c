@@ -1533,6 +1533,35 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	}
 	print2buff(")", d);
 	break;
+    case ALTSXP:
+    {
+	/* An opaque vector's class is registered from C, so R cannot name a
+	   constructor for it; the class supplies one.  What comes back is an
+	   ordinary call, deparsed like any other, so the result stays
+	   sourceable and attributes are wrapped around it as usual. */
+	SEXP mk = ALTSXP_DEPARSE(s);
+	if (mk == NULL) {
+	    char buf[64];
+	    d->sourceable = false;
+	    snprintf(buf, sizeof buf, "<%s[%lld]>",
+		     R_typeToChar(s), (long long) XLENGTH(s));
+	    print2buff(buf, d);
+	    break;
+	}
+
+	PROTECT(mk);
+	/* A constructor call has nowhere to put inline names, so names go
+	   through structure() here even where a base vector would write
+	   c(a = 1, ...); this is what vector2buff() does for the shapes it
+	   cannot name inline either. */
+	d->opts &= ~NICE_NAMES;
+	attr_type attr = (d_opts_in & SHOW_ATTR_OR_NMS) ? attr1(s, d) : SIMPLE;
+	deparse2buff(mk, d);
+	if (attr >= STRUC_ATTR) attr2(s, d, (attr == STRUC_ATTR));
+	d->opts = d_opts_in;
+	UNPROTECT(1);
+    }
+	break;
     default:
 	d->sourceable = false;
 	UNIMPLEMENTED_TYPE("deparse2buff", s);

@@ -22,14 +22,22 @@
 #endif
 
 #include <Defn.h>
+#include <Internal.h>
 #include <R_ext/Altrep.h>
+#include <ctype.h> /* for isspace */
+#include <errno.h>
 #include <float.h> /* for DBL_DIG */
+#include <stdint.h> /* for int64_t */
 #include <Print.h> /* for R_print */
 #include <R_ext/Itermacros.h>
 
 #ifdef Win32
 #include <trioremap.h> /* for %lld */
 #endif
+
+/* as in arithmetic.c and relop.c: how often a long element loop stops to
+   let the user interrupt it */
+#define NINTERRUPT 10000000
 
 
 /***
@@ -2111,6 +2119,1761 @@ attribute_hidden SEXP R_tryUnwrap(SEXP x)
 
 
 /**
+ ** 64-Bit Integer Vectors
+ **/
+
+/* int64 and uint64 are ALTSXP classes, so TYPEOF() reports ALTSXP and says
+ * nothing about the payload: code that switches on SEXPTYPE fails rather
+ * than reading 64-bit values as doubles and rounding them.
+ *
+ *   data1  RAWSXP of 8*n bytes, the payload
+ *   data2  INTSXP(3), { sortedness, no_na, nullable }
+ *
+ * Extract_subset, Duplicate, Get_region and Set_region are all left to the
+ * generic ALTSXP defaults in altrep.c, which need only Elt_size, New and a
+ * data pointer.  What is defined here is the part that knows what an element
+ * *means*, plus a serialised state, because whether a vector reserves a bit
+ * pattern for NA is per-object and the generic state does not carry it.
+ */
+
+#define NA_INT64  INT64_MIN
+#define NA_UINT64 UINT64_MAX
+
+static R_altrep_class_t int64_class;
+static R_altrep_class_t uint64_class;
+static SEXP Int64Symbol = NULL;
+static SEXP UInt64Symbol = NULL;
+
+#define I64_DATA(x) R_altrep_data1(x)
+#define I64_META(x) R_altrep_data2(x)
+
+enum { I64_SORTED = 0, I64_NO_NA, I64_NULLABLE_FIELD, I64_META_N };
+
+/* I64_NO_NA is three-valued, so that a vector known to *contain* an NA is
+   not rescanned either: a scan that finds one is as final an answer as a
+   scan that does not.  Zero is "not looked yet", which is what a fresh
+   vector and a writable Dataptr both leave behind. */
+enum { I64_NA_UNKNOWN = 0, I64_NA_ABSENT, I64_NA_PRESENT };
+
+/* Whether the domain includes NA is a property of the object, not of the
+   class or of the element type.  A nullable vector reserves one bit pattern
+   (INT64_MIN, or UINT64_MAX when unsigned) as NA; a non-nullable one has the
+   whole 64-bit range for data, which is what a column read from a source
+   with no concept of a missing value wants. */
+#define I64_NULLABLE(x) (INTEGER(I64_META(x))[I64_NULLABLE_FIELD])
+
+static R_INLINE int i64_unsigned(SEXP x)
+{
+    return R_altrep_inherits(x, uint64_class);
+}
+
+static R_INLINE int i64_is(SEXP x)
+{
+    return R_altrep_inherits(x, int64_class) ||
+	R_altrep_inherits(x, uint64_class);
+}
+
+static R_INLINE int64_t *i64_data(SEXP x)
+{
+    return (int64_t *) RAW(I64_DATA(x));
+}
+
+static R_INLINE R_xlen_t i64_length(SEXP x)
+{
+    return XLENGTH(I64_DATA(x)) / (R_xlen_t) sizeof(int64_t);
+}
+
+static R_INLINE int64_t i64_na(SEXP x)
+{
+    return i64_unsigned(x) ? (int64_t) NA_UINT64 : NA_INT64;
+}
+
+static R_INLINE const char *i64_name(SEXP x)
+{
+    return i64_unsigned(x) ? "uint64" : "int64";
+}
+
+/* the NA bit pattern, and whether this object reserves one at all */
+static R_INLINE int64_t i64_na_test(SEXP x, int *has_na)
+{
+    *has_na = I64_NULLABLE(x);
+    return i64_na(x);
+}
+
+/* How many of the n elements at i are really there; never negative, so an
+   out-of-range start is a no-op rather than a huge count. */
+static R_INLINE R_xlen_t i64_ncopy(R_xlen_t size, R_xlen_t i, R_xlen_t n)
+{
+    if (i < 0 || i >= size || n <= 0)
+	return 0;
+    return size - i > n ? n : size - i;
+}
+
+static R_altrep_class_t i64_class_of(SEXP proto)
+{
+    if (ALTREP(proto))
+	return i64_unsigned(proto) ? uint64_class : int64_class;
+
+    /* the class object, passed by the default Unserialize method */
+    return (proto == R_SEXP(uint64_class)) ? uint64_class : int64_class;
+}
+
+/* returns an unprotected object; PROTECT at the call site.  zeroinit gives
+   the elements this class's zero, which for a two's complement integer is a
+   memset of the payload -- allocVector() does not zero a RAWSXP. */
+static SEXP i64_alloc(SEXP proto, R_xlen_t n, Rboolean zeroinit)
+{
+    if (n < 0 || n > R_XLEN_T_MAX / (R_xlen_t) sizeof(int64_t))
+	error(_("invalid length for a 64-bit integer vector"));
+
+    SEXP data = PROTECT(allocVector(RAWSXP, n * (R_xlen_t) sizeof(int64_t)));
+    if (zeroinit && n > 0)
+	memset(RAW(data), 0, (size_t) n * sizeof(int64_t));
+    SEXP meta = PROTECT(allocVector(INTSXP, I64_META_N));
+    INTEGER(meta)[I64_SORTED] = UNKNOWN_SORTEDNESS;
+    INTEGER(meta)[I64_NO_NA] = I64_NA_UNKNOWN;
+    INTEGER(meta)[I64_NULLABLE_FIELD] = ALTREP(proto) ? I64_NULLABLE(proto) : 1;
+
+    SEXP ans = R_new_altrep(i64_class_of(proto), data, meta);
+    UNPROTECT(2);
+
+    return ans;
+}
+
+/* the class object is an acceptable prototype for New(); see the note on the
+   New method in R_ext/Altrep.h */
+#define I64_PROTO(uns) R_SEXP((uns) ? uint64_class : int64_class)
+
+/*
+ * Portable checked arithmetic.  R cannot rely on __builtin_*_overflow, and
+ * signed overflow is undefined, so every operation is range-checked before
+ * it is performed.  Each returns non-zero when the result is not
+ * representable.
+ */
+
+static int i64_add(int64_t a, int64_t b, int64_t *r)
+{
+    if ((b > 0 && a > INT64_MAX - b) || (b < 0 && a < INT64_MIN - b))
+	return TRUE;
+    *r = a + b;
+    return FALSE;
+}
+
+static int i64_sub(int64_t a, int64_t b, int64_t *r)
+{
+    if ((b < 0 && a > INT64_MAX + b) || (b > 0 && a < INT64_MIN + b))
+	return TRUE;
+    *r = a - b;
+    return FALSE;
+}
+
+static int i64_mul(int64_t a, int64_t b, int64_t *r)
+{
+    if (a > 0) {
+	if (b > 0 && a > INT64_MAX / b) return TRUE;
+	if (b < 0 && b < INT64_MIN / a) return TRUE;
+    }
+    else if (a < 0) {
+	if (b > 0 && a < INT64_MIN / b) return TRUE;
+	if (b < 0 && a < INT64_MAX / b) return TRUE;
+    }
+    *r = a * b;
+    return FALSE;
+}
+
+static int u64_add(uint64_t a, uint64_t b, uint64_t *r)
+{
+    if (a > UINT64_MAX - b)
+	return TRUE;
+    *r = a + b;
+    return FALSE;
+}
+
+static int u64_sub(uint64_t a, uint64_t b, uint64_t *r)
+{
+    if (a < b)
+	return TRUE;
+    *r = a - b;
+    return FALSE;
+}
+
+static int u64_mul(uint64_t a, uint64_t b, uint64_t *r)
+{
+    if (a != 0 && b > UINT64_MAX / a)
+	return TRUE;
+    *r = a * b;
+    return FALSE;
+}
+
+/* *acc += v as unsigned, without aliasing an int64_t through a uint64_t * */
+static int u64_acc(int64_t *acc, int64_t v)
+{
+    uint64_t r;
+
+    if (u64_add((uint64_t) *acc, (uint64_t) v, &r))
+	return TRUE;
+    *acc = (int64_t) r;
+
+    return FALSE;
+}
+
+static R_INLINE int i64_cmp(int64_t a, int64_t b, int uns)
+{
+    if (uns) {
+	uint64_t ua = (uint64_t) a, ub = (uint64_t) b;
+	return (ua > ub) - (ua < ub);
+    }
+    return (a > b) - (a < b);
+}
+
+/*
+ * Conversion
+ */
+
+/* Truncate v toward zero into the 64-bit domain, as as.integer() does with a
+   double; FALSE when the value has nowhere to land. */
+/* The range test is against the *truncated* value, since that is what gets
+   stored: as.integer() truncates toward zero, so -0.5 is 0 and is as much in
+   range for an unsigned target as it is for a signed one. */
+static Rboolean i64_from_double(double v, int uns, int64_t *out)
+{
+    if (ISNAN(v))
+	return FALSE;
+    if (uns ? (v <= -1.0 || v >= 18446744073709551616.0)
+	    : (v >= 9223372036854775808.0 || v < -9223372036854775808.0))
+	return FALSE;
+
+    *out = uns ? (int64_t) (uint64_t) v : (int64_t) v;
+    return TRUE;
+}
+
+static SEXP i64_from(SEXP x, int uns, int nullable);
+
+/* PROTECT at the call site.  An operand that is not already of this class is
+   built with the NA domain 'nullable', which the caller takes from the
+   opaque operand on the other side: promoting an ordinary vector as nullable
+   regardless would make every operation look as though it were mixing
+   domains, and force a whole-range operand to be widened -- or refused --
+   for an operand that has no missing value in it. */
+static SEXP i64_materialize(SEXP x, int uns, int nullable)
+{
+    if (i64_is(x) && i64_unsigned(x) == uns)
+	return x;
+    return i64_from(x, uns, nullable);
+}
+
+static SEXP i64_from(SEXP x, int uns, int nullable)
+{
+    R_xlen_t n = xlength(x);
+    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n, FALSE));
+    INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = nullable;
+
+    int64_t *out = i64_data(ans);
+    int64_t na = uns ? (int64_t) NA_UINT64 : NA_INT64;
+    int warn = FALSE, na_seen = FALSE;
+
+    switch (TYPEOF(x)) {
+    case RAWSXP: {
+	const Rbyte *p = RAW_RO(x);
+	for (R_xlen_t i = 0; i < n; i++)
+	    out[i] = (int64_t) p[i];
+	break;
+    }
+    case LGLSXP:
+    case INTSXP: {
+	const int *p = INTEGER_RO(x);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    if (p[i] == NA_INTEGER) {
+		out[i] = na;
+		na_seen = TRUE;
+	    }
+	    else if (uns && p[i] < 0) {
+		out[i] = na;
+		warn = TRUE;
+	    }
+	    else
+		out[i] = (int64_t) p[i];
+	}
+	break;
+    }
+    case REALSXP: {
+	const double *p = REAL_RO(x);
+	for (R_xlen_t i = 0; i < n; i++) {
+	    double v = p[i];
+	    if (ISNAN(v)) {
+		out[i] = na;
+		na_seen = TRUE;
+	    }
+	    /* as in i64_from_double(): the truncated value is what is stored,
+	       so -0.5 is 0 for an unsigned target too */
+	    else if (uns ? (v <= -1.0 || v >= 18446744073709551616.0)
+		     : (v >= 9223372036854775808.0 ||
+			v < -9223372036854775808.0)) {
+		out[i] = na;
+		warn = TRUE;
+	    }
+	    else {
+		out[i] = uns ? (int64_t) (uint64_t) v : (int64_t) v;
+		if (nullable && out[i] == na)
+		    warn = TRUE; /* the value reserved for NA */
+	    }
+	}
+	break;
+    }
+    case STRSXP: {
+	for (R_xlen_t i = 0; i < n; i++) {
+	    SEXP s = STRING_ELT(x, i);
+	    if (s == NA_STRING) {
+		out[i] = na;
+		na_seen = TRUE;
+		continue;
+	    }
+
+	    /* a blank field is a missing value rather than a bad one, as in
+	       IntegerFromString(), so that an empty CSV cell reads the same
+	       way for this type as it does for integer */
+	    const char *cs = CHAR(s);
+	    if (isBlankString(cs)) {
+		out[i] = na;
+		na_seen = TRUE;
+		continue;
+	    }
+
+	    /* the same leading and trailing whitespace as as.integer(), so
+	       that a column of blank-padded numbers reads the same way */
+	    const char *q = cs;
+	    char *end;
+	    while (isspace((unsigned char) *q)) q++;
+
+	    errno = 0;
+	    Rboolean ok;
+	    if (uns) {
+		/* strtoull() silently wraps a negative literal */
+		uint64_t v = (*q == '-') ? 0 : (uint64_t) strtoull(q, &end, 10);
+		out[i] = (int64_t) v;
+		ok = (*q != '-' && end != q && isBlankString(end) &&
+		      errno != ERANGE);
+	    }
+	    else {
+		out[i] = (int64_t) strtoll(q, &end, 10);
+		ok = (end != q && isBlankString(end) && errno != ERANGE);
+	    }
+
+	    /* strtoll() reads a plain decimal exactly over the whole 64-bit
+	       range, which is the point of doing it first -- a double cannot.
+	       Anything it will not take, "1e15" and "1.5" and "0x10" among
+	       them, is then read the way as.integer() reads it.  Without this
+	       R could not read back a 1e+15 that write.csv() had just
+	       written. */
+	    if (! ok) {
+		double d = R_strtod(q, &end);
+		ok = isBlankString(end) && i64_from_double(d, uns, &out[i]);
+	    }
+
+	    if (! ok || (nullable && out[i] == na)) {
+		out[i] = na;
+		warn = TRUE;
+	    }
+	}
+	break;
+    }
+    case ALTSXP:
+	if (i64_is(x)) {
+	    if (i64_unsigned(x) == uns) {
+		memcpy(out, i64_data(x), (size_t) n * sizeof(int64_t));
+		/* The bytes are the same either way; what differs is what the
+		   NA pattern means.  Going to a wider domain, a datum that
+		   collides with the pattern would read back as NA; going to a
+		   narrower one, an NA has nowhere to go.  Both are errors,
+		   and neither is detectable after the copy. */
+		if (nullable != I64_NULLABLE(x))
+		    for (R_xlen_t i = 0; i < n; i++)
+			if (out[i] == na) {
+			    if (! nullable) {
+				na_seen = TRUE;
+				break;
+			    }
+			    UNPROTECT(1);
+			    error(_("element %lld uses the value this %s vector reserves for NA"),
+				  (long long) (i + 1), uns ? "uint64" : "int64");
+			}
+		break;
+	    }
+	    /* the two do not share a representation: check every value */
+	    const int64_t *p = i64_data(x);
+	    int has_na;
+	    int64_t from_na = i64_na_test(x, &has_na);
+	    for (R_xlen_t i = 0; i < n; i++) {
+		if (has_na && p[i] == from_na) {
+		    out[i] = na;
+		    na_seen = TRUE;
+		}
+		else if (uns ? (p[i] < 0)
+			 : ((uint64_t) p[i] > (uint64_t) INT64_MAX)) {
+		    out[i] = na;
+		    warn = TRUE;
+		}
+		else
+		    out[i] = p[i];
+	    }
+	    break;
+	}
+	/* fall through */
+    default:
+	UNPROTECT(1);
+	error(_("cannot coerce type '%s' to a 64-bit integer vector"),
+	      R_typeToChar(x));
+    }
+
+    if (na_seen && !nullable) {
+	UNPROTECT(1);
+	error(_("cannot store NA in this %s vector: it uses the whole 64-bit range, including the value reserved for NA"),
+	      uns ? "uint64" : "int64");
+    }
+
+    if (warn) {
+	if (!nullable) {
+	    UNPROTECT(1);
+	    error(_("value out of range, and this %s vector cannot represent NA"),
+		  uns ? "uint64" : "int64");
+	}
+	warning(_("NAs introduced by coercion"));
+    }
+
+    UNPROTECT(1);
+    return ans;
+}
+
+/*
+ * ALTREP and ALTVEC methods
+ */
+
+static R_xlen_t i64_Length(SEXP x)
+{
+    return i64_length(x);
+}
+
+static Rboolean i64_Inspect(SEXP x, int pre, int deep, int pvec,
+			    void (*inspect_subtree)(SEXP, int, int, int))
+{
+    const int *m = INTEGER(I64_META(x));
+    Rprintf(" %s [n=%lld, srt=%d, no_na=%d, nullable=%d]\n",
+	    i64_name(x), (long long) i64_length(x),
+	    m[I64_SORTED], m[I64_NO_NA], m[I64_NULLABLE_FIELD]);
+    return TRUE;
+}
+
+/* The payload is the object: no shadow copy, so no coherency problem.  A
+   writable pointer invalidates what we cached about the contents. */
+static void *i64_Dataptr(SEXP x, Rboolean writable)
+{
+    if (writable) {
+	int *m = INTEGER(I64_META(x));
+	m[I64_SORTED] = UNKNOWN_SORTEDNESS;
+	m[I64_NO_NA] = I64_NA_UNKNOWN;
+    }
+    return DATAPTR_RW(I64_DATA(x));
+}
+
+static const void *i64_Dataptr_or_null(SEXP x)
+{
+    return DATAPTR_RO(I64_DATA(x));
+}
+
+static SEXP i64_Format(SEXP x, R_xlen_t i, R_xlen_t n)
+{
+    R_xlen_t size = i64_length(x);
+    R_xlen_t ncopy = i64_ncopy(size, i, n);
+    int uns = i64_unsigned(x);
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+    const int64_t *p = i64_data(x);
+
+    SEXP ans = PROTECT(allocVector(STRSXP, ncopy));
+    char buf[32];
+    for (R_xlen_t k = 0; k < ncopy; k++) {
+	if (has_na && p[i + k] == na)
+	    SET_STRING_ELT(ans, k, NA_STRING);
+	else {
+	    if (uns)
+		snprintf(buf, sizeof buf, "%llu",
+			 (unsigned long long) (uint64_t) p[i + k]);
+	    else
+		snprintf(buf, sizeof buf, "%lld", (long long) p[i + k]);
+	    SET_STRING_ELT(ans, k, mkChar(buf));
+	}
+    }
+    UNPROTECT(1);
+
+    return ans;
+}
+
+static SEXP i64_Coerce(SEXP x, int type)
+{
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int uns = i64_unsigned(x);
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+
+    switch (type) {
+    case STRSXP:
+	return i64_Format(x, 0, n);
+    case REALSXP: {
+	SEXP ans = PROTECT(allocVector(REALSXP, n));
+	double *out = REAL(ans);
+	for (R_xlen_t k = 0; k < n; k++)
+	    out[k] = (has_na && p[k] == na) ? NA_REAL
+		: (uns ? (double) (uint64_t) p[k] : (double) p[k]);
+	UNPROTECT(1);
+	return ans;
+    }
+    case INTSXP: {
+	SEXP ans = PROTECT(allocVector(INTSXP, n));
+	int *out = INTEGER(ans);
+	int warn = FALSE;
+	for (R_xlen_t k = 0; k < n; k++) {
+	    int64_t v = p[k];
+	    if (has_na && v == na) {
+		out[k] = NA_INTEGER;
+		continue;
+	    }
+	    if (uns ? ((uint64_t) v > (uint64_t) INT_MAX)
+		: (v > INT_MAX || v <= INT_MIN)) {
+		out[k] = NA_INTEGER;
+		warn = TRUE;
+	    }
+	    else
+		out[k] = (int) v;
+	}
+	if (warn)
+	    warning(_("NAs introduced by coercion to integer range"));
+	UNPROTECT(1);
+	return ans;
+    }
+    case CPLXSXP: {
+	SEXP ans = PROTECT(allocVector(CPLXSXP, n));
+	Rcomplex *out = COMPLEX(ans);
+	for (R_xlen_t k = 0; k < n; k++) {
+	    out[k].r = (has_na && p[k] == na) ? NA_REAL
+		: (uns ? (double) (uint64_t) p[k] : (double) p[k]);
+	    out[k].i = 0.0;
+	}
+	UNPROTECT(1);
+	return ans;
+    }
+    case LGLSXP: {
+	SEXP ans = PROTECT(allocVector(LGLSXP, n));
+	int *out = LOGICAL(ans);
+	for (R_xlen_t k = 0; k < n; k++)
+	    out[k] = (has_na && p[k] == na) ? NA_LOGICAL : (p[k] != 0);
+	UNPROTECT(1);
+	return ans;
+    }
+    default:
+	return NULL;
+    }
+}
+
+/*
+ * ALTSXP methods: shape
+ */
+
+/* The generic ALTSXP state carries element type, length and payload, which
+   is enough for a class whose objects differ only in their contents.  These
+   two differ in whether they reserve a bit pattern for NA, and that has to
+   survive a round trip: restoring a whole-range vector as a nullable one
+   would silently turn its extreme value into NA. */
+static SEXP i64_Serialized_state(SEXP x)
+{
+    R_xlen_t n = i64_length(x);
+    if (n > R_XLEN_T_MAX / 2)
+	error(_("64-bit integer vector is too long to serialise"));
+
+    /* Store two semantic 32-bit words per element rather than native bytes.
+       R's serializers make integer vectors portable, including through XDR,
+       while a RAWSXP would silently retain the writer's byte order. */
+    SEXP payload = PROTECT(allocVector(INTSXP, 2 * n));
+    int *out = INTEGER(payload);
+    const int64_t *in = i64_data(x);
+    for (R_xlen_t i = 0; i < n; i++) {
+	uint64_t bits;
+	memcpy(&bits, in + i, sizeof(bits));
+	out[2 * i] = (int) (uint32_t) (bits >> 32);
+	out[2 * i + 1] = (int) (uint32_t) bits;
+    }
+
+    SEXP state = PROTECT(allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(state, 0, payload);
+    SET_VECTOR_ELT(state, 1, ScalarLogical(I64_NULLABLE(x)));
+    UNPROTECT(2);
+
+    return state;
+}
+
+static SEXP i64_Unserialize(SEXP class, SEXP state)
+{
+    if (TYPEOF(state) != VECSXP || XLENGTH(state) != 2 ||
+	TYPEOF(VECTOR_ELT(state, 0)) != INTSXP ||
+	XLENGTH(VECTOR_ELT(state, 0)) % 2 != 0 ||
+	TYPEOF(VECTOR_ELT(state, 1)) != LGLSXP ||
+	XLENGTH(VECTOR_ELT(state, 1)) != 1 ||
+	LOGICAL(VECTOR_ELT(state, 1))[0] == NA_LOGICAL)
+	error(_("unexpected serialised state for a 64-bit integer vector"));
+
+    SEXP payload = VECTOR_ELT(state, 0);
+    R_xlen_t n = XLENGTH(payload) / 2;
+
+    /* i64_alloc() is passed the class object here rather than an instance;
+       see the note on the New method in R_ext/Altrep.h. */
+    SEXP ans = PROTECT(i64_alloc(class, n, FALSE));
+    INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] =
+	LOGICAL(VECTOR_ELT(state, 1))[0] == TRUE;
+    const int *in = INTEGER(payload);
+    int64_t *out = i64_data(ans);
+    for (R_xlen_t i = 0; i < n; i++) {
+	uint64_t bits = (uint64_t) (uint32_t) in[2 * i] << 32;
+	bits |= (uint32_t) in[2 * i + 1];
+	memcpy(out + i, &bits, sizeof(bits));
+    }
+    UNPROTECT(1);
+
+    return ans;
+}
+
+static SEXP i64_Elt_type(SEXP x)
+{
+    return i64_unsigned(x) ? UInt64Symbol : Int64Symbol;
+}
+
+static size_t i64_Elt_size(SEXP x)
+{
+    return sizeof(int64_t);
+}
+
+static SEXP i64_New(SEXP proto, R_xlen_t n, Rboolean zeroinit)
+{
+    return i64_alloc(proto, n, zeroinit);
+}
+
+static R_xlen_t i64_Set_na_region(SEXP x, R_xlen_t i, R_xlen_t n)
+{
+    if (!I64_NULLABLE(x))
+	error(_("this %s vector cannot represent NA"), i64_name(x));
+
+    R_xlen_t size = i64_length(x);
+    R_xlen_t ncopy = i64_ncopy(size, i, n);
+    /* through Dataptr, not i64_data(): introducing NAs has to invalidate a
+       cached sortedness or no-NA answer, and a package can reach this on an
+       object those have already been computed for */
+    int64_t na = i64_na(x), *p = (int64_t *) i64_Dataptr(x, TRUE);
+
+    for (R_xlen_t k = 0; k < ncopy; k++)
+	p[i + k] = na;
+
+    return ncopy;
+}
+
+/*
+ * ALTSXP methods: element semantics
+ */
+
+static R_xlen_t i64_Is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
+{
+    R_xlen_t size = i64_length(x);
+    R_xlen_t ncopy = i64_ncopy(size, i, n);
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+    const int64_t *p = i64_data(x);
+
+    for (R_xlen_t k = 0; k < ncopy; k++)
+	buf[k] = has_na && p[i + k] == na;
+
+    return ncopy;
+}
+
+static int i64_Compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    int64_t b;
+
+    /* Sharing an element type promises the same C representation, not the
+       same place to find it: only this class keeps its payload in data1, so
+       any other one is asked for the element through the region method, as
+       every other entry point here does with i64_is(). */
+    if (i64_is(y))
+	b = i64_data(y)[j];
+    else
+	R_altsxp_get_region(y, j, 1, &b);
+
+    return i64_cmp(i64_data(x)[i], b, i64_unsigned(x));
+}
+
+static unsigned int i64_Traits(SEXP x)
+{
+    /* NUMERIC: arithmetic is meaningful and is.numeric() is TRUE.
+       BITWISE_EQ: equal values have equal bytes, so R may hash and compare
+       elements generically -- true of a two's complement integer, and the
+       reason match(), unique() and table() need no help from this class. */
+    unsigned int t = R_ALTREP_TRAITS_NUMERIC | R_ALTREP_TRAITS_BITWISE_EQ;
+
+    if (!I64_NULLABLE(x))
+	t |= R_ALTREP_TRAITS_NOT_NULLABLE;
+
+    return t;
+}
+
+/* R asks for this before it must put an NA into a vector whose domain
+   excludes NA: growing it, subsetting out of bounds, assigning NA. */
+static SEXP i64_Na_widen(SEXP x)
+{
+    if (I64_NULLABLE(x))
+	return x;
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int64_t na = i64_na(x);
+
+    for (R_xlen_t i = 0; i < n; i++)
+	if (p[i] == na)
+	    error(_("cannot introduce NA into this %s vector: it uses the whole 64-bit range, including the value reserved for NA"),
+		  i64_name(x));
+
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
+    INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = TRUE;
+    memcpy(i64_data(ans), p, (size_t) n * sizeof(int64_t));
+    UNPROTECT(1);
+
+    return ans;
+}
+
+/* Promote an ordinary R vector into this class, so that c(x, 1L) and
+   x[i] <- 1L work.  Returning NULL declines, and R reports a type error. */
+static SEXP i64_Coerce_from(SEXP proto, SEXP from)
+{
+    switch (TYPEOF(from)) {
+    case RAWSXP: case LGLSXP: case INTSXP: case REALSXP: case STRSXP:
+	break;
+    case ALTSXP:
+	/* int64 and uint64 have no common representation; declining here is
+	   what makes c(int64, uint64) fall back to a list */
+	if (i64_is(from) && i64_unsigned(from) == i64_unsigned(proto))
+	    break;
+	return NULL;
+    default:
+	return NULL;
+    }
+
+    return i64_from(from, i64_unsigned(proto), I64_NULLABLE(proto));
+}
+
+static int i64_Is_sorted(SEXP x)
+{
+    int *m = INTEGER(I64_META(x));
+    if (m[I64_SORTED] != UNKNOWN_SORTEDNESS)
+	return m[I64_SORTED];
+    /* an NA anywhere makes the answer unknown, and that will not change
+       until the contents do */
+    if (m[I64_NO_NA] == I64_NA_PRESENT)
+	return UNKNOWN_SORTEDNESS;
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+    int uns = i64_unsigned(x), incr = TRUE, decr = TRUE;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	if (has_na && p[i] == na) {
+	    m[I64_NO_NA] = I64_NA_PRESENT;
+	    return UNKNOWN_SORTEDNESS;
+	}
+	if (i > 0) {
+	    int c = i64_cmp(p[i], p[i - 1], uns);
+	    if (c < 0) incr = FALSE;
+	    if (c > 0) decr = FALSE;
+	}
+    }
+
+    /* the scan reached the end, so there is no NA either */
+    m[I64_NO_NA] = I64_NA_ABSENT;
+    m[I64_SORTED] = incr ? SORTED_INCR : (decr ? SORTED_DECR : KNOWN_UNSORTED);
+    return m[I64_SORTED];
+}
+
+static int i64_No_NA(SEXP x)
+{
+    int *m = INTEGER(I64_META(x));
+    if (m[I64_NO_NA] != I64_NA_UNKNOWN)
+	return m[I64_NO_NA] == I64_NA_ABSENT;
+
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+
+    /* a vector whose domain excludes NA has none by construction */
+    if (! has_na) {
+	m[I64_NO_NA] = I64_NA_ABSENT;
+	return TRUE;
+    }
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    for (R_xlen_t i = 0; i < n; i++)
+	if (p[i] == na) {
+	    m[I64_NO_NA] = I64_NA_PRESENT;
+	    return FALSE;
+	}
+
+    m[I64_NO_NA] = I64_NA_ABSENT;
+    return TRUE;
+}
+
+/*
+ * Reductions
+ */
+
+static SEXP i64_reduce(SEXP x, Rboolean narm, int what)
+{
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na, uns = i64_unsigned(x);
+    int64_t na = i64_na_test(x, &has_na);
+
+    /* The result keeps the input's NA domain: a whole-range vector must be
+       able to report its own extreme value, and in exchange a reduction
+       that cannot produce a number is an error rather than an NA -- the
+       same trade the arithmetic operators make. */
+    SEXP ans = PROTECT(i64_alloc(x, 1, FALSE));
+    int nullable = I64_NULLABLE(ans);
+    int64_t nav = i64_na(ans);
+    int64_t acc = 0;
+    int have = FALSE, overflow = FALSE;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int64_t v = p[i];
+	if (has_na && v == na) {
+	    if (narm)
+		continue;
+	    i64_data(ans)[0] = nav;
+	    UNPROTECT(1);
+	    return ans;
+	}
+
+	if (what == 0) { /* sum */
+	    if (!have) {
+		acc = v;
+		have = TRUE;
+	    }
+	    else if (uns ? u64_acc(&acc, v) : i64_add(acc, v, &acc)) {
+		overflow = TRUE;
+		break;
+	    }
+	}
+	else {
+	    int want = (what < 0) ? -1 : 1;
+	    if (!have) {
+		acc = v;
+		have = TRUE;
+	    }
+	    else if (i64_cmp(v, acc, uns) == want)
+		acc = v;
+	}
+    }
+
+    if (!have && what == 0) {
+	acc = 0;
+	have = TRUE;
+    }
+
+    /* a result that lands on the NA pattern is as unrepresentable as one
+       that overflowed; only a vector without a pattern can return it */
+    if (have && nullable && acc == nav)
+	overflow = TRUE;
+
+    if (overflow || !have) {
+	if (!nullable) {
+	    UNPROTECT(1);
+	    if (overflow)
+		error(_("64-bit integer overflow, and this %s vector cannot represent NA"),
+		      i64_name(x));
+	    error(_("no non-missing arguments, and this %s vector cannot represent NA"),
+		  i64_name(x));
+	}
+	if (overflow)
+	    warning(_("NAs produced by 64-bit integer overflow"));
+	i64_data(ans)[0] = nav;
+    }
+    else
+	i64_data(ans)[0] = acc;
+
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP i64_Sum(SEXP x, Rboolean narm) { return i64_reduce(x, narm, 0); }
+static SEXP i64_Min(SEXP x, Rboolean narm) { return i64_reduce(x, narm, -1); }
+static SEXP i64_Max(SEXP x, Rboolean narm) { return i64_reduce(x, narm, 1); }
+
+/*
+ * Arithmetic, comparison and the Math group
+ *
+ * These are what let a bare ALTSXP -- one that never had a class attribute,
+ * or whose attributes some base function has dropped -- still compute.  An
+ * ALTSXP has no base type to fall back on, so without them the object would
+ * simply be inert.
+ */
+
+SEXP R_binary(SEXP, SEXP, SEXP, SEXP); /* in arithmetic.c */
+
+/* an operand that takes part in exact 64-bit arithmetic */
+static int i64_exact_operand(SEXP e)
+{
+    switch (TYPEOF(e)) {
+    case ALTSXP: return i64_is(e);
+    case RAWSXP: case LGLSXP: case INTSXP: return TRUE;
+    default: return FALSE;
+    }
+}
+
+static int i64_numeric_operand(SEXP e)
+{
+    return i64_exact_operand(e) || TYPEOF(e) == REALSXP;
+}
+
+/* PROTECT at the call site */
+static SEXP i64_as_double(SEXP x)
+{
+    if (TYPEOF(x) == ALTSXP && i64_is(x))
+	return i64_Coerce(x, REALSXP);
+    return coerceVector(x, REALSXP);
+}
+
+/* PROTECT at the call site.  A bare vector: the answer takes its attributes
+   from the original operands, which R_binary() still holds. */
+static SEXP i64_recycle_double(SEXP x, R_xlen_t n)
+{
+    R_xlen_t nx = XLENGTH(x);
+    if (nx == n)
+	return x;
+
+    /* x may still be a compact sequence, and materializing it allocates */
+    SEXP ans = PROTECT(allocVector(REALSXP, n));
+    const double *p = REAL_RO(x);
+    double *out = REAL(ans);
+    for (R_xlen_t i = 0, k = 0; i < n; i++, k++) {
+	if (k == nx) k = 0;
+	out[i] = p[k];
+    }
+    UNPROTECT(1);
+
+    return ans;
+}
+
+/* A double operand promotes the whole operation, as it does for integers.
+   Re-entering R_binary() is safe: neither operand is an ALTSXP any more, so
+   the hook at the top of it does not fire again. */
+static SEXP i64_double_binop(SEXP call, SEXP opsym, SEXP x, SEXP y)
+{
+    SEXP a, b;
+    PROTECT_INDEX pa, pb;
+    PROTECT_WITH_INDEX(a = i64_as_double(x), &pa);
+    PROTECT_WITH_INDEX(b = i64_as_double(y), &pb);
+
+    /* R_binary() warns about a non-multiple recycling before it dispatches
+       here, and would warn a second time on the way back in.  Recycling to
+       the common length first is what that pass would do anyway. */
+    R_xlen_t na = XLENGTH(a), nb = XLENGTH(b);
+    if (na > 0 && nb > 0 && ((na > nb) ? na % nb : nb % na) != 0) {
+	R_xlen_t n = na > nb ? na : nb;
+	REPROTECT(a = i64_recycle_double(a, n), pa);
+	REPROTECT(b = i64_recycle_double(b, n), pb);
+    }
+
+    SEXP ans = R_binary(call, R_Primitive(CHAR(PRINTNAME(opsym))), a, b);
+    UNPROTECT(2);
+
+    return ans;
+}
+
+/* Which operation, resolved once rather than per element. */
+enum i64_op { I64_ADD, I64_SUB, I64_MUL, I64_IDIV, I64_MOD, I64_NO_OP };
+
+static enum i64_op i64_op_code(const char *op)
+{
+    if (!strcmp(op, "+"))   return I64_ADD;
+    if (!strcmp(op, "-"))   return I64_SUB;
+    if (!strcmp(op, "*"))   return I64_MUL;
+    if (!strcmp(op, "%/%")) return I64_IDIV;
+    if (!strcmp(op, "%%"))  return I64_MOD;
+    return I64_NO_OP;
+}
+
+static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
+{
+    enum i64_op code = i64_op_code(op);
+    if (code == I64_NO_OP)
+	errorcall(call, _("operator '%s' is not defined for %s"),
+		  op, uns ? "uint64" : "int64");
+
+    /* An ordinary operand is rendered in the opaque one's NA domain, the
+       same choice i64_Coerce_from() makes for c(), pmin() and x[i] <- v.
+       When both are opaque each keeps its own and the widening below
+       reconciles them. */
+    int nullable = i64_is(x) ? I64_NULLABLE(x)
+	: (i64_is(y) ? I64_NULLABLE(y) : TRUE);
+
+    SEXP p1, p2;
+    PROTECT_INDEX pi1, pi2;
+    PROTECT_WITH_INDEX(p1 = i64_materialize(x, uns, nullable), &pi1);
+    PROTECT_WITH_INDEX(p2 = i64_materialize(y, uns, nullable), &pi2);
+    R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
+    int has_na = I64_NULLABLE(p1) || I64_NULLABLE(p2);
+
+    if (nx == 0 || ny == 0) {
+	SEXP z = i64_alloc(I64_PROTO(uns), 0, FALSE);
+	INTEGER(I64_META(z))[I64_NULLABLE_FIELD] = has_na;
+	UNPROTECT(2);
+	return z;
+    }
+
+    /* The two operands must agree on what the NA pattern means before a
+       single loop can read both: otherwise a whole-range operand's extreme
+       value would be read as missing, or a missing value as data.  Widening
+       is what c() does in the same situation, and reports the same clash. */
+    if (has_na && !I64_NULLABLE(p1))
+	REPROTECT(p1 = i64_Na_widen(p1), pi1);
+    if (has_na && !I64_NULLABLE(p2))
+	REPROTECT(p2 = i64_Na_widen(p2), pi2);
+
+    int64_t nav = uns ? (int64_t) NA_UINT64 : NA_INT64;
+    R_xlen_t n = nx > ny ? nx : ny;
+
+    SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n, FALSE));
+    INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = has_na;
+    const int64_t *pa = i64_data(p1), *pb = i64_data(p2);
+    int64_t *out = i64_data(ans);
+    int overflow = FALSE;
+    R_xlen_t ia = 0, ib = 0;
+
+    for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+	if (ia == nx) ia = 0;
+	if (ib == ny) ib = 0;
+
+	int64_t a = pa[ia], b = pb[ib], r = 0;
+	if (has_na && (a == nav || b == nav)) {
+	    out[i] = nav;
+	    continue;
+	}
+
+	/* base R's integer %% and %/% give NA for a zero divisor and say
+	   nothing about it; an object with no NA to fall back on has to
+	   report that, rather than blaming an overflow that did not happen */
+	if (b == 0 && (code == I64_IDIV || code == I64_MOD)) {
+	    if (!has_na) {
+		UNPROTECT(3);
+		errorcall(call, _("division by zero, and this %s vector cannot represent NA"),
+			  uns ? "uint64" : "int64");
+	    }
+	    out[i] = nav;
+	    continue;
+	}
+
+	int bad = FALSE;
+	if (uns) {
+	    uint64_t ua = (uint64_t) a, ub = (uint64_t) b, ur = 0;
+	    switch (code) {
+	    case I64_ADD:  bad = u64_add(ua, ub, &ur); break;
+	    case I64_SUB:  bad = u64_sub(ua, ub, &ur); break;
+	    case I64_MUL:  bad = u64_mul(ua, ub, &ur); break;
+	    case I64_IDIV: ur = ua / ub; break;
+	    default:       ur = ua % ub; break;
+	    }
+	    r = (int64_t) ur;
+	}
+	else {
+	    switch (code) {
+	    case I64_ADD: bad = i64_add(a, b, &r); break;
+	    case I64_SUB: bad = i64_sub(a, b, &r); break;
+	    case I64_MUL: bad = i64_mul(a, b, &r); break;
+	    case I64_IDIV:
+		bad = (a == INT64_MIN && b == -1);
+		if (!bad) {
+		    r = a / b;
+		    if (a % b != 0 && (a < 0) != (b < 0)) r--;
+		}
+		break;
+	    default:
+		if (a == INT64_MIN && b == -1)
+		    r = 0;
+		else {
+		    r = a % b;
+		    if (r != 0 && (r < 0) != (b < 0)) r += b;
+		}
+		break;
+	    }
+	}
+
+	/* a result equal to the NA pattern is as unrepresentable as one that
+	   overflowed, and must not be handed back as data */
+	if (!bad && has_na && r == nav)
+	    bad = TRUE;
+
+	if (bad) {
+	    if (!has_na) {
+		UNPROTECT(3);
+		errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
+			  uns ? "uint64" : "int64");
+	    }
+	    out[i] = nav;
+	    overflow = TRUE;
+	}
+	else
+	    out[i] = r;
+    }
+
+    if (overflow)
+	warning(_("NAs produced by 64-bit integer overflow"));
+
+    UNPROTECT(3);
+    return ans;
+}
+
+static SEXP i64_unary(SEXP call, const char *op, SEXP x)
+{
+    if (!strcmp(op, "+"))
+	return x;
+    if (strcmp(op, "-"))
+	return NULL;
+    if (i64_unsigned(x))
+	errorcall(call, _("unary '%s' is not defined for %s"), "-", "uint64");
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na;
+    int64_t na = i64_na_test(x, &has_na);
+
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
+    int64_t *out = i64_data(ans);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int64_t v = p[i];
+	if (has_na && v == na)
+	    out[i] = na;
+	else if (v == INT64_MIN) {
+	    /* -INT64_MIN is not representable, and INT64_MIN is only data at
+	       all in a vector that gave up its NA, so there is nowhere to put
+	       the result */
+	    UNPROTECT(1);
+	    errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
+		      "int64");
+	}
+	else
+	    out[i] = -v;
+    }
+
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP i64_Arith(SEXP call, SEXP opsym, SEXP x, SEXP y)
+{
+    const char *op = CHAR(PRINTNAME(opsym));
+
+    if (y == NULL)
+	return i64_unary(call, op, x);
+
+    if (i64_is(x) && i64_is(y) && i64_unsigned(x) != i64_unsigned(y))
+	errorcall(call, _("cannot mix '%s' and '%s' operands"),
+		  "int64", "uint64");
+
+    if (!i64_numeric_operand(x) || !i64_numeric_operand(y))
+	return NULL; /* let R report the type error */
+
+    /* A raw byte is exact, and c() and the comparisons take one, but base R
+       does not admit raw to arithmetic -- 1L + as.raw(2) is an error -- so
+       neither does this class. */
+    if (TYPEOF(x) == RAWSXP || TYPEOF(y) == RAWSXP)
+	return NULL; /* let R report the type error */
+
+    /* division and powers leave the integers behind, and so does a double
+       operand: an exact 64-bit result is only possible between exact
+       64-bit operands */
+    if (!strcmp(op, "/") || !strcmp(op, "^") ||
+	!i64_exact_operand(x) || !i64_exact_operand(y))
+	return i64_double_binop(call, opsym, x, y);
+
+    return i64_binary(call, op, x, y,
+		      i64_is(x) ? i64_unsigned(x) : i64_unsigned(y));
+}
+
+/* The relational operators, resolved once per call rather than per element */
+enum i64_rel { REL_EQ, REL_NE, REL_LT, REL_LE, REL_GT, REL_GE };
+
+static int i64_rel_code(const char *op)
+{
+    if (!strcmp(op, "==")) return REL_EQ;
+    if (!strcmp(op, "!=")) return REL_NE;
+    if (!strcmp(op, "<"))  return REL_LT;
+    if (!strcmp(op, "<=")) return REL_LE;
+    if (!strcmp(op, ">"))  return REL_GT;
+    if (!strcmp(op, ">=")) return REL_GE;
+    return -1;
+}
+
+/* Compare an exact 64-bit integer with a double without converting either.
+   Splitting the double at its integer part is what keeps this exact: floor()
+   of anything in range is representable, and the leftover fraction breaks the
+   tie when the integer parts agree. */
+static int i64_cmp_double(int64_t a, int uns, double d)
+{
+    if (uns) {
+	if (d < 0) return 1;
+	if (d >= 18446744073709551616.0) return -1;
+    }
+    else {
+	if (d >= 9223372036854775808.0) return -1;
+	if (d < -9223372036854775808.0) return 1;
+    }
+
+    double f = floor(d);
+    int c;
+    if (uns) {
+	uint64_t ua = (uint64_t) a, uf = (uint64_t) f;
+	c = (ua > uf) - (ua < uf);
+    }
+    else {
+	int64_t fi = (int64_t) f;
+	c = (a > fi) - (a < fi);
+    }
+
+    return c != 0 ? c : (d > f ? -1 : 0);
+}
+
+/* One operand is a double.  Promoting both to double would round the exact
+   one -- 2^53 + 1 would then compare equal to 2^53 -- and would disagree with
+   match() and %in%, which compare exactly.  So neither side is converted. */
+static SEXP i64_relop_double(SEXP call, int rel, SEXP x, SEXP y)
+{
+    Rboolean xd = (Rboolean) (TYPEOF(x) == REALSXP);
+    SEXP alt = xd ? y : x, dbl = xd ? x : y;
+
+    R_xlen_t na = i64_length(alt), nb = XLENGTH(dbl);
+    if (na == 0 || nb == 0)
+	return allocVector(LGLSXP, 0);
+
+    int has_na, uns = i64_unsigned(alt);
+    int64_t nav = i64_na_test(alt, &has_na);
+    const int64_t *pa = i64_data(alt);
+    const double *pb = REAL_RO(dbl);
+    R_xlen_t n = na > nb ? na : nb;
+
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
+    int *out = LOGICAL(ans);
+    R_xlen_t ia = 0, ib = 0;
+
+    for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+	if (ia == na) ia = 0;
+	if (ib == nb) ib = 0;
+
+	int64_t a = pa[ia];
+	double b = pb[ib];
+	if ((has_na && a == nav) || ISNAN(b)) {
+	    out[i] = NA_LOGICAL;
+	    continue;
+	}
+
+	/* the comparison is written left to right, so it is the opaque
+	   operand's side that decides the sign */
+	int c = i64_cmp_double(a, uns, b);
+	if (xd) c = -c;
+
+	switch (rel) {
+	case REL_EQ: out[i] = c == 0; break;
+	case REL_NE: out[i] = c != 0; break;
+	case REL_LT: out[i] = c <  0; break;
+	case REL_LE: out[i] = c <= 0; break;
+	case REL_GT: out[i] = c >  0; break;
+	default:     out[i] = c >= 0; break;
+	}
+    }
+
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
+{
+    if (i64_is(x) && i64_is(y) && i64_unsigned(x) != i64_unsigned(y))
+	errorcall(call, _("cannot mix '%s' and '%s' operands"),
+		  "int64", "uint64");
+
+    if (!i64_numeric_operand(x) || !i64_numeric_operand(y))
+	return NULL; /* let R report the type error */
+
+    const char *op = CHAR(PRINTNAME(opsym));
+    int uns = i64_is(x) ? i64_unsigned(x) : i64_unsigned(y);
+    int rel = i64_rel_code(op);
+    if (rel < 0)
+	errorcall(call, _("operator '%s' is not defined for %s"),
+		  op, uns ? "uint64" : "int64");
+
+    /* The only inexact operand this class admits is a double, and comparing
+       against one is exact -- unlike arithmetic, where a double operand
+       promotes the whole operation and the result has nowhere exact to go. */
+    if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP)
+	return i64_relop_double(call, rel, x, y);
+
+    /* Unlike i64_binary(), an ordinary operand is rendered as nullable here
+       whatever the other side reserves: a comparison builds no opaque
+       result whose domain would have to accommodate it, and x == NA has to
+       answer NA rather than refuse.  The loop below then reads each operand
+       in its own domain, so a whole-range operand keeps its extremes. */
+    SEXP p1 = PROTECT(i64_materialize(x, uns, TRUE));
+    SEXP p2 = PROTECT(i64_materialize(y, uns, TRUE));
+    R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
+
+    if (nx == 0 || ny == 0) {
+	UNPROTECT(2);
+	return allocVector(LGLSXP, 0);
+    }
+
+    /* Each operand is read in its own NA domain: a vector that gave up its
+       missing value has data all the way to the extremes, whatever the
+       other operand reserves.  Comparison, unlike arithmetic, has no result
+       domain to reconcile, so neither operand needs widening. */
+    int na1 = I64_NULLABLE(p1), na2 = I64_NULLABLE(p2);
+    int64_t nav = uns ? (int64_t) NA_UINT64 : NA_INT64;
+    R_xlen_t n = nx > ny ? nx : ny;
+
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
+    const int64_t *pa = i64_data(p1), *pb = i64_data(p2);
+    int *out = LOGICAL(ans);
+    R_xlen_t ia = 0, ib = 0;
+
+    for (R_xlen_t i = 0; i < n; i++, ia++, ib++) {
+	if ((i + 1) % NINTERRUPT == 0) R_CheckUserInterrupt();
+	if (ia == nx) ia = 0;
+	if (ib == ny) ib = 0;
+
+	int64_t a = pa[ia], b = pb[ib];
+	if ((na1 && a == nav) || (na2 && b == nav)) {
+	    out[i] = NA_LOGICAL;
+	    continue;
+	}
+
+	int c = i64_cmp(a, b, uns);
+	switch (rel) {
+	case REL_EQ: out[i] = c == 0; break;
+	case REL_NE: out[i] = c != 0; break;
+	case REL_LT: out[i] = c <  0; break;
+	case REL_LE: out[i] = c <= 0; break;
+	case REL_GT: out[i] = c >  0; break;
+	default:     out[i] = c >= 0; break;
+	}
+    }
+
+    UNPROTECT(3);
+    return ans;
+}
+
+static SEXP i64_cumulate(SEXP call, const char *op, SEXP x)
+{
+    /* resolved once rather than per element; i64_Math() sends nothing else */
+    enum { CUM_SUM, CUM_MAX, CUM_MIN } code =
+	!strcmp(op, "cumsum") ? CUM_SUM
+	: (!strcmp(op, "cummax") ? CUM_MAX : CUM_MIN);
+
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na, uns = i64_unsigned(x);
+    int64_t na = i64_na_test(x, &has_na);
+
+    /* as in i64_reduce(): the result keeps the input's NA domain, so a
+       whole-range vector reports its own extreme value and an overflow
+       there is an error rather than a silent NA */
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
+    int nullable = I64_NULLABLE(ans);
+    int64_t *out = i64_data(ans), acc = 0;
+    int seen_na = FALSE, overflow = FALSE;
+    int64_t nav = i64_na(ans);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int64_t v = p[i];
+	if (seen_na || (has_na && v == na)) {
+	    seen_na = TRUE;
+	    out[i] = nav;
+	    continue;
+	}
+
+	int bad = FALSE;
+	if (i == 0)
+	    acc = v;
+	else switch (code) {
+	case CUM_SUM:
+	    bad = uns ? u64_acc(&acc, v) : i64_add(acc, v, &acc);
+	    break;
+	case CUM_MAX:
+	    if (i64_cmp(v, acc, uns) > 0) acc = v;
+	    break;
+	default: /* CUM_MIN */
+	    if (i64_cmp(v, acc, uns) < 0) acc = v;
+	    break;
+	}
+
+	if (!bad && nullable && acc == nav)
+	    bad = TRUE; /* the running total landed on the NA pattern */
+
+	if (bad) {
+	    if (!nullable) {
+		UNPROTECT(1);
+		errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
+			  i64_name(x));
+	    }
+	    overflow = seen_na = TRUE;
+	    out[i] = nav;
+	    continue;
+	}
+	out[i] = acc;
+    }
+
+    if (overflow)
+	warning(_("NAs produced by 64-bit integer overflow"));
+
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP i64_absolute(SEXP call, SEXP x)
+{
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na, uns = i64_unsigned(x);
+    int64_t na = i64_na_test(x, &has_na);
+
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
+    int64_t *out = i64_data(ans);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	int64_t v = p[i];
+	if (has_na && v == na)
+	    out[i] = na;
+	else if (uns || v >= 0)
+	    out[i] = v;
+	else if (v == INT64_MIN) {
+	    /* as in i64_unary(): reachable only for a vector with no NA to
+	       fall back on */
+	    UNPROTECT(1);
+	    errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
+		      "int64");
+	}
+	else
+	    out[i] = -v;
+    }
+
+    UNPROTECT(1);
+    return ans;
+}
+
+/* 10^k as a uint64, or 0 when that is out of range, i.e. for k > 19.  The
+   divisor can be wider than the type being rounded: 10^19 is past INT64_MAX
+   but still divides an int64 exactly, and the quotient decides whether the
+   result is zero or an overflow. */
+static uint64_t i64_pow10(int k)
+{
+    uint64_t p = 1;
+
+    for (int i = 0; i < k; i++) {
+	if (p > UINT64_MAX / 10)
+	    return 0;
+	p *= 10;
+    }
+
+    return p;
+}
+
+/* round(x, digits) and signif(x, digits) for an exact integer type.  Only a
+   negative 'digits' can change a whole number, and R rounds a half to even,
+   so this is exact arithmetic rather than a trip through double -- which is
+   the point of the type. */
+static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
+{
+    int is_signif = !strcmp(op, "signif");
+    SEXP darg = CADR(args);
+
+    /* 'digits' is a vector recycled over x, as it is in math2() for the base
+       types -- reading only its first element would silently round every
+       element to the same place. */
+    SEXP dv = PROTECT((darg == R_NilValue || darg == R_MissingArg)
+		      ? ScalarInteger(is_signif ? 6 : 0)
+		      : coerceVector(darg, INTSXP));
+    R_xlen_t nd = XLENGTH(dv), nx = i64_length(x);
+    const int *pdig = INTEGER_RO(dv);
+
+    /* either operand empty gives an empty answer, again as math2() does */
+    if (nx == 0 || nd == 0) {
+	SEXP e = nx == 0 ? x : i64_alloc(x, 0, FALSE);
+	UNPROTECT(1);
+	return e;
+    }
+    /* an integer is already rounded to any decimal place */
+    if (!is_signif && nd == 1 && pdig[0] != NA_INTEGER && pdig[0] >= 0) {
+	UNPROTECT(1);
+	return x;
+    }
+
+    R_xlen_t n = nx > nd ? nx : nd;
+    const int64_t *p = i64_data(x);
+    int has_na, uns = i64_unsigned(x);
+    int64_t na = i64_na_test(x, &has_na);
+
+    SEXP ans = PROTECT(i64_alloc(x, n, FALSE));
+    int64_t *out = i64_data(ans);
+    int overflow = FALSE;
+    R_xlen_t ix = 0, id = 0;
+
+    for (R_xlen_t i = 0; i < n; i++, ix++, id++) {
+	if (ix == nx) ix = 0;
+	if (id == nd) id = 0;
+
+	int64_t v = p[ix];
+	int digits = pdig[id];
+
+	/* NA in either operand gives NA, as if_NA_Math2_set() does */
+	if ((has_na && v == na) || digits == NA_INTEGER) {
+	    if (!has_na) {
+		UNPROTECT(2);
+		errorcall(call, _("'%s' is NA, and this %s vector cannot represent NA"),
+			  "digits", i64_name(x));
+	    }
+	    out[i] = na;
+	    continue;
+	}
+
+	if (is_signif && digits < 1)
+	    digits = 1; /* as in do_Math2() for the base types */
+	if (!is_signif && digits >= 0) {
+	    out[i] = v;
+	    continue;
+	}
+
+	int k;
+	if (is_signif) {
+	    /* how many digits to drop to leave 'digits' of them */
+	    int ndig = 0;
+	    for (uint64_t u = uns ? (uint64_t) v
+		     : (uint64_t) (v < 0 ? -(uint64_t) v : (uint64_t) v);
+		 u != 0; u /= 10)
+		ndig++;
+	    k = ndig - digits;
+	    if (k <= 0) {
+		out[i] = v;
+		continue;
+	    }
+	}
+	else
+	    k = -digits;
+
+	uint64_t pow = i64_pow10(k);
+	if (pow == 0) {
+	    /* 10^k is past UINT64_MAX and so more than twice any magnitude
+	       this type holds: everything rounds to zero */
+	    out[i] = 0;
+	    continue;
+	}
+
+	/* |v| / pow rounded half to even, then scaled back, all exactly.  The
+	   halfway test is a subtraction because 2 * ur overflows once pow is
+	   above 2^63. */
+	uint64_t uv = uns ? (uint64_t) v
+	    : (uint64_t) (v < 0 ? -(uint64_t) v : (uint64_t) v);
+	uint64_t uq = uv / pow, ur = uv % pow, ures = 0;
+	if (ur > pow - ur || (ur == pow - ur && (uq & 1)))
+	    uq++;
+
+	int64_t res = 0;
+	int bad = u64_mul(uq, pow, &ures);
+	if (!bad) {
+	    if (uns)
+		res = (int64_t) ures;
+	    else if (v < 0) {
+		bad = ures > (uint64_t) INT64_MAX + 1; /* -2^63 is a value */
+		res = (int64_t) (0 - ures);
+	    }
+	    else {
+		bad = ures > (uint64_t) INT64_MAX;
+		res = (int64_t) ures;
+	    }
+	}
+
+	if (!bad && has_na && res == na)
+	    bad = TRUE; /* landed on the value reserved for NA */
+
+	if (bad) {
+	    if (!has_na) {
+		UNPROTECT(2);
+		errorcall(call, _("64-bit integer overflow, and this %s vector cannot represent NA"),
+			  i64_name(x));
+	    }
+	    out[i] = na;
+	    overflow = TRUE;
+	}
+	else
+	    out[i] = res;
+    }
+
+    if (overflow)
+	warning(_("NAs produced by 64-bit integer overflow"));
+
+    UNPROTECT(2); /* ans, dv */
+    return ans;
+}
+
+static SEXP i64_Math(SEXP call, SEXP opsym, SEXP args)
+{
+    const char *op = CHAR(PRINTNAME(opsym));
+    SEXP x = CAR(args);
+
+    if (!strcmp(op, "cumsum") || !strcmp(op, "cummax") || !strcmp(op, "cummin"))
+	return i64_cumulate(call, op, x);
+
+    /* abs() keeps the type, as it does for an integer vector.  sign() is
+       deliberately not here: it answers a double for every other numeric
+       type, so it is left to math1(), which renders the vector first.
+       Rounding cannot change a sign, and going through a double also keeps
+       the answer clear of this vector's NA domain. */
+    if (!strcmp(op, "abs"))
+	return i64_absolute(call, x);
+
+    /* an integer is already rounded to any non-negative number of places */
+    if (!strcmp(op, "floor") || !strcmp(op, "ceiling") || !strcmp(op, "trunc"))
+	return x;
+
+    if (!strcmp(op, "round") || !strcmp(op, "signif"))
+	return i64_round(call, op, x, args);
+
+    return NULL;
+}
+
+/* What dput() and deparse() emit.  as.int64() and as.uint64() are the only
+   constructors these classes have, and the "na" argument matters: a vector
+   that gave up its NA is a different object from one that did not, and
+   restoring it as nullable would silently turn its extreme value into NA.
+
+   Values are handed over as integer where they all fit -- so the common
+   case reads as as.int64(1:3) -- and as character otherwise, because text
+   is the only exact form for the rest of the 64-bit range. */
+static SEXP i64_Deparse(SEXP x)
+{
+    R_xlen_t n = i64_length(x);
+    const int64_t *p = i64_data(x);
+    int has_na, uns = i64_unsigned(x);
+    int64_t na = i64_na_test(x, &has_na);
+
+    /* INT_MIN itself is excluded: as an integer literal it would be NA.
+       An unsigned value has to be compared as one -- the top half of the
+       uint64 range is negative when read as int64. */
+    Rboolean small = TRUE;
+    for (R_xlen_t i = 0; i < n && small; i++) {
+	if (has_na && p[i] == na)
+	    continue;
+	if (uns ? ((uint64_t) p[i] > (uint64_t) INT_MAX)
+	        : (p[i] <= INT_MIN || p[i] > INT_MAX))
+	    small = FALSE;
+    }
+
+    SEXP arg;
+    if (small) {
+	arg = PROTECT(allocVector(INTSXP, n));
+	int *out = INTEGER(arg);
+	for (R_xlen_t i = 0; i < n; i++)
+	    out[i] = (has_na && p[i] == na) ? NA_INTEGER : (int) p[i];
+    }
+    else
+	arg = PROTECT(i64_Format(x, 0, n));
+
+    SEXP fun = install(uns ? "as.uint64" : "as.int64");
+    SEXP call;
+    if (I64_NULLABLE(x))
+	call = PROTECT(lang2(fun, arg));
+    else {
+	call = PROTECT(lang3(fun, arg, ScalarLogical(FALSE)));
+	SET_TAG(CDDR(call), install("na"));
+    }
+    UNPROTECT(2); /* call, arg */
+
+    return call;
+}
+
+/*
+ * Registration and the R-level constructor
+ */
+
+static void InitOne64Class(R_altrep_class_t cls)
+{
+    R_set_altrep_Length_method(cls, i64_Length);
+    R_set_altrep_Inspect_method(cls, i64_Inspect);
+    R_set_altrep_Coerce_method(cls, i64_Coerce);
+    R_set_altrep_Serialized_state_method(cls, i64_Serialized_state);
+    R_set_altrep_Unserialize_method(cls, i64_Unserialize);
+
+    R_set_altvec_Dataptr_method(cls, i64_Dataptr);
+    R_set_altvec_Dataptr_or_null_method(cls, i64_Dataptr_or_null);
+
+    R_set_altsxp_Elt_type_method(cls, i64_Elt_type);
+    R_set_altsxp_Elt_size_method(cls, i64_Elt_size);
+    R_set_altsxp_New_method(cls, i64_New);
+    R_set_altsxp_Set_na_region_method(cls, i64_Set_na_region);
+    R_set_altsxp_Is_na_region_method(cls, i64_Is_na_region);
+    R_set_altsxp_Compare_method(cls, i64_Compare);
+    R_set_altsxp_Format_method(cls, i64_Format);
+    R_set_altsxp_Arith_method(cls, i64_Arith);
+    R_set_altsxp_Relop_method(cls, i64_Relop);
+    R_set_altsxp_Traits_method(cls, i64_Traits);
+    R_set_altsxp_Coerce_from_method(cls, i64_Coerce_from);
+    R_set_altsxp_Na_widen_method(cls, i64_Na_widen);
+    R_set_altsxp_Sum_method(cls, i64_Sum);
+    R_set_altsxp_Min_method(cls, i64_Min);
+    R_set_altsxp_Max_method(cls, i64_Max);
+    R_set_altsxp_Is_sorted_method(cls, i64_Is_sorted);
+    R_set_altsxp_No_NA_method(cls, i64_No_NA);
+    R_set_altsxp_Math_method(cls, i64_Math);
+    R_set_altsxp_Deparse_method(cls, i64_Deparse);
+}
+
+static void Init64BitIntegerClasses(void)
+{
+    /* Elt_type must not allocate and must outlive every object, so the
+       symbols are installed once here rather than per call */
+    Int64Symbol = install("int64");
+    UInt64Symbol = install("uint64");
+
+    int64_class = R_make_altsxp_class("int64", "base", NULL);
+    uint64_class = R_make_altsxp_class("uint64", "base", NULL);
+
+    InitOne64Class(int64_class);
+    InitOne64Class(uint64_class);
+
+    /* so that vector("int64", n), as.vector(x, "int64") and
+       storage.mode(x) <- "int64" resolve the name to this class */
+    R_altsxp_register_type(int64_class);
+    R_altsxp_register_type(uint64_class);
+}
+
+/* .Internal(as.int64(x, unsigned, na)) -- the one entry point behind
+   as.int64(), as.uint64(), int64() and uint64() */
+attribute_hidden SEXP do_as_int64(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+
+    int uns = asLogical(CADR(args)) == TRUE;
+    int nullable = asLogical(CADDR(args)) != FALSE;
+
+    return i64_from(CAR(args), uns, nullable);
+}
+
+
+/**
  ** Initialize ALTREP Classes
  **/
 
@@ -2128,4 +3891,5 @@ attribute_hidden void R_init_altrep(void)
     InitWrapRawClass(NULL);
     InitWrapStringClass(NULL);
     InitWrapListClass(NULL);
+    Init64BitIntegerClasses();
 }

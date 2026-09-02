@@ -104,6 +104,23 @@ static R_INLINE int integerOneIndex(int i, R_xlen_t len, SEXP call)
 }
 
 /* Utility used (only in) do_subassign2_dflt(), i.e. "[[<-" in ./subassign.c : */
+/* Element pos of an opaque numeric subscript, as a double.  Only that one
+   element is rendered, because a subscript of this type is easily a whole
+   column and the two single-index paths want one number out of it.  Nothing
+   is lost by going through a double: R_XLEN_T_MAX is 2^52 and a double is
+   exact to 2^53, so every index R can address is exactly representable, and
+   a value too large to be one is out of bounds either way. */
+static double altsxpOneIndex(SEXP s, R_xlen_t pos)
+{
+    SEXP idx = PROTECT(ScalarReal((double) (pos + 1)));
+    SEXP one = PROTECT(ExtractSubset(s, idx, R_NilValue));
+    SEXP val = PROTECT(coerceVector(one, REALSXP));
+    double ans = REAL_ELT(val, 0);
+    UNPROTECT(3); /* val, one, idx */
+
+    return ans;
+}
+
 attribute_hidden R_xlen_t
 OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
 	 int pos, SEXP call)
@@ -196,6 +213,17 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
 	    indx = nx;
 	*newname = PRINTNAME(s);
 	vmaxset(vmax);
+	break;
+    case ALTSXP:
+	if (! isNumeric(s)) {
+	    ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
+	}
+	else {
+	    /* the one element wanted, in a form this switch can read */
+	    SEXP d = PROTECT(ScalarReal(altsxpOneIndex(s, pos)));
+	    indx = OneIndex(x, d, nx, partial, newname, 0, call);
+	    UNPROTECT(1); /* d */
+	}
 	break;
     default:
 	ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
@@ -330,6 +358,17 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 		vmaxset(vmax);
 		break;
 	    }
+	break;
+    case ALTSXP:
+	if (! isNumeric(s)) {
+	    ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
+	}
+	else {
+	    /* the one element wanted, in a form this switch can read */
+	    SEXP d = PROTECT(ScalarReal(altsxpOneIndex(s, pos)));
+	    indx = get1index(d, names, len, pok, 0, call);
+	    UNPROTECT(1); /* d */
+	}
 	break;
     default:
 	ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
@@ -1013,12 +1052,24 @@ int_arraySubscript(int dim, SEXP s, SEXP dims, SEXP x, SEXP call)
 	}
 	dnames = VECTOR_ELT(dnames, dim);
 	return stringSubscript(s, ns, nd, dnames, &stretch, call, x, dim);
+    case ALTSXP:
+	if (isNumeric(s)) {
+	    /* straight to INTSXP: the REALSXP arm above narrows to it anyway,
+	       so going by way of a double would render every element twice */
+	    PROTECT(tmp = coerceVector(s, INTSXP));
+	    tmp = integerSubscript(tmp, ns, nd, &stretch, call, x, dim);
+	    UNPROTECT(1);
+	    return tmp;
+	}
+	break;
     case SYMSXP:
 	if (s == R_MissingArg)
 	    return nullSubscript(nd);
+	break;
     default:
-	ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
+	break;
     }
+    ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
     return R_NilValue;
 }
 
@@ -1093,6 +1144,19 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	UNPROTECT(1); /* names */
 	break;
     }
+    case ALTSXP:
+	if (! isNumeric(s)) {
+	    ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
+	}
+	else {
+	    /* The only path here that needs the whole subscript rendered, and
+	       it costs what x[as.double(i)] costs by hand.  A double holds
+	       every index R can address exactly -- see altsxpOneIndex(). */
+	    SEXP tmp = PROTECT(coerceVector(s, REALSXP));
+	    ans = realSubscript(tmp, ns, nx, stretch, call, x);
+	    UNPROTECT(1); /* tmp */
+	}
+	break;
     case SYMSXP:
 	*stretch = 0;
 	if (s == R_MissingArg) {

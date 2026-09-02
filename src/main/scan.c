@@ -35,6 +35,7 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include <float.h>  /* for DBL_DIG */
 #include <Fileio.h>
 #include <Rconnections.h>
@@ -484,7 +485,8 @@ static R_INLINE int isNAstring(const char *buf, int mode, LocalData *d)
     return 0;
 }
 
-NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
+NORET static R_INLINE void expected(const char *what, const char *got,
+				    LocalData *d)
 {
     int c;
     if (d->ttyflag) { /* This is safe in a MBCS */
@@ -492,6 +494,37 @@ NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
 	    ;
     }
     error(_("scan() expected '%s', got '%s'"), what, got);
+}
+
+/* An opaque column is read as text and handed to the class in one piece, so
+   scan()'s own field-by-field type check never runs: a field the class cannot
+   parse comes back as NA with nothing but a coercion warning, where every
+   other 'what' stops.  Silent NA substitution is the wrong answer for an
+   exact 64-bit key column, so the first unparseable field is reported the
+   way scanVector() would have reported it. */
+static void checkScanned(SEXP val, SEXP str, SEXP what, LocalData *d)
+{
+    if (TYPEOF(val) != ALTSXP)
+	return;
+
+    R_xlen_t n = XLENGTH(str);
+    /* the loop reads position i of val for every field of str, so a class
+       that answered Coerce_from with a shorter vector would be indexed out
+       of range */
+    if (XLENGTH(val) != n)
+	error(_("'%s' method returned %lld elements, not the %lld it was given"),
+	      "Coerce_from", (long long) XLENGTH(val), (long long) n);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP e = STRING_ELT(str, i);
+	if (e == NA_STRING || isNAstring(CHAR(e), 0, d))
+	    continue;
+
+	int na = 0;
+	R_altsxp_is_na_region(val, i, 1, &na);
+	if (na)
+	    expected(R_typeToChar(what), CHAR(e), d);
+    }
 }
 
 static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
@@ -704,7 +737,13 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    if (!isVector(w)) {
 		error(_("invalid '%s' argument"), "what");
 	    }
-	    SET_VECTOR_ELT(ans, i, allocVector(TYPEOF(w), blksize));
+	    /* An opaque element type has no scanner of its own, so the field
+	       text is collected and the class parses the whole column at the
+	       end.  That also keeps the inner loop free of per-item
+	       allocation. */
+	    SET_VECTOR_ELT(ans, i,
+			   allocVector(TYPEOF(w) == ALTSXP ? STRSXP : TYPEOF(w),
+				       blksize));
 	}
     }
     setAttrib(ans, R_NamesSymbol, getAttrib(what, R_NamesSymbol));
@@ -840,6 +879,17 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("scanFrame", old);
+	}
+	if (TYPEOF(VECTOR_ELT(what, i)) == ALTSXP) {
+	    PROTECT(new);
+	    SEXP conv = R_altsxp_coerce_from(VECTOR_ELT(what, i), new);
+	    if (conv == NULL)
+		error(_("scan() cannot read into a vector of type '%s'"),
+		      R_typeToChar(VECTOR_ELT(what, i)));
+	    PROTECT(conv);
+	    checkScanned(conv, new, VECTOR_ELT(what, i), d);
+	    new = conv;
+	    UNPROTECT(2); /* conv, new */
 	}
 	SET_VECTOR_ELT(ans, i, new);
     }
@@ -1001,6 +1051,21 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 	ans = scanVector(TYPEOF(what), nmax, nlines, flush, stripwhite,
 			 blskip, &data);
 	break;
+
+    case ALTSXP: {
+	/* as in scanFrame(): read the field text, then let the class parse
+	   the whole vector at once */
+	SEXP str = PROTECT(scanVector(STRSXP, nmax, nlines, flush, stripwhite,
+				      blskip, &data));
+	ans = R_altsxp_coerce_from(what, str);
+	if (ans == NULL)
+	    error(_("scan() cannot read into a vector of type '%s'"),
+		  R_typeToChar(what));
+	PROTECT(ans);
+	checkScanned(ans, str, what, &data);
+	UNPROTECT(2);
+	break;
+    }
 
     case VECSXP:
 	ans = scanFrame(what, nmax, nlines, flush, fill, stripwhite,

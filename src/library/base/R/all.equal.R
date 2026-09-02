@@ -155,7 +155,15 @@ all.equal.numeric <-
 	    scale <- rep_len(scale, length(out))[keep]
     }
     N <- length(target)
-    if(is.integer(target) && is.integer(current)) target <- as.double(target)
+    ## The difference below is computed in the operands' own type, so an exact
+    ## bounded one overflows on a pair that is far apart -- which is the pair
+    ## all.equal() is being asked to report on.  Promoting to double has always
+    ## been the answer for an integer pair; is.integer() does not see the other
+    ## exact numeric types, such as an ALTSXP class declaring itself numeric.
+    ## Complex is excluded by is.numeric(), which would otherwise lose the
+    ## imaginary part here.
+    if(is.numeric(target) && !is.double(target) &&
+       is.numeric(current) && !is.double(current)) target <- as.double(target)
     what <-
 	if(is.null(scale)) {
 	    scale <- (sabst0 + sum(abs(target)/N))
