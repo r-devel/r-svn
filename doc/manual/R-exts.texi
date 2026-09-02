@@ -9910,8 +9910,26 @@ as type @code{FREESXP} and their previous type is recorded.
 @item
 Most calls to accessor functions check their @code{SEXP} inputs and
 @code{SEXP} outputs and signal an error if a @code{FREESXP} is found.
-The address of the node and the old type are included in the error
-message.
+The error message includes the address of the node, the type it had
+before it was collected, the serial number of the allocation that
+created it, and for vector nodes the length and a short preview of the
+former contents.
+
+@item
+Each node allocation is assigned a serial number, and the serial
+number of the allocation that created an object is reported when that
+object is later found to be unprotected.  Since allocation order is
+deterministic for a fixed sequence of inputs, setting the environment
+variable @env{R_ALLOC_BREAK} to a reported serial number and re-running
+the same code under a debugger stops (with @code{SIGTRAP}, which can be
+continued from) at the exact allocation that created the object, so the
+code responsible for it can be inspected.  Allocation order is
+sensitive to the process environment, so set @env{R_ALLOC_BREAK=0}
+(which parses but disables the trap) in the run used to obtain the
+serial number, and launch @R{} the same way in both runs.  If the
+stream still shifts slightly (e.g.@: when the debugger alters the
+environment), continuing past the trap reports the object's actual
+serial number, and re-running with that value converges.
 
 @end itemize
 
