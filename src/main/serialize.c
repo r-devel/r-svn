@@ -1917,7 +1917,9 @@ static SEXP ReadItem_Iterative(int flags, SEXP ref_table, R_inpstream_t stream)
  * which they are interned does not matter.
  */
 
-#define STRBATCH_SIZE 16
+/* 32 measured 2 to 4% faster than 16 for an in-memory unserialize() of
+   a million strings, and 64 the same as 32 */
+#define STRBATCH_SIZE 32
 #define STRBATCH_SCRATCH 16384
 
 typedef struct {
