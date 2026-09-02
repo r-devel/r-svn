@@ -73,8 +73,27 @@
       \code{!is.na(\link{Sys.getenv}("R_BATCH", NA))}.}
     \item{\env{R_BROWSER}:}{The path to the default browser.  Used to
       set the default value of \code{\link{options}("browser")}.}
+    \item{\env{R_CHARSXP_CACHE_LOAD_FACTOR}:}{Optional.  The number of
+      cached strings per hash bucket beyond which \R's internal cache
+      of character strings doubles its hash table, between 0.1 and 10
+      (default 0.75).  Smaller values make creating strings faster at
+      the cost of a larger table.  Read at startup only; see the
+      \sQuote{R Internals} manual.}
+    \item{\env{R_CHARSXP_CACHE_INITIAL_SIZE}:}{Optional.  The initial
+      number of buckets in that hash table, rounded up to a power of
+      two, between 1024 and \eqn{2^{30}} (default 65536).  Setting this
+      to about the number of distinct strings a session will use avoids
+      rehashing the cache as it grows.  Read at startup only.}
     \item{\env{R_COMPLETION}:}{Optional.  If set to \code{FALSE},
       command-line completion is not used.  (Not used by the macOS GUI.)}
+    \item{\env{R_SYMBOL_TABLE_SIZE}:}{Optional.  The number of buckets
+      in \R's internal symbol table, rounded up to a prime, between 1024
+      and \eqn{2^{26}} (default 49157).  The table does not grow, and
+      symbols are never removed, so a session which creates many more
+      symbols than that, for example by using an environment with a
+      million keys, looks them up faster with a larger table.  A session
+      with the standard packages attached holds about ten thousand
+      symbols.  Read at startup only.}
     \item{\env{R_DEFAULT_PACKAGES}:}{A comma-separated list of packages
       which are to be attached in every session.  See \code{\link{options}}.}
     \item{\env{R_DOC_DIR}:}{The location of the \R \file{doc}

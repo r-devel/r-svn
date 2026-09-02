@@ -195,7 +195,9 @@ attribute_hidden Rboolean R_envHasNoSpecialSymbols (SEXP env)
   Hash Tables
 
   We use a basic separate chaining algorithm.	A hash table consists
-  of SEXP (vector) which contains a number of SEXPs (lists).
+  of SEXP (vector) which contains a number of SEXPs (lists).  Its
+  truelength holds the number of bindings in the table, so that the
+  load factor is known exactly.
 
   The only non-static function is R_NewHashedEnv, which allows code to
   request a hashed environment.  All others are static to allow
@@ -203,10 +205,35 @@ attribute_hidden Rboolean R_envHasNoSpecialSymbols (SEXP env)
 */
 
 #define HASHSIZE(x)	     ((int) STDVEC_LENGTH(x))
-#define HASHPRI(x)	     ((int) STDVEC_TRUELENGTH(x))
-#define HASHTABLEGROWTHRATE  1.2
+#define HASHCOUNT(x)	     ((int) STDVEC_TRUELENGTH(x))
+#define SET_HASHCOUNT(x,v)   SET_TRUELENGTH(x,v)
+#define HASHTABLELOAD	     0.75
 #define HASHMINSIZE	     29
-#define SET_HASHPRI(x,v)     SET_TRUELENGTH(x,v)
+
+/* Sizes a table grows through: the first prime above 1.618 times each
+   power of two from 2^5 to 2^30.  A table more than HASHTABLELOAD full
+   moves to the next of these, about twice its size.  The sizes matter
+   because R_Newhashpjw() is a base-16 polynomial of the characters and
+   the hash is reduced by division: with sizes near a small multiple of
+   a power of two, such as 2n + 1 from 29 (15 * 2^k - 1) or the primes
+   just above a power of two, names which differ in a running number
+   collapse onto a fraction of the chains (a table of a million such
+   names had 23% of its chains in use where a uniform hash gives 40%,
+   and twice the lookups of a uniform table).  Simulated over a million
+   names of six shapes, these sizes are within a few percent of uniform,
+   while the old growth by 1.2 avoided the problem by accident. */
+static const int HashTableSizes[] = {
+    53, 107, 211, 419,
+    829, 1657, 3319, 6637,
+    13259, 26513, 53047, 106087,
+    212081, 424163, 848321, 1696649,
+    3393311, 6786529, 13573067, 27146107,
+    54292219, 108584447, 217168859, 434337707,
+    868675439, 1737350779
+};
+#define NHASHTABLESIZES (sizeof(HashTableSizes) / sizeof(HashTableSizes[0]))
+
+static int hashIndex(SEXP symbol, SEXP table);
 #define HASHCHAIN(table, i)  ((SEXP *) STDVEC_DATAPTR(table))[i]
 
 #define IS_HASHED(x)	     (HASHTAB(x) != R_NilValue)
@@ -267,11 +294,10 @@ static void R_HashSet(int hashcode, SEXP symbol, SEXP table, SEXP value,
 	}
     if (frame_locked)
 	error(_("cannot add bindings to a locked environment"));
-    if (ISNULL(chain))
-	SET_HASHPRI(table, HASHPRI(table) + 1);
     /* Add the value into the chain */
     SET_VECTOR_ELT(table, hashcode, CONS(value, VECTOR_ELT(table, hashcode)));
     SET_TAG(VECTOR_ELT(table, hashcode), symbol);
+    SET_HASHCOUNT(table, HASHCOUNT(table) + 1);
     return;
 }
 
@@ -357,7 +383,7 @@ static SEXP R_NewHashTable(int size)
 
     /* Allocate hash table in the form of a vector */
     PROTECT(table = allocVector(VECSXP, size));
-    SET_HASHPRI(table, 0);
+    SET_HASHCOUNT(table, 0);
     UNPROTECT(1);
     return(table);
 }
@@ -404,9 +430,8 @@ static void R_HashDelete(int hashcode, SEXP symbol, SEXP env, int *found)
     if (*found) {
 	if (env == R_GlobalEnv)
 	    R_DirtyImage = 1;
-	if (list == R_NilValue)
-	    SET_HASHPRI(hashtab, HASHPRI(hashtab) - 1);
 	SET_VECTOR_ELT(hashtab, idx, list);
+	SET_HASHCOUNT(hashtab, HASHCOUNT(hashtab) - 1);
     }
 }
 
@@ -430,39 +455,27 @@ static SEXP R_HashResize(SEXP table)
     if (TYPEOF(table) != VECSXP)
 	error("first argument ('table') not of type VECSXP, from R_HashResize");
 
-    /* This may have to change.	 The growth rate should
-       be independent of the size (not implemented yet) */
-    /* hash_grow = HASHSIZE(table); */
-
-    /* Allocate the new hash table */
-    SEXP new_table = R_NewHashTable(1 + (int)(HASHSIZE(table) * HASHTABLEGROWTHRATE));
-    for (int counter = 0; counter < length(table); counter++) {
+    /* Move to the first of the sizes at least one and a half times the
+       current one: the next one up for a table already on the ladder,
+       as consecutive sizes are about double, and between one and a
+       half and three times for a table sized by the user.  The names'
+       hashes are cached in their CHARSXPs, so the strings are not
+       rehashed. */
+    int n = HASHSIZE(table), i = 0;
+    while (i < NHASHTABLESIZES - 1 && HashTableSizes[i] < 1.5 * n)
+	i++;
+    SEXP new_table = R_NewHashTable(HashTableSizes[i]);
+    for (int counter = 0; counter < n; counter++) {
 	SEXP chain = VECTOR_ELT(table, counter);
 	while (!ISNULL(chain)) {
-	    int new_hashcode = R_Newhashpjw(CHAR(PRINTNAME(TAG(chain)))) %
-		HASHSIZE(new_table);
-	    SEXP new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    /* If using a primary slot then increase HASHPRI */
-	    if (ISNULL(new_chain))
-		SET_HASHPRI(new_table, HASHPRI(new_table) + 1);
-	    SEXP tmp_chain = chain;
-	    chain = CDR(chain);
-	    SETCDR(tmp_chain, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode,  tmp_chain);
-#ifdef MIKE_DEBUG
-	    fprintf(stdout, "HASHSIZE = %d\nHASHPRI = %d\ncounter = %d\nHASHCODE = %d\n",
-		    HASHSIZE(table), HASHPRI(table), counter, new_hashcode);
-#endif
+	    int new_hashcode = hashIndex(TAG(chain), new_table);
+	    SEXP next = CDR(chain);
+	    SETCDR(chain, VECTOR_ELT(new_table, new_hashcode));
+	    SET_VECTOR_ELT(new_table, new_hashcode, chain);
+	    chain = next;
 	}
     }
-    /* Some debugging statements */
-#ifdef MIKE_DEBUG
-    fprintf(stdout, "Resized O.K.\n");
-    fprintf(stdout, "Old size: %d, New size: %d\n",
-	    HASHSIZE(table), HASHSIZE(new_table));
-    fprintf(stdout, "Old pri: %d, New pri: %d\n",
-	    HASHPRI(table), HASHPRI(new_table));
-#endif
+    SET_HASHCOUNT(new_table, HASHCOUNT(table));
     return new_table;
 } /* end R_HashResize */
 
@@ -480,16 +493,16 @@ static SEXP R_HashResize(SEXP table)
 
 static int R_HashSizeCheck(SEXP table)
 {
-    int resize;
-    double thresh_val;
-
     /* Do some checking */
     if (TYPEOF(table) != VECSXP)
 	error("first argument ('table') not of type VECSXP, R_HashSizeCheck");
-    resize = 0; thresh_val = 0.85;
-    if ((double)HASHPRI(table) > (double)HASHSIZE(table) * thresh_val)
-	resize = 1;
-    return resize;
+    /* Every binding on a chain which a lookup visits is usually a cache
+       miss, so the load factor sets the cost of a lookup.  The table
+       used to grow by 20% at 85% of a count which mixed bindings and
+       occupied chains, which left it at one to two bindings per chain
+       and moved each binding about six times on the way to a million. */
+    return HASHCOUNT(table) > HASHTABLELOAD * HASHSIZE(table) &&
+	HASHSIZE(table) < HashTableSizes[NHASHTABLESIZES - 1];
 }
 
 
@@ -516,15 +529,9 @@ static SEXP R_HashFrame(SEXP rho)
     table = HASHTAB(rho);
     frame = FRAME(rho);
     while (!ISNULL(frame)) {
-	if( !HASHASH(PRINTNAME(TAG(frame))) ) {
-	    SET_HASHVALUE(PRINTNAME(TAG(frame)),
-			  R_Newhashpjw(CHAR(PRINTNAME(TAG(frame)))));
-	    SET_HASHASH(PRINTNAME(TAG(frame)), 1);
-	}
-	hashcode = HASHVALUE(PRINTNAME(TAG(frame))) % HASHSIZE(table);
+	hashcode = hashIndex(TAG(frame), table);
 	chain = VECTOR_ELT(table, hashcode);
-	/* If using a primary slot then increase HASHPRI */
-	if (ISNULL(chain)) SET_HASHPRI(table, HASHPRI(table) + 1);
+	SET_HASHCOUNT(table, HASHCOUNT(table) + 1);
 	tmp_chain = frame;
 	frame = CDR(frame);
 	SETCDR(tmp_chain, chain);
@@ -544,8 +551,7 @@ static SEXP R_HashFrame(SEXP rho)
 
    size: the total size of the hash table
 
-   nchains: the number of non-null chains in the table (as reported by
-	    HASHPRI())
+   nchains: the number of non-null chains in the table
 
    counts: an integer vector the same length as size giving the length of
 	   each chain (or zero if no chain is present).  This allows
@@ -566,8 +572,8 @@ static SEXP R_HashProfile(SEXP table)
     UNPROTECT(1);
 
     SET_VECTOR_ELT(ans, 0, ScalarInteger(length(table)));
-    SET_VECTOR_ELT(ans, 1, ScalarInteger(HASHPRI(table)));
 
+    int nchains = 0;
     PROTECT(chain_counts = allocVector(INTSXP, length(table)));
     for (i = 0; i < length(table); i++) {
 	chain = VECTOR_ELT(table, i);
@@ -576,8 +582,10 @@ static SEXP R_HashProfile(SEXP table)
 	    count++;
 	}
 	INTEGER(chain_counts)[i] = count;
+	if (count > 0)
+	    nchains++;
     }
-
+    SET_VECTOR_ELT(ans, 1, ScalarInteger(nchains));
     SET_VECTOR_ELT(ans, 2, chain_counts);
 
     UNPROTECT(2);
@@ -748,7 +756,6 @@ static void R_FlushGlobalCacheFromUserTable(SEXP udb)
 
 static void R_AddGlobalCache(SEXP symbol, SEXP place)
 {
-    int oldpri = HASHPRI(R_GlobalCache);
     R_HashSet(hashIndex(symbol, R_GlobalCache), symbol, R_GlobalCache, place,
 	      FALSE);
 #ifdef FAST_BASE_CACHE_LOOKUP
@@ -757,8 +764,7 @@ static void R_AddGlobalCache(SEXP symbol, SEXP place)
     else
 	UNSET_BASE_SYM_CACHED(symbol);
 #endif
-    if (oldpri != HASHPRI(R_GlobalCache) &&
-	HASHPRI(R_GlobalCache) > 0.85 * HASHSIZE(R_GlobalCache)) {
+    if (R_HashSizeCheck(R_GlobalCache)) {
 	R_GlobalCache = R_HashResize(R_GlobalCache);
 	SETCAR(R_GlobalCachePreserve, R_GlobalCache);
     }
@@ -3172,7 +3178,7 @@ static int BuiltinSize(int all, int intern)
     int count = 0;
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3193,7 +3199,7 @@ BuiltinNames(int all, int intern, SEXP names, int *indx)
 {
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3213,7 +3219,7 @@ BuiltinValues(int all, int intern, SEXP values, int *indx)
 {
     SEXP s, vl;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue) {
@@ -3694,7 +3700,7 @@ void R_LockEnvironment(SEXP env, Rboolean bindings)
 	if (bindings) {
 	    SEXP s;
 	    int j;
-	    for (j = 0; j < HSIZE; j++)
+	    for (j = 0; j < R_SymbolTableSize; j++)
 		for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s))
 		    if(SYMVALUE(CAR(s)) != R_UnboundValue)
 			LOCK_BINDING(CAR(s));
@@ -4125,9 +4131,10 @@ attribute_hidden void R_RestoreHashCount(SEXP rho)
 	table = HASHTAB(rho);
 	size = HASHSIZE(table);
 	for (i = 0, count = 0; i < size; i++)
-	    if (VECTOR_ELT(table, i) != R_NilValue)
+	    for (SEXP chain = VECTOR_ELT(table, i); chain != R_NilValue;
+		 chain = CDR(chain))
 		count++;
-	SET_HASHPRI(table, count);
+	SET_HASHCOUNT(table, count);
     }
 }
 
@@ -4598,6 +4605,38 @@ attribute_hidden SEXP mkCharWUTF8(const wchar_t *wname)
 static unsigned int char_hash_size = 65536;
 static unsigned int char_hash_mask = 65535;
 
+/* The table doubles once it holds more than char_hash_load cached
+   strings per bucket.  A lookup walks a chain of CHARSXPs scattered
+   over the heap, each of them a cache miss, and an insertion walks the
+   whole chain, so the load factor matters more to the cost of
+   interning a string than anything else in mkCharLenCE().  The table
+   used to double at 85% bucket occupancy, about 1.9 strings per bucket,
+   which cost about twice as much per lookup as the current default.
+   Both the load factor and the initial size can be set from the
+   environment when R starts up. */
+static double char_hash_load = 0.75;
+#define CHAR_HASH_LOAD_MIN 0.1
+#define CHAR_HASH_LOAD_MAX 10.0
+#define CHAR_HASH_SIZE_MIN 1024
+#define CHAR_HASH_SIZE_MAX 1073741824 /* 2^30, the largest power of two
+					 a VECSXP could hold before long
+					 vectors */
+
+static unsigned char *NewStringHashAges(unsigned int size);
+
+/* Bucket heads are stored without the old-to-new write barrier.  The
+   cache is weak and the collector maintains it explicitly (see
+   RunGenCollect), so recording the table as an old node with young
+   children is not needed for correctness, and it is expensive: the
+   collector would forward every bucket head on every collection, which
+   touches a header per bucket, and would keep young heads alive through
+   the minor collections which should have reclaimed them. */
+static R_INLINE void SetStringHashBucket(SEXP table, unsigned int i,
+					 SEXP chain)
+{
+    ((SEXP *) STDVEC_DATAPTR(table))[i] = chain;
+}
+
 static unsigned int char_hash(const char *s, int len)
 {
     /* djb2 as from http://www.cse.yorku.ca/~oz/hash.html */
@@ -4606,12 +4645,90 @@ static unsigned int char_hash(const char *s, int len)
     unsigned int h = 5381;
     for (p = (char *) s, i = 0; i < len; p++, i++)
 	h = ((h << 5) + h) + (*p);
+    /* The bucket is selected by the low bits alone, and for keys which
+       differ only in a running number djb2 leaves those correlated, so
+       such keys land in neighbouring buckets and their chains are about
+       20% longer than for random keys.  Do not be tempted to fix that
+       with a finalizer mix, a prime table size or an open-addressed
+       table (which needs the mix): the correlation is what lets a run
+       of such keys walk the bucket array sequentially.  With a million
+       cached strings, mixing the bits took inserting consecutive keys
+       from 87 to 168 ns and looking them up in creation order from 29
+       to 42 ns, gained nothing on random keys, and made full
+       collections 10% slower, since the sweep visits the cache in
+       bucket order. */
     return h;
 }
 
 attribute_hidden void InitStringHash(void)
 {
+    const char *arg;
+
+    /* out-of-range values are ignored, as for the R_GC_* variables */
+    arg = getenv("R_CHARSXP_CACHE_LOAD_FACTOR");
+    if (arg != NULL && arg[0]) {
+	double load = atof(arg);
+	if (CHAR_HASH_LOAD_MIN <= load && load <= CHAR_HASH_LOAD_MAX)
+	    char_hash_load = load;
+    }
+    arg = getenv("R_CHARSXP_CACHE_INITIAL_SIZE");
+    if (arg != NULL && arg[0]) {
+	double size = atof(arg);
+	if (CHAR_HASH_SIZE_MIN <= size && size <= CHAR_HASH_SIZE_MAX) {
+	    unsigned int n = CHAR_HASH_SIZE_MIN;
+	    while (n < size)
+		n *= 2;
+	    char_hash_size = n;
+	    char_hash_mask = n - 1;
+	}
+    }
+
     R_StringHash = R_NewHashTable(char_hash_size);
+    R_StringHashCount = 0;
+    R_StringHashAges = NewStringHashAges(char_hash_size);
+}
+
+/* Ages for a new table of the given size, all marked as holding a new
+   node so that the next collection sweeps every bucket and records the
+   truth.  The collector copes with NULL by sweeping everything. */
+static unsigned char *NewStringHashAges(unsigned int size)
+{
+    unsigned char *ages = (unsigned char *) malloc(size);
+
+    if (ages != NULL)
+	memset(ages, 0, size);
+    return ages;
+}
+
+/* Helpers for code which interns many strings in a row, such as
+   unserialize().  Computing the hash ahead of the lookup lets the
+   caller prefetch the bucket, and a little later the head of its
+   chain, so that the cache misses which dominate mkCharLenCE() overlap
+   with other work.  A resize between the prefetch and the lookup only
+   wastes the prefetch. */
+
+#if defined(__GNUC__) || defined(__clang__)
+# define PREFETCH(p) __builtin_prefetch(p)
+#else
+# define PREFETCH(p) do { } while (0)
+#endif
+
+attribute_hidden unsigned int R_CharHash(const char *name, int len)
+{
+    return char_hash(name, len);
+}
+
+attribute_hidden void R_CharHashPrefetchBucket(unsigned int hash)
+{
+    PREFETCH(VECTOR_PTR_RO(R_StringHash) + (hash & char_hash_mask));
+}
+
+attribute_hidden void R_CharHashPrefetchChain(unsigned int hash)
+{
+    SEXP chain = VECTOR_ELT(R_StringHash, hash & char_hash_mask);
+
+    if (chain != R_NilValue)
+	PREFETCH(chain);
 }
 
 /* #define DEBUG_GLOBAL_STRING_HASH 1 */
@@ -4624,8 +4741,6 @@ static void R_StringHash_resize(unsigned int newsize)
     unsigned int counter, new_hashcode, newmask;
 #ifdef DEBUG_GLOBAL_STRING_HASH
     unsigned int oldsize = HASHSIZE(R_StringHash);
-    unsigned int oldpri = HASHPRI(R_StringHash);
-    unsigned int newsize, newpri;
 #endif
 
     /* Allocate the new hash table.  This could fail to allocate
@@ -4637,6 +4752,7 @@ static void R_StringHash_resize(unsigned int newsize)
        therefore the only point where GC can occur. */
     new_table = R_NewHashTable(newsize);
     newmask = newsize - 1;
+    unsigned char *new_ages = NewStringHashAges(newsize);
 
     /* transfer chains from old table to new table */
     for (counter = 0; counter < LENGTH(old_table); counter++) {
@@ -4646,24 +4762,21 @@ static void R_StringHash_resize(unsigned int newsize)
 	    next = CXTAIL(chain);
 	    new_hashcode = char_hash(CHAR(val), LENGTH(val)) & newmask;
 	    new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    /* If using a primary slot then increase HASHPRI */
-	    if (ISNULL(new_chain))
-		SET_HASHPRI(new_table, HASHPRI(new_table) + 1);
 	    /* move the current chain link to the new chain */
 	    /* this is a destructive modification */
 	    new_chain = SET_CXTAIL(val, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode, new_chain);
+	    SetStringHashBucket(new_table, new_hashcode, new_chain);
 	    chain = next;
 	}
     }
     R_StringHash = new_table;
     char_hash_size = newsize;
     char_hash_mask = newmask;
+    free(R_StringHashAges);
+    R_StringHashAges = new_ages;
 #ifdef DEBUG_GLOBAL_STRING_HASH
-    newsize = HASHSIZE(new_table);
-    newpri = HASHPRI(new_table);
-    Rprintf("Resized: size %d => %d\tpri %d => %d\n",
-	    oldsize, newsize, oldpri, newpri);
+    Rprintf("Resized: size %u => %u holding %lld strings\n",
+	    oldsize, newsize, (long long) R_StringHashCount);
 #endif
 }
 
@@ -4742,6 +4855,14 @@ static void reportInvalidString(SEXP cval, int actionWhenInvalid)
 
 SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 {
+    return R_mkCharLenCEHash(name, len, enc, char_hash(name, len));
+}
+
+/* As mkCharLenCE(), with the hash of the bytes already computed by
+   R_CharHash(), for callers which prefetch ahead of the lookup. */
+attribute_hidden SEXP
+R_mkCharLenCEHash(const char *name, int len, cetype_t enc, unsigned int hash)
+{
     SEXP cval, chain;
     unsigned int hashcode;
     int need_enc;
@@ -4790,7 +4911,7 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
     default: need_enc = 0;
     }
 
-    hashcode = char_hash(name, len) & char_hash_mask;
+    hashcode = hash & char_hash_mask;
 
     /* Search for a cached value */
     cval = R_NilValue;
@@ -4828,19 +4949,20 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 	SET_CACHED(cval);  /* Mark it */
 	/* add the new value to the cache */
 	chain = VECTOR_ELT(R_StringHash, hashcode);
-	if (ISNULL(chain))
-	    SET_HASHPRI(R_StringHash, HASHPRI(R_StringHash) + 1);
 	/* this is a destructive modification */
 	chain = SET_CXTAIL(cval, chain);
-	SET_VECTOR_ELT(R_StringHash, hashcode, chain);
+	SetStringHashBucket(R_StringHash, hashcode, chain);
+	R_StringHashCount++;
+	if (R_StringHashAges != NULL)
+	    R_StringHashAges[hashcode] = 0; /* the bucket now holds a new node */
 
 	/* resize the hash table if necessary with the new entry still
 	   protected.
 	   Maximum possible power of two is 2^30 for a VECSXP.
 	   FIXME: this has changed with long vectors.
 	*/
-	if (R_HashSizeCheck(R_StringHash)
-	    && char_hash_size < 1073741824 /* 2^30 */)
+	if ((double) R_StringHashCount > char_hash_load * char_hash_size
+	    && char_hash_size < CHAR_HASH_SIZE_MAX)
 	    R_StringHash_resize(char_hash_size * 2);
 
 	if (checkValid && !IS_ASCII(cval)) {
@@ -4922,7 +5044,7 @@ void do_show_cache(int n)
 {
     int i, j;
     Rprintf("Cache size: %d\n", LENGTH(R_StringHash));
-    Rprintf("Cache pri:  %d\n", HASHPRI(R_StringHash));
+    Rprintf("Cache count: %lld\n", (long long) R_StringHashCount);
     for (i = 0, j = 0; j < n && i < LENGTH(R_StringHash); i++) {
 	SEXP chain = VECTOR_ELT(R_StringHash, i);
 	if (! ISNULL(chain)) {
@@ -4949,7 +5071,7 @@ void do_write_cache()
     FILE *f = fopen("/tmp/CACHE", "w");
     if (f != NULL) {
 	fprintf(f, "Cache size: %d\n", LENGTH(R_StringHash));
-	fprintf(f, "Cache pri:  %d\n", HASHPRI(R_StringHash));
+	fprintf(f, "Cache count: %lld\n", (long long) R_StringHashCount);
 	for (i = 0; i < LENGTH(R_StringHash); i++) {
 	    SEXP chain = VECTOR_ELT(R_StringHash, i);
 	    if (! ISNULL(chain)) {

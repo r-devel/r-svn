@@ -1216,11 +1216,35 @@ static SEXP mkSymMarker(SEXP pname)
     return ans;
 }
 
+/* the smallest prime not less than n, for n >= 2 */
+static int next_prime(int n)
+{
+    for (;; n++) {
+	int prime = 1;
+	for (int d = 2; d * d <= n; d++)
+	    if (n % d == 0) {
+		prime = 0;
+		break;
+	    }
+	if (prime)
+	    return n;
+    }
+}
+
 /* initialize the symbol table */
 attribute_hidden void InitNames(void)
 {
-    /* allocate the symbol table */
-    if (!(R_SymbolTable = (SEXP *) calloc(HSIZE, sizeof(SEXP))))
+    /* allocate the symbol table; R_SYMBOL_TABLE_SIZE in the environment
+       overrides the default number of buckets, rounded up to a prime
+       since the hash is reduced by division */
+    R_SymbolTableSize = HSIZE;
+    const char *arg = getenv("R_SYMBOL_TABLE_SIZE");
+    if (arg != NULL && arg[0]) {
+	double size = atof(arg);
+	if (1024 <= size && size <= 67108864 /* 2^26 */)
+	    R_SymbolTableSize = next_prime((int) size);
+    }
+    if (!(R_SymbolTable = (SEXP *) calloc(R_SymbolTableSize, sizeof(SEXP))))
 	R_Suicide("couldn't allocate memory for symbol table");
 
     /* Create marker values */
@@ -1244,7 +1268,7 @@ attribute_hidden void InitNames(void)
     MARK_NOT_MUTABLE(R_BlankScalarString);
 
     /* Initialize the symbol Table */
-    for (int i = 0; i < HSIZE; i++) R_SymbolTable[i] = R_NilValue;
+    for (int i = 0; i < R_SymbolTableSize; i++) R_SymbolTable[i] = R_NilValue;
 
     /* Set up a set of globals so that a symbol table search can be
        avoided when matching something like dim or dimnames. */
@@ -1265,6 +1289,15 @@ attribute_hidden void InitNames(void)
 
 
 /*  install - probe the symbol table */
+/* The symbol table is a chained hash table with a fixed number of
+   buckets, chosen when R starts up (see InitNames).  Symbols are never
+   removed.  Walking a chain costs about three cache misses per node
+   (the cons cell, the symbol and its print name), so a session which
+   creates many more symbols than there are buckets, such as one
+   holding an environment with a million keys, pays for it on every
+   lookup.  A session with the standard packages attached holds about
+   ten thousand symbols. */
+
 /*  If "name" is not found, it is installed in the symbol table.
     The symbol corresponding to the string "name" is returned. */
 
@@ -1274,7 +1307,7 @@ SEXP install(const char *name)
     int i, hashcode;
 
     hashcode = R_Newhashpjw(name);
-    i = hashcode % HSIZE;
+    i = hashcode % R_SymbolTableSize;
     /* Check to see if the symbol is already present;  if it is, return it. */
     for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
 	if (strcmp(name, CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
@@ -1307,7 +1340,7 @@ SEXP installNoTrChar(SEXP charSXP)
     } else {
 	hashcode = HASHVALUE(charSXP);
     }
-    i = hashcode % HSIZE;
+    i = hashcode % R_SymbolTableSize;
     /* Check to see if the symbol is already present;  if it is, return it. */
     for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
 	if (strcmp(CHAR(charSXP), CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
