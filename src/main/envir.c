@@ -1490,8 +1490,8 @@ findVar1(SEXP symbol, SEXP rho, SEXPTYPE mode, int inherits)
  */
 
 static SEXP
-findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, Rboolean wants_S4,
-	     int inherits, Rboolean doGet)
+findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, int xwidth, int xkind,
+	     Rboolean wants_S4, int inherits, Rboolean doGet)
 {
     SEXP vl;
     int tl;
@@ -1512,13 +1512,24 @@ findVar1mode(SEXP symbol, SEXP rho, SEXPTYPE mode, Rboolean wants_S4,
 		UNPROTECT(1);
 	    }
 	    tl = TYPEOF(vl);
-	    if (tl == INTSXP) tl = REALSXP;
+	    if (tl == INTSXP || (tl == XINTSXP && mode == REALSXP))
+		tl = REALSXP;
 	    if (tl == FUNSXP || tl ==  BUILTINSXP || tl == SPECIALSXP)
 		tl = CLOSXP;
 	    if (tl == mode) {
 		if (tl == OBJSXP) {
 		    if ((wants_S4 && IS_S4_OBJECT(vl)) ||
 			(! wants_S4 && ! IS_S4_OBJECT(vl)))
+			return vl;
+		}
+		else if (tl == XINTSXP) {
+		    /* The structural type name has no width or kind, so zero
+		       means there is nothing further to match.  A detailed
+		       mode names both: get(nm, mode = "int64") must no more
+		       answer with a uint8 than mode = "integer" answers with
+		       a character vector. */
+		    if (xwidth == 0 ||
+			(XINT_WIDTH(vl) == xwidth && XINT_KIND(vl) == xkind))
 			return vl;
 		}
 		else return vl;
@@ -2390,8 +2401,17 @@ void R_removeVarFromFrame(SEXP name, SEXP env)
       get0   (x, envir, mode, inherits, value_if_not_exists)
 */
 
-static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4)
+/* pwidth and pkind report the element type a detailed 'xinteger'
+   storage mode named -- "int64" is width 8, signed -- so that
+   findVar1mode() can hold a candidate to it rather than settling for
+   any vector of the same SEXPTYPE.  *pwidth is 0 for every other mode,
+   which is the "nothing further to match" answer. */
+static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4,
+			 int *pwidth, int *pkind)
 {
+    *pwidth = 0;
+    *pkind = 0;
+
     if (!strcmp(modestr, "function"))
 	return FUNSXP;
     else if (!strcmp(modestr, "S4")) {
@@ -2400,6 +2420,9 @@ static SEXPTYPE str2mode(const char *modestr, Rboolean *pS4)
 	return OBJSXP;
     }
     else {
+	if (R_xintTypeFromName(modestr, pwidth, pkind))
+	    return XINTSXP;
+
 	SEXPTYPE gmode = str2type(modestr);
 	if(gmode == (SEXPTYPE) (-1))
 	    error(_("invalid '%s' argument '%s'"), "mode", modestr);
@@ -2450,9 +2473,11 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
     */
 
     SEXPTYPE gmode;
+    int gwidth = 0, gkind = 0;
     Rboolean wants_S4 = FALSE;
     if (isString(CADDR(args)))
-	gmode = str2mode(CHAR(STRING_ELT(CADDR(args), 0)), &wants_S4);
+	gmode = str2mode(CHAR(STRING_ELT(CADDR(args), 0)), &wants_S4,
+			 &gwidth, &gkind);
     else {
 	error(_("invalid '%s' argument"), "mode");
 	gmode = FUNSXP;/* -Wall */
@@ -2463,7 +2488,7 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "inherits");
 
     /* Search for the object */
-    rval = findVar1mode(t1, genv, gmode, wants_S4, ginherits,
+    rval = findVar1mode(t1, genv, gmode, gwidth, gkind, wants_S4, ginherits,
 			(Rboolean) PRIMVAL(op));
     if (rval == R_MissingArg) { // signal a *classed* error:
 	R_MissingArgError(t1, call, "getMissingError");
@@ -2507,7 +2532,7 @@ attribute_hidden SEXP do_get(SEXP call, SEXP op, SEXP args, SEXP rho)
 #undef GET_VALUE
 
 static SEXP gfind(const char *name, SEXP env,
-		  SEXPTYPE mode, Rboolean wants_S4,
+		  SEXPTYPE mode, int xwidth, int xkind, Rboolean wants_S4,
 		  SEXP ifnotfound, int inherits, SEXP enclos)
 {
     SEXP rval, t1, R_fcall, var;
@@ -2515,7 +2540,7 @@ static SEXP gfind(const char *name, SEXP env,
     t1 = install(name);
 
     /* Search for the object - last arg is 1 to 'get' */
-    rval = findVar1mode(t1, env, mode, wants_S4, inherits, 1);
+    rval = findVar1mode(t1, env, mode, xwidth, xkind, wants_S4, inherits, 1);
 
     if (rval == R_UnboundValue) {
 	if( isFunction(ifnotfound) ) {
@@ -2594,10 +2619,11 @@ attribute_hidden SEXP do_mget(SEXP call, SEXP op, SEXP args, SEXP rho)
     for(int i = 0; i < nvals; i++) {
 	Rboolean wants_S4 = FALSE;
 	const char *modestr = CHAR(STRING_ELT(CADDR(args), i % nmode));
-	SEXPTYPE gmode = str2mode(modestr, &wants_S4);
+	int gwidth, gkind;
+	SEXPTYPE gmode = str2mode(modestr, &wants_S4, &gwidth, &gkind);
 	SEXP nf = VECTOR_ELT(ifnotfound, i % nifnfnd);
 	SEXP ans_i = gfind(translateChar(STRING_ELT(x, i % nvals)), env,
-			   gmode, wants_S4, nf, ginherits, rho);
+			   gmode, gwidth, gkind, wants_S4, nf, ginherits, rho);
 	SET_VECTOR_ELT(ans, i, lazy_duplicate(ans_i));
     }
 

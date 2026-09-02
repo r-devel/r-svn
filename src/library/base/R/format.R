@@ -42,6 +42,16 @@ format.default <-
 		      decimal.mark = decimal.mark, zero.print = zero.print,
 		      drop0trailing = drop0trailing, ...)
 	vapply(res, paste0, "", collapse = ", ")
+    } else if(is.xinteger(x)) {
+	r <- .Internal(format(x, trim, digits, nsmall, width, 3L,
+			      na.encode, scientific, NA_character_))
+	## A wide identifier is exactly what a thousands separator is for,
+	## so this is not an ignorable argument here.
+	prettyNum(r, big.mark = big.mark, big.interval = big.interval,
+		  small.mark = small.mark, small.interval = small.interval,
+		  decimal.mark = decimal.mark, input.d.mark = decimal.mark,
+		  zero.print = zero.print, drop0trailing = drop0trailing,
+		  preserve.width = if (trim) "individual" else "common", ...)
     } else {
 	switch(mode(x),
 	       NULL = "NULL",
@@ -151,11 +161,13 @@ formatC <- function (x, digits = NULL, width = NULL,
     }
 
     if (!(n <- length(x))) return(character())
+    xint <- is.xinteger(x)
     if (is.null(mode))	  mode <- storage.mode(x)
     else if (any(mode == c("double", "real", "integer")))  {
       ## for .C call later on
 	if(mode == "real") mode <- "double"
 	storage.mode(x) <- mode
+	xint <- FALSE
     }
     else if (mode != "character")
         stop("'mode' must be \"double\" (\"real\"), \"integer\" or \"character\"")
@@ -167,13 +179,17 @@ formatC <- function (x, digits = NULL, width = NULL,
 	return(format.char(x, width=width, flag=flag))
     }
     if (missing(format) || is.null(format))
-	format <- if (mode == "integer") "d" else "g"
+	format <- if (mode == "integer" || xint) "d" else "g"
     else {
 	if (any(format == c("f", "e", "E", "g", "G", "fg"))) {
-	    if (mode == "integer") mode <- storage.mode(x) <- "double"
+	    if (mode == "integer" || xint) {
+		mode <- storage.mode(x) <- "double"
+		xint <- FALSE
+	    }
 	}
 	else if (format == "d") {
-	    if (mode != "integer") mode <- storage.mode(x) <- "integer"
+	    if (mode != "integer" && !xint)
+		mode <- storage.mode(x) <- "integer"
 	}
 	else stop('\'format\' must be one of {"f","e","E","g","G", "fg", "s"}')
     }
@@ -186,7 +202,7 @@ formatC <- function (x, digits = NULL, width = NULL,
     if(is.null(width) && is.null(digits))
 	width <- 1L
     if (is.null(digits))
-	digits <- if (mode == "integer") 2L else 4L
+	digits <- if (mode == "integer" || xint) 2L else 4L
     else if(digits < 0L)
 	digits <- 6L
     else {
@@ -199,26 +215,46 @@ formatC <- function (x, digits = NULL, width = NULL,
     }
     if(is.null(width))	width <- digits + 1L
     else if (width == 0L) width <- digits
-    i.strlen <-
-	pmax(abs(as.integer(width)),
-	     if(format == "fg" || format == "f") {
-		 xEx <- as.integer(floor(log10(abs(x + (x==0)))))
-		 as.integer(x < 0 | flag!="") + digits +
-		     if(format == "f") {
-			 2L + pmax(xEx, 0L)
-		     } else {# format == "fg"
-			 1L + pmax(xEx, digits, digits + (-xEx) + 1L) +
-			     length(nf) # == nchar(flag, "b")
-		     }
-	     } else # format == "g" or "e":
-		 rep.int(digits + 8L, n)
-	     )
-    if(digits > 0 && any(nf == "#"))
-	digits <- -digits # C-code will notice "do not drop trailing zeros"
+    if (xint) {
+	## sprintf() has the exact integer formatter for this type.  Negative
+	## widths mean left adjustment in formatC's C path.
+	if (width == 0L) stop("width cannot be zero")
+	if (width < 0L) {
+	    width <- -width
+	    if (!any(nf == "-")) flag <- paste0("-", flag)
+	}
+	## R's sprintf() takes only the C89 flags, so the two GNU ones
+	## formatC also accepts must be settled here rather than passed on:
+	## "'" is thousands grouping, which the prettyNum() tail below does
+	## with the separator C would have used, and "I" (the locale's
+	## alternative digits) has no equivalent at R level.
+	if (any(nf == "'") && !nzchar(big.mark))
+	    big.mark <- Sys.localeconv()[["thousands_sep"]]
+	flag <- gsub("['I]", "", flag)
 
-    attr(x, "Csingle") <- NULL	# avoid interpreting as.single
-    r <- .Internal(formatC(x, as.character(mode), width, digits,
-			   as.character(format), flag, i.strlen))
+	r <- sprintf(paste0("%", flag, width, "d"), x)
+    } else {
+	i.strlen <-
+	    pmax(abs(as.integer(width)),
+		 if(format == "fg" || format == "f") {
+		     xEx <- as.integer(floor(log10(abs(x + (x==0)))))
+		     as.integer(x < 0 | flag!="") + digits +
+			 if(format == "f") {
+			     2L + pmax(xEx, 0L)
+			 } else {# format == "fg"
+			     1L + pmax(xEx, digits, digits + (-xEx) + 1L) +
+				 length(nf) # == nchar(flag, "b")
+			 }
+		 } else # format == "g" or "e":
+		     rep.int(digits + 8L, n)
+		 )
+	if(digits > 0 && any(nf == "#"))
+	    digits <- -digits # C-code will notice "do not drop trailing zeros"
+
+	attr(x, "Csingle") <- NULL	# avoid interpreting as.single
+	r <- .Internal(formatC(x, as.character(mode), width, digits,
+			       as.character(format), flag, i.strlen))
+    }
     if (some.special) r[!Ok] <- format.char(rQ, width = width, flag = flag)
 
     if(nzchar(big.mark) || nzchar(small.mark) || decimal.mark != "." ||

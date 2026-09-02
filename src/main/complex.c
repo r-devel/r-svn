@@ -309,7 +309,29 @@ attribute_hidden SEXP do_cmathfuns(SEXP call, SEXP op, SEXP args, SEXP env)
 	    break;
 	}
     }
-    else if(isNumeric(x)) { /* so no complex numbers involved */
+    else if(TYPEOF(x) == XINTSXP &&
+		    (PRIMVAL(op) == 2 || PRIMVAL(op) == 4)) {
+	/* Im() is identically zero for a real value, and Arg() needs only
+	   its sign.  Neither operation needs the lossy double conversion
+	   that the other Complex-group members return, so values above 2^53
+	   must not warn (or fail under options(warn = 2)). */
+	n = XLENGTH(x);
+	if (PRIMVAL(op) == 2) { /* Im */
+	    PROTECT(y = allocVector(REALSXP, n));
+	    for(i = 0; i < n; i++) REAL(y)[i] = 0.0;
+	    if (ATTRIB(x) != R_NilValue)
+		SHALLOW_DUPLICATE_ATTRIB(y, x);
+	}
+	else { /* Arg */
+	    PROTECT(y = R_xintSign(x));
+	    double *py = REAL(y);
+	    for(i = 0; i < n; i++)
+		if (!ISNAN(py[i])) py[i] = py[i] < 0 ? M_PI : 0.0;
+	}
+	UNPROTECT(1);
+	return y;
+    }
+    else if(isNumericOrXInt(x)) { /* no complex numbers involved */
 	n = XLENGTH(x);
 	if(isReal(x)) PROTECT(x);
 	else PROTECT(x = coerceVector(x, REALSXP));

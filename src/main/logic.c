@@ -36,6 +36,15 @@ static SEXP lbinary(SEXP, SEXP, SEXP);
 static SEXP binaryLogic(int code, SEXP s1, SEXP s2);
 static SEXP binaryLogic2(int code, SEXP s1, SEXP s2);
 
+/* isNumber() deliberately describes the legacy numeric storage layouts:
+   callers elsewhere use it before reaching directly for INTEGER() or REAL().
+   Logical operators only need coercion, which 'xinteger' supports, so widen
+   the predicate locally rather than changing that global contract. */
+static R_INLINE Rboolean isLogicNumber(SEXP x)
+{
+    return isNumberOrXInt(x);
+}
+
 
 /* & | ! */
 attribute_hidden SEXP do_logic(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -74,8 +83,8 @@ static SEXP lbinary(SEXP call, SEXP op, SEXP args)
 
     if (isRaw(x) && isRaw(y)) {
     }
-    else if ( !(isNull(x) || isNumber(x)) ||
-	      !(isNull(y) || isNumber(y)) )
+    else if ( !(isNull(x) || isLogicNumber(x)) ||
+	      !(isNull(y) || isLogicNumber(y)) )
 	errorcall(call,
 		  _("operations are possible only for numeric, logical or complex types"));
 
@@ -184,7 +193,7 @@ static SEXP lunary(SEXP call, SEXP op, SEXP arg)
     R_xlen_t i, len;
 
     len = XLENGTH(arg);
-    if (!isLogical(arg) && !isNumber(arg) && !isRaw(arg)) {
+    if (!isLogical(arg) && !isLogicNumber(arg) && !isRaw(arg)) {
 	/* For back-compatibility */
 	if (!len) return allocVector(LGLSXP, 0);
 	errorcall(call, _("invalid argument type"));
@@ -258,6 +267,25 @@ static SEXP lunary(SEXP call, SEXP op, SEXP arg)
 	    }
 	}
 	break;
+    case XINTSXP:
+	{
+	    int *px = LOGICAL(x);
+	    int w = XINT_WIDTH(arg), k = XINT_KIND(arg);
+	    bool hasNA = XINT_HAS_NA(arg);
+	    const Rbyte *parg = XINT_DATA_RO(arg);
+	    for (i = 0; i < len; i++) {
+		const Rbyte *p = parg + i * w;
+		if (hasNA && R_xintEltIsNAFast(p, w, k)) {
+		    px[i] = NA_LOGICAL;
+		    continue;
+		}
+		bool nonzero = false;
+		for (int j = 0; j < w; j++)
+		    if (p[j]) { nonzero = true; break; }
+		px[i] = !nonzero;
+	    }
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("lunary", arg);
     }
@@ -280,7 +308,7 @@ attribute_hidden SEXP do_logic2(SEXP call, SEXP op, SEXP args, SEXP env)
     s1 = CAR(args);
     s2 = CADR(args);
     PROTECT(s1 = eval(s1, env));
-    if (!isNumber(s1))
+    if (!isLogicNumber(s1))
 	errorcall(call, _("invalid 'x' type in 'x %s y'"),
 		  PRIMVAL(op) == 1 ? "&&" : "||");
 
@@ -289,7 +317,7 @@ attribute_hidden SEXP do_logic2(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #define get_2nd							\
 	PROTECT(s2 = eval(s2, env));				\
-	if (!isNumber(s2))					\
+	if (!isLogicNumber(s2))					\
 	    errorcall(call, _("invalid 'y' type in 'x %s y'"),	\
 		      PRIMVAL(op) == 1 ? "&&" : "||");		\
 	x2 = asLogical2(s2, 1, call);			\

@@ -55,11 +55,22 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     be read.  (Here \sQuote{type} is used in the sense of
     \code{\link{typeof}}.)  The supported types are \code{logical},
     \code{integer}, \code{numeric}, \code{complex}, \code{character},
-    \code{raw} and \code{\link{list}}.  If \code{what} is a list, it is
+    \code{raw}, \code{\link{xinteger}} and \code{\link{list}}.  If
+    \code{what} is a list, it is
     assumed that the lines of the data file are records each containing
     \code{length(what)} items (\sQuote{fields}) and the list components
-    should have elements which are one of the first six (\link{atomic})
-    types listed or \code{NULL}, see section \sQuote{Details} below.}
+    should have elements which are one of the atomic
+    types listed or \code{NULL}, see section \sQuote{Details} below.
+
+    An \code{\link{xinteger}} prototype such as
+    \code{xinteger(0L, 8L, "signed")} is read as one element of that
+    type per field, and may equally be a list component.  Thus a column
+    of 64-bit identifiers can be read at full precision without going
+    through \code{character}.  As for every other type, it is the
+    prototype's \code{\link{typeof}} that selects the type: a
+    storage-mode name such as \code{"int64"} is a character vector, and
+    is read as \code{character} just as \code{"integer"} is.  Use
+    \code{\link{read.table}}'s \code{colClasses} to name a type.}
 
   \item{nmax}{the maximum number of data values to be read, or if
     \code{what} is a list, the maximum number of records to be read.  If

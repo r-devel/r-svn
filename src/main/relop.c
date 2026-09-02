@@ -36,6 +36,9 @@ static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP complex_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
 static SEXP string_relop (RELOP_TYPE code, SEXP s1, SEXP s2);
 static SEXP raw_relop    (RELOP_TYPE code, SEXP s1, SEXP s2);
+static SEXP xint_relop  (RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call);
+static SEXP xint_numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2,
+				SEXP call);
 
 #define DO_SCALAR_RELOP(oper, x, y) do {		\
 	switch (oper) {					\
@@ -360,10 +363,25 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
             warningcall(call, _(
 		"longer object length is not a multiple of shorter object length"));
 
+    /* A character operand wins here as it does for every other type,
+       and before the 'xinteger' arms: as.character() of an element is
+       exact and reversible at every width, so this is the one promotion
+       an 'xinteger' operand can take without losing anything.  It is
+       also what c() and x[i] <- value already do, and having ==,
+       match() and %in% disagree with them about the same pair of
+       operands is worse than inheriting string collation. */
     if (isString(x) || isString(y)) {
 	REPROTECT(x = coerceVector(x, STRSXP), xpi);
 	REPROTECT(y = coerceVector(y, STRSXP), ypi);
 	x = string_relop((RELOP_TYPE) PRIMVAL(op), x, y);
+    }
+    else if ((TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) &&
+	(TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP ||
+	 TYPEOF(x) == CPLXSXP || TYPEOF(y) == CPLXSXP)) {
+	x = xint_numeric_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
+    }
+    else if (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) {
+	x = xint_relop((RELOP_TYPE) PRIMVAL(op), x, y, call);
     }
     else if (isComplex(x) || isComplex(y)) {
 	REPROTECT(x = coerceVector(x, CPLXSXP), xpi);
@@ -394,6 +412,24 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
 	x = raw_relop((RELOP_TYPE) PRIMVAL(op), x, y);
     } else errorcall(call, _("comparison of these types is not implemented"));
   } else { // nx == 0 || ny == 0
+	if (TYPEOF(x) == XINTSXP && TYPEOF(y) == XINTSXP)
+	    /* an empty operand still has a type, and answering
+	       logical(0) for a pair that c(), min() and union() refuse
+	       is the silent divergence these checks exist to prevent */
+	    R_xintCheckPair(call, x, y, "compare");
+	else if (TYPEOF(x) == XINTSXP || TYPEOF(y) == XINTSXP) {
+	    /* the same rule at length zero as at any other: a pairing
+	       the narrowing refuses is refused here too, without paying
+	       for the narrowing itself */
+	    SEXP o = (TYPEOF(x) == XINTSXP) ? y : x;
+	    if (TYPEOF(o) == STRSXP)
+		;		/* both go to character; see above */
+	    else if (TYPEOF(o) == REALSXP || TYPEOF(o) == CPLXSXP) {
+		if (TYPEOF(o) == CPLXSXP && PRIMVAL(op) != EQOP && PRIMVAL(op) != NEOP)
+		    errorcall(call, _("invalid comparison with complex values"));
+	    }
+	    else R_xintCheckOperand(o, call);
+	}
 	x = allocVector(LGLSXP, 0);
   }
 
@@ -459,6 +495,59 @@ attribute_hidden SEXP do_relop_dflt(SEXP call, SEXP op, SEXP x, SEXP y)
         break;                                                          \
     }                                                                   \
 } while(0)
+
+static int relopFromCmp(RELOP_TYPE code, int cmp)
+{
+    switch (code) {
+    case EQOP: return cmp == 0;
+    case NEOP: return cmp != 0;
+    case LTOP: return cmp < 0;
+    case GTOP: return cmp > 0;
+    case LEOP: return cmp <= 0;
+    case GEOP: return cmp >= 0;
+    }
+    return FALSE;
+}
+
+/* Compare in the exact integer/double domain.  Converting the integer
+   first would make 2^53+1 equal to 2^53, so even a precision warning
+   could not rescue the resulting logical answer. */
+static SEXP xint_numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2,
+				SEXP call)
+{
+    bool left = TYPEOF(s1) == XINTSXP;
+    SEXP b = left ? s1 : s2, o = left ? s2 : s1;
+    int w = XINT_WIDTH(b), kind = XINT_KIND(b);
+    bool hasNA = XINT_HAS_NA(b);
+    bool complex = TYPEOF(o) == CPLXSXP;
+    if (complex && code != EQOP && code != NEOP)
+	errorcall(call, _("invalid comparison with complex values"));
+
+    R_xlen_t nb = XLENGTH(b), no = XLENGTH(o), n = nb > no ? nb : no;
+    SEXP ans = PROTECT(allocVector(LGLSXP, n));
+    for (R_xlen_t i = 0; i < n; i++) {
+	double value, imaginary = 0.0;
+	if (complex) {
+	    Rcomplex z = COMPLEX_ELT(o, i % no);
+	    value = z.r; imaginary = z.i;
+	}
+	else value = REAL_ELT(o, i % no);
+
+	bool isNA;
+	int cmp = R_xintEltCompareReal(XINT_ELT_RO(b, i % nb), w, kind,
+					       hasNA, value, &isNA);
+	if (complex && ISNAN(imaginary)) isNA = true;
+	if (isNA) LOGICAL(ans)[i] = NA_LOGICAL;
+	else if (complex && imaginary != 0.0)
+	    LOGICAL(ans)[i] = code == NEOP;
+	else {
+	    if (!left) cmp = -cmp;
+	    LOGICAL(ans)[i] = relopFromCmp(code, cmp);
+	}
+    }
+    UNPROTECT(1);
+    return ans;
+}
 
 static SEXP numeric_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
 {
@@ -661,6 +750,82 @@ static SEXP string_relop(RELOP_TYPE code, SEXP s1, SEXP s2)
     }
     UNPROTECT(3);
     vmaxset(vmax);
+    return ans;
+}
+
+/* R_xintEltCmp() compares numeric values: most-significant byte first,
+   interpreting the top byte as signed for the signed kind.  This is the
+   same order bcmp_() in sort.c uses, and is portable across byte orders
+   even though the in-memory payload is native-endian. */
+static SEXP xint_relop(RELOP_TYPE code, SEXP s1, SEXP s2, SEXP call)
+{
+    R_xlen_t i, i1, i2, n, n1, n2;
+    SEXP ans;
+
+    SEXP b = (TYPEOF(s1) == XINTSXP) ? s1 : s2;
+    int w = XINT_WIDTH(b), k = XINT_KIND(b);
+    bool hasNA = XINT_HAS_NA(b);
+
+    /* which side narrowed, and where its operands fell outside the
+       type; see R_xintNarrowCmp() */
+    int *dir = NULL, side = 0;
+    const void *vmax = vmaxget();
+
+    PROTECT_INDEX p1, p2;
+    PROTECT_WITH_INDEX(s1, &p1);
+    PROTECT_WITH_INDEX(s2, &p2);
+    if (TYPEOF(s1) == XINTSXP && TYPEOF(s2) == XINTSXP)
+	R_xintCheckPair(call, s1, s2, "compare");
+    else if (TYPEOF(s1) == XINTSXP) {
+	dir = (int *) R_alloc(XLENGTH(s2) + 1, sizeof(int));
+	REPROTECT(s2 = R_xintNarrowCmp(s2, w, k, XINT_HAS_NA(s1), dir, call), p2);
+	side = 2;
+    }
+    else {
+	dir = (int *) R_alloc(XLENGTH(s1) + 1, sizeof(int));
+	REPROTECT(s1 = R_xintNarrowCmp(s1, w, k, XINT_HAS_NA(s2), dir, call), p1);
+	side = 1;
+    }
+
+    n1 = XLENGTH(s1);
+    n2 = XLENGTH(s2);
+    n = (n1 > n2) ? n1 : n2;
+    PROTECT(ans = allocVector(LGLSXP, n));
+
+    const Rbyte *px1 = XINT_DATA_RO(s1);
+    const Rbyte *px2 = XINT_DATA_RO(s2);
+    int *pa = LOGICAL(ans);
+
+    /* every operator is a function of the comparison's sign, so the
+       per-element dispatch the sibling kernels hoist into one loop per
+       operator collapses here to a table settled before the loop */
+    int map[3];
+    map[0] = (code == NEOP || code == LTOP || code == LEOP);	/* c < 0 */
+    map[1] = (code == EQOP || code == LEOP || code == GEOP);	/* c == 0 */
+    map[2] = (code == NEOP || code == GTOP || code == GEOP);	/* c > 0 */
+
+    MOD_ITERATE2(n, n1, n2, i, i1, i2, {
+	const Rbyte *p1 = px1 + i1 * w;
+	const Rbyte *p2 = px2 + i2 * w;
+	int d = dir ? dir[(side == 1) ? i1 : i2] : 0;
+	/* missing either as the type's own reserved pattern or, where it
+	   reserves none, as a mark from the narrowing */
+	if (d == XINT_CMP_NA ||
+	    (hasNA && (R_xintEltIsNAFast(p1, w, k) ||
+		       R_xintEltIsNAFast(p2, w, k)))) {
+	    pa[i] = NA_LOGICAL;
+	    continue;
+	}
+	/* an operand the type cannot hold is not missing: it lies below
+	   or above every element, so the comparison is settled by which
+	   side it was on and which way it fell */
+	int c = d ? ((side == 1) ? d : -d) : R_xintEltCmp(p1, p2, w, k);
+	pa[i] = map[(c < 0) ? 0 : ((c == 0) ? 1 : 2)];
+    });
+
+    UNPROTECT(3); /* ans, s2, s1 */
+    vmaxset(vmax);
+
     return ans;
 }
 
@@ -880,6 +1045,11 @@ attribute_hidden SEXP do_bitwise(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP ans = R_NilValue; /* -Wall */
+
+    /* 'xinteger' vectors use their own width-aware path. */
+    if(TYPEOF(CAR(args)) == XINTSXP || TYPEOF(CADR(args)) == XINTSXP)
+	return R_xintBitwise(call, PRIMVAL(op), CAR(args), CADR(args));
+
     switch(PRIMVAL(op)) {
     case 1: ans = bitwiseAnd(CAR(args), CADR(args)); break;
     case 2: ans = bitwiseNot(CAR(args)); break;

@@ -116,6 +116,12 @@ sort.int <-
     else if (method == "auto" || !is.numeric(x))
           method <- "shell" # explicitly prevent 'quick' for non-numeric data
 
+    ## The internal qsort kernels understand the legacy integer and double
+    ## layouts only.  Fixed-width integers have a native value-aware sort,
+    ## reached through the shell-method entry point below.
+    if (method == "quick" && typeof(x) == "xinteger")
+        method <- "shell"
+
     if(isfact <- is.factor(x)) {
         if(index.return) stop("'index.return' only for non-factors")
 	lev <- levels(x)

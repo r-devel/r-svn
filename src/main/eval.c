@@ -1108,6 +1108,7 @@ SEXP eval(SEXP e, SEXP rho)
     case STRSXP:
     case CPLXSXP:
     case RAWSXP:
+    case XINTSXP:
     case OBJSXP:
     case SPECIALSXP:
     case BUILTINSXP:
@@ -2701,6 +2702,18 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call)
 	}							\
     } while(0)
 
+/* As above, for a type whose element size is a property of the vector
+   rather than of the SEXPTYPE, so that allocVector() cannot reproduce
+   it.  The sequence is fixed for the whole loop, so the value is still
+   reusable across iterations. */
+#define ALLOC_LOOP_VAR_LIKE(v, val, vpi) do {			\
+	if (v == R_NilValue || MAYBE_SHARED(v) ||		\
+	    ATTRIB(v) != R_NilValue || (v) != CAR(cell)) {	\
+	    REPROTECT(v = R_allocVectorLike(val, 1), vpi);	\
+	    INCREMENT_NAMED(v);					\
+	}							\
+    } while(0)
+
 attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP Cond, Stmt=R_NilValue;
@@ -2868,6 +2881,11 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case RAWSXP:
 		ALLOC_LOOP_VAR(v, val_type, vpi);
 		SET_SCALAR_BVAL(v, RAW(val)[i]);
+		break;
+	    case XINTSXP:
+		ALLOC_LOOP_VAR_LIKE(v, val, vpi);
+		memcpy(XINT_DATA(v), XINT_ELT_RO(val, i),
+		       (size_t) XINT_WIDTH(val));
 		break;
 	    default:
 		errorcall(call, _("invalid for() loop sequence"));
@@ -6248,7 +6266,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
   R_Visible = TRUE; \
   NEXT(); \
 } while (0)
-#define isNumericOnly(x) (isNumeric(x) && ! isLogical(x))
+#define isNumericOnly(x) (isNumericOrXInt(x) && ! isLogical(x))
 
 #ifdef BC_PROFILING
 #define NO_CURRENT_OPCODE -1
@@ -6798,7 +6816,7 @@ static R_INLINE void SUBASSIGN_N_PTR(R_bcstack_t *sx, int rank,
 	if (IS_SIMPLE_SCALAR(val, LGLSXP))				\
 	    SETSTACK(-1, ScalarLogical(SCALAR_LVAL(val)));		\
 	else {								\
-	    if (!isNumber(val))						\
+	    if (!isNumberOrXInt(val))				\
 		errorcall(GETCONST(constants, callidx),			\
 			  _("invalid %s type in 'x %s y'"), arg, op);	\
 	    SETSTACK(-1, ScalarLogical(asLogical2(			\
@@ -6883,6 +6901,21 @@ typedef struct {
 	    (var) != CAR(cell) || MAYBE_SHARED(var) ||	\
 	    ATTRIB(var) != R_NilValue) {		\
 	    (var) = allocVector(TYPEOF(seq), 1);	\
+	    SETSTACK_NLNK(-1, var);			\
+	    INCREMENT_NAMED(var);			\
+	}						\
+    } while (0)
+
+/* As above, for a type whose element size is a property of the vector
+   rather than of the SEXPTYPE, so that allocVector() cannot reproduce
+   it.  The sequence is fixed for the whole loop, so the cached value
+   is still reusable across iterations. */
+#define GET_VEC_LOOP_VALUE_LIKE(var) do {		\
+	(var) = GETSTACK_SXPVAL(-1);			\
+	if (BNDCELL_TAG(cell) ||			\
+	    (var) != CAR(cell) || MAYBE_SHARED(var) ||	\
+	    ATTRIB(var) != R_NilValue) {		\
+	    (var) = R_allocVectorLike(seq, 1);		\
 	    SETSTACK_NLNK(-1, var);			\
 	    INCREMENT_NAMED(var);			\
 	}						\
@@ -7812,6 +7845,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  case RAWSXP:
 	    GET_VEC_LOOP_VALUE(value);
 	    SET_SCALAR_BVAL(value, RAW(seq)[i]);
+	    break;
+	  case XINTSXP:
+	    GET_VEC_LOOP_VALUE_LIKE(value);
+	    memcpy(XINT_DATA(value), XINT_ELT_RO(seq, i),
+		   (size_t) XINT_WIDTH(seq));
 	    break;
 	  case EXPRSXP:
 	  case VECSXP:

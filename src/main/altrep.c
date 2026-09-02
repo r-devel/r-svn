@@ -273,6 +273,27 @@ ALTREP_SERIALIZED_CLASS(SEXP x)
     return val != R_NilValue ? val : NULL;
 }
 
+/* Whether x's class is one of R's own -- the compact sequences, the
+   wrappers, the deferred string conversions, the mmap classes.
+
+   A caller that has to reason about what an ALTREP object can be
+   holding can do that for these, whose data1 and data2 are R's own and
+   are laid out in this file; for a class from a package it cannot.
+   The package name is whatever was passed to R_make_alt*_class(), so a
+   package registering itself under "base" is taken at its word -- it
+   has already broken the lookup its own unserialization depends on. */
+attribute_hidden bool ALTREP_IS_BASE_CLASS(SEXP x)
+{
+    static SEXP base = NULL;
+    if (base == NULL)
+	base = install("base");
+
+    SEXP info = ALTREP_SERIALIZED_CLASS(x);
+
+    return info != NULL && TYPEOF(info) == LISTSXP &&
+	ALTREP_SERIALIZED_CLASS_PKGSYM(info) == base;
+}
+
 static SEXP find_namespace(void *data) { return R_FindNamespace((SEXP) data); }
 static SEXP handle_namespace_error(SEXP cond, void *data) { return R_NilValue; }
 

@@ -1082,6 +1082,17 @@ checkRdaFiles <- function(paths)
     row.names(res) <- paths
     keep <- file.exists(paths)
     res$size[keep] <- file.size(paths)[keep]
+    readMagic <- function(file)
+    {
+        con <- gzfile(file); on.exit(close(con))
+        readChar(con, 5L, useBytes = TRUE)
+    }
+    getVerLoad <- function(file, fallback)
+    {
+        con <- gzfile(file, "rb"); on.exit(close(con))
+        tryCatch(.Internal(loadInfoFromConn2(con))$version,
+                 error = function(e) fallback)
+    }
     for(p in paths[keep]) {
         magic <- readBin(p, "raw", n = 5)
         res[p, "compress"] <- if(all(magic[1:2] == c(0x1f, 0x8b))) "gzip"
@@ -1089,13 +1100,18 @@ checkRdaFiles <- function(paths)
         else if(magic[1L] == 0xFD && rawToChar(magic[2:5]) == "7zXZ") "xz"
         else if(grepl("RD[ABX][1-9]", rawToChar(magic), useBytes = TRUE)) "none"
         else "unknown"
-        con <- gzfile(p)
-        magic <- readChar(con, 5L, useBytes = TRUE)
-        close(con)
+        magic <- readMagic(p)
         if (grepl("RD[ABX][1-9]", magic, useBytes = TRUE)) {
             res[p, "ASCII"]  <- substr(magic, 3, 3) == "A"
             ver <- sub("(RD[ABX])([1-9])", "\\2", magic, useBytes = TRUE)
-            res[p, "version"] <- as.integer(ver)
+            ver <- as.integer(ver)
+            ## The magic stops at 3: R_ReadMagic() knows no higher digit,
+            ## so a version 3 or newer stream is written "RDX3" and says
+            ## which it really is in its own header.  Version 1 has no
+            ## such header, and .Internal() below errors on one.
+            if (ver >= 3L)
+                ver <- getVerLoad(p, ver)
+            res[p, "version"] <- ver
         }
     }
     res

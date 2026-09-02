@@ -91,6 +91,9 @@ is.array(x)
   \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
+  \code{\link{.arraylike}}, which is given the element type by an object
+  rather than by the data.
+
   \code{\link{aperm}}, \code{\link{matrix}},
   \code{\link{dim}}, \code{\link{dimnames}}.
 }

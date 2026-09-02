@@ -28,11 +28,56 @@
       \item The Sweave syntax definition objects
       \code{SweaveSyntaxNoweb} and \code{SweaveSyntaxLatex} now each have
       their own detailed help page.
+
+      \item \code{readBin()} and \code{scan()} accept detailed
+      \code{xinteger} names such as \code{"int64"}, or prototypes, for
+      \code{what}; \code{read.table()} accepts the names in
+      \code{colClasses}.  The ten names are matched exactly, so the
+      previous character interpretation of, e.g., \code{"int24"} is
+      unchanged.
+
+      \item There is a new serialization format version, 4, for streams
+      containing an \code{xinteger} vector; it records 4.7.0 as the least
+      version that can read it.  The serialization functions select it
+      automatically when required, or conservatively for some package
+      \I{ALTREP} objects, while ordinary objects remain at version 3.
+      \code{saveRDS()} and \code{save()} report the choice with a
+      \code{message()}; see \code{?serialize}.
     }
   }
 
   \subsection{New Features}{
     \itemize{
+      \item There is a new atomic vector type, \code{xinteger}
+      (\code{XINTSXP}), for signed and unsigned integers 1, 2, 4, 8 or
+      16 bytes wide.  \code{typeof()} reports \code{"xinteger"}, while
+      \code{storage.mode()} gives a detailed name such as \code{"uint64"}.
+      The vectors are numeric and retain their width through arithmetic,
+      comparison, bitwise operations, sorting, matching and serialization;
+      promotion to double warns on actual precision loss.  Constructors
+      and conversion accept detailed names; binary and delimited input
+      also accept prototypes as appropriate; see \code{?xinteger}.
+      \code{get()},
+      \code{exists()} and \code{mget()} find them under
+      \code{mode = "numeric"}, or by a detailed name matching the width
+      and kind with either \code{NA}-sentinel policy.
+
+      \item \code{.storage_info()} reports the storage properties of a
+      vector of any type: its \code{typeof()} and \code{storage.mode()},
+      the size of an element in bytes, whether that element is a signed
+      or an unsigned integer, and whether the representation reserves an
+      \code{NA} sentinel.  Chiefly for package code that has to decide
+      what to map an external column onto.
+
+      \item New functions \code{.vectorlike()} and \code{.arraylike()}
+      build a vector or an array whose element type is that of an object
+      handed to them, where \code{vector()} and \code{array()} are told
+      a mode by name.  This is the only way to ask for an element type
+      that no name describes, such as an \code{xinteger} vector
+      reserving no \code{NA} sentinel.  \code{apply()}, \code{diag()},
+      \code{tapply()} and \code{parallel::parApply()} use them to build
+      an empty result of the type they were given.
+
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
       suppresses warnings about \dQuote{notches outside hinges}.
 

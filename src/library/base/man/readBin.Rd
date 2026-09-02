@@ -24,13 +24,19 @@ writeBin(object, con, size = NA_integer_,
     vector to be read, or a character vector of length one describing
     the mode: one of \code{"numeric"}, \code{"double"},
     \code{"integer"}, \code{"int"}, \code{"logical"}, \code{"complex"},
-    \code{"character"}, \code{"raw"}.}
+    \code{"raw"}, \code{"character"}, or the name of an \code{xinteger}
+    type such as \code{"int64"} or \code{"uint64"}
+    (see \sQuote{Details}).  A character vector of length one that is
+    none of these is taken as an object, and so gives mode
+    \code{"character"} -- including a name of the same shape as an
+    \code{xinteger} one but another width, such as \code{"int24"}.}
   \item{n}{numeric.  The (maximal) number of records to be
     read.  You can use an over-estimate here, but not too large as
     storage is reserved for \code{n} items.}
   \item{size}{integer.  The number of bytes per element in the byte
     stream.  The default, \code{NA_integer_}, uses the natural size.
-    Size changing is not supported for raw and complex vectors.}
+    Size changing is not supported for raw, complex or \code{xinteger}
+    vectors.}
   \item{signed}{logical.  Only used for integers of sizes 1 and 2,
     when it determines if the quantity on file
     should be regarded as a signed or unsigned integer.}
@@ -81,6 +87,26 @@ writeBin(object, con, size = NA_integer_,
   \sQuote{Endian-ness} is relevant for \code{size > 1}, and should
   always be set for portable code (the default is only appropriate when
   writing and then reading files on the same platform).
+
+  \code{what} may also name a \code{\link{xinteger}} type, in which case
+  each record is read as one element of that type.  The supported names are
+  \code{"int8"}, \code{"int16"}, \code{"int32"}, \code{"int64"},
+  \code{"int128"}, and their \code{"uint"} counterparts.  A name of this
+  form with another width retains its existing interpretation as a character
+  prototype rather than naming an \code{xinteger} type.  Reading
+  \code{integer}s of \code{size = 8} instead narrows each value to
+  32 bits, which is silently wrong for anything outside that range;
+  \code{"int64"} keeps the value.  Passing a prototype rather than a
+  name -- \code{readBin(con, xinteger(0L, 8L, "signed", na = FALSE), n)}
+  -- additionally says whether the type reserves a value for \code{NA},
+  which matters when every bit pattern in the file is a legitimate
+  value.  \code{endian} applies because elements are stored in native
+  byte order.  \code{size} must be the width of the type.
+
+  When \code{object} is an \code{xinteger}, \code{writeBin} writes each
+  fixed-width payload element without numeric coercion.  Its \code{size}
+  must likewise be omitted or equal the element width, and \code{endian}
+  controls whether the native-order payload bytes are swapped on output.
 }
 
 \note{
@@ -173,6 +199,15 @@ z <- writeBin(pi^{1:5}, raw(), size = 4)
 readBin(z, numeric(), 5, size = 4)
 z <- writeBin(c("a", "test", "of", "character"), raw())
 readBin(z, character(), 4)
+
+## 64-bit integers: 2^32 + 1, little-endian
+z <- as.raw(c(1, 0, 0, 0, 1, 0, 0, 0))
+readBin(z, "integer", 1, size = 8, endian = "little") # narrowed: 1
+readBin(z, "int64", 1, endian = "little")             # 4294967297
+
+## the same file written on a big-endian machine
+z <- writeBin(as.xinteger("4294967297", 8L, "signed"), raw(), endian = "big")
+readBin(z, "int64", 1, endian = "big")
 }
 \keyword{file}
 \keyword{connection}

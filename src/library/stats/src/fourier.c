@@ -48,6 +48,9 @@ SEXP fft(SEXP z, SEXP inverse)
     case REALSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
+    case XINTSXP:
+	z = coerceVector(z, CPLXSXP);
+	break;
     case CPLXSXP:
 	if (MAYBE_REFERENCED(z)) z = duplicate(z);
 	break;
@@ -141,6 +144,9 @@ SEXP mvfft(SEXP z, SEXP inverse)
     case INTSXP:
     case LGLSXP:
     case REALSXP:
+	z = coerceVector(z, CPLXSXP);
+	break;
+    case XINTSXP:
 	z = coerceVector(z, CPLXSXP);
 	break;
     case CPLXSXP:

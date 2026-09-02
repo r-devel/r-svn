@@ -49,14 +49,23 @@ R_xlen_t asVecSize(SEXP x)
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    /* a negative size is the caller's to interpret -- readLines()
+	       reads to the end on n = -1 -- so it is only clamped into
+	       the range the cast below can represent */
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;
 	    return (R_xlen_t) d;
 	}
 	case STRSXP:
+	case XINTSXP:
 	{
+	    /* asReal() reads an 'xinteger' element by its width and kind;
+	       a size a double cannot name exactly is past R_XLEN_T_MAX
+	       and turned away here anyway */
 	    double d = asReal(x);
 	    if(ISNAN(d)) error(_("vector size cannot be NA/NaN"));
 	    if(!R_FINITE(d)) error(_("vector size cannot be infinite"));
 	    if(d > R_XLEN_T_MAX) error(_("vector size specified is too large"));
+	    if(d < -R_XLEN_T_MAX) return -R_XLEN_T_MAX;	/* as above */
 	    return (R_xlen_t) d;
 	}
 	default:
@@ -652,11 +661,10 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    else if (isSymbol(s)) /* length 1 */
 		p = CHAR(PRINTNAME(s));
 	    else if (isVectorAtomic(s)) {
-		/* Not a string, as that is covered above.
-		   Thus the maximum size is about 60.
-		   The copy is needed as cat_newline might reuse the buffer.
-		   Use strncpy is in case these assumptions change.
-		*/
+		/* Not a string, as that is covered above.  The widest
+		   'xinteger' rendering is a signed 128-bit value: 40
+		   characters including its sign.  Copy because cat_newline()
+		   may reuse EncodeElement0()'s shared buffer. */
 		p = EncodeElement0(s, 0, 0, OutDec);
 		strncpy(buf, p, 511); buf[511] = '\0';
 		p = buf;
@@ -794,9 +802,30 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (len < 0) error(_("invalid '%s' argument"), "length");
     s = coerceVector(CAR(args), STRSXP);
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
-    mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
-    if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
+    const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
+
+    /* A detailed 'xinteger' storage mode names its width and kind --
+       for example, "int64" or "uint128" -- because those are per-vector
+       properties that a SEXPTYPE cannot carry.  Checked before
+       str2type(), which knows only the incomplete structural name
+       "xinteger". */
+    int bwidth, bkind;
+    if (R_xintTypeFromName(modestr, &bwidth, &bkind)) {
+	SEXP ans = PROTECT(R_allocXIntVector(len, bwidth, bkind, TRUE));
+	/* vector(), unlike a C-level atomic allocator, zero-fills. */
+	if (len > 0)
+	    memset(XINT_DATA(ans), 0, (size_t) len * bwidth);
+	UNPROTECT(1);
+	return ans;
+    }
+
+    mode = str2type(modestr);
+    if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
+    if (mode == XINTSXP)
+	error(_("'%s' does not name a complete storage mode; give a width "
+		"and a kind, as '%s' does, or use '%s' with an existing vector"),
+	      "xinteger", "int64", ".vectorlike");
     switch (mode) {
     case LGLSXP:
     case INTSXP:
@@ -846,7 +875,7 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
-    PROTECT(rval = allocVector(TYPEOF(x), len));
+    PROTECT(rval = R_allocVectorLike(x, len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)
 	names = allocVector(STRSXP, len);
@@ -921,6 +950,22 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
 	    }
 	    else
 		RAW(rval)[i] = (Rbyte) 0;
+	break;
+    case XINTSXP:
+	{
+	    int w = XINT_WIDTH(x), k = XINT_KIND(x);
+	    for (i = 0; i < len; i++)
+		if (i < lenx) {
+		    memcpy(XINT_ELT(rval, i), XINT_ELT_RO(x, i),
+			   (size_t) w);
+		    if (xnames != R_NilValue)
+			SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+		}
+		else {
+		    R_xintCheckNA(rval);
+		    R_xintSetEltNA(XINT_ELT(rval, i), w, k);
+		}
+	}
 	break;
     default:
 	UNIMPLEMENTED_TYPE("length<-", x);

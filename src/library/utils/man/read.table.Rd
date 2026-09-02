@@ -135,10 +135,18 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     Possible values are \code{NA} (the default, when
     \code{\link{type.convert}} is used), \code{"NULL"} (when the column
     is skipped), one of the atomic vector classes (logical, integer,
-    numeric, complex, character, raw), or \code{"factor"}, \code{"Date"}
+    numeric, complex, character, raw), the name of a
+    \code{\link{xinteger}} type such as \code{"int64"} or \code{"uint64"},
+    or \code{"factor"}, \code{"Date"}
     or \code{"POSIXct"}.  Otherwise there needs to be an \code{as}
     method (from package \pkg{methods}) for conversion from
     \code{"character"} to the specified formal class.
+
+    A \code{\link{xinteger}} class is read directly by \code{\link{scan}}
+    rather than read as character and converted afterwards, so a column
+    of 64-bit keys costs no intermediate strings.  Note that
+    \code{\link{type.convert}} never produces one: a column is read as
+    a 64-bit type only when \code{colClasses} asks for it.
 
     Note that \code{colClasses} is specified per column (not per
     variable) and so includes the column of row names (if any).

@@ -104,6 +104,8 @@ src/main/sysutils.c
 src/main/unique.c
 src/main/util.c
 src/main/version.c
+src/main/xints.c
+src/main/xintsarith.c
 src/main/xspline.c
 src/modules/X11/dataentry.c
 src/modules/X11/devX11.c

@@ -14995,6 +14995,152 @@ have to fully materialize the object.
 @apifun SET_RAW_ELT
 @apifun SET_REAL_ELT
 
+@subsection @code{xinteger} vectors
+
+A @code{xinteger} vector (@code{XINTSXP}) holds @code{XLENGTH(x)} elements
+of @code{R_xintWidth(x)} bytes each.  Unlike every other vector type
+the element size is a property of the vector rather than of the
+@code{SEXPTYPE}, so @code{Rf_allocVector} cannot make one and there is
+no fixed C type to cast the payload to; use @code{R_allocXIntVector}
+instead.  Like @code{Rf_allocVector} for other atomic vector types,
+@code{R_allocXIntVector} leaves the payload uninitialized; callers must
+fill every element before exposing the result to @R{}.  The width, the
+@emph{kind} and whether a value is reserved
+for @code{NA} together make up a vector's @dfn{element type}: two
+@code{xinteger} vectors can be combined or compared only if all three
+agree, and the @code{SEXPTYPE} they share says nothing about any of
+them.
+
+The widths are 1, 2, 4, 8 and 16 bytes -- 8, 16, 32, 64 and 128 bits --
+and every operation the type defines works at all of them.  Code that is
+choosing what to map an external column onto should nevertheless ask
+@code{R_xintTypeSupported} before it commits rather than let
+@code{R_allocXIntVector} refuse: the refusal is an R error, and unwinding
+out of a partly built reader is rarely what such code wants.  Asking also
+keeps such a reader working unchanged if the set of widths is ever
+widened.
+@apifun R_allocXIntVector
+@apifun R_isXInt
+@apifun R_xintTypeSupported
+@apifun R_xintWidth
+@apifun R_xintKind
+@apifun R_xintHasNA
+
+At the R interface @code{is.numeric(x)} is true and @code{mode(x)} is
+@code{"numeric"}.  The older package-facing @code{Rf_isNumeric}
+predicate is deliberately unchanged, however: existing callers may assume
+that every object it accepts has one of the long-established logical,
+integer or double layouts.  Package code prepared for this representation
+should test @code{R_isXInt} explicitly.  Also note that
+@code{R_typeToChar(x)} returns the detailed storage name, such as
+@code{"uint64"}, rather than the structural @code{typeof} name
+@code{"xinteger"}; this makes diagnostics identify the representation
+that an operation received.
+
+The @emph{kind} says whether elements are signed or unsigned.
+@code{XINT_UNSIGNED} and @code{XINT_SIGNED} elements are integers of
+@code{8 * width} bits held in the platform's @emph{native}
+byte order, so a value that is already in native order -- a C
+@code{int64_t}, say -- can be copied in verbatim.  A source with a
+fixed external byte order must be converted first, as @code{readBin}
+does when its @code{endian} argument disagrees with the platform.
+
+Missingness works as it does for the other atomic types: one value of
+the type is reserved as a @dfn{sentinel} and read as @code{NA}, the
+way @code{NA_INTEGER} and @code{NA_REAL} reserve one value of theirs
+(@pxref{Missing and IEEE values}).  For an @code{xinteger} vector the
+sentinel is part of the element type rather than fixed by the
+@code{SEXPTYPE}, and it is optional: the @code{hasNA} argument says
+whether one value of that width is set aside, all bits set for the
+unsigned kind and the most negative value for the signed
+kind.  Pass @code{FALSE} when every bit pattern in the source is a
+legitimate value: with no sentinel to spare, operations that would
+have to produce @code{NA} raise an error instead of silently colliding
+with a real datum.
+
+@code{XINTEGER} and @code{XINTEGER_RO} return a pointer to the whole payload,
+which is @code{XLENGTH(x) * R_xintWidth(x)} bytes laid out end to end.
+The untyped @code{DATAPTR_RO} deliberately refuses an @code{xinteger}
+vector, since a caller that does not know the width and kind cannot
+read it correctly.
+@apifun XINTEGER
+@apifun XINTEGER_RO
+
+The payload begins where any other vector's does, and so has the
+alignment @R{} gives a @code{double}; an element is at a multiple of the
+width from there.  Widths up to 8 therefore fall on their own natural
+alignment.  Width 16 does not: @R{} promises no 16-byte alignment for
+any type, and does not give its own 16-byte @code{Rcomplex} one either.
+
+So once the width and kind have been checked, a payload of width 1, 2,
+4 or 8 may be cast to @code{int8_t *}, @code{int16_t *},
+@code{int32_t *} or @code{int64_t *} (or their unsigned counterparts)
+and indexed, exactly as @code{INTEGER} hands back an @code{int *}.  That
+is the usual shape, since the caller has generally coerced with
+@code{as.int64} or a sibling before @code{.Call} and the C code only has
+to confirm what it was given:
+
+@example
+    if (!R_isXInt(x) || R_xintWidth(x) != 8 || R_xintKind(x) != XINT_SIGNED)
+        Rf_error("expected an int64 vector");
+    const int64_t *v = (const int64_t *) XINTEGER_RO(x);
+@end example
+
+@noindent
+Width 16 is the exception, and is the one where the temptation is
+greatest: there is no standard C integer type of that size, and an
+element is aligned to 8 rather than to 16, so a cast to a 128-bit type
+is not safe.  Copy those with @code{memcpy} in both directions, as the
+example below does.  @code{memcpy} is also the right choice for code
+that wants one path for every width: on targets with unaligned loads a
+compiler can turn a fixed-size copy back into a load, and on targets
+without them the copy is what keeps the code correct.  Code for which
+this distinction matters should measure it on the supported targets.
+The payload pointer is a @code{Rbyte *}
+rather than a typed pointer so that the width and kind have to be
+settled before any of this is decided.
+
+Individual elements are best reached through @code{R_xintElt} and
+@code{R_xintEltRO}, which return the address of element @code{i}, and
+tested or marked missing with @code{R_xintIsNA} and
+@code{R_xintSetNA}.  On a vector that reserves no sentinel
+@code{R_xintIsNA} is always false and @code{R_xintSetNA} is an
+error.
+@apifun R_xintElt
+@apifun R_xintEltRO
+@apifun R_xintIsNA
+@apifun R_xintSetNA
+
+@noindent
+So a package reading a column of 64-bit integers might write
+
+@example
+    /* source_value() and source_is_missing() stand for the package's
+       own reader: a database column, a file format, another library */
+    SEXP ans = PROTECT(R_allocXIntVector(n, 8, XINT_SIGNED, TRUE));
+    for (R_xlen_t i = 0; i < n; i++) @{
+        if (source_is_missing(i))
+            R_xintSetNA(ans, i);
+        else @{
+            int64_t v = source_value(i);
+            memcpy(R_xintElt(ans, i), &v, sizeof v);
+            if (R_xintIsNA(ans, i))
+                Rf_error("source value collides with the NA sentinel");
+        @}
+    @}
+    UNPROTECT(1);
+@end example
+
+@noindent
+The last argument is a decision to be taken once, from what the source
+can hold rather than from what a particular batch happens to contain:
+pass @code{TRUE} if a value there can be missing, and mark those
+elements with @code{R_xintSetNA} as they are read.  A non-missing
+source value equal to the sentinel must be diagnosed, as in the example:
+the sentinel representation cannot hold both that value and missingness.
+A vector allocated with @code{FALSE} keeps the full value domain, but
+there is no way to record a missing value in it afterwards.
+
 
 @node Character encoding issues
 @section Character encoding issues

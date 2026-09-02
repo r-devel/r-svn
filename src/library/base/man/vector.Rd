@@ -20,8 +20,20 @@ is.vector(x, mode = "any")
 \arguments{
   \item{mode}{character string naming an atomic mode or
     \code{"list"} or \code{"expression"} or (except for \code{vector})
-    \code{"any"}.  Currently, \code{is.vector()} allows any type (see
-    \code{\link{typeof}}) for \code{mode}, and when mode is not
+    \code{"any"}.  For a \code{\link{xinteger}} vector a detailed storage
+    mode names the width and kind, as \code{\link{storage.mode}} reports
+    them -- \code{"int64"} or \code{"uint128"}.  Plain
+    \code{"xinteger"}, as \code{\link{typeof}} reports it, does not specify
+    a complete storage mode and is therefore an error for \code{vector}
+    and \code{as.vector}.
+    No name states whether \code{NA} is representable, so no name
+    describes a complete \code{xinteger} element type;
+    \code{\link{.vectorlike}} builds a vector of the element type of an
+    existing object instead.
+    Currently, \code{is.vector()} allows any type (see
+    \code{\link{typeof}}) for \code{mode}.  For an \code{xinteger} vector
+    it also accepts \code{"numeric"} when that is its mode and its
+    detailed storage-mode name.  Otherwise, when mode is not
     \code{"any"}, \code{is.vector(x, mode)} is almost the same as
     \code{typeof(x) == mode}.}% differences: for mode = NA, or mode = "numeric"
   \item{length}{a non-negative integer specifying the desired length.  For
@@ -144,6 +156,9 @@ is.vector(x, mode = "any")
   \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \seealso{
+  \code{\link{.vectorlike}}, which is given the element type by an object
+  rather than by name.
+
   \code{\link{c}}, \code{\link{is.numeric}}, \code{\link{is.list}}, etc.
 }
 \examples{
