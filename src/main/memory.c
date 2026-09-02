@@ -507,6 +507,8 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* Miscellaneous Globals. */
 
 static SEXP R_VStack = NULL;		/* R_alloc stack pointer */
+static SEXP *R_EltAnchorStack = NULL;	/* ALTREP element anchor stack */
+static R_xlen_t R_EltAnchorSize = 0;
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;
@@ -1827,6 +1829,9 @@ static int RunGenCollect(R_size_t size_needed)
     for (i = 0; i < R_PPStackTop; i++)	   /* Protected pointers */
 	FORWARD_NODE(R_PPStack[i]);
 
+    for (R_xlen_t a = 0; a < R_EltAnchorTop; a++) /* ALTREP elements */
+	FORWARD_NODE(R_EltAnchorStack[a]);
+
     FORWARD_NODE(R_VStack);		   /* R_alloc stack */
 
     for (R_bcstack_t *sp = R_BCNodeStackBase; sp < R_BCNodeStackTop; sp++) {
@@ -2304,28 +2309,71 @@ attribute_hidden void InitMemory(void)
     MARK_NOT_MUTABLE(R_LogicalNAValue);
 }
 
+/* The ALTREP element anchor stack holds CHARSXPs returned by ALTSTRING
+   Elt methods, which nothing else may reference (see ALTSTRING_ELT).
+   It is a GC root like R_PPStack, but entries are released by scope
+   rather than by count: the builtin/special dispatch in eval.c and
+   contexts save and restore R_EltAnchorTop as they do R_PPStackTop,
+   and vmaxset() releases what was anchored since the matching
+   vmaxget() when it can tell (see below).  An element thereby lives
+   at least as long as R_alloc memory obtained at the same point
+   would, which is the lifetime callers already respect for
+   translateChar() results.  Nothing is allocated on the R heap. */
+
+attribute_hidden void R_EltAnchorPush(SEXP s)
+{
+    /* the same element is commonly fetched several times in a row */
+    if (R_EltAnchorTop > 0 && R_EltAnchorStack[R_EltAnchorTop - 1] == s)
+	return;
+
+    if (R_EltAnchorTop >= R_EltAnchorSize) {
+	R_xlen_t newsize = R_EltAnchorSize ? 2 * R_EltAnchorSize : 1024;
+	SEXP *stack = realloc(R_EltAnchorStack, newsize * sizeof(SEXP));
+	if (stack == NULL)
+	    error(_("cannot grow the ALTREP element anchor stack"));
+	R_EltAnchorStack = stack;
+	R_EltAnchorSize = newsize;
+    }
+    R_EltAnchorStack[R_EltAnchorTop++] = s;
+}
+
+/* Release the entries above 'top'.  The top is never raised, as the
+   slots above it are stale. */
+attribute_hidden void R_EltAnchorRelease(R_xlen_t top)
+{
+    if (top < R_EltAnchorTop)
+	R_EltAnchorTop = top;
+}
+
 /* Since memory allocated from the heap is non-moving, R_alloc just
    allocates off the heap as RAWSXP/REALSXP and maintains the stack of
    allocations through the ATTRIB pointer.  The stack pointer R_VStack
-   is traced by the collector. */
+   is traced by the collector.
+
+   vmaxget() also remembers the anchor stack depth for the handle it
+   hands out, and vmaxset() releases the elements anchored since then
+   when given that handle back.  Only the most recent vmaxget() is
+   remembered, so an inner vmaxget() that got the same handle (nothing
+   was R_alloc'ed in between) leaves the outer vmaxset() unable to
+   release: those elements are then released by the enclosing builtin
+   dispatch or context instead.  A later vmaxget() can only have
+   recorded a depth at least as large, so an element anchored before
+   a scope began is never released by that scope's vmaxset(). */
+static const void *R_VmaxLastHandle = NULL;
+static R_xlen_t R_VmaxLastAnchorTop = 0;
+
 void *vmaxget(void)
 {
+    R_VmaxLastHandle = R_VStack;
+    R_VmaxLastAnchorTop = R_EltAnchorTop;
     return (void *) R_VStack;
 }
 
 void vmaxset(const void *ovmax)
 {
     R_VStack = (SEXP) ovmax;
-}
-
-/* Anchor an otherwise unreferenced object on the R_alloc stack so that,
-   like R_alloc memory, it stays alive until the enclosing vmaxset().
-   Cached CHARSXPs chain the string hash through their ATTRIB field, so
-   they cannot be linked in directly the way R_alloc's RAWSXPs are; a
-   cons cell carries the reference instead. */
-attribute_hidden void R_VStackAnchor(SEXP s)
-{
-    R_VStack = CONS(s, R_VStack);
+    if (ovmax == R_VmaxLastHandle)
+	R_EltAnchorRelease(R_VmaxLastAnchorTop);
 }
 
 char *R_alloc(size_t nelem, int eltsize)

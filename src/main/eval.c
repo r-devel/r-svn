@@ -1225,6 +1225,7 @@ SEXP eval(SEXP e, SEXP rho)
 	if (TYPEOF(op) == SPECIALSXP) {
 	    int save = R_PPStackTop, flag = PRIMPRINT(op);
 	    const void *vmax = vmaxget();
+	    R_xlen_t anchors = R_EltAnchorTop;
 	    PROTECT(e);
 	    R_Visible = flag != 1;
 	    tmp = PRIMFUN(op) (e, op, CDR(e), rho);
@@ -1241,10 +1242,12 @@ SEXP eval(SEXP e, SEXP rho)
 	    UNPROTECT(1);
 	    check_stack_balance(op, save);
 	    vmaxset(vmax);
+	    R_EltAnchorRelease(anchors);
 	}
 	else if (TYPEOF(op) == BUILTINSXP) {
 	    int save = R_PPStackTop, flag = PRIMPRINT(op);
 	    const void *vmax = vmaxget();
+	    R_xlen_t anchors = R_EltAnchorTop;
 	    RCNTXT cntxt;
 	    PROTECT(tmp = evalList(CDR(e), rho, e, 0));
 	    if (flag < 2) R_Visible = flag != 1;
@@ -1271,6 +1274,7 @@ SEXP eval(SEXP e, SEXP rho)
 	    UNPROTECT(1);
 	    check_stack_balance(op, save);
 	    vmaxset(vmax);
+	    R_EltAnchorRelease(anchors);
 	}
 	else if (TYPEOF(op) == CLOSXP) {
 	    SEXP pargs = promiseArgs(CDR(e), rho);
@@ -5349,8 +5353,10 @@ static R_INLINE double (*getMath1Fun(int i, SEXP call))(double) {
 	    for (int i = 0; i < nargs; i++)				\
 		cargs[i] = GETSTACK(i - nargs);				\
 	    void *vmax = vmaxget();					\
+	    R_xlen_t anchors = R_EltAnchorTop;				\
 	    SEXP val = R_doDotCall(ofun, nargs, cargs, call);		\
 	    vmaxset(vmax);						\
+	    R_EltAnchorRelease(anchors);				\
 	    R_BCNodeStackTop -= nargs;					\
 	    SETSTACK(-1, val);						\
 	    R_Visible = TRUE;						\
@@ -8132,6 +8138,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SEXP args = BUILTIN_CALL_FRAME_ARGS();
 	int flag;
 	const void *vmax = vmaxget();
+	R_xlen_t anchors = R_EltAnchorTop;
 	if (TYPEOF(fun) != BUILTINSXP)
 	  error(_("not a BUILTIN function"));
 	flag = PRIMPRINT(fun);
@@ -8151,6 +8158,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	}
 	if (flag < 2) R_Visible = flag != 1;
 	vmaxset(vmax);
+	R_EltAnchorRelease(anchors);
 	POP_CALL_FRAME(value);
 	NEXT();
       }
@@ -8161,6 +8169,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SEXP fun = getPrimitive(symbol, SPECIALSXP);
 	int flag;
 	const void *vmax = vmaxget();
+	R_xlen_t anchors = R_EltAnchorTop;
 	if (RTRACE(fun)) {
 	  Rprintf("trace: ");
 	  PrintValue(symbol);
@@ -8170,6 +8179,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SEXP value = PRIMFUN(fun) (call, fun, markSpecialArgs(CDR(call)), rho);
 	if (flag < 2) R_Visible = flag != 1;
 	vmaxset(vmax);
+	R_EltAnchorRelease(anchors);
 	BCNPUSH(value);
 	NEXT();
       }
