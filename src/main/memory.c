@@ -507,8 +507,8 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* Miscellaneous Globals. */
 
 static SEXP R_VStack = NULL;		/* R_alloc stack pointer */
-static SEXP *R_EltAnchorStack = NULL;	/* ALTREP element anchor stack */
-static R_xlen_t R_EltAnchorSize = 0;
+static SEXP *vmaxstack = NULL;		/* vmax protection stack */
+static R_xlen_t vmaxstacksize = 0;
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;
@@ -1829,8 +1829,8 @@ static int RunGenCollect(R_size_t size_needed)
     for (i = 0; i < R_PPStackTop; i++)	   /* Protected pointers */
 	FORWARD_NODE(R_PPStack[i]);
 
-    for (R_xlen_t a = 0; a < R_EltAnchorTop; a++) /* ALTREP elements */
-	FORWARD_NODE(R_EltAnchorStack[a]);
+    for (R_xlen_t a = 0; a < vmaxtop; a++) /* vmax-protected objects */
+	FORWARD_NODE(vmaxstack[a]);
 
     FORWARD_NODE(R_VStack);		   /* R_alloc stack */
 
@@ -2309,40 +2309,40 @@ attribute_hidden void InitMemory(void)
     MARK_NOT_MUTABLE(R_LogicalNAValue);
 }
 
-/* The ALTREP element anchor stack holds CHARSXPs returned by ALTSTRING
-   Elt methods, which nothing else may reference (see ALTSTRING_ELT).
-   It is a GC root like R_PPStack, but entries are released by scope
-   rather than by count: the builtin/special dispatch in eval.c and
-   contexts save and restore R_EltAnchorTop as they do R_PPStackTop,
-   and vmaxset() releases what was anchored since the matching
-   vmaxget() when it can tell (see below).  An element thereby lives
-   at least as long as R_alloc memory obtained at the same point
-   would, which is the lifetime callers already respect for
-   translateChar() results.  Nothing is allocated on the R heap. */
+/* The vmax protection stack keeps objects alive for the vmax scope:
+   an object passed to vmaxprotect() lives at least as long as R_alloc
+   memory obtained at the same point would, the lifetime callers
+   already respect for translateChar() results.  It is a GC root like
+   R_PPStack, but entries are released by scope rather than by count:
+   the builtin/special dispatch in eval.c and contexts save and restore
+   vmaxtop as they do R_PPStackTop, and vmaxset() releases what was
+   protected since the matching vmaxget() when it can tell (see below).
+   Nothing is allocated on the R heap.  ALTSTRING_ELT() uses it for
+   Elt results that nothing else may reference. */
 
-attribute_hidden void R_EltAnchorPush(SEXP s)
+attribute_hidden void vmaxprotect(SEXP s)
 {
-    /* the same element is commonly fetched several times in a row */
-    if (R_EltAnchorTop > 0 && R_EltAnchorStack[R_EltAnchorTop - 1] == s)
+    /* the same object is commonly protected several times in a row */
+    if (vmaxtop > 0 && vmaxstack[vmaxtop - 1] == s)
 	return;
 
-    if (R_EltAnchorTop >= R_EltAnchorSize) {
-	R_xlen_t newsize = R_EltAnchorSize ? 2 * R_EltAnchorSize : 1024;
-	SEXP *stack = realloc(R_EltAnchorStack, newsize * sizeof(SEXP));
+    if (vmaxtop >= vmaxstacksize) {
+	R_xlen_t newsize = vmaxstacksize ? 2 * vmaxstacksize : 1024;
+	SEXP *stack = realloc(vmaxstack, newsize * sizeof(SEXP));
 	if (stack == NULL)
-	    error(_("cannot grow the ALTREP element anchor stack"));
-	R_EltAnchorStack = stack;
-	R_EltAnchorSize = newsize;
+	    error(_("cannot grow the vmax protection stack"));
+	vmaxstack = stack;
+	vmaxstacksize = newsize;
     }
-    R_EltAnchorStack[R_EltAnchorTop++] = s;
+    vmaxstack[vmaxtop++] = s;
 }
 
 /* Release the entries above 'top'.  The top is never raised, as the
    slots above it are stale. */
-attribute_hidden void R_EltAnchorRelease(R_xlen_t top)
+attribute_hidden void vmaxrelease(R_xlen_t top)
 {
-    if (top < R_EltAnchorTop)
-	R_EltAnchorTop = top;
+    if (top < vmaxtop)
+	vmaxtop = top;
 }
 
 /* Since memory allocated from the heap is non-moving, R_alloc just
@@ -2350,30 +2350,30 @@ attribute_hidden void R_EltAnchorRelease(R_xlen_t top)
    allocations through the ATTRIB pointer.  The stack pointer R_VStack
    is traced by the collector.
 
-   vmaxget() also remembers the anchor stack depth for the handle it
-   hands out, and vmaxset() releases the elements anchored since then
+   vmaxget() also remembers the protection stack depth for the handle
+   it hands out, and vmaxset() releases the objects protected since then
    when given that handle back.  Only the most recent vmaxget() is
    remembered, so an inner vmaxget() that got the same handle (nothing
    was R_alloc'ed in between) leaves the outer vmaxset() unable to
-   release: those elements are then released by the enclosing builtin
+   release: those objects are then released by the enclosing builtin
    dispatch or context instead.  A later vmaxget() can only have
-   recorded a depth at least as large, so an element anchored before
+   recorded a depth at least as large, so an object protected before
    a scope began is never released by that scope's vmaxset(). */
-static const void *R_VmaxLastHandle = NULL;
-static R_xlen_t R_VmaxLastAnchorTop = 0;
+static const void *vmaxlast = NULL;
+static R_xlen_t vmaxlasttop = 0;
 
 void *vmaxget(void)
 {
-    R_VmaxLastHandle = R_VStack;
-    R_VmaxLastAnchorTop = R_EltAnchorTop;
+    vmaxlast = R_VStack;
+    vmaxlasttop = vmaxtop;
     return (void *) R_VStack;
 }
 
 void vmaxset(const void *ovmax)
 {
     R_VStack = (SEXP) ovmax;
-    if (ovmax == R_VmaxLastHandle)
-	R_EltAnchorRelease(R_VmaxLastAnchorTop);
+    if (ovmax == vmaxlast)
+	vmaxrelease(vmaxlasttop);
 }
 
 char *R_alloc(size_t nelem, int eltsize)

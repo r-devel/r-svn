@@ -529,12 +529,12 @@ SEXP /*attribute_hidden*/ ALTSTRING_ELT(SEXP x, R_xlen_t i)
     val = ALTSTRING_DISPATCH(Elt, x, i);
 
     /* The method may have returned a freshly created CHARSXP that
-       nothing else references.  Anchor it, while GC is still disabled,
+       nothing else references.  Protect it, while GC is still disabled,
        so that it lives at least as long as R_alloc memory obtained
        here would -- the lifetime callers already respect for
-       translateChar() results (see R_EltAnchorPush in memory.c). */
+       translateChar() results (see vmaxprotect() in memory.c). */
     if (val != NULL && val != NA_STRING && val != R_BlankString)
-	R_EltAnchorPush(val);
+	vmaxprotect(val);
 
     R_GCEnabled = enabled;
     return val;

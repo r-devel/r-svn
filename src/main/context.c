@@ -177,7 +177,7 @@ static void R_restore_globals(RCNTXT *cptr)
     R_BCFrame = cptr->bcframe;
     R_EvalDepth = cptr->evaldepth;
     vmaxset(cptr->vmax);
-    R_EltAnchorRelease(cptr->eltanchortop);
+    vmaxrelease(cptr->vmaxtop);
     R_interrupts_suspended = (Rboolean) cptr->intsusp;
     R_HandlerStack = cptr->handlerstack;
     R_RestartStack = cptr->restartstack;
@@ -270,7 +270,7 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->promargs = promargs;
     cptr->callfun = callfun;
     cptr->vmax = vmaxget();
-    cptr->eltanchortop = R_EltAnchorTop;
+    cptr->vmaxtop = vmaxtop;
     cptr->intsusp = R_interrupts_suspended;
     cptr->handlerstack = R_HandlerStack;
     cptr->restartstack = R_RestartStack;
