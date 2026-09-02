@@ -3699,6 +3699,55 @@ stopifnot(
     identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
 
+## The CHARSXP cache doubles at a configurable load factor, and
+## unserialize() reads character vectors in batches which prefetch the
+## cache: strings of every encoding, NA, empty, repeated and long strings
+## must round trip with their encodings, and a session started with a
+## tiny table and a low load factor (forcing many resizes) must work.
+x <- c(NA, "", "ascii", "\u00e9l\u00e8ve", iconv("caf\u00e9", "UTF-8", "latin1"),
+       strrep("z", 20000), paste0("id", 1:5000), "\u00e9", "ascii")
+y <- "\xff\xfe"; Encoding(y) <- "bytes"; x <- c(x, y)
+tf <- tempfile(fileext = ".rds")
+for(compress in c(TRUE, FALSE)) {
+    saveRDS(x, tf, compress = compress)
+    r <- readRDS(tf)
+    stopifnot(identical(r, x), identical(Encoding(r), Encoding(x)))
+}
+saveRDS(x, tf, ascii = TRUE)
+r <- readRDS(tf)
+stopifnot(identical(r, x), identical(Encoding(r), Encoding(x)))
+writeLines(c('x <- paste0("s", 1:2e5)',
+             'stopifnot(!anyDuplicated(x), identical(match(x, rev(x)), rev(seq_along(x))))',
+             'e <- list2env(setNames(as.list(seq_along(x)), x))',
+             'stopifnot(identical(unname(unlist(mget(x[c(1, 77777, 2e5)], e))), c(1L, 77777L, 200000L)),',
+             '          identical(as.name(x[5]), as.symbol("s5")))',
+             'cat("ok\\n")'), tf)
+Sys.setenv(R_CHARSXP_CACHE_LOAD_FACTOR = "0.2", R_CHARSXP_CACHE_INITIAL_SIZE = "1024",
+           R_SYMBOL_TABLE_SIZE = "1024")
+out <- system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", tf), stdout = TRUE)
+Sys.unsetenv(c("R_CHARSXP_CACHE_LOAD_FACTOR", "R_CHARSXP_CACHE_INITIAL_SIZE",
+               "R_SYMBOL_TABLE_SIZE"))
+stopifnot(identical(out, "ok"))
+unlink(tf)
+## The collector only sweeps the buckets of the cache which hold strings
+## young enough to have died: churn strings through several generations
+## with frequent collections of every level, then check that what is
+## looked up is what was kept.
+keep <- paste0("keep", 1:20000)
+gctorture2(step = 2000)
+for(i in 1:6) {
+    tmp <- paste0("tmp", i, "_", 1:20000)
+    keep2 <- paste0("keep", 1:20000)
+    rm(tmp)
+}
+gctorture2(step = 0)
+invisible(gc())
+stopifnot(identical(keep2, keep), identical(unique(c(keep, keep2)), keep),
+          identical(match(paste0("keep", c(1, 20000)), keep2), c(1L, 20000L)))
+rm(keep, keep2)
+## new in R 4.7.0
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

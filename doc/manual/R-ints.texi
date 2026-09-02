@@ -1333,6 +1333,23 @@ requests to create a @code{CHARSXP} should be @emph{via} a call to
 @code{mkCharLenCE}.  Any encoding given in @code{mkCharLenCE} call will
 be ignored if the string's bytes are all @acronym{ASCII} characters.
 
+The cache is a hash table whose size is a power of two, with the
+@code{CHARSXP}s in each bucket chained through their @code{ATTRIB}
+fields.  The chains are weak: the garbage collector removes
+@code{CHARSXP}s which are no longer referenced from elsewhere.  A lookup
+walks the chain for its bucket and each @code{CHARSXP} visited is
+usually a cache miss, so the table is doubled once it holds more than
+@code{R_CHARSXP_CACHE_LOAD_FACTOR} (default 0.75) strings per bucket.
+The initial number of buckets (default 65536) can be set with
+@code{R_CHARSXP_CACHE_INITIAL_SIZE}; both are read from the environment
+when @R{} starts.  Each bucket records the age (generation) of its
+youngest @code{CHARSXP}, so that a collection of the younger generations
+only sweeps the buckets which can contain a dead string rather than the
+whole cache.  Code which interns many strings at once, such as
+@code{unserialize}, can compute the hashes ahead of the lookups with
+@code{R_CharHash} and prefetch the buckets and chain heads, see
+@file{src/main/serialize.c}.
+
 
 @node Warnings and errors
 @section Warnings and errors

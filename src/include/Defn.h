@@ -924,6 +924,15 @@ extern0 SEXP    R_dot_GenericCallEnv;  /* ".GenericCallEnv" */
 extern0 SEXP    R_dot_GenericDefEnv;  /* ".GenericDefEnv" */
 
 extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
+extern0 R_xlen_t R_StringHashCount; /* number of CHARSXPs in it */
+/* One byte per bucket: the age of its youngest CHARSXP, where 0 is a
+   node in New space, 1 and 2 the old generations, and 3 an empty
+   bucket.  A collection of the generations up to some level only has
+   to sweep the buckets whose youngest node is that young, which is the
+   difference between touching every cached string on every collection
+   and touching the strings created since the last one. */
+extern0 unsigned char *R_StringHashAges;
+#define R_STRINGHASH_EMPTY 3
 
 
  /* writable char access for R internal use only */
@@ -1593,6 +1602,7 @@ void R_ReleaseMSet(SEXP mset, int keepSize);
 extern0 SEXP	R_CurrentExpr;	    /* Currently evaluating expression */
 extern0 SEXP	R_ReturnedValue;    /* Slot for return-ing values */
 extern0 SEXP*	R_SymbolTable;	    /* The symbol table */
+extern0 int	R_SymbolTableSize;  /* its number of buckets, fixed at startup */
 #ifdef R_USE_SIGNALS
 extern0 RCNTXT R_Toplevel;	      /* Storage for the toplevel context */
 extern0 RCNTXT* R_ToplevelContext;  /* The toplevel context */
@@ -1850,6 +1860,13 @@ SEXP R_FindPackageEnv(SEXP info);
 Rboolean R_HasFancyBindings(SEXP rho); // envir.c
 void R_RestoreHashCount(SEXP rho); // envir.c
 SEXP R_lsInternal(SEXP, Rboolean); // envir.c
+
+/* interning many strings at once, see the CHARSXP cache in envir.c */
+unsigned int R_CharHash(const char *name, int len);
+void R_CharHashPrefetchBucket(unsigned int hash);
+void R_CharHashPrefetchChain(unsigned int hash);
+SEXP R_mkCharLenCEHash(const char *name, int len, cetype_t enc,
+		       unsigned int hash);
 
 void R_XDREncodeDouble(double d, void *buf);
 double R_XDRDecodeDouble(void *buf);

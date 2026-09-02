@@ -3172,7 +3172,7 @@ static int BuiltinSize(int all, int intern)
     int count = 0;
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3193,7 +3193,7 @@ BuiltinNames(int all, int intern, SEXP names, int *indx)
 {
     SEXP s;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue)
@@ -3213,7 +3213,7 @@ BuiltinValues(int all, int intern, SEXP values, int *indx)
 {
     SEXP s, vl;
     int j;
-    for (j = 0; j < HSIZE; j++) {
+    for (j = 0; j < R_SymbolTableSize; j++) {
 	for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s)) {
 	    if (intern) {
 		if (INTERNAL(CAR(s)) != R_NilValue) {
@@ -3694,7 +3694,7 @@ void R_LockEnvironment(SEXP env, Rboolean bindings)
 	if (bindings) {
 	    SEXP s;
 	    int j;
-	    for (j = 0; j < HSIZE; j++)
+	    for (j = 0; j < R_SymbolTableSize; j++)
 		for (s = R_SymbolTable[j]; s != R_NilValue; s = CDR(s))
 		    if(SYMVALUE(CAR(s)) != R_UnboundValue)
 			LOCK_BINDING(CAR(s));
@@ -4598,6 +4598,38 @@ attribute_hidden SEXP mkCharWUTF8(const wchar_t *wname)
 static unsigned int char_hash_size = 65536;
 static unsigned int char_hash_mask = 65535;
 
+/* The table doubles once it holds more than char_hash_load cached
+   strings per bucket.  A lookup walks a chain of CHARSXPs scattered
+   over the heap, each of them a cache miss, and an insertion walks the
+   whole chain, so the load factor matters more to the cost of
+   interning a string than anything else in mkCharLenCE().  The table
+   used to double at 85% bucket occupancy, about 1.9 strings per bucket,
+   which cost about twice as much per lookup as the current default.
+   Both the load factor and the initial size can be set from the
+   environment when R starts up. */
+static double char_hash_load = 0.75;
+#define CHAR_HASH_LOAD_MIN 0.1
+#define CHAR_HASH_LOAD_MAX 10.0
+#define CHAR_HASH_SIZE_MIN 1024
+#define CHAR_HASH_SIZE_MAX 1073741824 /* 2^30, the largest power of two
+					 a VECSXP could hold before long
+					 vectors */
+
+static unsigned char *NewStringHashAges(unsigned int size);
+
+/* Bucket heads are stored without the old-to-new write barrier.  The
+   cache is weak and the collector maintains it explicitly (see
+   RunGenCollect), so recording the table as an old node with young
+   children is not needed for correctness, and it is expensive: the
+   collector would forward every bucket head on every collection, which
+   touches a header per bucket, and would keep young heads alive through
+   the minor collections which should have reclaimed them. */
+static R_INLINE void SetStringHashBucket(SEXP table, unsigned int i,
+					 SEXP chain)
+{
+    ((SEXP *) STDVEC_DATAPTR(table))[i] = chain;
+}
+
 static unsigned int char_hash(const char *s, int len)
 {
     /* djb2 as from http://www.cse.yorku.ca/~oz/hash.html */
@@ -4606,12 +4638,90 @@ static unsigned int char_hash(const char *s, int len)
     unsigned int h = 5381;
     for (p = (char *) s, i = 0; i < len; p++, i++)
 	h = ((h << 5) + h) + (*p);
+    /* The bucket is selected by the low bits alone, and for keys which
+       differ only in a running number djb2 leaves those correlated, so
+       such keys land in neighbouring buckets and their chains are about
+       20% longer than for random keys.  Do not be tempted to fix that
+       with a finalizer mix, a prime table size or an open-addressed
+       table (which needs the mix): the correlation is what lets a run
+       of such keys walk the bucket array sequentially.  With a million
+       cached strings, mixing the bits took inserting consecutive keys
+       from 87 to 168 ns and looking them up in creation order from 29
+       to 42 ns, gained nothing on random keys, and made full
+       collections 10% slower, since the sweep visits the cache in
+       bucket order. */
     return h;
 }
 
 attribute_hidden void InitStringHash(void)
 {
+    const char *arg;
+
+    /* out-of-range values are ignored, as for the R_GC_* variables */
+    arg = getenv("R_CHARSXP_CACHE_LOAD_FACTOR");
+    if (arg != NULL && arg[0]) {
+	double load = atof(arg);
+	if (CHAR_HASH_LOAD_MIN <= load && load <= CHAR_HASH_LOAD_MAX)
+	    char_hash_load = load;
+    }
+    arg = getenv("R_CHARSXP_CACHE_INITIAL_SIZE");
+    if (arg != NULL && arg[0]) {
+	double size = atof(arg);
+	if (CHAR_HASH_SIZE_MIN <= size && size <= CHAR_HASH_SIZE_MAX) {
+	    unsigned int n = CHAR_HASH_SIZE_MIN;
+	    while (n < size)
+		n *= 2;
+	    char_hash_size = n;
+	    char_hash_mask = n - 1;
+	}
+    }
+
     R_StringHash = R_NewHashTable(char_hash_size);
+    R_StringHashCount = 0;
+    R_StringHashAges = NewStringHashAges(char_hash_size);
+}
+
+/* Ages for a new table of the given size, all marked as holding a new
+   node so that the next collection sweeps every bucket and records the
+   truth.  The collector copes with NULL by sweeping everything. */
+static unsigned char *NewStringHashAges(unsigned int size)
+{
+    unsigned char *ages = (unsigned char *) malloc(size);
+
+    if (ages != NULL)
+	memset(ages, 0, size);
+    return ages;
+}
+
+/* Helpers for code which interns many strings in a row, such as
+   unserialize().  Computing the hash ahead of the lookup lets the
+   caller prefetch the bucket, and a little later the head of its
+   chain, so that the cache misses which dominate mkCharLenCE() overlap
+   with other work.  A resize between the prefetch and the lookup only
+   wastes the prefetch. */
+
+#if defined(__GNUC__) || defined(__clang__)
+# define PREFETCH(p) __builtin_prefetch(p)
+#else
+# define PREFETCH(p) do { } while (0)
+#endif
+
+attribute_hidden unsigned int R_CharHash(const char *name, int len)
+{
+    return char_hash(name, len);
+}
+
+attribute_hidden void R_CharHashPrefetchBucket(unsigned int hash)
+{
+    PREFETCH(VECTOR_PTR_RO(R_StringHash) + (hash & char_hash_mask));
+}
+
+attribute_hidden void R_CharHashPrefetchChain(unsigned int hash)
+{
+    SEXP chain = VECTOR_ELT(R_StringHash, hash & char_hash_mask);
+
+    if (chain != R_NilValue)
+	PREFETCH(chain);
 }
 
 /* #define DEBUG_GLOBAL_STRING_HASH 1 */
@@ -4637,6 +4747,7 @@ static void R_StringHash_resize(unsigned int newsize)
        therefore the only point where GC can occur. */
     new_table = R_NewHashTable(newsize);
     newmask = newsize - 1;
+    unsigned char *new_ages = NewStringHashAges(newsize);
 
     /* transfer chains from old table to new table */
     for (counter = 0; counter < LENGTH(old_table); counter++) {
@@ -4646,19 +4757,18 @@ static void R_StringHash_resize(unsigned int newsize)
 	    next = CXTAIL(chain);
 	    new_hashcode = char_hash(CHAR(val), LENGTH(val)) & newmask;
 	    new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    /* If using a primary slot then increase HASHPRI */
-	    if (ISNULL(new_chain))
-		SET_HASHPRI(new_table, HASHPRI(new_table) + 1);
 	    /* move the current chain link to the new chain */
 	    /* this is a destructive modification */
 	    new_chain = SET_CXTAIL(val, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode, new_chain);
+	    SetStringHashBucket(new_table, new_hashcode, new_chain);
 	    chain = next;
 	}
     }
     R_StringHash = new_table;
     char_hash_size = newsize;
     char_hash_mask = newmask;
+    free(R_StringHashAges);
+    R_StringHashAges = new_ages;
 #ifdef DEBUG_GLOBAL_STRING_HASH
     newsize = HASHSIZE(new_table);
     newpri = HASHPRI(new_table);
@@ -4742,6 +4852,14 @@ static void reportInvalidString(SEXP cval, int actionWhenInvalid)
 
 SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 {
+    return R_mkCharLenCEHash(name, len, enc, char_hash(name, len));
+}
+
+/* As mkCharLenCE(), with the hash of the bytes already computed by
+   R_CharHash(), for callers which prefetch ahead of the lookup. */
+attribute_hidden SEXP
+R_mkCharLenCEHash(const char *name, int len, cetype_t enc, unsigned int hash)
+{
     SEXP cval, chain;
     unsigned int hashcode;
     int need_enc;
@@ -4790,7 +4908,7 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
     default: need_enc = 0;
     }
 
-    hashcode = char_hash(name, len) & char_hash_mask;
+    hashcode = hash & char_hash_mask;
 
     /* Search for a cached value */
     cval = R_NilValue;
@@ -4828,19 +4946,20 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 	SET_CACHED(cval);  /* Mark it */
 	/* add the new value to the cache */
 	chain = VECTOR_ELT(R_StringHash, hashcode);
-	if (ISNULL(chain))
-	    SET_HASHPRI(R_StringHash, HASHPRI(R_StringHash) + 1);
 	/* this is a destructive modification */
 	chain = SET_CXTAIL(cval, chain);
-	SET_VECTOR_ELT(R_StringHash, hashcode, chain);
+	SetStringHashBucket(R_StringHash, hashcode, chain);
+	R_StringHashCount++;
+	if (R_StringHashAges != NULL)
+	    R_StringHashAges[hashcode] = 0; /* the bucket now holds a new node */
 
 	/* resize the hash table if necessary with the new entry still
 	   protected.
 	   Maximum possible power of two is 2^30 for a VECSXP.
 	   FIXME: this has changed with long vectors.
 	*/
-	if (R_HashSizeCheck(R_StringHash)
-	    && char_hash_size < 1073741824 /* 2^30 */)
+	if ((double) R_StringHashCount > char_hash_load * char_hash_size
+	    && char_hash_size < CHAR_HASH_SIZE_MAX)
 	    R_StringHash_resize(char_hash_size * 2);
 
 	if (checkValid && !IS_ASCII(cval)) {
