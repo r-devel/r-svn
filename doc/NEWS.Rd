@@ -116,6 +116,16 @@
       \env{R_CHARSXP_CACHE_INITIAL_SIZE}, and the size of the (fixed
       size) symbol table with \env{R_SYMBOL_TABLE_SIZE}, see
       \code{?EnvVar}.
+
+      \item Hashed environments grow their hash table to a prime of
+      about twice the size once it holds more than 0.75 bindings per
+      chain, rather than by 20\% at a threshold which counted bindings
+      and occupied chains inconsistently and left the table at one to
+      two bindings per chain.  Filling an environment with a million
+      bindings one at a time moves each binding about 1.5 times on the
+      way instead of 5.7, and lookups in large environments visit fewer
+      bindings.  \code{env.profile()} now reports the number of
+      non-empty chains correctly.
     }
   }
 

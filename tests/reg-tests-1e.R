@@ -3745,6 +3745,27 @@ invisible(gc())
 stopifnot(identical(keep2, keep), identical(unique(c(keep, keep2)), keep),
           identical(match(paste0("keep", c(1, 20000)), keep2), c(1L, 20000L)))
 rm(keep, keep2)
+## Hashed environments double at 0.75 bindings per chain and count their
+## bindings exactly: env.profile() must agree with the contents, also
+## after removals and a serialization round trip.
+e <- new.env(hash = TRUE)
+keys <- paste0("v", 1:5000)
+for(k in keys) assign(k, nchar(k), envir = e)
+p <- env.profile(e)
+stopifnot(sum(p$counts) == 5000L, p$nchains == sum(p$counts > 0L),
+          sum(p$counts) <= 0.75 * p$size, length(p$counts) == p$size)
+rm(list = keys[1:2500], envir = e)
+p <- env.profile(e)
+stopifnot(sum(p$counts) == 2500L, p$nchains == sum(p$counts > 0L),
+          identical(sort(ls(e)), sort(keys[2501:5000])))
+e2 <- unserialize(serialize(e, NULL))
+stopifnot(identical(env.profile(e2), env.profile(e)),
+          identical(mget(keys[2501:2510], e2), mget(keys[2501:2510], e)))
+for(k in keys[1:2500]) assign(k, 0L, envir = e2)
+p <- env.profile(e2)
+stopifnot(sum(p$counts) == 5000L, sum(p$counts) <= 0.75 * p$size,
+          identical(sort(ls(e2)), sort(keys)))
+rm(e, e2, keys, p)
 ## new in R 4.7.0
 
 
