@@ -925,6 +925,14 @@ extern0 SEXP    R_dot_GenericDefEnv;  /* ".GenericDefEnv" */
 
 extern0 SEXP	R_StringHash;       /* Global hash of CHARSXPs */
 extern0 R_xlen_t R_StringHashCount; /* number of CHARSXPs in it */
+/* One byte per bucket: the age of its youngest CHARSXP, where 0 is a
+   node in New space, 1 and 2 the old generations, and 3 an empty
+   bucket.  A collection of the generations up to some level only has
+   to sweep the buckets whose youngest node is that young, which is the
+   difference between touching every cached string on every collection
+   and touching the strings created since the last one. */
+extern0 unsigned char *R_StringHashAges;
+#define R_STRINGHASH_EMPTY 3
 
 
  /* writable char access for R internal use only */

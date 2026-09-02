@@ -3729,6 +3729,22 @@ Sys.unsetenv(c("R_CHARSXP_CACHE_LOAD_FACTOR", "R_CHARSXP_CACHE_INITIAL_SIZE",
                "R_SYMBOL_TABLE_SIZE"))
 stopifnot(identical(out, "ok"))
 unlink(tf)
+## The collector only sweeps the buckets of the cache which hold strings
+## young enough to have died: churn strings through several generations
+## with frequent collections of every level, then check that what is
+## looked up is what was kept.
+keep <- paste0("keep", 1:20000)
+gctorture2(step = 2000)
+for(i in 1:6) {
+    tmp <- paste0("tmp", i, "_", 1:20000)
+    keep2 <- paste0("keep", 1:20000)
+    rm(tmp)
+}
+gctorture2(step = 0)
+invisible(gc())
+stopifnot(identical(keep2, keep), identical(unique(c(keep, keep2)), keep),
+          identical(match(paste0("keep", c(1, 20000)), keep2), c(1L, 20000L)))
+rm(keep, keep2)
 ## new in R 4.7.0
 
 

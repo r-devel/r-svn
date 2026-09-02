@@ -106,7 +106,11 @@
       bucket), and \code{unserialize()} and hence \code{readRDS()} read
       character vectors in batches which prefetch the cache entries
       they will need.  Reading a file of a million distinct strings is
-      about twice as fast.  The load
+      about twice as fast.  The garbage collector no longer sweeps the
+      whole cache on every collection, only the buckets holding strings
+      young enough to have died, which removes a per-collection cost
+      that grew with the number of strings a session had ever created.
+      The load
       factor and the initial size of the table can be set at startup
       with environment variables \env{R_CHARSXP_CACHE_LOAD_FACTOR} and
       \env{R_CHARSXP_CACHE_INITIAL_SIZE}, and the size of the (fixed

@@ -1874,13 +1874,43 @@ static int RunGenCollect(R_size_t size_needed)
 
     DEBUG_CHECK_NODE_COUNTS("after processing forwarded list");
 
-    /* process CHARSXP cache */
+    /* process CHARSXP cache: drop the CHARSXPs which did not survive.
+       Only nodes of the generations being collected can have died, and
+       each bucket records the age of its youngest node, so the buckets
+       whose youngest node is older than that are skipped without being
+       touched.  For the survivors the sweep records the age they will
+       have once this collection has promoted them, which is their
+       generation index plus one: nodes moved out of a collected old
+       generation already carry their new index (see the unmark loop
+       above) and nodes from New space are about to enter Old[0]. */
     if (R_StringHash != NULL) /* in case of GC during initialization */
     {
 	SEXP t;
-	int nc = 0;
-	R_xlen_t ne = 0;
-	for (i = 0; i < LENGTH(R_StringHash); i++) {
+	unsigned char *ages = R_StringHashAges;
+	int level = num_old_gens_to_collect;
+	R_xlen_t removed = 0;
+	int n = LENGTH(R_StringHash);
+	for (i = 0; i < n; i++) {
+	    if (ages != NULL) {
+		/* Eight buckets at a time: ages are 0 to 3, so a word
+		   holds no age 0 if it has no zero byte, and no age 0 or
+		   1 if every byte has bit 1 set. */
+		if (level < 2 && i % 8 == 0 && i + 8 <= n) {
+		    uint64_t w;
+		    memcpy(&w, ages + i, 8);
+		    bool none = level == 0 ?
+			((w - 0x0101010101010101ULL) & ~w &
+			 0x8080808080808080ULL) == 0 :
+			(w & 0x0202020202020202ULL) == 0x0202020202020202ULL;
+		    if (none) {
+			i += 7;
+			continue;
+		    }
+		}
+		if (ages[i] > level)
+		    continue;
+	    }
+	    unsigned char youngest = R_STRINGHASH_EMPTY;
 	    s = VECTOR_ELT_0(R_StringHash, i);
 	    t = R_NilValue;
 	    while (s != R_NilValue) {
@@ -1890,18 +1920,21 @@ static int RunGenCollect(R_size_t size_needed)
 		    else
 			CXTAIL(t) = CXTAIL(s);
 		    s = CXTAIL(s);
+		    removed++;
 		    continue;
 		}
 		FORWARD_NODE(s);
 		FORWARD_NODE(CXHEAD(s));
-		ne++;
+		unsigned char age = (unsigned char) (NODE_GENERATION(s) + 1);
+		if (age < youngest)
+		    youngest = age;
 		t = s;
 		s = CXTAIL(s);
 	    }
-	    if(VECTOR_ELT_0(R_StringHash, i) != R_NilValue) nc++;
+	    if (ages != NULL)
+		ages[i] = youngest;
 	}
-	SET_TRUELENGTH(R_StringHash, nc); /* SET_HASHPRI, really */
-	R_StringHashCount = ne;
+	R_StringHashCount -= removed;
     }
     /* chains are known to be marked so don't need to scan again */
     FORWARD_AND_PROCESS_ONE_NODE(R_StringHash, VECSXP);

@@ -4615,6 +4615,21 @@ static double char_hash_load = 0.75;
 					 a VECSXP could hold before long
 					 vectors */
 
+static unsigned char *NewStringHashAges(unsigned int size);
+
+/* Bucket heads are stored without the old-to-new write barrier.  The
+   cache is weak and the collector maintains it explicitly (see
+   RunGenCollect), so recording the table as an old node with young
+   children is not needed for correctness, and it is expensive: the
+   collector would forward every bucket head on every collection, which
+   touches a header per bucket, and would keep young heads alive through
+   the minor collections which should have reclaimed them. */
+static R_INLINE void SetStringHashBucket(SEXP table, unsigned int i,
+					 SEXP chain)
+{
+    ((SEXP *) STDVEC_DATAPTR(table))[i] = chain;
+}
+
 static unsigned int char_hash(const char *s, int len)
 {
     /* djb2 as from http://www.cse.yorku.ca/~oz/hash.html */
@@ -4660,6 +4675,19 @@ attribute_hidden void InitStringHash(void)
 
     R_StringHash = R_NewHashTable(char_hash_size);
     R_StringHashCount = 0;
+    R_StringHashAges = NewStringHashAges(char_hash_size);
+}
+
+/* Ages for a new table of the given size, all marked as holding a new
+   node so that the next collection sweeps every bucket and records the
+   truth.  The collector copes with NULL by sweeping everything. */
+static unsigned char *NewStringHashAges(unsigned int size)
+{
+    unsigned char *ages = (unsigned char *) malloc(size);
+
+    if (ages != NULL)
+	memset(ages, 0, size);
+    return ages;
 }
 
 /* Helpers for code which interns many strings in a row, such as
@@ -4716,6 +4744,7 @@ static void R_StringHash_resize(unsigned int newsize)
        therefore the only point where GC can occur. */
     new_table = R_NewHashTable(newsize);
     newmask = newsize - 1;
+    unsigned char *new_ages = NewStringHashAges(newsize);
 
     /* transfer chains from old table to new table */
     for (counter = 0; counter < LENGTH(old_table); counter++) {
@@ -4725,19 +4754,18 @@ static void R_StringHash_resize(unsigned int newsize)
 	    next = CXTAIL(chain);
 	    new_hashcode = char_hash(CHAR(val), LENGTH(val)) & newmask;
 	    new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    /* If using a primary slot then increase HASHPRI */
-	    if (ISNULL(new_chain))
-		SET_HASHPRI(new_table, HASHPRI(new_table) + 1);
 	    /* move the current chain link to the new chain */
 	    /* this is a destructive modification */
 	    new_chain = SET_CXTAIL(val, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode, new_chain);
+	    SetStringHashBucket(new_table, new_hashcode, new_chain);
 	    chain = next;
 	}
     }
     R_StringHash = new_table;
     char_hash_size = newsize;
     char_hash_mask = newmask;
+    free(R_StringHashAges);
+    R_StringHashAges = new_ages;
 #ifdef DEBUG_GLOBAL_STRING_HASH
     newsize = HASHSIZE(new_table);
     newpri = HASHPRI(new_table);
@@ -4915,12 +4943,12 @@ R_mkCharLenCEHash(const char *name, int len, cetype_t enc, unsigned int hash)
 	SET_CACHED(cval);  /* Mark it */
 	/* add the new value to the cache */
 	chain = VECTOR_ELT(R_StringHash, hashcode);
-	if (ISNULL(chain))
-	    SET_HASHPRI(R_StringHash, HASHPRI(R_StringHash) + 1);
 	/* this is a destructive modification */
 	chain = SET_CXTAIL(cval, chain);
-	SET_VECTOR_ELT(R_StringHash, hashcode, chain);
+	SetStringHashBucket(R_StringHash, hashcode, chain);
 	R_StringHashCount++;
+	if (R_StringHashAges != NULL)
+	    R_StringHashAges[hashcode] = 0; /* the bucket now holds a new node */
 
 	/* resize the hash table if necessary with the new entry still
 	   protected.

@@ -1342,7 +1342,10 @@ usually a cache miss, so the table is doubled once it holds more than
 @code{R_CHARSXP_CACHE_LOAD_FACTOR} (default 0.75) strings per bucket.
 The initial number of buckets (default 65536) can be set with
 @code{R_CHARSXP_CACHE_INITIAL_SIZE}; both are read from the environment
-when @R{} starts.  Code which interns many strings at once, such as
+when @R{} starts.  Each bucket records the age (generation) of its
+youngest @code{CHARSXP}, so that a collection of the younger generations
+only sweeps the buckets which can contain a dead string rather than the
+whole cache.  Code which interns many strings at once, such as
 @code{unserialize}, can compute the hashes ahead of the lookups with
 @code{R_CharHash} and prefetch the buckets and chain heads, see
 @file{src/main/serialize.c}.
