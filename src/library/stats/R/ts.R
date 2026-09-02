@@ -1,7 +1,7 @@
 #  File src/library/stats/R/ts.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -243,8 +243,13 @@ Ops.ts <- function(e1, e2)
                          c(deparse(substitute(e1))[1L],
                            deparse(substitute(e2))[1L]),
                          union = FALSE)
-        e1 <- if(is.matrix(e1)) e12[,        1L:nc1 , drop = FALSE] else e12[, 1]
-        e2 <- if(is.matrix(e2)) e12[, nc1 + (1L:nc2), drop = FALSE] else e12[, nc1 + 1]
+        if(is.null(e12)) { # typically if e1 or e2 is matrix but e1 & e2 are not overlapping
+            e1 <- if(is.matrix(e1)) e1[0L, , drop=FALSE] else e1[0L]
+            e2 <- if(is.matrix(e2)) e2[0L, , drop=FALSE] else e2[0L]
+        } else {
+            e1 <- if(is.matrix(e1)) e12[,        1L:nc1 , drop = FALSE] else e12[, 1L]
+            e2 <- if(is.matrix(e2)) e12[, nc1 + (1L:nc2), drop = FALSE] else e12[, nc1 + 1L]
+        }
         NextMethod(.Generic)
     }
 }
@@ -264,18 +269,11 @@ diff.ts <- function (x, lag = 1, differences = 1, ...)
 {
     if (lag < 1 || differences < 1)
         stop("bad value for 'lag' or 'differences'")
-    if (lag * differences >= NROW(x)) return(x[0L])
-    ## <FIXME>
-    ## lag() and its default method are defined in package ts, so we
-    ## need to provide our own implementation.
-    tsLag <- function(x, k = 1) {
-        p <- tsp(x)
-        tsp(x) <- p - (k/p[3L]) * c(1, 1, 0)
-        x
-    }
+    if (lag * differences >= NROW(x))
+        return(if(is.matrix(x)) x[0L, , drop = FALSE] else x[0L])
     r <- x
     for (i in 1L:differences) {
-        r <- r - tsLag(r, -lag)
+        r <- r - lag(r, -lag)
     }
     xtsp <- attr(x, "tsp")
     if(is.matrix(x)) colnames(r) <- colnames(x)

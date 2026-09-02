@@ -54,7 +54,7 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
   equation \samp{y = Z'a + eta},
   \eqn{(eta\equiv\eta), \eta \sim {\cal N}(0, \kappa h)}{eta ~ N(0, kappa h)}.
   The likelihood is a profile likelihood after estimation of
-  \eqn{\kappa}{kappa}.
+  \eqn{\kappa}.
 
   The model is specified as a list with at least components
   \describe{
@@ -81,8 +81,8 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
   \code{SSinit} is therefore recommended, notably also in
   \code{\link{arima}()}.
   The \code{"Rossignol2011"} method has been proposed and partly
-  documented by \I{Raphael Rossignol}, Univ. Grenoble, on 2011-09-20 (see
-  PR#14682, below), and later been ported to C by \I{Matwey V. Kornilov}.
+  documented by \I{Raphael Rossignol}, Univ. Grenoble, on 2011-09-20
+  (\PR{14682}), and later been ported to C by \I{Matwey V. Kornilov}.
   It computes the covariance matrix of
   \eqn{(X_{t-1},...,X_{t-p},Z_t,...,Z_{t-q})}
   by the method of difference equations
@@ -94,7 +94,7 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
 \value{
   For \code{KalmanLike}, a list with components \code{Lik} (the
   log-likelihood less some constants) and \code{s2}, the estimate of
-  \eqn{\kappa}{kappa}.
+  \eqn{\kappa}.
 
   For \code{KalmanRun}, a list with components \code{values}, a vector
   of length 2 giving the output of \code{KalmanLike}, \code{resid} (the
@@ -126,8 +126,7 @@ makeARIMA(phi, theta, Delta, kappa = 1e6,
     R:Durbin+Koopman:2001,
     R:Gardner+Harvey+Phillips:1980}
 
-  R bug report PR#14682 (2011-2013)
-  \url{https://bugs.r-project.org/show_bug.cgi?id=14682}.
+  R bug report \PR{14682} (2011--2013)
 }
 
 \seealso{

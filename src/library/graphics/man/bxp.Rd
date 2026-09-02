@@ -1,6 +1,6 @@
 % File src/library/graphics/man/bxp.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{bxp}
@@ -13,11 +13,11 @@
 }
 \usage{
 bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
-    outline = TRUE, notch.frac = 0.5, log = "",
+    outline = TRUE, notch.frac = 0.5, warnN = TRUE, log = "",
     border = par("fg"), pars = NULL, frame.plot = axes,
     horizontal = FALSE, ann = TRUE,
     add = FALSE, at = NULL, show.names = NULL,
-    \dots)
+    panel.first = NULL, panel.last = NULL, \dots)
 }
 \arguments{
   \item{z}{a list containing data summaries to be used in constructing
@@ -35,6 +35,9 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     drawn.}
   \item{notch.frac}{numeric in (0,1). When \code{notch = TRUE}, the
     fraction of the box width that the notches should use.}
+  \item{warnN}{logical. When \code{notch = TRUE}, indicating if a
+    \code{\link{warning}} should be signalled when some notch gets
+    outside the hinges, i.e., the box.}
   \item{border}{character or numeric (vector), the color of the box
     borders.  Is recycled for multiple boxes.  Is used as default for
     the \code{boxcol}, \code{medcol}, \code{whiskcol}, \code{staplecol},
@@ -55,6 +58,13 @@ bxp(z, notch = FALSE, width = NULL, varwidth = FALSE,
     \code{1:n} where \code{n} is the number of boxes.}
   \item{show.names}{Set to \code{TRUE} or \code{FALSE} to override the
     defaults on whether an x-axis label is printed for each group.}
+  \item{panel.first}{a \sQuote{function} (not an \sQuote{expression}!) 
+    that is called without arguments after the plot axes are set up 
+    but before any plotting takes place. This can
+    be useful for drawing background grids.}
+  \item{panel.last}{a \sQuote{function} (not an \sQuote{expression}!) 
+    that is called after plotting has taken place but before the 
+    axes and title are added.}
   \item{pars,\dots}{\link{graphical parameters} (etc) can be passed as
     arguments to this function, either as a list (\code{pars}) or
     normally(\code{\dots}), see the following.  (Those in \code{\dots}

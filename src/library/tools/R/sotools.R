@@ -1,7 +1,7 @@
 #  File src/library/tools/R/sotools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2011-2025 The R Core Team
+#  Copyright (C) 2011-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ if(.Platform$OS.type == "windows") {
     }
 }
 
-read_symbols_from_object_file <- function(f)
+read_symbols_from_object_file <- function(f, ignore.stderr = FALSE)
 {
     ## For GCC & LTO, we need a different command, possibly with args
     ## On macOS, the system nm works with LTO objects.
@@ -77,7 +77,7 @@ read_symbols_from_object_file <- function(f)
     f <- file_path_as_absolute(f)
     if(!(file.size(f))) return()
     s <- strsplit(system(sprintf("%s -Pg %s", nm, shQuote(f)),
-                         intern = TRUE),
+                         intern = TRUE, ignore.stderr = ignore.stderr),
                   " +")
     ## Cannot simply rbind() this because elements may have 2-4 entries.
     n <- length(s)
@@ -159,74 +159,60 @@ so_symbol_names_table <-
       "linux, Fortran, gfortran, exit, _gfortran_exit_i4",
       "linux, Fortran, gfortran, exit, _gfortran_exit_i8",
 
-      ## Classic flang from Dec 2017 (and untested since)
-      "linux, Fortran, ClassicFlang, open, f90io_open03",
-      "linux, Fortran, ClassicFlang, open, f90io_open2003",
-      "linux, Fortran, ClassicFlang, close, f90io_close",
-      "linux, Fortran, ClassicFlang, rewind, f90io_rewind",
-      "linux, Fortran, ClassicFlang, write, f90io_print_init",
-      "linux, Fortran, ClassicFlang, print, f90io_print_init",
-      "linux, Fortran, ClassicFlang, read, f90io_fmt_read",
-      "linux, Fortran, ClassicFlang, write, f90io_fmt_write",
-      "linux, Fortran, ClassicFlang, stop, f90_stop",
-      "linux, Fortran, ClassicFlang, stop, f90_stop08",
-      "linux, Fortran, ClassicFlang, rand, rand",
-
-      ## and for for the 'flang' in the LLVM tree, currently
-      ## with executable 'flang-new'.
+      ## and for for the 'flang' in the LLVM tree
       ## This currently has static libs for its runtimes.
-      "linux, Fortran, flang-new, stop, _FortranAStopStatement",
-      "linux, Fortran, flang-new, stop, _FortranAStopStatementText",
-      "linux, Fortran, flang-new, open, _FortranAioBeginOpenUnit",
-      "linux, Fortran, flang-new, close, _FortranAioBeginClose",
-      "linux, Fortran, flang-new, rewind, _FortranAioBeginRewind",
-      "linux, Fortran, flang-new, read, _FortranAioInputAscii",
-      "linux, Fortran, flang-new, read, _FortranAioInputCharacter",
-      "linux, Fortran, flang-new, read, _FortranAioInputComplex32",
-      "linux, Fortran, flang-new, read, _FortranAioInputComplex64",
-      "linux, Fortran, flang-new, read, _FortranAioOutputExternalListInput",
-      "linux, Fortran, flang-new, read, _FortranAioInputInteger",
-      "linux, Fortran, flang-new, read, _FortranAioInputLogical",
-      "linux, Fortran, flang-new, read, _FortranAioInputNamelist",
-      "linux, Fortran, flang-new, read, _FortranAioInputReal32",
-      "linux, Fortran, flang-new, read, _FortranAioInputReal64",
-      "linux, Fortran, flang-new, read, _FortranAioInputUnformattedBlock",
-      "linux, Fortran, flang-new, print, _FortranAioOutputAscii",
-      "linux, Fortran, flang-new, print, _FortranAioOutputCharacter",
-      "linux, Fortran, flang-new, print, _FortranAioOutputComplex32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputComplex64",
-      "linux, Fortran, flang-new, print, _FortranAioOutputExternalListOutput",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger128",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger16",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger64",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger8",
-      "linux, Fortran, flang-new, print, _FortranAioOutputLogical",
-      "linux, Fortran, flang-new, print, _FortranAioOutputNamelist",
-      "linux, Fortran, flang-new, print, _FortranAioOutputReal32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputReal64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputAscii",
-      "linux, Fortran, flang-new, write, _FortranAioOutputCharacter",
-      "linux, Fortran, flang-new, write, _FortranAioOutputComplex32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputComplex64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputExternalListOutput",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger128",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger16",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger8",
-      "linux, Fortran, flang-new, write, _FortranAioOutputLogical",
-      "linux, Fortran, flang-new, write, _FortranAioOutputNamelist",
-      "linux, Fortran, flang-new, write, _FortranAioOutputReal32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputReal64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputUnformatedBlock",
+      "linux, Fortran, flang, stop, _FortranAStopStatement",
+      "linux, Fortran, flang, stop, _FortranAStopStatementText",
+      "linux, Fortran, flang, open, _FortranAioBeginOpenUnit",
+      "linux, Fortran, flang, close, _FortranAioBeginClose",
+      "linux, Fortran, flang, rewind, _FortranAioBeginRewind",
+      "linux, Fortran, flang, read, _FortranAioInputAscii",
+      "linux, Fortran, flang, read, _FortranAioInputCharacter",
+      "linux, Fortran, flang, read, _FortranAioInputComplex32",
+      "linux, Fortran, flang, read, _FortranAioInputComplex64",
+      "linux, Fortran, flang, read, _FortranAioOutputExternalListInput",
+      "linux, Fortran, flang, read, _FortranAioInputInteger",
+      "linux, Fortran, flang, read, _FortranAioInputLogical",
+      "linux, Fortran, flang, read, _FortranAioInputNamelist",
+      "linux, Fortran, flang, read, _FortranAioInputReal32",
+      "linux, Fortran, flang, read, _FortranAioInputReal64",
+      "linux, Fortran, flang, read, _FortranAioInputUnformattedBlock",
+      "linux, Fortran, flang, print, _FortranAioOutputAscii",
+      "linux, Fortran, flang, print, _FortranAioOutputCharacter",
+      "linux, Fortran, flang, print, _FortranAioOutputComplex32",
+      "linux, Fortran, flang, print, _FortranAioOutputComplex64",
+      "linux, Fortran, flang, print, _FortranAioOutputExternalListOutput",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger128",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger16",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger32",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger64",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger8",
+      "linux, Fortran, flang, print, _FortranAioOutputLogical",
+      "linux, Fortran, flang, print, _FortranAioOutputNamelist",
+      "linux, Fortran, flang, print, _FortranAioOutputReal32",
+      "linux, Fortran, flang, print, _FortranAioOutputReal64",
+      "linux, Fortran, flang, write, _FortranAioOutputAscii",
+      "linux, Fortran, flang, write, _FortranAioOutputCharacter",
+      "linux, Fortran, flang, write, _FortranAioOutputComplex32",
+      "linux, Fortran, flang, write, _FortranAioOutputComplex64",
+      "linux, Fortran, flang, write, _FortranAioOutputExternalListOutput",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger128",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger16",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger32",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger64",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger8",
+      "linux, Fortran, flang, write, _FortranAioOutputLogical",
+      "linux, Fortran, flang, write, _FortranAioOutputNamelist",
+      "linux, Fortran, flang, write, _FortranAioOutputReal32",
+      "linux, Fortran, flang, write, _FortranAioOutputReal64",
+      "linux, Fortran, flang, write, _FortranAioOutputUnformatedBlock",
       ## does not support rand()
       ## https://discourse.llvm.org/t/support-for-gnu-fortran-extensions/69630
-      "linux, Fortran, flang-new, random_init, _FortranARandomInit",
-      "linux, Fortran, flang-new, random_number, _FortranARandomNumber",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeed",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeedGet",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeedSize",
+      "linux, Fortran, flang, random_init, _FortranARandomInit",
+      "linux, Fortran, flang, random_number, _FortranARandomNumber",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeed",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeedGet",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeedSize",
 
       ## Intel 'Clasic' and 202x
       "linux, Fortran, intel, stop, for_stop",
@@ -559,11 +545,11 @@ function(x)
 }
 
 so_symbol_names_handlers_db$freebsd <-
-function(x)
-{
-    ## same as Linux, most likely, lots of name@@VERSION
-    sub("@.*", "", x)
-}
+    function(x)
+    {
+        ## same as Linux, most likely, lots of name@@VERSION
+        sub("@.*", "", x)
+    }
 
 ## Obsolete ones first,
 nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
@@ -572,23 +558,30 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
 ## then entry points which are not attribute-hidden
 ## and in a non-API header or no header at all or marked as non-API in a header
 
+## remove declarations and hide these entry points once BioC catches up
+            "OBJECT",
+            "NAMED", "SET_NAMED", "IS_S4_OBJECT", "SET_S4_OBJECT",
+            "UNSET_S4_OBJECT", "R_data_class", "SET_TYPEOF", "ENVFLAGS",
+            "SET_ENVFLAGS", "LEVELS", "SETLEVELS", "EXTPTR_PTR", "ENCLOS",
+            "DATAPTR", "Rf_isValidString", "Rf_isFrame",
+
             "OutDec", "PRIMOFFSET", "RC_fopen", "R_CollectFromIndex",
             "R_CompiledFileName", "R_FileExists",
             "R_FreeStringBuffer", "R_FunTab", "R_GE_setVFontRoutines",
-            "R_GetVarLocMISSING",
+            "R_GetVarLocMISSING", "Rsleep",
             "R_MethodsNamespace", "R_NewHashedEnv",
             "R_OpenCompiledFile", "R_PV", "R_ParseContext",
             "R_ParseContextLast", "R_ParseContextLine",
             "R_ParseError", "R_ParseErrorMsg", "R_SrcfileSymbol",
-            "R_SrcrefSymbol", "R_Visible", "R_addTaskCallback",
-            "R_cairoCdynload", "R_data_class",
+            "R_SrcrefSymbol", "R_Visible",
+            "R_cairoCdynload",
             "R_deferred_default_method", "R_execMethod",
             "R_findVarLocInFrame","R_fopen", "R_gc_torture",
-            "R_getTaskCallbackNames", "R_get_arith_function",
+            "R_get_arith_function",
             "R_gzclose", "R_gzgets", "R_gzopen", "R_ignore_SIGPIPE",
             "R_isForkedChild", "R_isMethodsDispatchOn",
             "R_moduleCdynload", "R_primitive_generic",
-            "R_primitive_methods", "R_print", "R_removeTaskCallback",
+            "R_primitive_methods", "R_print",
             "R_running_as_main_program", "R_setInternetRoutines",
             "R_setLapackRoutines", "R_setX11Routines",
             "R_set_prim_method", "R_set_quick_method_check",
@@ -597,9 +590,10 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Rconn_fgetc", "Rconn_printf", "Rdownload",
             "Rf_EncodeComplex", "Rf_EncodeElement",
             "Rf_EncodeEnvironment", "Rf_EncodeInteger",
+            "Rf_EncodeReal0",
             "Rf_EncodeLogical", "Rf_EncodeReal", "Rf_GPretty",
             "Rf_NewEnvironment", "Rf_PrintDefaults",
-            "Rf_ReplIteration", "Rf_Seql", "Rf_addTaskCallback",
+            "Rf_ReplIteration", "Rf_Seql",
             "Rf_begincontext", "Rf_callToplevelHandlers",
             "Rf_checkArityCall", "Rf_con_pushback",
             "Rf_copyMostAttribNoTs", "Rf_deparse1", "Rf_deparse1line",
@@ -608,10 +602,9 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Rf_formatLogical", "Rf_formatReal", "Rf_init_con",
             "Rf_isProtected", "Rf_mbrtowc", "Rf_mkFalse",
             "Rf_printNamedVector", "Rf_printRealVector",
-            "Rf_printVector", "Rf_removeTaskCallbackByIndex",
-            "Rf_removeTaskCallbackByName", "Rf_set_iconv",
+            "Rf_printVector", "Rf_set_iconv",
             "Rf_sortVector", "Rf_strIsASCII", "Rf_strchr",
-            "Rf_strrchr", "Rf_ucstomb", "Rf_utf8towcs",
+            "Rf_strrchr", "Rf_strrchr_const", "Rf_ucstomb", "Rf_utf8towcs",
             "Rf_wcstoutf8", "Rg_PolledEvents", "Rg_set_col_ptrs",
             "Rf_wait_usec", "Ri18n_iswctype", "Ri18n_wcswidth",
             "Ri18n_wctype", "Ri18n_wcwidth", "Rsockclose",
@@ -621,7 +614,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "dcar", "dcdr", "do_Rprof", "do_Rprofmem", "do_X11",
             "do_contourLines", "do_edit", "do_getGraphicsEventEnv",
             "do_getSnapshot", "do_playSnapshot", "do_saveplot",
-            "do_set_prim_method", "dqrrsd_","dqrxb_", "dtype",
+            "do_set_prim_method", "dtype",
             "dummy_fgetc", "dummy_ii", "dummy_vfprintf", "epslon_",
             "extR_HTTPDCreate", "extR_HTTPDStop", "fdhess",
             "getConnection", "getPRIMNAME", "known_to_be_latin1",
@@ -631,8 +624,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "tql2_", "tqlrat_", "tred1_", "tred2_", "utf8locale", "yylloc",
             "R_opendir", "R_readdir", "R_closedir",
             # "signrank_free", "wilcox_free" are API only from 4.2.0
-            "ENSURE_NAMEDMAX", "IS_ASCII", "IS_UTF8", "SET_PRSEEN",
-            "ddfind",
+            "ENSURE_NAMEDMAX", "IS_ASCII", "IS_UTF8",
 
 ## Rinterface.h, Rembedded.h, R_ext/{RStartup,eventloop}.h
             "AllDevicesKilled", "R_CStackLimit", "R_CStackStart",
@@ -650,10 +642,10 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "R_checkActivityEx", "R_runHandlers",
             "R_setStartTime", "R_set_command_line_arguments",
             "R_setupHistory", "R_timeout_handler", "R_timeout_val",
-            "R_wait_usec", "RestoreAction", "Rf_CleanEd",
+            "R_wait_usec", "SaveAction", "RestoreAction", "Rf_CleanEd",
             "Rf_KillAllDevices", "Rf_endEmbeddedR", "Rf_initEmbeddedR",
             "Rf_initialize_R", "Rf_jump_to_toplevel", "Rf_mainloop",
-            "SaveAction", "editorcleanall", "fpu_setup",
+            "editorcleanall", "fpu_setup",
             "freeRUser", "free_R_HOME",
             "getDLLVersion", "getRUser", "get_R_HOME",
             "getSelectedHandler", "initStdinHandler",
@@ -668,42 +660,55 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "ptr_do_selectlist", "readconsolecfg",
             "run_Rmainloop", "setup_Rmainloop",
 
+            ## some variables
+            "R_NamespaceRegistry",
+            "R_InBCInterpreter", "R_CurrentExpression",
+            "R_CStackDir", "R_MB_CUR_MAX",
+            "R_compact_intseq_class", "R_compact_realseq_class",
+            "R_num_math_threads", "R_max_num_math_threads",
+            "R_FalseValue", "R_LogicalNAValue", "R_TrueValue",
+
 ## non-API, removed in R 4.5.0 and long deprecated in R_ext/RS.h (and as call_S in S.h)
             "call_R",
 ## non-API, declared in Defn.h
             "Rf_setSVector",
+            "Rf_asRbool", "Rf_asBool2", "R_BadLongVector", "REFCNT",
+            "ALTREP_LENGTH", "ALTVEC_DATAPTR",
+            "ALTVEC_DATAPTR_RO", "ALTSTRING_ELT", "R_signal_protect_error",
+            "R_signal_unprotect_error", "R_signal_reprotect_error",
+            "Rf_allocVector3", "R_typeToChar", "Rf_translateCharFP",
+            "Rstrdup", "Rf_matchE", "R_popen", "R_system", "R_findVarLoc",
+            "R_duplicate_attr", "Rf_substitute", "Rf_type2rstr",
+            "R_MissingArgError", "R_MissingArgError_c",
+            "R_makePartialMatchWarningCondition",
+            "R_makePartialArgumentMatchWarningCondition",
+            "Rf_EncodeChar",
+            "Rf_utf8clen", "R_strtod5", "Rf_utf8toucs", "Rf_wtransChar",
+            "Rf_mbcsValid", "Rf_utf8Valid",
 ## non-API, declared in Rinternals.h
-            "SET_OBJECT", ## no longer used in an example in R-exts 
-            "SET_S4_OBJECT", "UNSET_S4_OBJECT",
-            "SETLENGTH", "SET_TRUELENGTH", "SETLEVELS",
-            "SET_ENVFLAGS", "SET_FRAME", "SET_ENCLOS", "SET_HASHTAB",
-            "SET_PRENV", "SET_PRVALUE", "SET_PRCODE", "STDVEC_DATAPTR",
-            "IS_GROWABLE", "SET_GROWABLE_BIT", "SET_NAMED",
+            "SET_OBJECT", ## no longer used in an example in R-exts
+            "SET_PRENV", "SET_PRVALUE", "SET_PRCODE",
             "R_PromiseExpr",
-            "R_tryWrap",
-            "DDVAL", "NAMED", "INTERNAL", "SYMVALUE", "PRSEEN",
-            "INTEGER0", "LOGICAL0", "RAW0",
-            "REAL0", "COMPLEX0", "LEVELS", "FRAME", "HASHTAB",
-            "ENVFLAGS", "RDEBUG", "SET_RDEBUG",
-            "STRING_PTR", "VECTOR_PTR",
-            "SET_FORMALS", "SET_BODY", "SET_CLOENV", "Rf_findVarInFrame3",
-            "PRCODE", "PRENV", "PRVALUE", "R_nchar", "Rf_acopy_string",
-            "Rf_NonNullStringMatch",
-            "SET_TYPEOF", "TRUELENGTH", "XLENGTH_EX",
-            "XTRUELENGTH", "Rf_gsetVar",
-            "Rf_isValidString", "Rf_isValidStringF",
-            "R_shallow_duplicate_attr", "Rf_lazy_duplicate",
+            ## "R_tryWrap",
+            "DDVAL", "INTERNAL", "SYMVALUE",
+            "INTEGER0", "LOGICAL0", "RAW0", "REAL0", "COMPLEX0",
+            "RDEBUG", "SET_RDEBUG", "STRING_PTR",
+            "Rf_findVar", "Rf_findVarInFrame", "Rf_findVarInFrame3",
+            "PRCODE", "PRENV", "PRVALUE",
+            "XLENGTH_EX", "Rf_gsetVar",
             ## Documented in WRE in section "Some API replacements for
             ## non-API entry points":
-            "EXTPTR_PROT", "EXTPTR_TAG", "EXTPTR_PTR",
-            "OBJECT", "IS_S4_OBJECT",
-            "Rf_GetOption", "R_lsInternal",
-            "REAL0", "COMPLEX0",
-            "STRING_PTR", "DATAPTR", "STDVEC_DATAPTR",
+            "R_lsInternal",
             "Rf_allocSExp",
-            "Rf_isFrame",
-            "BODY", "FORMALS", "CLOENV", "ENCLOS",
-            "IS_ASCII", "IS_UTF8",
+            "BODY", "FORMALS", "CLOENV",
+            "ATTRIB", "SET_ATTRIB",
+## experimental resizable vector entry points -- now in the experimental API
+            ## "R_isResizable", "R_maxLength", "R_resizeVector",
+            ## "R_allocResizableVector", "R_duplicateAsResizable",
+## experimental hashtable support -- not yet in the API
+            "R_asHashtable", "R_HashtabSEXP", "R_isHashtable", "R_mkhashtab",
+            "R_gethash", "R_sethash", "R_remhash", "R_numhash", "R_typhash",
+            "R_maphash", "R_maphashC", "R_clrhash",
 ## in the experimental API header R_ext/Connections.h
 ##            "R_new_custom_connection", "R_ReadConnection",
 ##            "R_WriteConnection", "R_GetConnection",
@@ -717,16 +722,26 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
 
 ## These now generate warnings in check.R
 warnNonAPI <-
-    c("REAL0", "COMPLEX0", "ddfind", "DDVAL", "ENSURE_NAMEDMAX", "INTERNAL",
-      "PRSEEN", "SET_PRSEEN", "SYMVALUE", "R_nchar", "VECTOR_PTR", "R_tryWrap",
-      "Rf_NonNullStringMatch", "Rf_isValidString", "Rf_GetOption", "SET_FRAME",
-      "SET_HASHTAB", "SET_ENCLOS", "STDVEC_DATAPTR", "SET_S4_OBJECT",
-      "UNSET_S4_OBJECT", "SET_NAMED", "R_lsInternal", "Rf_lazy_duplicate",
-      "EXTPTR_PROT", "EXTPTR_PTR", "EXTPTR_TAG", "NAMED", "FRAME", "HASHTAB",
-      "IS_S4_OBJECT", "BODY", "FORMALS", "CLOENV", "ENCLOS", "Rf_isFrame",
-      "OBJECT", "SET_TYPEOF", "ENVFLAGS", "SET_ENVFLAGS", "SET_FORMALS",
-      "SET_BODY", "SET_CLOENV", "STRING_PTR", "DATAPTR", "XTRUELENGTH",
-      "R_shallow_duplicate_attr", "R_duplicate_attr")
+    c("REAL0", "COMPLEX0", "INTEGER0", "LOGICAL0", "RAW0",
+      "DDVAL", "ENSURE_NAMEDMAX", "INTERNAL", "SYMVALUE",
+      ## "R_tryWrap",
+      "Rf_PrintDefaults", "Rf_EncodeElement",
+      "STRING_PTR", "ATTRIB", "SET_ATTRIB", "SET_OBJECT",
+      "Rf_findVar", "Rf_findVarInFrame", "Rf_findVarInFrame3",
+      "R_lsInternal",
+      "BODY", "FORMALS", "CLOENV", "getConnection", "Rsleep",
+      ## remove declarations and hide these entry points once BioC catches up
+      "OBJECT", "NAMED", "SET_NAMED", "IS_S4_OBJECT", "SET_S4_OBJECT",
+      "UNSET_S4_OBJECT", "R_data_class", "SET_TYPEOF", "ENVFLAGS",
+      "SET_ENVFLAGS", "LEVELS", "SETLEVELS", "EXTPTR_PTR", "ENCLOS",
+      "DATAPTR", "Rf_isValidString", "Rf_isFrame",
+      "PRCODE", "SET_PRCODE", "PRENV", "SET_PRENV",
+      "PRVALUE", "SET_PRVALUE", "R_PromiseExpr", "Rf_allocSExp")
+
+## sanity checks
+stopifnot(anyDuplicated(nonAPI) == 0)
+stopifnot(anyDuplicated(warnNonAPI) == 0)
+stopifnot(length(setdiff(warnNonAPI, nonAPI)) == 0)
 
 ## grDevices uses R_Home R_InputHandlers R_TempDir R_Visible R_cairoCdynload R_fopen R_gzclose R_gzgets R_gzopen R_isForkedChild Rf_envlength Rf_strIsASCII Rf_utf8towcs Rg_set_col_ptrs Ri18n_wcwidth addInputHandler do_X11 do_contourLines do_getGraphicsEventEnv do_getSnapshot do_playSnapshot do_saveplot locale2charset mbcsToUcs2 ptr_R_ProcessEvents
 
@@ -756,6 +771,17 @@ check_so_symbols <- if(.Platform$OS.type == "windows") {
         if(have_tables) ind[1:4] <- TRUE
         tab <- so_symbol_names_table[ind, , drop = FALSE]
         attr(tab, "file") <- so
+        ignore_emb <- Sys.getenv("_R_CHECK_SO_SYMBOLS_IGNORE_EMB_",
+                                 "true")
+        ignore_emb <- config_val_to_logical(ignore_emb)
+        if(ignore_emb) {
+            ## make codetools happy
+            apitype <- NULL
+            nonAPI <-
+                setdiff(nonAPI,
+                        c(subset(funAPI(), apitype == "emb")$name,
+                          subset(varAPI(), apitype == "emb")$name))
+        }
         tab2 <- intersect(sub("^_", "", nms), nonAPI)
         if ("removeInputHandler" %in% tab2)
             tab2 <- setdiff(tab2, c("R_InputHandlers", "addInputHandler",
@@ -781,7 +807,17 @@ check_so_symbols <- if(.Platform$OS.type == "windows") {
         tab <- so_symbol_names_table[ind, , drop = FALSE]
         attr(tab, "file") <- so
         tab2 <- sub("^_", "", tab2)
-
+        ignore_emb <- Sys.getenv("_R_CHECK_SO_SYMBOLS_IGNORE_EMB_",
+                                 "true")
+        ignore_emb <- config_val_to_logical(ignore_emb)
+        if(ignore_emb) {
+            ## make codetools happy
+            apitype <- NULL
+            nonAPI <-
+                setdiff(nonAPI,
+                        c(subset(funAPI(), apitype == "emb")$name,
+                          subset(varAPI(), apitype == "emb")$name))
+        }
         tab2a <- intersect(tab2, nonAPI)
         if ("removeInputHandler" %in% tab2a)
             tab2a <- setdiff(tab2a, c("R_InputHandlers", "addInputHandler",
@@ -1112,9 +1148,9 @@ function(dir)
             !is.na(match(deparse(e[[1L]])[1L], ff_call_names))
     }
 
-    calls <- .find_calls_in_package_code(dir,
-                                         predicate = predicate,
-                                         recursive = TRUE)
+    calls <- find_calls_in_package_code(dir,
+                                        predicate = predicate,
+                                        recursive = TRUE)
     calls <- unlist(Filter(length, calls))
 
     if(!length(calls)) return(NULL)

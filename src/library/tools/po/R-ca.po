@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -322,9 +322,6 @@ msgstr ""
 msgid "License stub records with missing/empty fields:"
 msgstr "no es poden tractar els objectes RD amb noms buits o que manquen"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr "Usa la llicència ACM: només és apropiat per al codi TOMS d'ACM anterior a 2013"
-
 #, fuzzy
 msgid "Non-portable flags in variable '%s':"
 msgstr "Indicadors no portables a la variable «%s»:"
@@ -403,7 +400,7 @@ msgid "package 'methods' is used but not declared"
 msgstr "el paquet «methods» s'utilitza però no s'ha declarat"
 
 msgid "'::' or ':::' imports not declared from:"
-msgstr "Les importacions de «::» o «:::» no s'han declarat de:"
+msgstr "Les importacions amb «::» o «:::» no s'han declarat per:"
 
 msgid "'::' or ':::' import not declared from: %s"
 msgstr "no s'ha declarat la importació «::» o «:::» des de: %s"
@@ -535,8 +532,8 @@ msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "El contingut generat automàticament que requereix edició a l'objecte Rd «%s»:"
 
 #, fuzzy
-msgid "Rd files without \\description:"
-msgstr "Objectes Rd sense \\description:"
+msgid "Rd files without %s:"
+msgstr "Fitxers Rd sense \\alias:"
 
 #, fuzzy
 msgid "no Rd sections specified"
@@ -768,10 +765,6 @@ msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "El nom de fitxer de vinyeta «%s» no coincideix amb cap dels patrons de nom de fitxer «%s»"
 
 #, fuzzy
-msgid "+-+"
-msgstr "+-+"
-
-#, fuzzy
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "A «%s» les vinyetes «%s» i «%s» tenen el mateix nom de vinyeta"
 
@@ -945,10 +938,6 @@ msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "valor no vàlid per a «--compact-vignettes», s'assumeix %s"
 
 #, fuzzy
-msgid "Error: cannot rename directory to %s"
-msgstr "Error: no es pot canviar el nom del directori a %s"
-
-#, fuzzy
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "s'ha arribat al límit de temps transcorregut de %g %s per al subprocés"
 
@@ -992,12 +981,18 @@ msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr "'reverse$repos' ha de ser un subconjunt de getOption(\"repos\")"
 
 #, fuzzy
-msgid "downloading reverse dependencies ..."
+msgid "downloading reverse dependencies %s"
 msgstr "s'estan baixant les dependències inverses..."
 
 #, fuzzy
-msgid "downloading %s ..."
-msgstr "s'està baixant %s ..."
+msgid "download of reverse dependency %s failed"
+msgstr "s'estan baixant les dependències inverses..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "s'estan baixant les dependències inverses..."
 
 #, fuzzy
 msgid "checking %s ..."
@@ -1142,24 +1137,22 @@ msgid ".install_packages() exit status"
 msgstr "Estat de sortida de .installpackages()"
 
 #, fuzzy
-msgid "restoration failed"
-msgstr "ha fallat la restauració"
-
-#, fuzzy
-msgid "invalid value"
-msgstr "valor no vàlid"
-
-#, fuzzy
-msgid "for R_CROSS_BUILD"
-msgstr "per a RCROSSBUILD"
-
-#, fuzzy
 msgid "error reading file '%s'"
 msgstr "s'ha produït un error en llegir el fitxer «%s»"
 
 #, fuzzy
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "això sembla un paquet -- i estan desapareguts"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "el paquet %s s'ha desempaquetat correctament i s'han marcat les sumes MD5"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 #, fuzzy
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
@@ -1174,28 +1167,8 @@ msgid "no DLL was created"
 msgstr "no s'ha creat cap DLL"
 
 #, fuzzy
-msgid "NOTE: fixed path"
-msgstr "NOTA: camí fix"
-
-#, fuzzy
-msgid "NOTE: fixed library identification name"
-msgstr "NOTA: nom d'identificació fix de la biblioteca"
-
-#, fuzzy
-msgid "NOTE: fixed library path"
-msgstr "NOTA: s'ha esmenat el camí de la biblioteca"
-
-#, fuzzy
-msgid "NOTE: fixed rpath"
-msgstr "NOTA: rpath fix"
-
-#, fuzzy
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "ADVERTÈNCIA: objectes compartits/biblioteques dinàmiques amb camins d'instal·lació temporals codificats"
-
-#, fuzzy
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "el paquet %s s'ha desempaquetat correctament i s'han marcat les sumes MD5"
 
 #, fuzzy
 msgid "not using staged install with --libs-only"
@@ -1206,36 +1179,8 @@ msgid "staged installation is only possible with locking"
 msgstr "la instal·lació per etapes només és possible amb el bloqueig"
 
 #, fuzzy
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "AVÍS: els pedaços en temps d'instal·lació no s'aplicaran, no s'ha pogut obtenir l'índex de pedaços"
-
-#, fuzzy
 msgid "patch utility is needed for installation-time patching"
 msgstr "La utilitat de pedaç és necessària per a l'ajustament en temps d'instal·lació"
-
-#, fuzzy
-msgid "NOTE: Skipping installation-time patch"
-msgstr "NOTA: s'omet el pedaç de temps d'instal·lació"
-
-#, fuzzy
-msgid "which seems to be already applied."
-msgstr "que sembla que ja s'aplica."
-
-#, fuzzy
-msgid "WARNING: failed to apply patch"
-msgstr "AVÍS: no s'ha pogut aplicar el pedaç"
-
-#, fuzzy
-msgid "Applied installation-time patch"
-msgstr "S'ha aplicat el pedaç de temps d'instal·lació"
-
-#, fuzzy
-msgid "and saved it as"
-msgstr "i l'ha desat com a"
-
-#, fuzzy
-msgid "in package installation"
-msgstr "en la instal·lació del paquet"
 
 #, fuzzy
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1289,32 +1234,8 @@ msgid "building a fake installation is disallowed"
 msgstr "no es permet la construcció d'una instal·lació falsa"
 
 #, fuzzy
-msgid "using C compiler:"
-msgstr "utilitzant el compilador de C:"
-
-#, fuzzy
-msgid "using Fortran compiler:"
-msgstr "utilitzant el compilador Fortran:"
-
-#, fuzzy
-msgid "using C++ compiler:"
-msgstr "utilitzant el compilador C++:"
-
-#, fuzzy
-msgid "using C++"
-msgstr "utilitzant C++"
-
-#, fuzzy
-msgid "using SDK:"
-msgstr "s'està utilitzant SDK:"
-
-#, fuzzy
-msgid "WARNING: failed to revert patch"
-msgstr "AVÍS: no s'ha pogut revertir el pedaç"
-
-#, fuzzy
-msgid "Reverted installation-time patch"
-msgstr "S'ha revertit el pedaç del temps d'instal·lació"
+msgid "Input must be character"
+msgstr "«text» ha de ser un vector de caràcters"
 
 #, fuzzy
 msgid ""
@@ -1443,6 +1364,13 @@ msgstr ""
 "  %s\n"
 "no conté cap \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "paquet no vàlid"
+
 #, fuzzy
 msgid "Processing packages:"
 msgstr "Processant paquets:"
@@ -1480,6 +1408,29 @@ msgstr "«x» ha de ser una cadena de caràcters única"
 
 msgid "invalid hex string"
 msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "la prova «%s» no està disponible"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+msgid "'%s' must be a character string"
+msgstr "«%s» ha de ser una cadena de caràcters"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "ha fallat la càrrega"
 
 #, fuzzy
 msgid "this requires 'objdump.exe' to be on the PATH"
@@ -1555,10 +1506,6 @@ msgstr "ha fallat l'execució de «texi2dvi» a «%s»"
 #, fuzzy
 msgid "Running vignettes for package %s"
 msgstr "S'estan executant vinyetes per al paquet %s"
-
-#, fuzzy
-msgid "Comparing %s to %s ..."
-msgstr "S'està comparant %s a %s..."
 
 #, fuzzy
 msgid "no parsed files found"
@@ -1673,10 +1620,6 @@ msgid "update_PACKAGES complete."
 msgstr "s'han completat els paquets d'actualització."
 
 #, fuzzy
-msgid "'%s' must be a character string"
-msgstr "«x» ha de ser una cadena de caràcters única"
-
-#, fuzzy
 msgid "test '%s' is not available"
 msgstr "la prova «%s» no està disponible"
 
@@ -1743,6 +1686,11 @@ msgstr "Codificació desconeguda amb dades no ASCII: s'està convertint a ASCII"
 #, fuzzy
 msgid "cannot source package code:"
 msgstr "no es pot font el codi del paquet:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
 
 msgid "inferiorCallError"
 msgstr ""
@@ -1945,6 +1893,33 @@ msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Entrada BibTeX corresponent:"
 msgstr[1] "Entrades corresponents de BibTeX:"
+
+#, fuzzy
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Error: no es pot canviar el nom del directori a %s"
+
+#~ msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
+#~ msgstr "Usa la llicència ACM: només és apropiat per al codi TOMS d'ACM anterior a 2013"
+
+#, fuzzy
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Objectes Rd sense \\description:"
+
+#, fuzzy
+#~ msgid "downloading %s ..."
+#~ msgstr "s'està baixant %s ..."
+
+#, fuzzy
+#~ msgid "invalid value"
+#~ msgstr "valor no vàlid"
+
+#, fuzzy
+#~ msgid "for R_CROSS_BUILD"
+#~ msgstr "per a RCROSSBUILD"
+
+#, fuzzy
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "S'està comparant %s a %s..."
 
 #, fuzzy
 #~ msgid "parse error in file '%s':"

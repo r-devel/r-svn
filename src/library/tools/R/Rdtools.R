@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rdtools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2014 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -104,6 +104,8 @@ function(ifile, encoding = "unknown", keepSpacing = TRUE,
 	    if (keepSpacing)
                 mycat(rep.int(" ", max(0, firstcol - prevcol - 1L)), sep = "")
 	    x <- as.character(srcref) # go back to original form
+	    ## Note this is empty for USERMACRO expansions
+	    ## (and different from print.Rd, which shows the expansion).
 	    if (extraSpace) {
 	    	if (grepl("[^\n]* ", x))
 	    	    x <- sub(" ", "  ", x)
@@ -124,6 +126,7 @@ function(ifile, encoding = "unknown", keepSpacing = TRUE,
 	"\\keyword"=,
 	"\\link"=,
         "\\linkS4class"=,
+        "\\linkS4methods"=,
 	"\\method"=,
 	"\\pkg"=,
 	"\\var"=,
@@ -152,6 +155,7 @@ function(ifile, encoding = "unknown", keepSpacing = TRUE,
 	    	attr(x, "Rd_tag") <- "KEEP"
 	    	show(x)
 	    }
+	    ## else skip, e.g., USERMACRO invocations such as \I{}
 	})# {switch}
     }# end show()
 

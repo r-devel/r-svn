@@ -1,7 +1,7 @@
 #  File src/library/tools/R/testing.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 # NB: also copyright date in Usage.
 #
@@ -180,7 +180,7 @@ Rdiff <- function(from, to, useDiff = FALSE, forEx = FALSE,
         if (nullPointers) {
             ## remove pointer addresses from listings
             ## useBytes=TRUE as some tests intentionally use invalid strings
-            txt <- gsub("<(environment|bytecode|pointer|promise): [x[:xdigit:]]+>", "<\\1: 0>", txt,
+            txt <- gsub("<(environment|bytecode|pointer|promise): ([x[:xdigit:]]+|[(]nil[)])>", "<\\1: 0>", txt,
                         useBytes = TRUE)
             ## standardize hashtable, pro tem
             ## useBytes=TRUE as some tests intentionally use invalid strings
@@ -536,7 +536,7 @@ testInstalledPackage <-
             Sys.getenv("_R_CHECK_TESTS_ELAPSED_TIMEOUT_",
             Sys.getenv("_R_CHECK_ELAPSED_TIMEOUT_")))
     tlim <- get_timeout(tlim)
-    if (!is.null(Log)) Log <- file(Log, "wt")
+    Log <- newLog(Log %||% "")
     WINDOWS <- .Platform$OS.type == "windows"
     td0 <- as.numeric(Sys.getenv("_R_CHECK_TIMINGS_"))
     theta <-
@@ -557,15 +557,11 @@ testInstalledPackage <-
                 else sprintf(" [%ds/%ds]", round(sum(td[-3L])), round(td[3L]))
             }
         }
-        message(td2, domain = NA)
-        if (!is.null(Log)) cat(td2, "\n", sep = "",  file = Log)
+        printLog0(Log, td2, "\n")
     }
     runone <- function(f)
     {
-        message(gettextf("  Running %s", sQuote(f)),
-                appendLF = FALSE, domain = NA)
-        if(!is.null(Log))
-            cat("  Running ", sQuote(f), sep = "", file = Log)
+        printLog0(Log, "  Running ", sQuote(f))
         outfile <- sub("rout$", "Rout", paste0(f, "out"))
         cmd <- paste(shQuote(file.path(R.home("bin"), "R")),
                      "CMD BATCH --vanilla",
@@ -587,8 +583,7 @@ testInstalledPackage <-
                 ratio <- round(cpu/td[3L], 1L)
                 msg <- sprintf("Running R code in %s had CPU time %g times elapsed time\n",
                                sQuote(f), ratio)
-                cat(msg)
-                if (!is.null(Log)) cat(msg, file = Log)
+                printLog0(Log, msg)
             }
         }
         if (res) {
@@ -598,22 +593,12 @@ testInstalledPackage <-
         }
         savefile <- paste0(outfile, ".save")
         if (file.exists(savefile)) {
-            message(gettextf("  Comparing %s to %s ...",
-                             sQuote(outfile), sQuote(savefile)),
-                    appendLF = FALSE, domain = NA)
-            if(!is.null(Log))
-                cat("  Comparing ", sQuote(outfile), " to ",
-                    sQuote(savefile), " ...", sep = "", file = Log)
-            if(!is.null(Log)) {
-                ans <- Rdiff(outfile, savefile, TRUE, Log = TRUE)
-                writeLines(ans$out)
-                writeLines(ans$out, Log)
-                res <- ans$status
-            } else res <- Rdiff(outfile, savefile, TRUE)
-            if (!res) {
-                message(" OK")
-                if(!is.null(Log)) cat(" OK\n", file = Log)
-            }
+            printLog0(Log, "  Comparing ", sQuote(outfile), " to ",
+                      sQuote(savefile), " ...")
+            ans <- Rdiff(outfile, savefile, TRUE, Log = TRUE)
+            if (ans$status) {
+                printLog0(Log, "\n", paste(ans$out, collapse = "\n"), "\n")
+            } else printLog0(Log, " OK\n")
         }
         0L
     }
@@ -623,9 +608,7 @@ testInstalledPackage <-
     nfail <- 0L ## allow for later running all tests even if some fail.
     Rinfiles <- dir(".", pattern="\\.Rin$")
     for(f in Rinfiles) {
-        message("  Processing ", sQuote(f), domain = NA)
-        if (!is.null(Log))
-            cat("  Processing ", sQuote(f), "\n", sep = "", file = Log)
+        printLog0(Log, "  Processing ", sQuote(f), "\n")
         cmd <- paste(shQuote(file.path(R.home("bin"), "R")),
                      "CMD BATCH --no-timing --vanilla --no-echo", shQuote(f))
         if (system(cmd)) {
@@ -640,7 +623,7 @@ testInstalledPackage <-
         nfail <- nfail + runone(f)
         if (nfail > 0 && stop_on_error) return(nfail)
     }
-    if (!is.null(Log)) close(Log)
+    closeLog(Log)
     return(nfail)
 }
 
@@ -700,7 +683,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
     Sys.setlocale("LC_COLLATE", "C")
 ### ---- "basic" tests ("devel", etc -------> further down (!)
     ## "strict specific" (test-src-strict-1):
-    tests1 <- c("eval-etc", "simple-true", "arith-true", "lm-tests",
+    tests1 <- c("eval-etc", "simple-true", "arith-true", "arith", "lm-tests",
                 "ok-errors", "method-dispatch", "array-subset",
                 "p-r-random-tests", "d-p-q-r-tst-2",
                 "any-all", "structure", "d-p-q-r-tests")
@@ -715,7 +698,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
                 "classes-methods",
                 ## reg-translation, reg-ex*3 ... see "devel" below
                 "datetime3",
-                "p-qbeta-strict-tst",
+                "p-qbeta-strict-tst", "r-strict-tst",
                 "reg-IO", "reg-IO2", "reg-plot", "reg-S4", "reg-BLAS")
 
     useDiff <- nzchar(Sys.which("diff"))  # only check once
@@ -830,7 +813,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
         message("running sloppy specific tests", domain = NA)
         for (f in tests2) runone(f, TRUE)
         message("running regression tests", domain = NA)
-        for (f in tests3) {
+        for (f in tests3) { 
             if (runone(f)) return(invisible(1L))
             if (f == "reg-plot") {
                 comparePdf(f)

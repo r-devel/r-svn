@@ -1,6 +1,6 @@
 #  File src/library/tools/R/pkg2HTML.R
 #
-#  Copyright (C) 2023-2024 The R Core Team
+#  Copyright (C) 2023-2026 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -157,19 +157,19 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
                         switch(toc_entry, title = rdtitles, name = rdnames))
 
     language <- descmeta["Language"]
-    if(is.na(language))
-        language <- "en"
-    else if(grepl(",", language))
-        language <- NA_character_
-    ## If DESCRIPTION specifices several languages, we currently cannot
-    ## tell which one will be used for the package Rd files.  We could
-    ## guess to use the first language given, for now simply take the
-    ## language as unknown.
+    language <- if(is.na(language))
+                    "en"
+                else
+                    sub(",.*", "", language)
+    ## If DESCRIPTION specifices several languages, take the first one
+    ## as the primary one for the Rd files (and say so in R-exts).
     
     ## Now to make a file with header + DESCRIPTION + TOC + content + footer
 
     hfcomps <- # should we be able to specify static URLs here?
-        HTMLcomponents(title = paste0("Help for package ", pkgname), logo = FALSE,
+        HTMLcomponents(title = sprintf('Package {%s}', pkgname),
+                       headerTitle = paste0("Help for package ", pkgname),
+                       logo = FALSE,
                        up = NULL, top = NULL,
                        css = stylesheet,
                        outputEncoding = outputEncoding,
@@ -200,9 +200,9 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
     writeHTML('<nav class="package" aria-label="Topic Navigation">',
               '<div class="dropdown-menu">',
               sprintf('<img class="toplogo" src="%s" alt="[logo]">',
-                      if (src.type == "installed") staticLogoPath(pkgname, relative = FALSE)
+                      if (src.type == "installed")
+                          staticLogoPath(pkgname, lib.loc = lib.loc, relative = FALSE)
                       else staticLogoPath(pkgdir, relative = FALSE, dir = TRUE)),
-              sprintf('<h1>Package {%s}</h1>', pkgname),
               '<h2>Contents</h2>',
               '<ul class="menu">',
               toclines,
@@ -212,17 +212,26 @@ pkg2HTML <- function(package, dir = NULL, lib.loc = NULL,
               '</nav>',
               '<main>')
 
-    if (include_description) writeHTML(.DESCRIPTION_to_HTML(descfile))
-    lapply(hcontent, function(h) {
+    if (include_description)
+        writeHTML(.DESCRIPTION_to_HTML(descfile, hooks = hooks))
+    lapply(names(hcontent), function(rdfile) {
+        h <- hcontent[[rdfile]]
     	if (concordance) {
     	    conc <- h$concordance
     	    if (inherits(conc, "Rconcordance")) {
     	        conc$offset <- conc$offset + linecount + 1L
+                ## replace single-file concordance info
     	        h$outlines[length(h$outlines)] <-
     	            paste("<!--", as.character(conc), "-->")
     	    }
     	}
-    	writeHTML("<hr>", h$outlines)
+        if (startsWith(rdfile, "unix/"))
+            rdfile <- sub("unix/", "", rdfile, fixed = TRUE)
+        else if (startsWith(rdfile, "windows/"))
+            rdfile <- sub("windows/", "", rdfile, fixed = TRUE)
+    	file_id <- string2id(gsub("[.][Rr]d$", "", rdfile))
+    	writeHTML(sprintf("<hr><span id='rdfile+%s'></span>", file_id),
+                  h$outlines)
     })
     writeHTML('</main>')
     writeHTML(hfcomps$footer, sep = "")

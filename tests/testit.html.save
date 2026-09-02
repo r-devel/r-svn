@@ -51,6 +51,7 @@ foo(<var>x</var>, <var>y</var>, ...)
 conditional content.
 End(<code style="white-space: pre;">&#8288;#ifdef&#8288;</code>).
 </p>
+
 <p>Escaped backslash <code>\x</code>.
 </p>
 <p><code>%{}</code>
@@ -109,6 +110,11 @@ a
 </p>
 <p>c
 </p>
+<p><em>one</em>
+two
+<em>one</em>
+two
+</p>
 <p><code style="white-space: pre;">&#8288;
 [1] "a\n    b\n    c"
 &#8288;</code>
@@ -148,6 +154,12 @@ a
 
 <p>This should not start a new paragraph:
 <code class="reqn">\frac{1}{n-1}</code>.
+</p>
+<p>Simple 1-arg case with basic substitution in plain text (and legacy HTML):
+<code class="reqn">0 \le \code{x} \leq 1</code>
+</p>
+<p>More symbols: <code class="reqn">\sqrt{\sum_i (\log(x_i)-\mu)^2}</code> <br>
+where <code class="reqn">i \in \{1,\ldots,n\}</code> if <code class="reqn">n \times \pi &lt; \infty</code>.
 </p>
 
 

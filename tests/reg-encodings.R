@@ -2,9 +2,11 @@
 
 str(INFO <- l10n_info())
 UTF8 <- INFO[["UTF-8"]]
+osType <- .Platform$OS.type
+onWindows <- osType == "windows"
 LATIN1OR9 <- !UTF8 && (
     INFO[["Latin-1"]] ||
-    switch(.Platform$OS.type,
+    switch(osType,
            windows = identical(INFO[["codepage"]], 28605L),
            unix = tolower(gsub("-", "", INFO[["codeset"]], fixed = TRUE)) == "iso885915")
 )
@@ -14,6 +16,20 @@ if(!(UTF8 || LATIN1OR9) ||
     ## l10n_info() would report Latin-1 when that is the code page
     message("SKIPPED: these tests need a UTF-8 or Latin-1 or Latin-9 locale")
     q("no")
+}
+
+options(warn = 1)
+assertErrV  <- function(...) tools::assertError  (..., verbose=TRUE)
+assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+#
+##' Get value of `expr` and keep warning as attribute (if there is one)
+getVaW <- function(expr, obj=FALSE) {
+    W <- NULL
+    withCallingHandlers(val <- expr,
+                        warning = function(w) {
+                            W <<- if(obj) w else conditionMessage(w)
+                            invokeRestart("muffleWarning") })
+    structure(val %||% quote(._NULL_()), warning = W) # NULL cannot have attr.
 }
 
 
@@ -141,9 +157,10 @@ if (UTF8) {
     ## and that is not invoked when signalled errors are caught, hence:
     capt_err_msg <- function(expr) {
         tmp <- tempfile()
-        on.exit(unlink(tmp))
+        tmp.con <- file(tmp, 'w')
+        on.exit({ close(tmp.con); unlink(tmp) })
         err.con <- getConnection(sink.number(type='message'))
-        sink(file(tmp, 'w'), type='message')
+        sink(tmp.con, type='message')
         withRestarts(expr, abort=function() sink(err.con, type='message'))
         ## add back newlines consumed by readlines; we assume a trailing one
         ## exists, if it doesn't readLines will issue a warning
@@ -331,7 +348,7 @@ stopifnot(grepl("chr \"J.*reskog\"", .tmp))
 
 ## source() with multiple encodings -- moved from reg-tests-1e.R
 writeLines('x <- "fa\xE7ile"', tf <- tempfile(), useBytes = TRUE)
-tools::assertError(source(tf, encoding = "UTF-8"))
+assertErrV(source(tf, encoding = "UTF-8"))
 source(tf, encoding = c("UTF-8", "latin1"))
 ## in R 4.2.{0,1} gave Warning (that would now be an error):
 ##   'length(x) = 2 > 1' in coercion to 'logical(1)'
@@ -375,11 +392,83 @@ stopifnot(identical(iconv(list(r16), "UTF-16", "UTF-8", sub="byte"),
 
 
 ## Using a __unicode__ decimal mark is fine :
-op <- options(OutDec = "·", scipen = 1)
+op <- options(OutDec = "\u00b7", scipen = 1)
 x <- pi* 10^(-6:5)
 fx <- sapply(x, format)
+## with prettyNum warnings if LATIN1OR9: "...more than one character wide..."
 print(fx, width=88, quote=FALSE) # 3·141593e-06 0·00003141593 0·0003141593 ....
 options(OutDec = ".") # back to normal
 stopifnot(grepl("·", fx, fixed=TRUE),
           identical(sub("·", ".", fx), sapply(x, format)))
 options(op)
+
+
+## abbreviate(<non-ASCII>) -- PR#19058
+ch1 <- intToUtf8(c(112L, 345L, 237L, 115:116, 345L, 101L, 353L, 101L, 107L))
+lcct <- Sys.getlocale("LC_CTYPE") # saved
+Sys.getlocale() # just for info ..
+for(loc in c("C", if(onWindows) c("", "English_US.utf8") else "C.UTF-8")) {
+                      ## Windows: "" means 'the implementation-defined native environment'
+    locW <- getVaW(lc <- Sys.setlocale("LC_CTYPE", loc))# warning on Windows & some server Linux, incl docker/podman.
+    cat("Warning?", attr(locW, "warning") %||% "No; all fine", "\n")
+    if(!is.null(lc) && nzchar(lc)) { # when Sys.setlocale() worked supposedly
+        cat("\n", lc, ": ", sep="")
+        suppressWarnings(a1 <- abbreviate(ch1)) # FIXME - should it warn even when "correct"?
+        ## In abbreviate("přístřešek") : abbreviate used with non-ASCII chars
+        print(a1) # correctly "přst" *in* case
+        print(hasUTF8 <- grepl("utf-?8$", print(Sys.getlocale("LC_CTYPE")), ignore.case=TRUE))
+        stopifnot(identical(ch1, names(a1)),
+                  identical(c(112L, 345L, if(hasUTF8 || onWindows || grepl("macOS", osVersion) ||
+                                             grepl("musl", R.version$os))
+                                               c(115L, 116L)
+                                          else c(345L, 353L)),
+                            print(utf8ToInt(a1))))
+    }
+}
+if(!is.null(lc <- lcct) && nzchar(lc)) Sys.setlocale("LC_CTYPE", lc) # revert
+## <chars>(a1)[3:4] were different in R <= 4.6.0
+
+
+
+
+## PR#19112 -- writeChar() overflows its output buffer .. multibyte ..
+s <- strrep("é", 100L)          # 100 characters, 200 bytes:
+stopifnot(nchar(s, "chars") == 100, nchar(s, "bytes") == 200)
+## (a) connection path: 200-byte buffer, 299 bytes written
+tf <- tempfile(); f <- file(tf, "wb")
+suppressWarnings(writeChar(s, f, nchars = 199L, eos = NULL))
+close(f)
+tf. <- tempfile(); f <- file(tf., "wb")
+suppressWarnings(writeChar(s, f, eos = NULL))# using default nchars = nchar(.) = 200
+close(f)
+## (b) raw path: 199-byte vector allocated, 299 bytes written
+r <- suppressWarnings(writeChar(s, raw(), nchars = 199L, eos = NULL))
+stopifnot(exprs = {
+    all.equal(file.size(tf), 100+199)
+    identical(s, suppressWarnings(readChar(tf, nchars=200))) # was FALSE
+    identical(s, readChar(tf, nchars=100)) # TRUE  (no warning)
+    all.equal(file.size(tf.), 200)
+    identical(s, readChar(tf., nchars=200))
+    length(r) == 299L # was 199
+})
+rm(tf, tf.)
+## (c) heap corruption, repeated in a loop
+su <- strrep("\U0001F600", 100L)   # 100 chars, 400 bytes:
+stopifnot(nchar(su, "chars") == 100, nchar(su, "bytes") == 400)
+tf <- tempfile()
+for (k in 1:64) {
+    f <- file(tf, "wb")
+    suppressWarnings(writeChar(su, f, nchars = 399L, eos = NULL))
+    close(f)
+}
+## Gave Abort trap: 6
+## or   malloc(): invalid size (unsorted)
+## or   Fatal glibc error: malloc.c:..(_int_malloc): assertion failed: (unsigned long) (size) >= (unsigned long)(nb)
+stopifnot(exprs = {
+    ## Platform difference __FIXME__ ?
+    all.equal(file.size(tf), if(onWindows) 599 else 699)
+    isOpen(f <- file(tf, "rb"))
+    is.character(sr <- readChar(f, nchars = nchar(su)))
+    identical(sr, strrep("😀", nchar(su)))
+})
+

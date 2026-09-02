@@ -1,6 +1,6 @@
 
-R Under development (unstable) (2025-10-01 r88895) -- "Unsuffered Consequences"
-Copyright (C) 2025 The R Foundation for Statistical Computing
+R Under development (unstable) (2026-08-19 r90426) -- "Unsuffered Consequences"
+Copyright (C) 2026 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -3277,18 +3277,23 @@ Error in approx(yn, yn, na.rm = FALSE) :
 > 
 > ## Give a nice overview of all possibilities  rule * method * na.rm :
 > ##             -----------------------------  ====   ======   =====
-> ## extrapolations "N":= NA;   "C":= Constant :
-> rules <- list(N=1, C=2, NC=1:2, CN=2:1)
-> methods <- c("constant","linear")
-> ry <- sapply(rules, function(R) {
-+        sapply(methods, function(M)
-+         sapply(setNames(,c(TRUE,FALSE)), function(na.)
-+                  approx(xn, yn, xout=xout, method=M, rule=R, na.rm=na.)$y),
-+         simplify="array")
+> ## extrapolation 'rule's "N":= NA;   "C":= Constant :
+> allapprox <- function(x, y, xout = NULL, ...) {
++   if(is.null(xout)) { rx <- range(x, na.rm=TRUE); xout <- seq(rx[1], rx[2], length.out = 25) }
++   rules <- list(N=1, C=2, NC=1:2, CN=2:1)
++   methods <- c("constant", "linear")
++   ry <- sapply(rules, function(R) {
++          sapply(methods, function(M)
++           sapply(setNames(, c(TRUE,FALSE)), function(na.)
++                  approx(x, y, xout=xout, method=M, rule=R, na.rm=na., ...)$y),
++                 simplify="array")
 +    }, simplify="array")
-> names(dimnames(ry)) <- c("x = ", "na.rm", "method", "rule")
-> dimnames(ry)[[1]] <- format(xout)
-> ftable(aperm(ry, 4:1)) # --> (4 * 2 * 2) x length(xout)  =  16 x 9 matrix
++   names(dimnames(ry)) <- c("x = ", "na.rm", "method", "rule")
++   dimnames(ry)[[1]] <- format(xout)
++   ftable(aperm(ry, 4:1)) # --> (4 * 2 * 2) x length(xout)  =  16 x 9 matrix
++ }
+> 
+> (ry <- allapprox(xn, yn, xout)) # nice ftable
                     x =  0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5
 rule method   na.rm                                         
 N    constant TRUE        NA 1.0 1.0 1.0 1.0 3.0 3.0 4.0  NA
@@ -3311,7 +3316,7 @@ CN   constant TRUE       1.0 1.0 1.0 1.0 1.0 3.0 3.0 4.0  NA
 > ryna <- ry
 > ryna[is.na(ryna)] <- NA ## approx may turn NAs into NaNs
 > stopifnot(exprs = {
-+  identical(unname(ryna),
++  identical(unname(unclass(aperm(as.table(ryna), 4:1))),
 +    array(c(NA, 1, 1,   1, 1, 3, 3, 4, NA,      NA, 1,  1, NA, NA, 3, 3, 4, NA,
 +            NA, 1, 1.5, 2, 2.5, 3, 3.5, 4, NA,  NA, 1, NA, NA, NA, 3, 3.5, 4, NA,
 +             1, 1, 1,   1, 1, 3, 3, 4, 4,        1, 1,  1, NA, NA, 3, 3, 4, 4,
@@ -3322,16 +3327,16 @@ CN   constant TRUE       1.0 1.0 1.0 1.0 1.0 3.0 3.0 4.0  NA
 +             1, 1, 1.5, 2, 2.5, 3, 3.5, 4, NA,   1, 1, NA, NA, NA, 3, 3.5, 4, NA),
 +          dim = c(9L, 2L, 2L, 4L)))
 +  identical(approxfun(xn,yn, method="constant", rule=2, na.rm=FALSE)(xout),
-+             as.vector(ry[,"FALSE", "constant","C"]))
++            unname(as.matrix(ry)["C_constant_FALSE", ]))
 +  identical(approxfun(xn,yn, method="linear", rule=2:1, na.rm=FALSE)(xout),
-+             as.vector(ry[,"FALSE", "linear", "CN"]))
++            unname(as.matrix(ry)["CN_linear_FALSE", ]))
 + })
 > ## End(Don't show)
 > 
 > ## Show treatment of 'ties' :
 > 
 > x <- c(2,2:4,4,4,5,5,7,7,7)
-> y <- c(1:6, 5:4, 3:1)
+> y <- c(   1:6,   5:4, 3:1)
 > (amy <- approx(x, y, xout = x)$y) # warning, can be avoided by specifying 'ties=':
 Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm) :
   collapsing to unique 'x' values
@@ -3346,7 +3351,55 @@ Warning in regularize.values(x, y, ties, missing(ties), na.rm = na.rm) :
  [1] 1 1 3 4 4 4 4 4 1 1 1
 > approx(x, y, xout = x, ties = max)$y
  [1] 2 2 3 6 6 6 5 5 3 3 3
+> 
+> ## 'ties' + NAs -- notably NAs for tied x[], situation as PR#17604
+> 
+> x <- c(2:3, 3:5, 5:7)
+> y <- c(1,NA,2:4,NA,1,0)
+> ## allapprox() [defined above] for all variants :
+> (ryN <- allapprox(x, y, xout = seq(2, 7.5, by = 1/2), ties = mean))
+                    x =  2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5
+rule method   na.rm                                                     
+N    constant TRUE       1.0 1.0 2.0 2.0 3.0 3.0 4.0 4.0 1.0 1.0 0.0  NA
+              FALSE      1.0 1.0  NA  NA 3.0 3.0  NA  NA 1.0 1.0 0.0  NA
+     linear   TRUE       1.0 1.5 2.0 2.5 3.0 3.5 4.0 2.5 1.0 0.5 0.0  NA
+              FALSE      1.0  NA  NA  NA 3.0  NA  NA  NA 1.0 0.5 0.0  NA
+C    constant TRUE       1.0 1.0 2.0 2.0 3.0 3.0 4.0 4.0 1.0 1.0 0.0 0.0
+              FALSE      1.0 1.0  NA  NA 3.0 3.0  NA  NA 1.0 1.0 0.0 0.0
+     linear   TRUE       1.0 1.5 2.0 2.5 3.0 3.5 4.0 2.5 1.0 0.5 0.0 0.0
+              FALSE      1.0  NA  NA  NA 3.0  NA  NA  NA 1.0 0.5 0.0 0.0
+NC   constant TRUE       1.0 1.0 2.0 2.0 3.0 3.0 4.0 4.0 1.0 1.0 0.0 0.0
+              FALSE      1.0 1.0  NA  NA 3.0 3.0  NA  NA 1.0 1.0 0.0 0.0
+     linear   TRUE       1.0 1.5 2.0 2.5 3.0 3.5 4.0 2.5 1.0 0.5 0.0 0.0
+              FALSE      1.0  NA  NA  NA 3.0  NA  NA  NA 1.0 0.5 0.0 0.0
+CN   constant TRUE       1.0 1.0 2.0 2.0 3.0 3.0 4.0 4.0 1.0 1.0 0.0  NA
+              FALSE      1.0 1.0  NA  NA 3.0 3.0  NA  NA 1.0 1.0 0.0  NA
+     linear   TRUE       1.0 1.5 2.0 2.5 3.0 3.5 4.0 2.5 1.0 0.5 0.0  NA
+              FALSE      1.0  NA  NA  NA 3.0  NA  NA  NA 1.0 0.5 0.0  NA
+> str(tbN <- as.table(ryN)) # 4 x 2 x 2 x 12 array
+ 'table' num [1:4, 1:2, 1:2, 1:12] 1 1 1 1 1 1 1 1 1 1 ...
+ - attr(*, "dimnames")=List of 4
+  ..$ rule  : chr [1:4] "N" "C" "NC" "CN"
+  ..$ method: chr [1:2] "constant" "linear"
+  ..$ na.rm : chr [1:2] "TRUE" "FALSE"
+  ..$ x =   : chr [1:12] "2.0" "2.5" "3.0" "3.5" ...
+> stopifnot(is.na( tbN[,, na.rm="FALSE", format(c(3, 3.5, 5, 5.5))] ))
+> ## 3 and 3.5 gave values in {2, 2.5} instead of NA, in R <= 4.5.2
+> ## Don't show: 
+> maN <- as.matrix(ryN); maN[is.na(maN)] <- NA # replace possible `NaN`s
+> stopifnot(exprs = {
++     is.function(x16 <- function(...) rep_len(c(...), 16L))
++     identical(unname(maN),
++       cbind(deparse.level=0,
++             x16(1),     x16(1, 1,  1.5, NA),
++             x16(2, NA), x16(2, NA, 2.5, NA),
++             x16(3),     x16(3, 3,  3.5, NA),
++             x16(4, NA), x16(4, NA, 2.5, NA),
++             x16(1),     x16(1, 1,  0.5, 0.5),
++             x16(0),     rep(c(NA, 0, 0, NA), each = 4)))
++ })
 > options(op) # revert 'warn'ing level
+> ## End(Don't show)
 > 
 > 
 > 
@@ -5124,13 +5177,14 @@ function (V)
         r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0x5cee00b3ead0>
+<bytecode: 0x564f1628bcf0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
 +             cov2cor(cov(longley, method = "kendall"))))
 > 
 > ##--- Missing value treatment:
+> uses <- c("everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs")
 > C1 <- cov(swiss)
 > range(eigen(C1, only.values = TRUE)$values) # 6.19        1921
 [1]    6.191249 1921.562488
@@ -7616,14 +7670,19 @@ sample estimates:
 odds ratio 
 0.04693661 
 
-> fisher.test(Convictions, conf.level = 0.95)$conf.int
+> (fisher.test(Convictions, conf.level = 0.95) -> ft)$conf.int
 [1] 0.003325764 0.363182271
 attr(,"conf.level")
 [1] 0.95
-> fisher.test(Convictions, conf.level = 0.99)$conf.int
+>  fisher.test(Convictions, conf.level = 0.99)$conf.int
 [1] 0.001386333 0.578851645
 attr(,"conf.level")
 [1] 0.99
+> ## if you only need the p-value, `pval.only = TRUE` is much faster for large 2x2 counts
+> fisher.test(Convictions, pval.only = TRUE) -> fastft
+> stopifnot(length(fastft) == 5, length(ft) == 7,
++           ## fastft has neither estimate nor conf.int, is otherwise the same
++           all.equal(unclass(fastft), ft[names(fastft)], tolerance = 1e-15))
 > 
 > ## A r x c table  Agresti (2002, p. 57) Job Satisfaction
 > Job <- matrix(c(1,2,1,0, 3,3,6,1, 10,10,14,9, 6,7,12,11), 4, 4,
@@ -7772,7 +7831,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x5cee0449f108>
+<environment: 0x564f14668d10>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -7805,6 +7864,23 @@ y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 +
 > formula(fm1)
 circumference ~ A/(1 + exp((B - age)/C))
 > 
+> 
+> 
+> cleanEx()
+> nameEx("free1way")
+> ### * free1way
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: free1way
+> ### Title: Distribution-free Inference in a Stratified One-Way Layout
+> ### Aliases: free1way free1way.formula free1way.table free1way.numeric
+> ###   free1way.factor print.free1way coef.free1way vcov.free1way
+> ###   logLik.free1way summary.free1way confint.free1way summary.MPLfree1way
+> ###   confint.MPLfree1way
+> ### Keywords: htest
+> 
+> ### ** Examples
 > 
 > 
 > cleanEx()
@@ -7900,7 +7976,7 @@ Friedman chi-squared = 0.33333, df = 1, p-value = 0.5637
 > 
 > ### Name: ftable
 > ### Title: Flat Contingency Tables
-> ### Aliases: ftable ftable.default
+> ### Aliases: ftable ftable.default as.table.ftable
 > ### Keywords: category
 > 
 > ### ** Examples
@@ -8317,10 +8393,10 @@ Residual Deviance: 0.01267 	AIC: 27.03
 > ## tree from the cluster centers.
 > hc <- hclust(dist(USArrests)^2, "cen")
 > memb <- cutree(hc, k = 10)
-> cent <- NULL
-> for(k in 1:10){
-+   cent <- rbind(cent, colMeans(USArrests[memb == k, , drop = FALSE]))
-+ }
+> cent <- matrix(numeric(), 10, 4)
+> for(k in 1:10)
++   cent[k,] <- colMeans(USArrests[memb == k, , drop = FALSE])
+> 
 > hc1 <- hclust(dist(cent)^2, method = "cen", members = table(memb))
 > opar <- par(mfrow = c(1, 2))
 > plot(hc,  labels = FALSE, hang = -1, main = "Original Tree")
@@ -8334,12 +8410,27 @@ Residual Deviance: 0.01267 	AIC: 27.03
 > plot(mds2, type="n", axes=FALSE, ann=FALSE)
 > text(mds2, labels=rownames(mds2), xpd = NA)
 > 
-> hcity.D  <- hclust(UScitiesD, "ward.D") # "wrong"
-> hcity.D2 <- hclust(UScitiesD, "ward.D2")
-> opar <- par(mfrow = c(1, 2))
-> plot(hcity.D,  hang=-1)
-> plot(hcity.D2, hang=-1)
+> hcity <- list(
++     D.o = hclust(UScitiesD, "ward.D"), # "wrong"
++     D2o = hclust(UScitiesD, "ward.D2"),# similar to next two
++     D   = hclust(1/2* (UScitiesD)^2,  "ward.D"),  # Ward(1963) ESS  based
++     D2  = hclust(sqrt(1/2)*UScitiesD, "ward.D2")) #       sqrt(ESS) based
+> 
+> opar <- par(mfrow = c(2, 2), mgp = c(1.2, .3, 0), mar = .1 + c(3,4,2,1))
+>  plot(hcity$D.o, hang=-1, col=2) # different clustering than the others
+>  plot(hcity$D2o, hang=-1) # [1,2]
+>  plot(hcity$D,   hang=-1) # [2,1]
+>  plot(hcity$D2,  hang=-1) # [2,2] as above, [1,2], just y-axis numbers differ
 > par(opar)
+> mrg <- sapply(hcity, `[[`, "merge") # defining cluster tree (apart from height)
+> ht  <- sapply(hcity, `[[`, "height")
+> stopifnot(exprs = {
++    any(mrg[,2] != mrg[,1])
++        mrg[,2] == mrg[,3:4] # all eq., but the first
++    all.equal(ht[,"D2" ], sqrt(ht[,"D"]))
++    all.equal(ht[,"D2"], sqrt(1/2)*ht[,"D2o"])
++ })
+> 
 > 
 > 
 > 
@@ -8538,10 +8629,11 @@ FAMI   -3   87   84   84   96   94   94   94   98   99   99  100
 > 
 > ### Name: influence.measures
 > ### Title: Regression Deletion Diagnostics
-> ### Aliases: influence.measures hat hatvalues hatvalues.lm rstandard
-> ###   rstandard.lm rstandard.glm rstudent rstudent.lm rstudent.glm dfbeta
-> ###   dfbeta.lm dfbetas dfbetas.lm dffits covratio cooks.distance
-> ###   cooks.distance.lm cooks.distance.glm
+> ### Aliases: influence.measures hat hatvalues hatvalues.lm hatvalues.nls
+> ###   rstandard rstandard.lm rstandard.glm rstudent rstudent.lm
+> ###   rstudent.glm dfbeta dfbeta.lm dfbetas dfbetas.lm dfbetas.glm dffits
+> ###   dffits.lm dffits.glm covratio cooks.distance cooks.distance.lm
+> ###   cooks.distance.glm
 > ### Keywords: regression
 > 
 > ### ** Examples
@@ -9192,7 +9284,7 @@ alternative hypothesis: the CDF of x lies below that of y
 > # with ties, example from Schröer and Trenkler (1995)
 > # D = 3/7, p = 8/33 = 0.242424..
 > ks.test(c(1, 2, 2, 3, 3),
-+         c(1, 2, 3, 3, 4, 5, 6))# -> exact
++         c(1, 2,    3, 3, 4, 5, 6))# -> exact
 
 	Exact two-sample Kolmogorov-Smirnov test
 
@@ -10822,7 +10914,7 @@ Warning in model.matrix.default(~a + b, dd, contrasts.arg = "contr.FOO") :
 	Mood two-sample test of scale
 
 data:  ramsay and jung.parekh
-Z = 1.0371, p-value = 0.2997
+Z = 1.0199, p-value = 0.3078
 alternative hypothesis: two.sided
 
 > ## Compare this to ansari.test(ramsay, jung.parekh)
@@ -11143,6 +11235,15 @@ Asym   2.3452   0.078154  30.007 2.1655e-13
 xmid   1.4831   0.081353  18.230 1.2185e-10
 scal   1.0415   0.032271  32.272 8.5069e-14
 > 
+> hatfm1 <- hatvalues(fm1DNase1) # for nls() since R 4.6.0
+> plot(resid(fm1DNase1) ~ hatfm1, xlab = quote(h[list(i,i)]),
++      main = "Residuals vs Hatvalues (nonlinear!)"); abline(h = 0, lty=2, col="gray")
+> text(resid(fm1DNase1) ~ hatfm1, subset = hatfm1 > 0.4, pos = 3, col = 2)
+> p.n <- length(coef(fm1DNase1)) / NROW(DNase1)
+> mtext(substitute( p/n == {3/16 == PN}, list(PN = p.n)))
+> abline(v = 2*p.n, col = 4, lty = 3)
+> axis(3, at=2*p.n, labels="2 p/n", line = -1/2, padj = 1/2, col=4, col.axis=4)
+> 
 > ## using conditional linearity
 > fm2DNase1 <- nls(density ~ 1/(1 + exp((xmid - log(conc))/scal)),
 +                  data = DNase1,
@@ -11396,6 +11497,46 @@ Nonlinear regression model
 + musc.2 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), MASS::muscle,
 +               start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]))
 + summary(musc.2)
++ 
++ 
++ 
++ 
++ ## Example with constraint, using "port" algorithm. Also showing possibility
++ ## for reordering if using named vector for lower=
++ dd <- structure(list(time = c(1L, 2L, 3L, 6L, 12L, 24L, 48L), y = c(1.95, 
++ 6.43, 10.39, 27.01, 113.72, 251.14, 314.22)), row.names = c(NA, 
++ -7L), class = "data.frame")
++ 
++ st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
++ lwr <- c(k = 0.1, Max =-Inf, Lag = -Inf)
++ form <- y ~ (time > Lag) * Max * (1-exp(-k * (time - Lag)))
++ m1 <- nls(form,
++     data = dd,
++     algorithm="port",
++     lower = lwr,
++     start = st0)
++ stopifnot(coef(m1)[["k"]] >= lwr[["k"]])
++ 
++ ## Simplified form naming specific elements of lwr, upr
++ st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
++ lwr <- c(k = 0.09)
++ upr <- c(Lag = 5.5)
++ m2 <- nls(form,
++     data = dd,
++     algorithm="port",
++     lower = lwr,
++     upper = upr,
++     start = st0)
++ stopifnot(coef(m2)[["k"]] >= lwr[["k"]] && coef(m2)[["Lag"]] <= upr[["Lag"]])
++ 
++ ## Example using indexing features and bounds
++ ## (Notice that constructions like this make e.g. start$a a named
++ ## vector with strange names, so these are stripped internally.)
++ musc.3 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), MASS::muscle,
++ start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]),
++ upper = list(a = rep(35, 21)),
++  algorithm="port")
++ summary(musc.3)
 + })
 > with(MASS::muscle, table(Strip))
 Strip
@@ -11475,6 +11616,78 @@ th     0.797      0.127    6.30  8.0e-06 ***
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
 Residual standard error: 1.11 on 17 degrees of freedom
+
+> dd <- structure(list(time = c(1L, 2L, 3L, 6L, 12L, 24L, 48L), y = c(1.95, 
++     6.43, 10.39, 27.01, 113.72, 251.14, 314.22)), row.names = c(NA, -7L), class = "data.frame")
+> st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
+> lwr <- c(k = 0.1, Max = -Inf, Lag = -Inf)
+> form <- y ~ (time > Lag) * Max * (1 - exp(-k * (time - Lag)))
+> m1 <- nls(form, data = dd, algorithm = "port", lower = lwr, start = st0)
+> stopifnot(coef(m1)[["k"]] >= lwr[["k"]])
+> st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
+> lwr <- c(k = 0.09)
+> upr <- c(Lag = 5.5)
+> m2 <- nls(form, data = dd, algorithm = "port", lower = lwr, upper = upr, 
++     start = st0)
+> stopifnot(coef(m2)[["k"]] >= lwr[["k"]] && coef(m2)[["Lag"]] <= upr[["Lag"]])
+> musc.3 <- nls(Length ~ a[Strip] + b[Strip] * exp(-Conc/th), MASS::muscle, 
++     start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]), upper = list(a = rep(35, 
++         21)), algorithm = "port")
+> summary(musc.3)
+
+Formula: Length ~ a[Strip] + b[Strip] * exp(-Conc/th)
+
+Parameters:
+    Estimate Std. Error t value Pr(>|t|)    
+a1    23.050      0.845   27.28  1.8e-15 ***
+a2    27.964      0.844   33.13  < 2e-16 ***
+a3    28.951      1.587   18.25  1.3e-12 ***
+a4    22.606      2.676    8.45  1.7e-07 ***
+a5    20.031      2.570    7.79  5.2e-07 ***
+a6    17.993      2.230    8.07  3.2e-07 ***
+a7    32.975      1.683   19.59  4.2e-13 ***
+a8    34.521      3.210   10.75  5.3e-09 ***
+a9    29.398      3.000    9.80  2.1e-08 ***
+a10   35.000      2.805   12.48  5.5e-10 ***
+a11   32.727      2.751   11.89  1.2e-09 ***
+a12   35.000      1.759   19.90  3.3e-13 ***
+a13   29.922      1.695   17.66  2.3e-12 ***
+a14   31.151      3.135    9.94  1.7e-08 ***
+a15   35.000      3.006   11.64  1.6e-09 ***
+a16   30.499      0.892   34.19  < 2e-16 ***
+a17   30.770      0.859   35.81  < 2e-16 ***
+a18   19.688      1.064   18.50  1.1e-12 ***
+a19   35.000      1.077   32.49  < 2e-16 ***
+a20   31.819      1.125   28.29  9.7e-16 ***
+a21   29.802      1.088   27.38  1.7e-15 ***
+b1   -37.778     12.855   -2.94  0.00917 ** 
+b2   -37.191     12.737   -2.92  0.00955 ** 
+b3   -32.028      2.947  -10.87  4.5e-09 ***
+b4   -30.682      3.950   -7.77  5.4e-07 ***
+b5   -28.288      3.945   -7.17  1.6e-06 ***
+b6   -19.613      3.929   -4.99  0.00011 ***
+b7   -25.379     12.873   -1.97  0.06518 .  
+b8   -43.463      3.994  -10.88  4.4e-09 ***
+b9   -31.614      7.508   -4.21  0.00059 ***
+b10  -34.525      3.966   -8.71  1.1e-07 ***
+b11  -32.341      3.954   -8.18  2.7e-07 ***
+b12  -45.363     15.195   -2.99  0.00831 ** 
+b13  -29.185     13.240   -2.20  0.04157 *  
+b14  -36.478      7.527   -4.85  0.00015 ***
+b15  -31.830      7.509   -4.24  0.00055 ***
+b16  -64.874     18.877   -3.44  0.00315 ** 
+b17  -47.557     14.919   -3.19  0.00539 ** 
+b18  -21.747     10.549   -2.06  0.05489 .  
+b19  -30.015     11.713   -2.56  0.02018 *  
+b20  -49.822     15.262   -3.26  0.00457 ** 
+b21  -35.563     12.618   -2.82  0.01184 *  
+th     0.614      0.107    5.74  2.4e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 1.3 on 17 degrees of freedom
+
+Algorithm "port", convergence message: relative convergence (4)
 
 > ## IGNORE_RDIFF_END
 > ## Don't show: 
@@ -11822,6 +12035,7 @@ $objective
 > p.adj    <- sapply(p.adjust.M, function(meth) p.adjust(p, meth))
 > p.adj.60 <- sapply(p.adjust.M, function(meth) p.adjust(p, meth, n = 60))
 > stopifnot(identical(p.adj[,"none"], p), p.adj <= p.adj.60)
+> 
 > round(p.adj, 3)
        holm hochberg hommel bonferroni    BH    BY  none
  [1,] 0.000    0.000  0.000      0.000 0.000 0.000 0.000
@@ -11875,64 +12089,66 @@ $objective
 [49,] 1.000    0.944  0.944      1.000 0.930 1.000 0.912
 [50,] 1.000    0.944  0.944      1.000 0.944 1.000 0.944
 > ## or a bit nicer:
-> noquote(apply(p.adj, 2, format.pval, digits = 3))
-      holm     hochberg hommel   bonferroni BH       BY      none    
- [1,] 1.18e-05 1.18e-05 1.18e-05 1.18e-05   1.18e-05 5.3e-05 2.35e-07
- [2,] 0.00103  0.00103  0.00101  0.00105    0.000429 0.00193 2.10e-05
- [3,] 0.00124  0.00124  0.00124  0.00129    0.000429 0.00193 2.58e-05
- [4,] 0.00461  0.00461  0.00422  0.00491    0.000947 0.00426 9.81e-05
- [5,] 0.00484  0.00484  0.00453  0.00526    0.000947 0.00426 0.000105
- [6,] 0.00559  0.00559  0.00521  0.00621    0.000947 0.00426 0.000124
- [7,] 0.00583  0.00583  0.00557  0.00663    0.000947 0.00426 0.000133
- [8,] 0.00674  0.00674  0.00659  0.00784    0.000980 0.00441 0.000157
- [9,] 0.00947  0.00947  0.00924  0.01127    0.001253 0.00564 0.000225
-[10,] 0.01556  0.01556  0.01518  0.01898    0.001898 0.00854 0.000380
-[11,] 0.02446  0.02446  0.02446  0.03057    0.002780 0.01251 0.000611
-[12,] 0.06294  0.06294  0.05810  0.08070    0.006725 0.03026 0.001614
-[13,] 0.12549  0.12549  0.10898  0.16512    0.012637 0.05686 0.003302
-[14,] 0.13092  0.13092  0.11677  0.17692    0.012637 0.05686 0.003538
-[15,] 0.18853  0.18853  0.16758  0.26185    0.017457 0.07854 0.005237
-[16,] 0.23912  0.23912  0.21179  0.34160    0.020762 0.09341 0.006832
-[17,] 0.24001  0.24001  0.21884  0.35296    0.020762 0.09341 0.007059
-[18,] 0.29057  0.29057  0.27296  0.44026    0.024459 0.11004 0.008805
-[19,] 0.30083  0.30083  0.29143  0.47005    0.024740 0.11131 0.009401
-[20,] 0.35024  0.35024  0.33894  0.56490    0.028245 0.12708 0.011298
-[21,] 0.63451  0.63451  0.57105  1.00000    0.050358 0.22657 0.021150
-[22,] 1.00000  0.94379  0.94379  1.00000    0.111880 0.50337 0.049227
-[23,] 1.00000  0.94379  0.94379  1.00000    0.130463 0.58698 0.060533
-[24,] 1.00000  0.94379  0.94379  1.00000    0.130463 0.58698 0.062622
-[25,] 1.00000  0.94379  0.94379  1.00000    0.147903 0.66545 0.073952
-[26,] 1.00000  0.94379  0.94379  1.00000    0.159252 0.71651 0.082811
-[27,] 1.00000  0.94379  0.94379  1.00000    0.159877 0.71932 0.086333
-[28,] 1.00000  0.94379  0.94379  1.00000    0.212617 0.95661 0.119065
-[29,] 1.00000  0.94379  0.94379  1.00000    0.325999 1.00000 0.189080
-[30,] 1.00000  0.94379  0.94379  1.00000    0.343082 1.00000 0.205849
-[31,] 1.00000  0.94379  0.94379  1.00000    0.356325 1.00000 0.220921
-[32,] 1.00000  0.94379  0.94379  1.00000    0.446250 1.00000 0.285600
-[33,] 1.00000  0.94379  0.94379  1.00000    0.461954 1.00000 0.304889
-[34,] 1.00000  0.94379  0.94379  1.00000    0.683577 1.00000 0.466068
-[35,] 1.00000  0.94379  0.94379  1.00000    0.683577 1.00000 0.483081
-[36,] 1.00000  0.94379  0.94379  1.00000    0.683577 1.00000 0.492175
-[37,] 1.00000  0.94379  0.94379  1.00000    0.718845 1.00000 0.531945
-[38,] 1.00000  0.94379  0.94379  1.00000    0.741435 1.00000 0.575155
-[39,] 1.00000  0.94379  0.94379  1.00000    0.741435 1.00000 0.578319
-[40,] 1.00000  0.94379  0.94379  1.00000    0.762606 1.00000 0.618589
-[41,] 1.00000  0.94379  0.94379  1.00000    0.762606 1.00000 0.636362
-[42,] 1.00000  0.94379  0.94379  1.00000    0.762606 1.00000 0.644859
-[43,] 1.00000  0.94379  0.94379  1.00000    0.762606 1.00000 0.655841
-[44,] 1.00000  0.94379  0.94379  1.00000    0.782487 1.00000 0.688588
-[45,] 1.00000  0.94379  0.94379  1.00000    0.798874 1.00000 0.718986
-[46,] 1.00000  0.94379  0.94379  1.00000    0.880265 1.00000 0.817954
-[47,] 1.00000  0.94379  0.94379  1.00000    0.880265 1.00000 0.827449
-[48,] 1.00000  0.94379  0.94379  1.00000    0.930478 1.00000 0.897130
-[49,] 1.00000  0.94379  0.94379  1.00000    0.930478 1.00000 0.911868
-[50,] 1.00000  0.94379  0.94379  1.00000    0.943789 1.00000 0.943789
+> head(round(100 * p.adj[,c(7,1:6)], 2), n=21) # in [percent]:
+      none  holm hochberg hommel bonferroni   BH    BY
+ [1,] 0.00  0.00     0.00   0.00       0.00 0.00  0.01
+ [2,] 0.00  0.10     0.10   0.10       0.11 0.04  0.19
+ [3,] 0.00  0.12     0.12   0.12       0.13 0.04  0.19
+ [4,] 0.01  0.46     0.46   0.42       0.49 0.09  0.43
+ [5,] 0.01  0.48     0.48   0.45       0.53 0.09  0.43
+ [6,] 0.01  0.56     0.56   0.52       0.62 0.09  0.43
+ [7,] 0.01  0.58     0.58   0.56       0.66 0.09  0.43
+ [8,] 0.02  0.67     0.67   0.66       0.78 0.10  0.44
+ [9,] 0.02  0.95     0.95   0.92       1.13 0.13  0.56
+[10,] 0.04  1.56     1.56   1.52       1.90 0.19  0.85
+[11,] 0.06  2.45     2.45   2.45       3.06 0.28  1.25
+[12,] 0.16  6.29     6.29   5.81       8.07 0.67  3.03
+[13,] 0.33 12.55    12.55  10.90      16.51 1.26  5.69
+[14,] 0.35 13.09    13.09  11.68      17.69 1.26  5.69
+[15,] 0.52 18.85    18.85  16.76      26.18 1.75  7.85
+[16,] 0.68 23.91    23.91  21.18      34.16 2.08  9.34
+[17,] 0.71 24.00    24.00  21.88      35.30 2.08  9.34
+[18,] 0.88 29.06    29.06  27.30      44.03 2.45 11.00
+[19,] 0.94 30.08    30.08  29.14      47.01 2.47 11.13
+[20,] 1.13 35.02    35.02  33.89      56.49 2.82 12.71
+[21,] 2.12 63.45    63.45  57.11     100.00 5.04 22.66
+> ##       none  holm hochberg hommel bonferroni   BH    BY
+> ##  [1,] 0.00  0.00     0.00   0.00       0.00 0.00  0.01 *)
+> ##  [2,] 0.00  0.10     0.10   0.10       0.11 0.04  0.19 *)
+> ##  [3,] 0.00  0.12     0.12   0.12       0.13 0.04  0.19 *)
+> ##  [4,] 0.01  0.46     0.46   0.42       0.49 0.09  0.43
+> ##  [5,] 0.01  0.48     0.48   0.45       0.53 0.09  0.43
+> ##  .... ..........    ............       ...............
+> ##  .... ..........    ............      ................
+> ## [18,] 0.88 29.06    29.06  27.30      44.03 2.45 11.00
+> ## [19,] 0.94 30.08    30.08  29.14      47.01 2.47 11.13
+> ## [20,] 1.13 35.02    35.02  33.89      56.49 2.82 12.71
+> ## [21,] 2.12 63.45    63.45  57.11     100.00 5.04 22.66
+> ##
+> ## *) The smallest 3 Bonferroni values are smaller than the "BY" ones,
+> ##    (John Maindonald, PR#17136)
 > 
+> ## number of rejected H0 ("P" < 0.05):
+> colSums(p.adj < 0.05)
+      holm   hochberg     hommel bonferroni         BH         BY       none 
+        11         11         11         11         20         12         22 
+> ## holm   hochberg     hommel bonferroni         BH         BY       none 
+> ##   11         11         11         11         20         12         22 
 > 
-> ## and a graphic:
+> ## visual comparison
 > matplot(p, p.adj, ylab="p.adjust(p, meth)", type = "l", asp = 1, lty = 1:6,
-+         main = "P-value adjustments")
-> legend(0.7, 0.6, p.adjust.M, col = 1:6, lty = 1:6)
++         col = 1:7, main = "P-value adjustments")
+> legR <- function() {
++   legend("bottomright", p.adjust.M, col = 1:7, lty = 1:6, bty = "n", inset = 0.05)
++   rug(p) }
+> legR()
+> 
+> ## zoom in & log scale
+> lim <- c(7e-7, .20)
+> matplot(p, p.adj, ylab="p.adjust(p, meth)", type = "l", asp = 1, lty = 1:6, col = 1:7,
++         main = "P-value adjustments [log-log]", log = "xy", xlim=lim, ylim=lim, las=1)
+> legR()
+Warning in rug(p) : some values will be clipped
 > 
 > ## Can work with NAs:
 > pN <- p; iN <- c(46, 47); pN[iN] <- NA
@@ -12374,7 +12590,7 @@ Warning in xy.coords(x, y, xlabel, ylabel, log) :
 > ### Name: plot.profile.nls
 > ### Title: Plot a 'profile.nls' Object
 > ### Aliases: plot.profile.nls
-> ### Keywords: nonlinear regression models
+> ### Keywords: nonlinear regression models hplot
 > 
 > ### ** Examples
 > 
@@ -12673,14 +12889,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x5cee025d1e20>
-<environment: 0x5cee03cba960>
+<bytecode: 0x564f16fadfa0>
+<environment: 0x564f16f2e1e8>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x5cee025d1cd0>
-<environment: 0x5cee03cba960>
+<bytecode: 0x564f16fade50>
+<environment: 0x564f16f2e1e8>
 
 > 
 > 
@@ -12748,6 +12964,21 @@ NOTE: n is number in each group
 NOTE: n is number in each group
 
 > 
+> 
+> 
+> cleanEx()
+> nameEx("power.free1way.test")
+> ### * power.free1way.test
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: power.free1way.test
+> ### Title: Power Calculations in Distribution-free Stratified One-Way
+> ###   Layouts
+> ### Aliases: rfree1way power.free1way.test
+> ### Keywords: htest
+> 
+> ### ** Examples
 > 
 > 
 > cleanEx()
@@ -13005,6 +13236,20 @@ Dickey-Fuller = -2.6899, Truncation lag parameter = 7, p-value = 0.2863
 > 
 > graphics::par(get("par.postscript", pos = 'CheckExEnv'))
 > cleanEx()
+> nameEx("ppplot")
+> ### * ppplot
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: ppplot
+> ### Title: Probability-probability Plots
+> ### Aliases: ppplot
+> ### Keywords: hplot distribution
+> 
+> ### ** Examples
+> 
+> 
+> cleanEx()
 > nameEx("ppr")
 > ### * ppr
 > 
@@ -13031,7 +13276,7 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 > # Call:
 > # ppr.formula(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 > #     nterms = 2, max.terms = 5)
@@ -13047,17 +13292,17 @@ ppr(formula = log(perm) ~ area1 + peri1 + shape, data = rock,
 
 Goodness of fit:
  2 terms  3 terms  4 terms  5 terms 
-8.737806 5.289517 4.745799 4.490378 
+8.737805 5.289516 4.745798 4.490377 
 
 Projection direction vectors ('alpha'):
-      term 1      term 2     
-area1  0.34357179  0.37071027
-peri1 -0.93781471 -0.61923542
-shape  0.04961846  0.69218595
+      term 1     term 2    
+area1  0.3435718  0.3707103
+peri1 -0.9378147 -0.6192354
+shape  0.0496185  0.6921859
 
 Coefficients of ridge terms ('beta'):
    term 1    term 2 
-1.6079271 0.5460971 
+1.6079272 0.5460972 
 > # .....  (same as above)
 > # .....
 > #
@@ -15945,7 +16190,7 @@ R_heapsort(1, 11,..): l=6:
 > ### Name: screeplot
 > ### Title: Scree Plots
 > ### Aliases: screeplot screeplot.default
-> ### Keywords: multivariate
+> ### Keywords: multivariate hplot
 > 
 > ### ** Examples
 > 
@@ -16344,12 +16589,17 @@ attr(,"kind")[[2]]
 attr(,"kind")[[3]]
 [1] "Rejection"
 
+attr(,"kind")[[4]]
+[1] "BTPE"
+
 > stopifnot(identical(S2, simulate(mod1, nsim = 200, seed = sseed)))
 > 
 > ## To be sure about the proper RNGkind, e.g., after
 > RNGversion("2.7.0")
-Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding") :
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
   non-uniform 'Rounding' sampler used
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
+  Buggy BTPE algorithm used for rbinom()
 > ## first set the RNG kind, then simulate
 > do.call(RNGkind, attr(sseed, "kind"))
 > identical(S2, simulate(mod1, nsim = 200, seed = sseed))
@@ -17039,8 +17289,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x5cee03d172f8>
-<environment: 0x5cee02f70938>
+<bytecode: 0x564f16411288>
+<environment: 0x564f12eb36c8>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -17073,7 +17323,7 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
 > ### Keywords: ts
 > 
 > ### ** Examples
-> 
+> ## IGNORE_RDIFF_BEGIN
 > require(graphics)
 > 
 > plot(stl(nottem, "per"))
@@ -17097,12 +17347,10 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      0.009534     0.081250  0.000861      0.079370
    %  12.0        102.4       1.1         100.0   
 
- Weights: all == 1
-
  Other components: List of 5
- $ win  : Named num [1:3] 21 21 13
+ $ win  : Named int [1:3] 21 21 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 3 3 2
+ $ jump : Named int [1:3] 3 3 2
  $ inner: int 2
  $ outer: int 0
 > ## linear trend, strict period.
@@ -17127,14 +17375,14 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
      606.14       116.77     80.05        707.75
    %  85.6         16.5      11.3         100.0 
 
- Weights:
+ Weights from 15 robustness iterations:
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
  0.0000  0.5594  0.9452  0.7312  0.9853  1.0000 
 
  Other components: List of 5
- $ win  : Named num [1:3] 721 19 13
+ $ win  : Named int [1:3] 721 19 13
  $ deg  : Named int [1:3] 0 1 1
- $ jump : Named num [1:3] 73 2 2
+ $ jump : Named int [1:3] 73 2 2
  $ inner: int 1
  $ outer: int 15
 > op <- par(mar = c(0, 4, 0, 3), oma = c(5, 0, 4, 0), mfcol = c(4, 2))
@@ -17147,7 +17395,7 @@ f.f1c  1.0 1.00    1 2.00  2.0 2.00    2 4.00  4.0  4.00     4  3.00   3.0
 > sts <- stmR$time.series
 > points(time(sts)[iO], 0.8* sts[,"remainder"][iO], pch = 4, col = "red")
 > par(op)   # reset
-> 
+> ## IGNORE_RDIFF_END
 > 
 > 
 > graphics::par(get("par.postscript", pos = 'CheckExEnv'))
@@ -19048,22 +19296,65 @@ alternative hypothesis: true location shift is greater than 0
 
 >                                             # approximation
 > 
-> wilcox.test(rnorm(10), rnorm(10, 2), conf.int = TRUE)
+> ## Confidence intervals ----------------
+> ## 2 sample:
+> set.seed(12); Z1 <- rnorm(10); Z2 <- rnorm(10, 2)
+> wilcox.test(Z1, Z2,  conf.int = TRUE)
 
 	Wilcoxon rank sum exact test
 
-data:  rnorm(10) and rnorm(10, 2)
-W = 7, p-value = 0.0004871
+data:  Z1 and Z2
+W = 4, p-value = 0.0001299
 alternative hypothesis: true location shift is not equal to 0
-95 percent confidence interval:
- -3.024352 -1.348555
+95.7 percent confidence interval:
+ -3.218076 -1.494576
 sample estimates:
 difference in location 
-             -2.262424 
+             -2.234911 
+
+> wilcox.test(Z1, Z2,  conf.int = TRUE, exact=FALSE)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  Z1 and Z2
+W = 4, p-value = 0.0005828
+alternative hypothesis: true location shift is not equal to 0
+95 percent confidence interval:
+ -3.218063 -1.494623
+sample estimates:
+difference in location 
+             -2.238656 
+
+> ## 1 sample:
+> wilcox.test(  -2:12,        conf.int = TRUE, exact=TRUE)
+
+	Wilcoxon signed rank exact test
+
+data:  -2:12
+V = 112, p-value = 0.001465
+alternative hypothesis: true location is not equal to 0
+95.5 percent confidence interval:
+ 2.5 7.5
+sample estimates:
+(pseudo)median 
+             5 
+
+> wilcox.test(c(-2:11, 1000), conf.int = TRUE, exact=FALSE)# robust
+
+	Wilcoxon signed rank test with continuity correction
+
+data:  c(-2:11, 1000)
+V = 112, p-value = 0.003119
+alternative hypothesis: true location is not equal to 0
+95 percent confidence interval:
+ 2.000036 8.500017
+sample estimates:
+(pseudo)median 
+      5.000039 
 
 > 
-> ## Formula interface.
-> boxplot(Ozone ~ Month, data = airquality)
+> ## Formula interface -- NB: boxplot notches <~~> test for median equality:
+> boxplot(Ozone ~ Month, data = airquality, notch = TRUE, warnN = FALSE)
 > wilcox.test(Ozone ~ Month, data = airquality,
 +             subset = Month %in% c(5, 8))
 
@@ -19075,7 +19366,7 @@ alternative hypothesis: true location shift is not equal to 0
 
 > 
 > ## accuracy in ties determination via 'digits.rank':
-> wilcox.test( 4:2,      3:1,     paired=TRUE) 
+> wilcox.test( 4:2,      3:1,     paired=TRUE)
 
 	Wilcoxon signed rank exact test
 
@@ -19083,7 +19374,7 @@ data:  4:2 and 3:1
 V = 6, p-value = 0.25
 alternative hypothesis: true location shift is not equal to 0
 
-> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE) 
+> wilcox.test((4:2)/10, (3:1)/10, paired=TRUE)
 
 	Wilcoxon signed rank exact test
 
@@ -19629,7 +19920,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  5.797 0.16 5.961 0 0 
+Time elapsed:  3.735 0.1 3.85 0 0 
 > grDevices::dev.off()
 null device 
           1 

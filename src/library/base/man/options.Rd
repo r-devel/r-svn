@@ -1,6 +1,6 @@
 % File src/library/base/man/options.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{options}
@@ -87,7 +87,7 @@ getOption(x, default = NULL)
 
     \item{\code{catch.script.errors}:}{logical, false by default.  If
       true \emph{and} \code{\link{interactive}()} is false, e.g., when an
-      \R script is run by \code{R CMD \link{BATCH} <script>.R}, then
+      \R script is run by \command{R CMD \link{BATCH} <script>.R}, then
       errors do \emph{not} stop execution of the script.  Rather evaluation
       continues after printing the error (and jumping to top level).
       Also, \code{\link{traceback}()} would provide info about the error.
@@ -360,14 +360,14 @@ getOption(x, default = NULL)
       option \option{--quiet}.  Note that \code{quiet} and \code{verbose}
       \emph{can} both be true.}
 
-      % verbatim, for checking " \t\n\"\\'`><=%;,|&{()}"
+      % verbatim, for checking " \t\n\"\\'`><=;,|&{()}"  -- C source : ../../../main/options.c
     \item{\code{rl_word_breaks}:}{(Unix only:) Used for the \I{readline}-based terminal
-      interface.  Default value \code{" \\t\\n\\"\\\\'`><=\%;,|&{()}"}.%"
+      interface.  Default value \code{" \\t\\n\\"\\\\'`><=;,|&{()}"}.%"
 
       This is the set of characters use to break the input line into
       tokens for object- and file-name completion.  Those who do not use
       spaces around operators may prefer\cr
-      \code{" \\t\\n\\"\\\\'`><=+-*\%;,|&{()}"}%"
+      \code{" \\t\\n\\"\\\\'`><=+-*;,|&{()}"}%"
       }
 
     \item{\code{save.defaults}, \code{save.image.defaults}:}{
@@ -456,8 +456,11 @@ getOption(x, default = NULL)
       \option{--verbose}.}
 
     \item{\code{warn}:}{integer value to set the handling of warning
-      messages by the default warning handler.  If
-      \code{warn} is negative all warnings are ignored.  If \code{warn}
+      messages by the default warning handler.  In the future, this value
+      is checked to be one of \code{-1, 0, 1, 2}.  For now, setting
+      environment variable \env{R_WARN_BOUNDS_OPT} to \code{"yes"}
+      activates that check.
+      If \code{warn} is negative all warnings are ignored.  If \code{warn}
       is zero (the default) warnings are stored until the top--level
       function returns.  If 10 or fewer warnings were signalled they
       will be printed otherwise a message saying how many were
@@ -465,7 +468,7 @@ getOption(x, default = NULL)
       created and can be printed through the function
       \code{\link{warnings}}.  If \code{warn} is one, warnings are
       printed as they occur.  If \code{warn} is two (or larger, coercible
-      to integer), all warnings are turned into errors. While sometimes
+      to integer), all warnings are turned into errors.  While sometimes
       useful for debugging, turning warnings into errors may trigger
       bugs and resource leaks that would not have been triggered otherwise.}
 
@@ -697,9 +700,8 @@ getOption(x, default = NULL)
       and \code{"mathjax"}; for all other values basic substitutions are
       used. }
 
-    \item{\code{help.htmltoc}:}{default for the \code{toc} argument
-      of \code{\link{Rd2HTML}}, controlling whether a table of contents
-      should be included. }
+    \item{\code{help.htmltoc}:}{logical: whether a table of contents
+      should be included in dynamic help pages. }
 
     \item{\code{HTTPUserAgent}:}{string used as the \sQuote{user agent} in
       HTTP(S) requests by \code{\link{download.file}}, \code{\link{url}}
@@ -755,7 +757,7 @@ getOption(x, default = NULL)
       \code{\link{setRepositories}} and to select from multiple (text)
       help files in \code{\link{help}}.}
 
-    \item{\code{Ncpus}:}{an integer \eqn{n \ge 1}{n >= 1}, used in
+    \item{\code{Ncpus}:}{an integer \eqn{n \ge 1}, used in
       \code{\link{install.packages}} as default for the number of CPUs
       to use in a potentially parallel installation, as
       \code{Ncpus = getOption("Ncpus", 1L)}, i.e., when unset is

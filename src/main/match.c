@@ -46,8 +46,8 @@
 
 
 /* used in subscript.c and subassign.c */
-// In Rinternals.h
-Rboolean NonNullStringMatch(SEXP s, SEXP t)
+// In Defn.h
+attribute_hidden Rboolean NonNullStringMatch(SEXP s, SEXP t)
 {
     /* "" or NA string matches nothing */
     if (s == NA_STRING || t == NA_STRING) return FALSE;
@@ -276,9 +276,9 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 				CHAR(PRINTNAME(TAG(f))));
 			if (R_warn_partial_match_args) {
 			    SEXP cond =
-				R_makePartialMatchWarningCondition(call,
-								   TAG(b),
-								   TAG(f));
+				R_makePartialArgumentMatchWarningCondition(call,
+									   TAG(b),
+									   TAG(f));
 			    PROTECT(cond);
 			    R_signalWarningCondition(cond);
 			    UNPROTECT(1);

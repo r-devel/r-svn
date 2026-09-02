@@ -1,7 +1,7 @@
 #  File src/library/base/R/datetime.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -91,18 +91,18 @@ Sys.timezone <- function(location = TRUE)
         } else tzdir <- ""
     }
 
-    ## First try timedatectl: should work on any modern (post 2015)
+    ## First try timedatectl show: should work on any modern (post 2018)
     ## glibc-based Linux as part of systemd (and probably nowhere else)
     ## https://www.freedesktop.org/software/systemd/man/sd_booted.html
     ## systemd is (in 2025) an optional part of musl
     if (dir.exists("/run/systemd/system") && nzchar(Sys.which("timedatectl"))) {
-        inf <- system("timedatectl", intern = TRUE)
-        ## typical format:
-        ## "       Time zone: Europe/London (GMT, +0000)"
-        ## "       Time zone: Europe/Vienna (CET, +0100)"
-        lines <- grep("Time zone: ", inf)
-        if (length(lines)) {
-            tz <- sub(" .*", "", sub(" *Time zone: ", "", inf[lines[1L]]))
+        ## Ubuntu 18.04 had systemd < 239 and would thus error with
+        ##   Unknown operation show
+        ##   timedatectl: unrecognized option '--property=Timezone'
+        ## but is covered by subsequent heuristics.
+        tz <- system("timedatectl show --property=Timezone --value",
+                     intern = TRUE) |> suppressWarnings()
+        if (length(tz) == 1L && nzchar(tz)) {
             ## quick sanity check
             if(nzchar(tzdir)) {
                 if(file.exists(file.path(tzdir, tz))) {
@@ -116,7 +116,9 @@ Sys.timezone <- function(location = TRUE)
                 cacheIt(tz)
                 return(tz)
             }
-        }
+        } else
+            message("unable to deduce timezone name from ",
+                    sQuote("timedatectl"))
     }
 
     ## Debian/Ubuntu Linux do things differently, so try that next.
@@ -362,10 +364,10 @@ as.double.POSIXlt <- function(x, ...) as.double(as.POSIXct(x))
 length.POSIXlt <- function(x) max(lengths(unclass(x)))
 ## keep somewhat in sync with rep.POSIXlt  (further down)
 `length<-.POSIXlt` <- function(x, value) {
-    r <- lapply(unclass(x), `length<-`, value)
+    r <- lapply(unCfillPOSIXlt(x), `length<-`, value)
     class(r) <- oldClass(x)
-    attr(r, "tzone"      ) <- attr(x, "tzone")# "balanced" vs "filled" :
-    attr(r, "balanced") <- if(isTRUE(attr(x, "balanced")) && value <= length(x)) TRUE else NA
+    attr(r, "tzone"   ) <- attr(x, "tzone")# "balanced" vs "filled" :
+    attr(r, "balanced") <- if(isTRUE(attr(x, "balanced")) && trunc(value) <= length(x)) TRUE else NA
     r
 }
 
@@ -373,9 +375,9 @@ length.POSIXlt <- function(x) max(lengths(unclass(x)))
 `$<-.POSIXlt` <- function (x, name, value) {
     r <- NextMethod("$<-")
     class(r) <- oldClass(x)
-    attr(r, "tzone"      ) <- attr(x, "tzone")# "balanced" vs "filled" :
+    attr(r, "tzone"   ) <- attr(x, "tzone")# "balanced" vs "filled" :
     attr(r, "balanced") <- if(isTRUE(attr(x, "balanced")) &&
-                                 length(value) == length(x)) NA # "filled" else NULL
+                              length(value) == length(x)) NA # "filled" else NULL
     r
 }
 
@@ -419,11 +421,21 @@ format.POSIXlt <- function(x, format = "", usetz = FALSE,
 strftime <- function(x, format = "", tz = "", usetz = FALSE, ...)
     format(as.POSIXlt(x, tz = tz), format = format, usetz = usetz, ...)
 
-strptime <- function(x, format, tz = "")
+strptime <- function(x, format, tz = "") {
+    ## must work correctly for  "Inf" or "-Inf"  in 'x'
+    ## TODO efficiently: in C's in strptime_internal() in ../../../main/Rstrptime.h
+    r <-
     .Internal(strptime(if(is.character(x)) x # not losing names(.) here
                        else if(is.object(x)) `names<-`(as.character(x), names(x))
                        else                  `storage.mode<-`(x, "character"),
                        format, tz))
+    npI <- match(c("-Inf","Inf"), x, 0L)
+    if(any(npI)) {
+        if(npI[1L]) r[x == "-Inf"] <- as.POSIXlt.POSIXct(.POSIXct(-Inf))
+        if(npI[2L]) r[x ==  "Inf"] <- as.POSIXlt.POSIXct(.POSIXct( Inf))
+    }
+    r
+}
 
 
 format.POSIXct <- function(x, format = "", tz = "", usetz = FALSE, ...)
@@ -459,7 +471,7 @@ print.POSIXlt <- function(x, tz = "", usetz = TRUE, max = NULL,
 summary.POSIXct <- function(object, digits = 15L, ...)
 {
     x <- summary.default(unclass(object), digits = digits, ...)
-    if(m <- match("NA's", names(x), 0L)) {
+    if(m <- match("NAs", names(x), 0L)) {
         NAs <- as.integer(x[m])
         x <- x[-m]
         attr(x, "NAs") <- NAs
@@ -532,14 +544,11 @@ Math.POSIXt <- function (x, ...)
          domain = NA)
 }
 
+
 .check_tzones <- function(...)
 {
-    tzs <- unique(vapply(list(...),
-                         function(x) {
-                             y <- attr(x, "tzone")
-                             if(is.null(y)) "" else y[1L]
-                         },
-                         ""))
+    tz1 <- function(x) attr(x, "tzone")[1L] %||% ""
+    tzs <- unique(vapply(list(...), tz1, ""))
     tzs <- tzs[nzchar(tzs)]
     if(length(tzs) > 1L)
         warning("'tzone' attributes are inconsistent")
@@ -660,8 +669,33 @@ c.POSIXct <- function(..., recursive = FALSE) {
 }
 
 ## we need conversion to POSIXct as POSIXlt objects can be in different tz.
-c.POSIXlt <- function(..., recursive = FALSE) {
-    as.POSIXlt(do.call(c, lapply(list(...), as.POSIXct)))
+## To preserve fractional second accuracy, do more than just
+##   as.POSIXlt(do.call(c, lapply(list(...), as.POSIXct)))
+c.POSIXlt <- function(..., recursive = FALSE) { # NB  `recursive` is *not* used nor checked
+    x <- lapply(list(...), function(x)
+                if(is.character(x) || is.factor(x)) as.POSIXlt(x) else x)
+    ## s:= fractional part of seconds in all of 'x'
+    s <- lapply(x, function(x) if(inherits(x, "POSIXlt")) x$sec - floor(x$sec))
+    x <- lapply(x, function(x) {
+        if(inherits(x, "POSIXlt")) x$sec <- floor(x$sec)
+        as.POSIXct(x)
+    })
+    n <- lengths(x, use.names = FALSE)
+
+    x <- do.call(c.POSIXct, x)
+    for(i in seq_along(s)) if(length(si <- s[[i]]) != (ni <- n[[i]]))
+        s[[i]] <- if(is.null(si)) double(ni) else rep_len(si, ni)
+    s <- unlist(s, recursive = FALSE, use.names = FALSE)
+    ## In far away times, seconds may be wrong, so don't add sub-seconds
+    s[abs(unclass(x)) >= .Machine$double.base ^ .Machine$double.digits] <- 0
+    x <- as.POSIXlt(x)
+    i <- which(is.finite(x$sec) & s != 0)
+    if(length(i)) {
+        bal <- attr(x, "balanced")
+        x$sec[i] <- x$sec[i] + s[i]
+        if(!is.null(bal)) attr(x, "balanced") <- bal
+    }
+    x
 }
 
 
@@ -680,6 +714,7 @@ ISOdate <- function(year, month, day, hour = 12, min = 0, sec = 0, tz = "GMT")
 
 as.matrix.POSIXlt <- function(x, ...)
 {
+    x$zone <- NULL # to always get numeric
     as.matrix(as.data.frame(unclass(x)), ...)
 }
 
@@ -806,12 +841,10 @@ diff.difftime <- function(x, ...)
 
 Ops.difftime <- function(e1, e2)
 {
-    coerceTimeUnit <- function(x)
-    {
+    coerceTimeUnit <- function(x) # coerce to secs
         switch(attr(x, "units"),
                secs = x, mins = 60*x, hours = 60*60*x,
                days = 60*60*24*x, weeks = 60*60*24*7*x)
-    }
     if (nargs() == 1L) {
         switch(.Generic, "+" = {}, "-" = {e1[] <- -unclass(e1)},
                stop(gettextf("unary '%s' not defined for \"difftime\" objects",
@@ -889,45 +922,41 @@ Summary.difftime <- function (..., na.rm)
 {
     ## FIXME: this could return in the smallest of the units of the inputs.
     coerceTimeUnit <- function(x)
-    {
         as.vector(switch(attr(x,"units"),
                          secs = x, mins = 60*x, hours = 60*60*x,
                          days = 60*60*24*x, weeks = 60*60*24*7*x))
-    }
     ok <- switch(.Generic, max = , min = , sum=, range = TRUE, FALSE)
     if (!ok)
         stop(gettextf("'%s' not defined for \"difftime\" objects", .Generic),
              domain = NA)
-    x <- list(...)
-    Nargs <- length(x)
-    if(Nargs == 0) {
+    if(! ...length()) {
         .difftime(do.call(.Generic), "secs")
     } else {
+        x <- list(...)
         units <- sapply(x, attr, "units")
-        if(all(units == units[1L])) {
+        if(all(units == (un1 <- units[[1L]]))) {
             args <- c(lapply(x, as.vector), na.rm = na.rm)
         } else {
             args <- c(lapply(x, coerceTimeUnit), na.rm = na.rm)
-            units <- "secs"
+            un1 <- "secs"
         }
-        .difftime(do.call(.Generic, args), units[[1L]])
+        .difftime(do.call(.Generic, args), un1)
     }
 }
 
 c.difftime <-
 function(..., recursive = FALSE)
 {
-    coerceTimeUnit <- function(x) {
+    coerceTimeUnit <- function(x)
         switch(attr(x, "units"),
                secs = x, mins = 60*x, hours = 60*60*x,
                days = 60*60*24*x, weeks = 60*60*24*7*x)
-    }
     args <- list(...)
     if(!length(args)) return(.difftime(double(), "secs"))
     ind <- vapply(args, inherits, NA, "difftime")
     pos <- which(!ind)
     units <- sapply(args[ind], attr, "units")
-    if(all(units == (un1 <- units[1L]))) {
+    if(all(units == (un1 <- units[[1L]]))) {
         if(length(pos))
             args[pos] <-
                 lapply(args[pos], as.difftime, units = un1)
@@ -950,7 +979,7 @@ summary.difftime <-
 function(object, digits = getOption("digits"), ...)
 {
     x <- summary.default(unclass(object), digits = digits, ...)
-    if(m <- match("NA's", names(x), 0L)) {
+    if(m <- match("NAs", names(x), 0L)) {
         NAs <- as.integer(x[m])
         x <- x[-m]
         attr(x, "NAs") <- NAs
@@ -1328,25 +1357,37 @@ function(x, units = c("secs", "mins", "hours", "days", "months", "years"))
         ici <- is.character(i)
         nms <- names(x$year)
         if(mj) {
-            tz <- attr(x, "tzone")
-            value <- unCfillPOSIXlt(
-                if(inherits(value, "POSIXlt") && identical(tz, attr(value, "tzone")))
-                    value
-                else as.POSIXlt(as.POSIXct(value), tz = tz[1L]))
+            tz1 <- function(x) attr(x, "tzone")[1L] %||% "" # never NA (?!)
+            tz <- tz1(x)
+            if(is.character(value) || is.factor(value)) value <- as.POSIXlt(value)
+            if(inherits(value, "POSIXlt")) {
+                if(tz1(value) == tz)
+                    value <- unCfillPOSIXlt(value)
+                else {
+                    s <- value$sec
+                    s <- s - (value$sec <- floor(s))
+                    value <- as.POSIXct(value)
+                    if(length(s) != (n <- length(value))) s <- rep_len(s, n)
+                    ## In far away times, seconds may be wrong, so don't add sub-seconds
+                    s[abs(unclass(value)) >= .Machine$double.base ^ .Machine$double.digits] <- 0
+                    value <- unclass(as.POSIXlt(value, tz = tz))
+                    if(length(n <- which(is.finite(value$sec) & s != 0)))
+                        value$sec[n] <- value$sec[n] + s[n]
+                }
+            } else value <- unclass(as.POSIXlt(as.POSIXct(value), tz = tz))
             if(ici) {
                 for(n in names(x))
                     names(x[[n]]) <- nms
             }
             for(n in names(x))
                 x[[n]][i] <- value[[n]]
-        } else {
+        } else { # x[i,j] <- v
             if(ici) {
                 names(x[[j]]) <- nms
             }
             x[[j]][i] <- value
         }
     }
-
     class(x) <- cl
     x
 }
@@ -1377,19 +1418,17 @@ rep.POSIXlt <- function(x, ...) {
 
 diff.POSIXt <- function (x, lag = 1L, differences = 1L, ...)
 {
-    ismat <- is.matrix(x)
-    r <- if(inherits(x, "POSIXlt")) as.POSIXct(x) else x
-    xlen <- if (ismat) dim(x)[1L] else length(r)
     if (length(lag) != 1L || length(differences) > 1L || lag < 1L || differences < 1L)
         stop("'lag' and 'differences' must be integers >= 1")
-    if (lag * differences >= xlen) return(.difftime(numeric(), "secs"))
+    r <- if(inherits(x, "POSIXlt")) as.POSIXct(x) else x
     i1 <- -seq_len(lag)
-    if (ismat)
+    if (is.matrix(x))
         for (i in seq_len(differences))
-            r <- r[i1, , drop = FALSE] - r[-nrow(r):-(nrow(r) - lag + 1), , drop = FALSE]
+            r <- r[i1, , drop = FALSE] -
+		r[seq_len(max(nrow(r) - lag, 0L)), , drop = FALSE]
     else
         for (i in seq_len(differences))
-             r <- r[i1] -  r[-length(r):-(length(r) - lag + 1L)]
+	    r <- r[i1] - `length<-`(r, max(length(r) - lag, 0L))
     dots <- list(...)
     if("units" %in% names(dots) && dots$units != "auto")
         units(r) <- match.arg(dots$units,  choices = setdiff(eval(formals(difftime)$units), "auto"))
@@ -1465,6 +1504,8 @@ is.numeric.difftime <- function(x) FALSE
 ## ---- additions in 2.13.0 -----
 
 names.POSIXlt <- function(x) names(x$year)
+## TODO _recycle_ ??  not when  as.POSIXct(.) and hence print()  fills with  <NA> <NA>
+##       if(length(nm <- names(x$year)) < (n <- length(x))) rep_len(nm, n) else nm
 
 `names<-.POSIXlt` <-
 function(x, value)
@@ -1575,11 +1616,22 @@ as.list.POSIXlt <- function(x, ...)
             names(x[[n]]) <- nms
     }
 
-    tz <- attr(x, "tzone")
-    value <- unCfillPOSIXlt(
-        if(inherits(value, "POSIXlt") && identical(tz, attr(value, "tzone")))
-            value
-        else as.POSIXlt(as.POSIXct(value), tz = tz[1L]))
+    tz1 <- function(x) attr(x, "tzone")[1L] %||% "" # never NA (?!)
+    tz <- tz1(x)
+    if(is.character(value) || is.factor(value)) value <- as.POSIXlt(value)
+    if(inherits(value, "POSIXlt")) {
+        if(tz1(value) == tz)
+            value <- unCfillPOSIXlt(value)
+        else {
+            s <- value$sec
+            s <- s - (value$sec <- floor(s))
+            value <- unclass(as.POSIXlt(ctv <- as.POSIXct(value), tz = tz))
+            if(is.finite(value$sec) && s != 0 &&
+               ## In far away times, seconds may be wrong, so don't add sub-seconds
+               abs(unclass(ctv)) < .Machine$double.base ^ .Machine$double.digits)
+                value$sec <- value$sec + s
+        }
+    } else value <- unclass(as.POSIXlt(as.POSIXct(value), tz = tz))
     for(n in names(x))
         x[[n]][[i]] <- value[[n]]
 

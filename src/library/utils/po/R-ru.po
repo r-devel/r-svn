@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-05-25 12:54\n"
 "PO-Revision-Date: 2024-03-25 15:00+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -37,7 +37,8 @@ msgstr "документ не найден"
 msgid "some options in argument 'restrict' were not recognized and hence ignored"
 msgstr "не могу распознать и поэтому игнорирую некоторые опции в аргументе 'restrict'"
 
-msgid "argument 'format' is deprecated and has no affect on search results"
+#, fuzzy
+msgid "argument 'format' is deprecated and has no effect on search results"
 msgstr "аргумент 'format' больше не работает (и не влияет на результаты поиска)"
 
 msgid "A search query has been submitted to %s"
@@ -80,9 +81,6 @@ msgstr "Предупреждение: неизвестная опция '--clean='%s"
 msgid "Warning: unknown option %s"
 msgstr "Предупреждение: неизвестная опция %s"
 
-msgid "Output file:"
-msgstr "Файл вывода:"
-
 msgid "Compacting PDF document"
 msgstr "Сжимаю документ PDF"
 
@@ -103,6 +101,17 @@ msgstr "значение опции 'results' должно быть в нижнем регистре"
 
 msgid "value of 'strip.white' option should be lowercase"
 msgstr "значение опции 'strip.white' должно быть в нижнем регистре"
+
+msgid "using default value %s"
+msgstr ""
+
+#, fuzzy
+msgid "this function cannot be used from an interactive session"
+msgstr "winDialog() нельзя использовать неинтерактивно"
+
+#, fuzzy
+msgid "unrecognized Sweave call"
+msgstr "Нераспознанное значение индикатора"
 
 msgid "elements of 'what' after the first will be ignored"
 msgstr "элементы 'what' после первого будут пропущены"
@@ -150,6 +159,10 @@ msgstr "Не найдено подходящей программы проверки грамматики."
 
 msgid "Performing query %s"
 msgstr "Выполняю запрос %s"
+
+#, fuzzy
+msgid "Unsupported object"
+msgstr "неподдерживаемый тип записи"
 
 msgid ""
 "Use <code> %s </code> \n"
@@ -303,6 +316,10 @@ msgstr "Введите номер окружения или 0 для выхода"
 
 msgid "recover called non-interactively; frames dumped, use debugger() to view"
 msgstr "восстановление вызвано неинтерактивно; кадры сброшены, используйте debugger(), чтобы их просмотреть"
+
+#, fuzzy
+msgid "Enter a frame number, or 0 to exit"
+msgstr "Введите номер окружения или 0 для выхода"
 
 msgid "No suitable frames for recover()"
 msgstr "Нет подходящих кадров для recover()"
@@ -620,14 +637,14 @@ msgstr "'code_files' должны быть текстовым вектором"
 msgid "'list' must be a character vector naming R objects"
 msgstr "'список' должен быть текстовым вектором, именующим R-объекты"
 
-msgid "no R objects specified or available"
-msgstr "R-объекты не указаны или недоступны"
-
 msgid "directory '%s' already exists"
 msgstr "папка '%s' уже есть"
 
 msgid "generic functions and other S4 objects (e.g., '%s') cannot be dumped; use the 'code_files' argument"
 msgstr "не могу сохранить как текст общие функции и другие объекты S4 (например, '%s'); используйте аргумент 'code_files'"
+
+msgid "'download.file()' error code '%d'"
+msgstr "'download.file()' код ошибки '%d'"
 
 msgid "unable to access index for repository %s"
 msgstr "недоступен индекс для хранилища %s"
@@ -668,9 +685,6 @@ msgstr "'destdir' не является папкой"
 msgid "no package %s at the repositories"
 msgstr "в хранилищах нет пакета %s"
 
-msgid "invalid 'type'"
-msgstr "неправильный 'type'"
-
 msgid "package %s does not exist on the local repository"
 msgstr "в локальном хранилище нет пакета %s"
 
@@ -683,8 +697,8 @@ msgstr "--- Пожалуйста, выберите зеркало CRAN для использования в этой сессии --
 msgid "trying to use CRAN without setting a mirror"
 msgstr "пробую использовать CRAN без установки зеркала"
 
-msgid "'download.file()' error code '%d'"
-msgstr "'download.file()' код ошибки '%d'"
+msgid "invalid 'type'"
+msgstr "неправильный 'type'"
 
 msgid "failed to download mirrors file (%s); using local file '%s'"
 msgstr "не удалось скачать файл зеркал (%s); использую локальный файл '%s'"
@@ -759,8 +773,8 @@ msgstr "выставляю 'repos = NULL' на основе 'pkgs'"
 msgid "unable to create temporary directory %s"
 msgstr "не могу создать временную директорию %s"
 
-msgid "type == \"both\" can only be used on Windows or a CRAN build for macOS"
-msgstr "type == \"both\" можно использовать только на Windows или CRAN-сборке для macOS"
+msgid "type == \"both\" can only be used in R builds that have well-defined binary type (e.g., CRAN binary releases)"
+msgstr ""
 
 msgid "type == \"both\" cannot be used with 'repos = NULL'"
 msgstr "type == \"both\" нельзя использовать вместе с 'repos = NULL'"
@@ -768,11 +782,9 @@ msgstr "type == \"both\" нельзя использовать вместе с 'repos = NULL'"
 msgid "source repository is unavailable to check versions"
 msgstr "репозиторий исходников недоступен для того, чтобы проверить версии"
 
-msgid "cannot install macOS binary packages on Windows"
+#, fuzzy
+msgid "cannot install binary packages from other operating systems on Windows"
 msgstr "не могу установить бинарные пакеты macOS под Windows"
-
-msgid "cannot install macOS binary packages on this platform"
-msgstr "не могу установить бинарные пакеты  macOS на этой платформе"
 
 msgid "cannot install Windows binary packages on this platform"
 msgstr "не могу установить бинарные пакеты Windows на этой платформе"
@@ -1068,11 +1080,12 @@ msgstr "не могу создать каталог %s"
 msgid "invalid octal digit"
 msgstr "неправильное восьмеричное число"
 
+#, fuzzy
+msgid "removing leading '/' from '%s'"
+msgstr "удаляю стартовую '/'"
+
 msgid "removing drive '%s'"
 msgstr "удаляю диск '%s'"
-
-msgid "removing leading '/'"
-msgstr "удаляю стартовую '/'"
 
 msgid "path starts with '~'"
 msgstr "путь начинается с '~'"
@@ -1080,8 +1093,8 @@ msgstr "путь начинается с '~'"
 msgid "path contains '..'"
 msgstr "путь содержит '..'"
 
-msgid "path is empty"
-msgstr "путь пуст"
+msgid "cannot extract through symlink"
+msgstr ""
 
 msgid "'tarfile' must be a character string or a connection"
 msgstr "'tarfile' должен быть текстовой строкой или соединением"
@@ -1100,6 +1113,9 @@ msgstr "ошибка контрольной суммы для записи '%s'"
 
 msgid "failed to copy %s to %s"
 msgstr "не удалось скопировать %s в %s"
+
+msgid "cannot restore symbolic link from %s to %s as a file copy, because the source doesn't exist; try extracting again?"
+msgstr ""
 
 msgid "unsupported entry type"
 msgstr "неподдерживаемый тип записи"
@@ -1207,14 +1223,29 @@ msgstr "неправильный метод:"
 msgid "download had nonzero exit status"
 msgstr "у скачивания ненулевой статус выхода"
 
+msgid "Built: value is not a string"
+msgstr ""
+
 msgid "'tar' returned non-zero exit code %d"
 msgstr "'tar' вернул ненулевой код выхода %d"
 
-msgid "file %s is not a macOS binary package"
+#, fuzzy
+msgid "file %s is not a binary package"
 msgstr "файл %s -- не бинарный пакет macOS"
 
-msgid "package %s successfully unpacked and MD5 sums checked"
+msgid "binary package %s is not compatible with this build of R"
+msgstr ""
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
 msgstr "пакет %s успешно распакован, MD5-суммы проверены"
+
+#, fuzzy
+msgid "package %s signature verified (%s %s)"
+msgstr "пакет '%s' недоступен (%s)"
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid ""
 "ERROR: failed to lock directory %s for modifying\n"
@@ -1242,17 +1273,21 @@ msgstr ""
 "Скачанные бинарные пакеты находятся в\n"
 "\t%s"
 
-msgid "'memory.size()' is Windows-specific"
-msgstr "'memory.size()' -- Windows-специфичный"
+msgid "'memory.size()' is no longer supported"
+msgstr "'memory.size()' больше не поддерживается"
 
-msgid "'memory.limit()' is Windows-specific"
-msgstr "'memory.limit()' -- Windows-специфичный"
+msgid "'memory.limit()' is no longer supported"
+msgstr "'memory.limit()' больше не поддерживается"
 
 msgid "method 'mailx' is Unix-only"
 msgstr "метод 'mailx' только для Unix"
 
 msgid "zip file %s not found"
 msgstr "zip-файл %s не найден"
+
+#, fuzzy
+msgid "cannot extract package from %s"
+msgstr "не могу создать HTML-индекс пакетов"
 
 msgid "failed to create %s"
 msgstr "не удалось создать %s"
@@ -1269,12 +1304,6 @@ msgstr "не могу скопировать временную установку из %s в %s"
 msgid "Only '*.zip' and '*.tar.gz' files can be installed."
 msgstr "Можно устанавливать только файлы '*.zip' и '*.tar.gz'."
 
-msgid "'memory.size()' is no longer supported"
-msgstr "'memory.size()' больше не поддерживается"
-
-msgid "'memory.limit()' is no longer supported"
-msgstr "'memory.limit()' больше не поддерживается"
-
 msgid "winDialog() cannot be used non-interactively"
 msgstr "winDialog() нельзя использовать неинтерактивно"
 
@@ -1286,6 +1315,13 @@ msgid_plural "%d Sweave files for basename %s found"
 msgstr[0] "%d Sweave-файл с базовым именем %s найден"
 msgstr[1] "%d Sweave-файла с базовым именем %s найдены"
 msgstr[2] "%d Sweave-файлов с базовым именем %s найдены"
+
+#, fuzzy
+msgid "Output file:  "
+msgid_plural "Output files:  "
+msgstr[0] "Файл вывода:"
+msgstr[1] "Файл вывода:"
+msgstr[2] "Файл вывода:"
 
 msgid "Output/used file:  "
 msgid_plural "Output/used files:  "
@@ -1484,6 +1520,24 @@ msgid_plural "invalid roman numerals: %s"
 msgstr[0] "неправильное римское число: %s"
 msgstr[1] "неправильные римские числа: %s"
 msgstr[2] "неправильные римские числа: %s"
+
+#~ msgid "type == \"both\" can only be used on Windows or a CRAN build for macOS"
+#~ msgstr "type == \"both\" можно использовать только на Windows или CRAN-сборке для macOS"
+
+#~ msgid "no R objects specified or available"
+#~ msgstr "R-объекты не указаны или недоступны"
+
+#~ msgid "cannot install macOS binary packages on this platform"
+#~ msgstr "не могу установить бинарные пакеты  macOS на этой платформе"
+
+#~ msgid "path is empty"
+#~ msgstr "путь пуст"
+
+#~ msgid "'memory.size()' is Windows-specific"
+#~ msgstr "'memory.size()' -- Windows-специфичный"
+
+#~ msgid "'memory.limit()' is Windows-specific"
+#~ msgstr "'memory.limit()' -- Windows-специфичный"
 
 #~ msgid "It is recommended to use %s/%s instead of %s/%s/%s."
 #~ msgstr "Рекомендуется использовать %s/%s вместо %s/%s/%s."
@@ -1808,9 +1862,6 @@ msgstr[2] "неправильные римские числа: %s"
 
 #~ msgid "Making links in per-session dir ..."
 #~ msgstr "Делаю ссылки в папке сессии..."
-
-#~ msgid "cannot create HTML package index"
-#~ msgstr "не могу создать HTML-индекс пакетов"
 
 #~ msgid "cannot create HTML search index"
 #~ msgstr "не могу создать HTML-индекс для поиска"

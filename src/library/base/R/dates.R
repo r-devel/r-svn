@@ -1,7 +1,7 @@
 #  File src/library/base/R/dates.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ print.Date <- function(x, max = NULL, ...)
 summary.Date <- function(object, digits = 12L, ...)
 {
     x <- summary.default(unclass(object), digits = digits, ...)
-    if(m <- match("NA's", names(x), 0L)) {
+    if(m <- match("NAs", names(x), 0L)) {
         NAs <- as.integer(x[m])
         x <- x[-m]
         attr(x, "NAs") <- NAs
@@ -274,7 +274,7 @@ seq.Date <- function(from, to, by, length.out = NULL, along.with = NULL, ...)
         if(nby2 > 2L || nby2 < 1L)
             stop("invalid 'by' string")
         bys <- c("days", "weeks", "months", "quarters", "years")
-        valid <- pmatch(by2[nby2], bys) 
+        valid <- pmatch(by2[nby2], bys)
         if(is.na(valid)) stop("invalid string for 'by'")
         by <- bys[valid] # had *partial* match
         if(valid > 2L) { # seq.POSIXt handles the logic for non-arithmetic cases
@@ -432,22 +432,19 @@ rep.Date <- function(x, ...)
 
 diff.Date <- function (x, lag = 1L, differences = 1L, ...)
 {
-    ismat <- is.matrix(x)
-    xlen <- if (ismat) dim(x)[1L] else length(x)
     if (length(lag) != 1L || length(differences) > 1L || lag < 1L || differences < 1L)
         stop("'lag' and 'differences' must be integers >= 1")
-    if (lag * differences >= xlen)
-        return(.difftime(numeric(), units="days"))
-    r <- x
     i1 <- -seq_len(lag)
-    if (ismat)
-        for (i in seq_len(differences)) r <- r[i1, , drop = FALSE] -
-            r[-nrow(r):-(nrow(r) - lag + 1L), , drop = FALSE]
-    else for (i in seq_len(differences))
-        r <- r[i1] - r[-length(r):-(length(r) - lag + 1L)]
+    if (is.matrix(x))
+        for (i in seq_len(differences))
+            x <- x[i1, , drop = FALSE] -
+                x[seq_len(max(nrow(x) - lag, 0L)), , drop = FALSE]
+    else
+        for(i in seq_len(differences))
+            x <- x[i1] - `length<-`(x, max(length(x) - lag, 0L))
     if("units" %in% ...names() && (dunits <- list(...)$units) != "auto")
-        units(r) <- match.arg(dunits, choices = setdiff(eval(formals(difftime)$units), "auto"))
-    r
+        units(x) <- match.arg(dunits, choices = setdiff(eval(formals(difftime)$units), "auto"))
+    x
 }
 
 ## ---- additions in 2.6.0 -----

@@ -196,7 +196,7 @@ loadNamespace <- function (package, lib.loc = NULL,
 
     ns <- .Internal(getRegisteredNamespace(package))
     if(!is.null(versionCheck) && !is.list(versionCheck))
-        stop("'versionCheck' must be NULL or list with components 'op' and 'version'")
+        stop("'versionCheck' must be NULL or a list with components 'op' and 'version'")
     checkVer <- !is.null(zop      <- versionCheck[["op"]]) &&
                 !is.null(zversion <- versionCheck[["version"]])
     if (! is.null(ns)) { ## already loaded
@@ -1170,9 +1170,13 @@ namespaceImportMethods <- function(self, ns, vars, from = NULL)
 }
 
 importIntoEnv <- function(impenv, impnames, expenv, expnames) {
+        ## Avoid computing `names(exports)` here. `exports` is an environment
+        ## so computing the names requires a full walk. This causes problematic
+        ## super-linear performance when there are many `importFrom()` directives.
     exports <- getNamespaceInfo(expenv, "exports")
-    ex <- names(exports)
-    if(!all(eie <- expnames %in% ex)) {
+    expvals <- mget(expnames, envir = exports, inherits = FALSE,
+                    ifnotfound = list(NULL))
+    if(!all(eie <- lengths(expvals) != 0L)) {
         miss <- expnames[!eie]
         ## if called (indirectly) for namespaceImportClasses
         ## these are all classes
@@ -1193,7 +1197,7 @@ importIntoEnv <- function(impenv, impnames, expenv, expnames) {
                  call. = FALSE, domain = NA)
         }
     }
-    expnames <- unlist(mget(expnames, envir = exports, inherits = FALSE), recursive=FALSE)
+    expnames <- unlist(expvals, recursive = FALSE)
     if (is.null(impnames)) impnames <- character()
     if (is.null(expnames)) expnames <- character()
     .Internal(importIntoEnv(impenv, impnames, expenv, expnames))
@@ -1336,7 +1340,19 @@ parseNamespaceFile <- function(package, package.lib, mustExist = TRUE)
     parseDirective <- function(e) {
         ## trying to get more helpful error message:
 	asChar <- function(cc) {
-	    r <- as.character(cc)
+            r <- if(length(cc) <= 1L)
+                     as.character(cc)
+                 else vapply(cc,
+                             function(e) {
+                                 if(is.character(e))
+                                     e
+                                 else if(is.name(e))
+                                     as.character(e)
+                                 else
+                                     deparse1(e)
+                             },
+                             "",
+                             USE.NAMES = FALSE)
 	    if(any(r == ""))
 		stop(gettextf("empty name in directive '%s' in 'NAMESPACE' file",
 			      as.character(e[[1L]])),

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:50\n"
+"POT-Creation-Date: 2026-05-25 12:54\n"
 "PO-Revision-Date: 2024-03-19 03:05+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -46,7 +46,7 @@ msgstr "次元が 0 です"
 
 #, fuzzy
 msgid "\"all\" and \"exact\" are mutually exclusive"
-msgstr "\"hexNumeric\" と \"digits17\" は矛盾します"
+msgstr "「all」と「exact」は相互に排他的です"
 
 msgid "\"hexNumeric\" and \"digits17\" are mutually exclusive"
 msgstr "\"hexNumeric\" と \"digits17\" は矛盾します"
@@ -96,11 +96,10 @@ msgid "not all elements of 'MARGIN' are names of dimensions"
 msgstr "'MARGIN' に次元名でない要素が含まれています"
 
 msgid "'MARGIN' does not match dim(X)"
-msgstr ""
+msgstr "'MARGIN'はdim(X)と一致しません"
 
-#, fuzzy
 msgid "'dim' cannot be of length 0"
-msgstr "'dims' は長さ 0 ではありえません"
+msgstr "'dim' の長さを 0 にすることはできません"
 
 msgid "'dim' specifies too large an array"
 msgstr "'dim' の指定する配列が大きすぎます"
@@ -112,7 +111,6 @@ msgstr "'x' は名前付きの次元名を持たなければなりません"
 msgid "incorrect value for 'MARGIN'"
 msgstr "'MARGIN' の値が不正です"
 
-#, fuzzy
 msgid "dim(x) must have a positive length"
 msgstr "dim(X) は正の長さを持たねばなりません"
 
@@ -142,7 +140,7 @@ msgstr ""
 " error: %s"
 
 msgid "%s namespace cannot be unloaded:"
-msgstr "%s 名前空間はアンロード出来ません"
+msgstr "%s 名前空間はアンロード出来ません:"
 
 msgid "%s converted to character string"
 msgstr "%s は文字列に変換されました"
@@ -162,15 +160,16 @@ msgstr "その名前のオブジェクトは既に存在します"
 msgid "autoloader did not find '%s' in '%s'"
 msgstr "自動ローダーは '%s' を '%s' 中に見つけられませんでした"
 
+#, fuzzy
 msgid "can only splice inside a call"
-msgstr ""
+msgstr "コール内でのみスプライスすることができます"
 
 #, fuzzy
 msgid "can only splice vectors"
 msgstr "ベクトルオブジェクトしか書き込めません"
 
 msgid "the LINPACK argument has been defunct since R 3.1.0"
-msgstr ""
+msgstr "LINPACK 引数は R 3.1.0 以降廃止されました"
 
 msgid "complex matrices not permitted at present"
 msgstr "複素行列は現在許可されていません"
@@ -182,7 +181,7 @@ msgid "invalid 'dims'"
 msgstr "無効な 'dims' です"
 
 msgid "condition handlers must be specified with a condition class"
-msgstr ""
+msgstr "条件ハンドラーは条件クラスとともに指定する必要があります"
 
 msgid "no 'restart' '%s' found"
 msgstr "'restart' '%s' が見付かりません"
@@ -198,7 +197,7 @@ msgid "condition handlers must be functions"
 msgstr "ハンドラーは関数でなければなりません"
 
 msgid "pushing duplicate `%s` handler on top of the stack"
-msgstr ""
+msgstr "スタックの先頭に重複する '%s' ハンドラをプッシュします"
 
 msgid "argument 'where' of length 0"
 msgstr "長さ 0 の引数 'where' です"
@@ -262,6 +261,9 @@ msgstr "データフレームに無効な 'dimnames' が与えられました"
 msgid "cannot coerce class %s to a data.frame"
 msgstr "クラス \"%s\" はデータフレームに強制変換できません"
 
+msgid "row names contain missing values"
+msgstr "列名は欠測値を含んでいます"
+
 #, fuzzy
 msgid "'row.names' is not a character or integer vector of length %d"
 msgstr "'normal.kind' は長さ 1 の文字列でなければなりません"
@@ -271,9 +273,6 @@ msgstr "'data.frame' の引数中の行名 (項目 %d) が不適当です"
 
 msgid "some row.names duplicated: %s --> row.names NOT used"
 msgstr "重複している row.names があります: %s-->row.names が使用できませんでした"
-
-msgid "row names contain missing values"
-msgstr "列名は欠測値を含んでいます"
 
 msgid "duplicate row.names: %s"
 msgstr "row.names %s が重複しています"
@@ -358,7 +357,7 @@ msgid "<0 rows> (or 0-length row.names)"
 msgstr "<0 行> (または長さ 0 の row.names)"
 
 msgid "invalid 'max' / getOption(\"max.print\"):"
-msgstr ""
+msgstr "無効な 'max' / getOption(\"max.print\"):"
 
 #, fuzzy
 msgid "non-numeric-alike variable(s) in data frame:"
@@ -414,7 +413,7 @@ msgid "'%s' must be of length 1"
 msgstr "'to' は長さ 1 でなければなりません"
 
 msgid "without 'by', at least one of 'to' and 'from' must be specified"
-msgstr ""
+msgstr "'by' がなければ、'to' と 'from' の内少なくとも 1 つを指定する必要があります"
 
 #, fuzzy
 msgid "without 'by', when one of 'to', 'from' is missing, 'length.out' / 'along.with' must be specified"
@@ -440,13 +439,13 @@ msgid "'x' must be a date-time object"
 msgstr "'x' は date-time オブジェクトでなければなりません"
 
 msgid "invalid specification of 'breaks'"
-msgstr "'breaks' の無効な指定です"
+msgstr "'breaks' の指定が無効です"
 
 msgid "'lag' and 'differences' must be integers >= 1"
 msgstr "'lag' そして 'differences' は 1 以上の整数でなければなりません"
 
 msgid "unable to deduce timezone name from"
-msgstr ""
+msgstr "タイムゾーン名を推測することができません"
 
 msgid "wrong class"
 msgstr "間違ったクラスです"
@@ -543,14 +542,15 @@ msgstr ""
 "不正な行は次の場所で始まっています:\n"
 "%s"
 
+#, fuzzy
 msgid "failed to load the methods package for debugging by signature"
-msgstr ""
+msgstr "methodsパッケージの読み込みに失敗しました"
 
 msgid "failed to load methods package for undebugging by signature"
 msgstr ""
 
 msgid "failed to load methods package for handling signature"
-msgstr ""
+msgstr "署名を処理するmethodsパッケージの読み込みに失敗しました"
 
 msgid "'x' must be a square matrix"
 msgstr "'x' は正方行列でなければなりません"
@@ -625,6 +625,10 @@ msgstr "'%s' は順序因子に対しては定義されません"
 msgid "'%s' is only meaningful for ordered factors if all arguments have the same level sets"
 msgstr "もし全ての引数が同じ水準となっている場合、'%s' は順序因子に対してのみ意味を成します"
 
+#, fuzzy
+msgid "directories are ignored"
+msgstr "long vectorはサポートされていません"
+
 msgid "no files to copy to"
 msgstr "そこへコピーすべきファイルがありません"
 
@@ -641,7 +645,7 @@ msgid "cannot overwrite a non-directory with a directory"
 msgstr ""
 
 msgid "directories are omitted unless 'recursive = TRUE'"
-msgstr ""
+msgstr "'recursive = TRUE'でない場合ディレクトリが省略されます"
 
 msgid "file can not be copied both 'from' and 'to'"
 msgstr "同じファイルにコピーすることはできません"
@@ -676,7 +680,7 @@ msgid "using the first element of 'value' of type \"expression\""
 msgstr "タイプ \"expression\" の 'value' の最初の要素だけを使います"
 
 msgid "Found no format() method for class \"%s\""
-msgstr ""
+msgstr "クラス \"%s\"にformat() メソッドが存在しません"
 
 msgid "class of 'x' was discarded"
 msgstr "クラス 'x' は捨てられました"
@@ -784,13 +788,13 @@ msgid "using 1-norm approximation for approximate 2-norm"
 msgstr ""
 
 msgid "norm=\"%s\" not available here; using norm=\"1\""
-msgstr ""
+msgstr "norm=\"%s\" は利用できません;norm=\"1\"を使用します"
 
 msgid "unknown conflict policy: %s"
-msgstr ""
+msgstr "不明な衝突ポリシー: %s"
 
 msgid "only one of 'include.only' and 'exclude' can be used"
-msgstr ""
+msgstr "'include.only' と 'exclude' のどちらか一つを使用できます"
 
 msgid "package %s has not been installed properly"
 msgstr "パッケージ %s は正しくインストールされていません"
@@ -810,11 +814,12 @@ msgstr "パッケージ %s は %s に対して造られました"
 msgid "package %s is not installed for 'arch = %s'"
 msgstr "パッケージ %s は 'arch = %s' に対してインストールされていません"
 
-#, fuzzy
 msgid ""
 "Conflicts attaching package %s:\n"
 "%s"
-msgstr "次のパッケージを付け加えます: %s"
+msgstr ""
+"パッケージ %s のアタッチ中に競合が発生しています:\n"
+"%s"
 
 msgid "Attaching package: %s"
 msgstr "次のパッケージを付け加えます: %s"
@@ -837,17 +842,19 @@ msgstr "%s は有効なインストール済みパッケージではありませ
 msgid "%s not found on search path, using pos = 2"
 msgstr "%s は検索パス上には見つかりませんでした。pos = 2 を使用します"
 
-#, fuzzy
 msgid ""
 "Package %s version %s cannot be unloaded:\n"
 " %s"
-msgstr "パッケージ %s のバージョン %s はアンロードできません"
+msgstr ""
+"パッケージ %s のバージョン %s はアンロードできません:\n"
+" %s"
 
-#, fuzzy
 msgid ""
 "package or namespace load failed for %s%s:\n"
 " %s"
-msgstr "%s に対するパッケージもしくは名前空間のロードが失敗しました"
+msgstr ""
+"%s%s に対するパッケージもしくは名前空間のロードが失敗しました:\n"
+" %s"
 
 msgid "package %s already present in search()"
 msgstr "パッケージ %s は既に search() 中に存在します"
@@ -996,11 +1003,11 @@ msgstr ""
 msgid "'arg' must be NULL or a character vector"
 msgstr "'arg' は、NULL かひとつの文字ベクトルでなければなりません"
 
+msgid "'several.ok' must be logical or a string starting with \"all\""
+msgstr ""
+
 msgid "'arg' must be of length >= 1"
 msgstr "'arg' は長さ 1 以上でなければなりません"
-
-msgid "there is more than one match in 'match.arg'"
-msgstr "'match.arg' に複数のマッチがあります"
 
 msgid "no match"
 msgstr "マッチしません"
@@ -1071,21 +1078,30 @@ msgstr "オブジェクト %2$s を処理する際、名前空間 %1$s は使用
 msgid "namespace is already attached"
 msgstr "名前空間は既に付加されています"
 
-#, fuzzy
 msgid ""
 "not found in namespace %s: \n"
 "\n"
 "%s"
-msgstr "名前空間をロードしません"
+msgstr ""
+"名前空間 %s に見つかりません: \n"
+"\n"
+"%s"
 
 msgid "%s not found"
 msgstr "%s を見付けることができません"
 
+msgid "'versionCheck' must be NULL or a list with components 'op' and 'version'"
+msgstr ""
+
 msgid "namespace %s %s is already loaded, but %s %s is required"
 msgstr "名前空間 %s %s は既にロードされましたが、%s %s が要求されています"
 
+#, fuzzy
+msgid "namespace '%s' is already loaded so argument '%s' will be ignored."
+msgstr "名前空間 %s %s は既にロードされましたが、%s %s が要求されています"
+
 msgid "- loading"
-msgstr ""
+msgstr "- 読み込み中"
 
 msgid "namespace %s is already sealed in 'loadNamespace'"
 msgstr "名前空間 %s は既に 'loadNamespace' 中に封印 (seal) されています"
@@ -1119,9 +1135,8 @@ msgstr "パッケージ %s を使うには対話的セッションでライセ�
 msgid "package %s has a license that you need to accept after viewing"
 msgstr "パッケージ %s を使うにはライセンスを確認して受諾する必要があります"
 
-#, fuzzy
 msgid "package %s has a license that you need to accept:"
-msgstr "パッケージ %s を使うにはライセンスを確認して受諾する必要があります"
+msgstr "パッケージ %s を使うにはライセンスを確認して受諾する必要があります:"
 
 #, fuzzy
 msgid "according to the DESCRIPTION file it is"
@@ -1137,47 +1152,47 @@ msgid "package %s was installed by an R version with different internals; it nee
 msgstr ""
 
 msgid "-- processing imports for"
-msgstr ""
+msgstr "-- 以下のためにインポートを処理します"
 
 msgid "-- done processing imports for"
-msgstr ""
+msgstr "-- インポート処理完了"
 
 msgid "-- loading code for"
-msgstr ""
+msgstr "-- 以下のためにコードを読み込みます"
 
 msgid "unable to load R code in package %s"
 msgstr "パッケージ %s 中の R コードをロードできません"
 
 msgid "-- loading sysdata for"
-msgstr ""
+msgstr "-- 以下のためにsysdataを読み込みます"
 
 msgid "-- loading lazydata for"
-msgstr ""
+msgstr "-- 以下のためにlazydataを読み込みます"
 
 msgid "-- registerS3methods for"
-msgstr ""
+msgstr "-- 以下のためにS3methodsを登録します"
 
 msgid "-- done registerS3methods for"
 msgstr ""
 
 msgid "-- running .onLoad for"
-msgstr ""
+msgstr "-- 以下のために.onLoadを実行します"
 
 msgid "-- done running .onLoad for"
-msgstr ""
+msgstr "-- .onLoadの実行を完了しました"
 
 #, fuzzy
 msgid "S4 exports specified in 'NAMESPACE' but not defined in package %s"
 msgstr "'NAMESPACE' の中で 'exportClassPattern' が指定されましたが、%s パッケージには該当するクラスがありません"
 
 msgid "-- processing S4 stuff for"
-msgstr ""
+msgstr "-- 以下のためにS4 stuffを処理します"
 
 msgid "--- caching metadata"
-msgstr ""
+msgstr "-- メタデータをキャッシュします"
 
 msgid "--- done caching metadata"
-msgstr ""
+msgstr "--- メタデータのキャッシュを完了しました"
 
 #, fuzzy
 msgid "--- processing classes"
@@ -1196,7 +1211,7 @@ msgid "in %s methods for export not found: %s"
 msgstr "%s 中にはエクスポートされるメソッドがありません: %s"
 
 msgid "---- export method"
-msgstr ""
+msgstr "---- エクスポート方法"
 
 msgid "multiple methods tables found for %s"
 msgstr "%s に対して複数のメソッドテーブルが見付かりました"
@@ -1208,16 +1223,16 @@ msgid "in package %s methods %s were specified for export but not defined"
 msgstr "パッケージ %s 中のメソッド %s をエクスポートするように指定されていますが、定義されていません"
 
 msgid "-- done processing S4 stuff for"
-msgstr ""
+msgstr "-- S4 stuffの処理を完了しました"
 
 msgid "--- processing exports for"
-msgstr ""
+msgstr "--- 以下のためにエクスポ-トを処理します"
 
 msgid "--- sealing exports for"
 msgstr ""
 
 msgid "- done loading"
-msgstr ""
+msgstr "- 読み込み完了"
 
 msgid "Loading required namespace: %s"
 msgstr "要求されたパッケージ %s をロード中です"
@@ -1297,7 +1312,7 @@ msgid "While loading namespace \"%s\": \"%s\" differ in ncol(.), env=%d, newNS=%
 msgstr ""
 
 msgid "Maybe package installed with version of R newer than %s ?"
-msgstr ""
+msgstr "おそらく、%sより新しいRバージョンのパッケージがインストールされていますか?"
 
 msgid "'%s' is not implemented yet"
 msgstr "'%s' はまだ実装されていません"
@@ -1427,9 +1442,8 @@ msgstr "長さは非負の数値でなければなりません"
 msgid "too many arguments"
 msgstr "引数の数が多すぎます"
 
-#, fuzzy
 msgid "invalid 'compress' argument:"
-msgstr "無効な 'name' 引数です"
+msgstr "無効な 'compress' 引数:"
 
 msgid "'compress' is ignored unless 'file' is a file name"
 msgstr "'file' がファイル名でない限り、'compress' は無視されます"
@@ -1469,7 +1483,7 @@ msgstr ""
 "'partial' を設定するつもりですか？"
 
 msgid "'partial' sorting not supported by radix method"
-msgstr ""
+msgstr "部分的なソートが基数法でサポートされていません"
 
 msgid "'index.return' only for non-factors"
 msgstr "'index.return' は非因子専用です"
@@ -1504,7 +1518,7 @@ msgstr ""
 "'sort' をリストに対して呼び出しましたか？"
 
 msgid "cannot xtfrm 'x'"
-msgstr ""
+msgstr "'x' のxtfrmができません"
 
 msgid "'local' must be TRUE, FALSE or an environment"
 msgstr "'local' は TRUE か FALSE 、または環境でなければなりません"
@@ -1516,7 +1530,7 @@ msgid "'verbose' is TRUE, 'echo' not; ... coercing 'echo <- TRUE'"
 msgstr "'verbose' が TRUE で 'echo' はそうではありません。'echo < - TRUE' とします"
 
 msgid "empty file/url name"
-msgstr ""
+msgstr "ファイル/URL名が空です"
 
 msgid "unable to find a plausible encoding"
 msgstr "もっともらしいエンコーディングを見つけられません"
@@ -1545,10 +1559,10 @@ msgid "'formula' must be a formula"
 msgstr "'from' は raw または文字でなければなりません"
 
 msgid "Unexpected LHS in 'formula' has been ignored."
-msgstr ""
+msgstr "式のLHS無視をしました。"
 
 msgid "Unexpected LHS in 'formula' has been combined with RHS."
-msgstr ""
+msgstr "式の予想外のLHSがRHSと組み合わされました。"
 
 msgid "Timestamp of %s has changed"
 msgstr "%s のタイムスタンプを変更しました"
@@ -1563,25 +1577,20 @@ msgstr "stop() により追加の引数は無視されました"
 msgid "Only one of 'exprs', 'exprObject' or expressions, not more"
 msgstr ""
 
+#, fuzzy
 msgid ""
 "%s and %s are not equal:\n"
 "  %s"
 msgstr ""
+"%s と %s が等しくありません。\n"
+"  %s"
 
 msgid "additional arguments ignored in warning()"
 msgstr "warning() 中の追加引数は無視されます"
 
-msgid "no natural language support or missing translations"
-msgstr ""
-
-msgid "In bare C locale: LANGUAGE reset, but message language may be unchanged"
-msgstr ""
-
-msgid "In bare C locale, not forcing locale; possibly use 'force = TRUE'?"
-msgstr ""
-
+#, fuzzy
 msgid "Sys.setenv(LANGUAGE=\"%s\") may have failed"
-msgstr ""
+msgstr "Sys.setenv(LANGUAGE=\"%s\") が失敗した可能性があります"
 
 msgid "attempt to set an attribute on NULL"
 msgstr ""
@@ -1635,7 +1644,7 @@ msgid "invalid value of %s"
 msgstr "%s の値が不正です"
 
 msgid "'X' must be a data frame when 'INDEX' is a formula"
-msgstr ""
+msgstr "'INDEX' が数式の場合'X' はデータフレームでなければなりません"
 
 msgid "'INDEX' is of length zero"
 msgstr "'INDEX' の長さが 0 です"
@@ -1668,7 +1677,7 @@ msgid "Registering 'evaluate' as low-level callback"
 msgstr "'evaluate' は低水準のコールバックとして登録されます"
 
 msgid "Timing stopped at:"
-msgstr ""
+msgstr "タイミング停止時刻:"
 
 msgid "user"
 msgstr "ユーザ"
@@ -1783,7 +1792,7 @@ msgid "'invisible' must be TRUE or FALSE"
 msgstr "'invisible' は TRUE か FALSE でなければなりません"
 
 msgid "running command '%s' had status %d"
-msgstr ""
+msgstr "命令 '%s' の実行は状態 %d を持ちました"
 
 msgid "'%s' could not be run"
 msgstr "'%s' を実行できませんでした"
@@ -1931,6 +1940,9 @@ msgid_plural ""
 msgstr[0] ""
 "%s中:\n"
 " 余分な引数 %s は無視されます"
+
+#~ msgid "there is more than one match in 'match.arg'"
+#~ msgstr "'match.arg' に複数のマッチがあります"
 
 #, fuzzy
 #~ msgid "'name' must be a single character string"

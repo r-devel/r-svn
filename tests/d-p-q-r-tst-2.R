@@ -548,6 +548,11 @@ set.seed(17)
 stopifnot(rhyper(1, 3024, 27466, 251) == 25,
           rhyper(1,  329,  3059, 225) == 22)
 ## failed for a day after a "thinko" in the above bug fix.
+## integer overflow reported by Jonathan Blood
+t30 <- 2^30 ; set.seed(19)
+stopifnot(t30     < .Machine$integer.max,
+          t30+t30 > .Machine$integer.max,
+          rhyper(3, t30, t30,  18) == c(12, 9, 8)) # no integer overflow
 
 ## *chisq(*, df=0, ncp=0) == Point mass at 0
 stopifnot(rchisq(32,        df=0, ncp=0) == 0,
@@ -759,7 +764,7 @@ x <- sample(length(p), 100000, prob = p, replace = TRUE)
 stopifnot(sum(x == 1) == 994)
 
 ## check for failure of new walker_Probsample
-RNGversion("3.6.0")
+suppressWarnings(RNGversion("3.6.0"))
 set.seed(12345)
 epsilon <- 1e-10
 p201 <- proportions( rep( c(1, epsilon), c(201, 999-201)))
@@ -985,6 +990,29 @@ stopifnot(exprs = {
     print(  pbeta(1/4, L, L, log.p = TRUE)) == -Inf
 })
 ## the last 6 values each were  NaN  in  R <= 4.5.0
+
+
+## pnbinom(.., size = Inf)  inside {0, 1} -- PR#16727, remnant
+prob <- 0.999
+M <- .Machine$double.xmax
+x <- M * 2^seq(-4, 0, by = 1/8)# M/16 .... M
+mu <- 5; x. <- c(outer(x, 2^-c(8, 4, 0)))
+Lrg <- c(Inf, M, M/2, M/4, M/8)
+for(sz in Lrg)
+    stopifnot(dnbinom(x, prob=prob, size = sz) == 0, # were NaN partly (before r88183)
+              dnbinom(x., mu=mu,    size = sz) == 0)
+
+
+## rmultinom() no longer using LDOUBLE being platform dependent - PR#18693
+. <- 0L
+pr <- c(5,1,1,1,1,1)/10
+set.seed(1)
+(N <- rmultinom(3,4, pr))
+stopifnot(identical(
+    cbind(c(1L,  ., 1L, 2L, .,  .),
+          c(1L, 2L, 1L,  ., .,  .),
+          c(2L,  .,  .,  ., ., 2L)), N))
+## was not at all true, without "long-double", e.g., on M<n> Macs
 
 
 

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995--2025  The R Core Team
+ *  Copyright (C) 1995--2026  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -729,15 +729,32 @@ static int HashGet(SEXP item, SEXP ht)
 
 static int PackFlags(int type, int levs, int isobj, int hasattr, int hastag)
 {
-    /* We don't write out bit 5 as from R 2.8.0.
-       It is used to indicate if an object is in CHARSXP cache
-       - not that it matters to this version of R, but it saves
-       checking all previous versions.
-
-       Also make sure the HASHASH bit is not written out.
+    /* Bit 5 of gp is internal bookkeeping that should not be
+       serialized. For CHARSXP it is the cache bit (stripped since R
+       2.8.0). For vectors it is the growable/resizable bit set by
+       `R_allocResizableVector()`. For closures it is the NOJIT bit
+       which is still serialized here as this is preexisting and has
+       not caused problems in practice.
     */
     int val;
-    if (type == CHARSXP) levs &= (~(CACHED_MASK | HASHASH_MASK));
+    /* Also make sure the HASHASH bit of CHARSXP is not written out. */
+    if (type == CHARSXP)
+	levs &= (~(CACHED_MASK | HASHASH_MASK));
+    else
+	switch (type) {
+        case LGLSXP:
+        case INTSXP:
+        case REALSXP:
+        case CPLXSXP:
+        case STRSXP:
+        case VECSXP:
+        case EXPRSXP:
+        case RAWSXP:
+            levs &= ~GROWABLE_MASK;
+            break;
+        default:
+            break;
+        }
     val = type | ENCODE_LEVELS(levs);
     if (isobj) val |= IS_OBJECT_BIT_MASK;
     if (hasattr) val |= HAS_ATTR_BIT_MASK;
@@ -2487,12 +2504,14 @@ static void InBytesConn(R_inpstream_t stream, void *buf, int length)
 		if (ncread != 2)
 		    error(_("error reading from ascii connection"));
 		if (!sscanf(linebuf, "%02x", &res))
-		    error(_("unexpected format in ascii connection"));
+		    error(_("unexpected format in ascii connection '%s'"),
+			con->description);
 		*p++ = (unsigned char)res;
 	    }
 	} else {
 	    if (length != con->read(buf, 1, length, con))
-		error(_("error reading from connection"));
+		error(_("error reading from connection '%s'"),
+		      con->description);
 	}
     }
 }
@@ -2506,7 +2525,8 @@ static int InCharConn(R_inpstream_t stream)
 	return Rconn_fgetc(con);
     else {
 	if (1 != con->read(buf, 1, 1, con))
-	    error(_("error reading from connection"));
+	    error(_("error reading from connection '%s'"),
+		    con->description);
 	return buf[0];
     }
 }
@@ -3069,10 +3089,57 @@ static SEXP appendRawToFile(SEXP file, SEXP bytes)
 
 /* Interface to cache the pkg.rdb files */
 
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+
+struct fileid {
+    double size, mtime, ino, dev;
+};
+
 #define NC 100
 static int used = 0;
 static char *names[NC];
 static char *ptr[NC];
+static size_t lens[NC];		/* length of the cached copy */
+static struct fileid ids[NC];	/* identity of the file when cached */
+
+/* Capture the identity of a database file, used to detect that a
+   cached copy has become stale because the file was replaced, e.g. by
+   re-installing the package (possibly from another process).  Returns
+   false if the file cannot be stat-ed, in which case its contents
+   should not be cached. */
+static bool getFileID(const char *cfile, struct fileid *id)
+{
+#ifdef Win32
+    struct _stati64 sb;
+    if (_stati64(cfile, &sb) != 0)
+	return false;
+#else
+    struct stat sb;
+    if (stat(cfile, &sb) != 0)
+	return false;
+#endif
+    id->size = (double) sb.st_size;
+    /* use sub-second modification times where available, as in
+       do_fileinfo (platform.c) */
+#if defined HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC \
+    && defined TYPEOF_STRUCT_STAT_ST_ATIM_IS_STRUCT_TIMESPEC
+    id->mtime = (double) sb.st_mtim.tv_sec
+	+ 1e-9 * (double) sb.st_mtim.tv_nsec;
+#elif defined HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+    id->mtime = (double) sb.st_mtimespec.tv_sec
+	+ 1e-9 * (double) sb.st_mtimespec.tv_nsec;
+#else
+    id->mtime = (double) sb.st_mtime;
+#endif
+    id->ino = (double) sb.st_ino;
+    id->dev = (double) sb.st_dev;
+    return true;
+}
 
 attribute_hidden SEXP
 do_lazyLoadDBflush(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -3125,6 +3192,24 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
     for (i = 0; i < used; i++)
 	if(names[i] != NULL && strcmp(cfile, names[i]) == 0) {icache = i; break;}
     if (icache >= 0) {
+	/* The file may have been replaced since it was cached, e.g. by
+	   re-installing the package, possibly from another process.  If
+	   so, drop the cached copy: the offsets in 'key' come from the
+	   current index file and need not be valid in a stale copy of
+	   the database. */
+	struct fileid id;
+	if (! getFileID(cfile, &id) ||
+	    id.size != ids[icache].size || id.mtime != ids[icache].mtime ||
+	    id.ino != ids[icache].ino || id.dev != ids[icache].dev) {
+	    free(names[icache]);
+	    names[icache] = NULL;
+	    free(ptr[icache]);
+	    icache = -1;
+	}
+    }
+    if (icache >= 0) {
+	if (offset < 0 || (size_t) offset + (size_t) len > lens[icache])
+	    error(_("bad offset/length argument"));
 	if (len)
 	    memcpy(RAW(val), ptr[icache]+offset, len);
 	vmaxset(vmax);
@@ -3140,6 +3225,11 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
     }
 
     if(icache >= 0) {
+	/* Capture the file's identity before reading it: if the file
+	   is replaced while it is being read, the next fetch will see
+	   a mismatch and drop the cached copy. */
+	struct fileid id;
+	bool cacheable = getFileID(cfile, &id);
 	if ((fp = R_fopen(cfile, "rb")) == NULL)
 	    error(_("cannot open file '%s': %s"), cfile, strerror(errno));
 	if (fseek(fp, 0, SEEK_END) != 0) {
@@ -3147,7 +3237,7 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 	    error(_("seek failed on %s"), cfile);
 	}
 	filelen = ftell(fp);
-	if (filelen < LEN_LIMIT) {
+	if (cacheable && filelen < LEN_LIMIT) {
 	    char *p, *n;
 	    /* fprintf(stderr, "adding file '%s' at pos %d in cache, length %d\n",
 	       cfile, icache, filelen); */
@@ -3157,6 +3247,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 		names[icache] = n;
 		strcpy(names[icache], cfile);
 		ptr[icache] = p;
+		lens[icache] = (size_t) filelen;
+		ids[icache] = id;
 		if (fseek(fp, 0, SEEK_SET) != 0) {
 		    fclose(fp);
 		    error(_("seek failed on %s"), cfile);
@@ -3164,6 +3256,8 @@ static SEXP readRawFromFile(SEXP file, SEXP key)
 		in = (int) fread(p, 1, filelen, fp);
 		fclose(fp);
 		if (filelen != in) error(_("read failed on %s"), cfile);
+		if (offset < 0 || (size_t) offset + (size_t) len > lens[icache])
+		    error(_("bad offset/length argument"));
 		if (len)
 		    memcpy(RAW(val), p+offset, len);
 	    } else {
@@ -3236,7 +3330,7 @@ static SEXP R_getVarsFromFrame(SEXP vars, SEXP env, SEXP forcesxp)
 	if (tmp == R_UnboundValue) {
 /*		PrintValue(env);
 		PrintValue(R_GetTraceback(0)); */  /* DJM debugging */
-	    error(_("object '%s' not found"), EncodeChar(STRING_ELT(vars, i)));
+	    R_ObjectNotFoundError(sym, R_CurrentExpression, NULL);
 	    }
 	if (force && TYPEOF(tmp) == PROMSXP) {
 	    PROTECT(tmp);

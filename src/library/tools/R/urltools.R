@@ -1,7 +1,7 @@
 #  File src/library/tools/R/urltools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2015-2024 The R Core Team
+#  Copyright (C) 2015-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -82,18 +82,21 @@ function(x, href = TRUE, ifdef = FALSE)
 .get_urls_from_HTML_file <-
 function(f)
 {
-    doc <- xml2::read_html(f)
+    doc <- tryCatch(xml2::read_html(f), error = identity)
     if(!inherits(doc, "xml_node")) return(character())
     nodes <- xml2::xml_find_all(doc, "//a")
     hrefs <- xml2::xml_attr(nodes, "href")
-    unique(hrefs[!is.na(hrefs) & !startsWith(hrefs, "#")])
+    trimws(unique(hrefs[!is.na(hrefs) & !startsWith(hrefs, "#")]))
 }
 
 .get_urls_from_PDF_file <-
-function(f)    
+function(f, exe = NULL)
 {
     ## Seems there is no straightforward way to extract hyperrefs from a
     ## PDF, hence first convert to HTML.
+    if(is.null(exe))
+        exe <- Sys.which("pdftohtml")
+    if(!nzchar(exe)) return(character())
     ## Note that pdftohtml always outputs in cwd ...
     owd <- getwd()
     dir.create(d <- tempfile())
@@ -101,15 +104,31 @@ function(f)
     file.copy(normalizePath(f), d)
     setwd(d)
     g <- tempfile(tmpdir = d, fileext = ".xml")
-    system2("pdftohtml",
+    system2(exe,
             c("-s -q -i -c -xml", shQuote(basename(f)), shQuote(basename(g))))
     ## Oh dear: seems that pdftohtml can fail without a non-zero exit
     ## status.
-    if(file.exists(g))
-        .get_urls_from_HTML_file(g)
-    else
+    if(file.exists(g)) {
+        urls <- .get_urls_from_HTML_file(g)
+        urls[!startsWith(urls, sub(".xml$", ".html#", basename(g)))]
+    } else
         character()
 }
+
+## Alternatively, we could use pdfinfo -url as below, but apparently
+## this extracts only "URLs" but not e.g. links provided as GoTo
+## actions, which pdftohtml also turns into hrefs.
+## .get_urls_from_PDF_file <-
+## function(f)
+## {    
+##     exe <- Sys.which("pdfinfo")
+##     if(!nzchar(exe)) return(character())
+##     txt <- system2(exe, c("-url", f), stdout = TRUE)
+##     tryCatch(read.table(text = txt, header = TRUE,
+##                         colClasses = "character",
+##                         comment.char = "")[[3L]],
+##              error = function(e) character())
+## }
 
 url_db <-
 function(urls, parents)
@@ -151,6 +170,9 @@ url_db_from_PDF_files <-
 function(dir, recursive = FALSE, files = NULL, verbose = FALSE)
 {
     urls <- parents <- character()
+    exe <- Sys.which("pdftohtml")
+    if(!nzchar(exe))
+        return(url_db(urls, parents))
     if(is.null(files))
         files <- list.files(dir, pattern = "[.]pdf$",
                             full.names = TRUE,
@@ -161,7 +183,7 @@ function(dir, recursive = FALSE, files = NULL, verbose = FALSE)
                    if(verbose)
                        message(sprintf("processing %s",
                                        .file_path_relative_to_dir(f, dir)))
-                   .get_urls_from_PDF_file(f)
+                   .get_urls_from_PDF_file(f, exe)
                })
     names(urls) <- files
     urls <- Filter(length, urls)
@@ -313,6 +335,14 @@ function(dir, installed = FALSE)
     url_db(urls, rep.int(path, length(urls)))
 }
 
+url_db_from_package_PDF_files <-
+function(dir, installed = FALSE)
+{
+    path <- if(installed) "doc" else file.path("inst", "doc")
+    files <- Sys.glob(file.path(dir, path, "*.pdf"))
+    url_db_from_PDF_files(dir, files = files)
+}
+
 url_db_from_package_sources <-
 function(dir, add = FALSE) {
     meta <- .get_package_metadata(dir, FALSE)
@@ -322,6 +352,7 @@ function(dir, add = FALSE) {
                 url_db_from_package_news(dir))
     if(requireNamespace("xml2", quietly = TRUE)) {
         db <- rbind(db,
+                    url_db_from_package_PDF_files(dir),
                     url_db_from_package_HTML_files(dir),
                     url_db_from_package_README_md(dir),
                     url_db_from_package_NEWS_md(dir)
@@ -350,6 +381,8 @@ function(packages, lib.loc = NULL, verbose = FALSE)
                     url_db_from_package_news(dir, installed = TRUE))
         if(requireNamespace("xml2", quietly = TRUE)) {
             db <- rbind(db,
+                        url_db_from_package_PDF_files(dir,
+                                                      installed = TRUE),
                         url_db_from_package_HTML_files(dir,
                                                        installed = TRUE),
                         url_db_from_package_README_md(dir,
@@ -537,9 +570,6 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
                 msg <- "OK"
             }
         }
-        ## A mis-configured site
-        if (s == "503" && any(grepl("www.sciencedirect.com", c(u, newLoc))))
-            s <- "405"
         c(s, msg, newLoc)
     }
 
@@ -687,6 +717,13 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
         ##             paste0("https://doi.org/api/handles/10.",
         ##                     sub(pat, "\\2", urlspos[ind]))
         ## but using the parts is considerably faster ...
+        ind <- ((tolower(myparts[, 2L]) == "bugs.r-project.org") &
+                (myparts[, 3L] == "/show_bug.cgi") &
+                nzchar(myparts[, 4L]) &
+                !nzchar(myparts[, 5L]))                       
+        if(any(ind))
+            urlspos[ind] <- paste0("https://bugs.r-project.org/chkbug?",
+                                   myparts[ind, 4L])
         headers <- .fetch_headers(urlspos)
         if(parallel &&
            any(ind <- vapply(headers,
@@ -706,13 +743,20 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
         }
         results <- do.call(rbind, Map(.check_http, urlspos, headers))
         status <- as.numeric(results[, 1L])
-        ## 405 is HTTP not allowing HEAD requests
+        ## 405 is HTTP not allowing HEAD requests: we re-check with GET
+        ## when using curl ...
         ## maybe also skip 500, 503, 504 as likely to be temporary issues
-        ind <- is.na(match(status, c(200L, 405L, NA))) |
+        ind <- is.na(match(status,
+                           c(200L,
+                             if(!parallel) 405L,
+                             NA_integer_))) |
             nzchar(results[, 3L]) |
             nzchar(results[, 4L]) |
             nzchar(results[, 5L]) |
             nzchar(results[, 6L])
+        if(nzchar(pat <-
+                      Sys.getenv("_R_CHECK_URLS_HTTP_STATUS_IGNORE_REGEXP_")))
+            ind <- ind & !grepl(pat, status)
         if(any(ind)) {
             pos <- pos[ind]
             s <- as.character(status[ind])
@@ -725,27 +769,30 @@ function(db, remote = TRUE, verbose = FALSE, parallel = FALSE, pool = NULL)
                                  results[ind, 4L],
                                  results[ind, 5L],
                                  results[ind, 6L])
-                                 
-            ## omit some typically false positives
-            ## for efficiency reasons two separate false positives tables for 403 and 404:
-            false_pos_db_403 <- c(
-                "^https?://twitter.com/", 
-                "^https?://www.jstor.org/",
-                "^https?://.+\\.wiley.com/", 
-                "^https?://www.science.org/",
-                "^https?://www.researchgate.net/",
-                "^https?://www.tandfonline.com/",
-                "^https?://pubs.acs.org/",
-                "^https?://journals.aom.org/",
-                "^https?://journals.sagepub.com/",
-                "^https?://epubs.siam.org/",
-                "^https?://www.pnas.org/")
-            false_pos_db_404 <- c(                
-                "^https?://finance.yahoo.com/")
-            bad_https <- bad_https[!((grepl(paste(false_pos_db_403, collapse="|"), bad_https$URL) & 
-                                        bad_https$Status == "403") |
-                                     (grepl(paste(false_pos_db_404, collapse="|"), bad_https$URL) & 
-                                        bad_https$Status == "404")), , drop=FALSE]
+
+            ## As of 2025-12, this no longer seems necessary.
+            ## ## omit some typically false positives
+            ## ## for efficiency reasons two separate false positives
+            ## ## tables for 403 and 404:
+            ## false_pos_db_403 <- c(
+            ##     "^https?://twitter.com/", 
+            ##     "^https?://www.jstor.org/",
+            ##     "^https?://.+\\.wiley.com/", 
+            ##     "^https?://www.science.org/",
+            ##     "^https?://www.researchgate.net/",
+            ##     "^https?://www.tandfonline.com/",
+            ##     "^https?://pubs.acs.org/",
+            ##     "^https?://journals.aom.org/",
+            ##     "^https?://journals.sagepub.com/",
+            ##     "^https?://epubs.siam.org/",
+            ##     "^https?://www.pnas.org/")
+            ## false_pos_db_404 <- c(                
+            ##     "^https?://finance.yahoo.com/")
+            ## bad_https <- bad_https[!((grepl(paste(false_pos_db_403, collapse="|"), bad_https$URL) & 
+            ##                             bad_https$Status == "403") |
+            ##                          (grepl(paste(false_pos_db_404, collapse="|"), bad_https$URL) & 
+            ##                             bad_https$Status == "404")), , drop=FALSE]
+
             bad <- rbind(bad, bad_https)
         }
     }
@@ -808,6 +855,23 @@ function(x, ...)
                    lapply(x[-c(1L, 2L)], rep.int, n)))
     rownames(y) <- NULL
     y
+}
+
+.check_url_db_personal_access_tokens <-
+function()
+{
+    pats <- character()
+    file <- Sys.getenv("_R_CHECK_URLS_PAT_FILE_",
+                       file.path(normalizePath("~"), ".R", "pats.csv"))
+    if(file.exists(file)) {
+        elts <- utils::read.csv(file,
+                                colClasses = character(),
+                                comment.char = "")
+        pats <- `names<-`(elts[[2L]], elts[[1L]])
+    } else if(nzchar(s <- Sys.getenv("GITHUB_PAT", ""))) {
+        pats <- c(github = s)
+    }
+    pats
 }
 
 .fetch_headers_via_base <-
@@ -884,6 +948,8 @@ function(urls, nobody = FALSE, verbose = FALSE, pool = NULL,
     if(is.null(hdrs))
         hdrs <- .curl_handle_default_hdrs
 
+    pats <- .check_url_db_personal_access_tokens()
+
     bar <- .progress_bar(if (verbose) length(urls), msg = "fetching ")    
 
     out <- vector("list", length(urls))
@@ -896,8 +962,10 @@ function(urls, nobody = FALSE, verbose = FALSE, pool = NULL,
             curl::handle_setheaders(h, .list = hdrs)
         if((startsWith(u, "https://github.com/") ||
             (u == "https://github.com")) &&
-           nzchar(a <- Sys.getenv("GITHUB_PAT", ""))) {
-            curl::handle_setheaders(h, "Authorization" = paste("token", a))
+           nzchar(s <- pats["github"])) {
+            curl::handle_setheaders(h,
+                                    "Authorization" =
+                                        paste("token", s))
         }
         handle_result <- local({
             i <- i
@@ -980,4 +1048,69 @@ function(dir, verbose = FALSE)
 {
     db <- url_db_from_package_sources(dir)
     check_url_db(db, verbose = verbose, parallel = TRUE)
+}
+
+
+.check_package_urls_relative_paths_from_Rd <-
+function(package, lib.loc = NULL)
+{
+    y <- NULL
+    x <- url_db_from_package_Rd_db(Rd_db(package, lib.loc = lib.loc))
+    x <- cbind(x, parse_URI_reference(x$URL))
+    x <- x[!nzchar(x$scheme) & startsWith(x$path, "."), ]
+    p <- file.path("/library", package, "html", x$path)
+    m <- vapply(.remove_dot_segments(p), .check_R_httpd_path, "")
+    i <- which(nzchar(m))
+    if(length(i))
+        y <- cbind(x[i, 1L : 2L], message = m[i])
+    y
+}
+                
+.check_package_urls_relative_paths_from_vignettes <-
+function(package, lib.loc = NULL)
+{
+    v <- pkgVignettes(package, lib.loc = lib.loc, output = TRUE)
+    p <- v$outputs
+    if(!length(p)) return()
+    p <- p[endsWith(p, ".html")]
+    if(!length(p)) return()
+    y <- NULL
+    x <- url_db_from_HTML_files(v$pkgdir, files = p)
+    x <- cbind(x, parse_URI_reference(x$URL))    
+    x <- x[!nzchar(x$scheme) & startsWith(x$path, "."), ]
+    p <- file.path("/library", package, "doc", x$path)
+    m <- vapply(.remove_dot_segments(p), .check_R_httpd_path, "")
+    i <- which(nzchar(m))
+    if(length(i)) {
+        y <- cbind(x[i, 1L : 2L], message = m[i])
+        ## Add inst to the Parent to refer to the location in the
+        ## package source.
+        y[[2L]] <- file.path("inst", y[[2L]])
+    }
+    y
+}
+
+.check_package_urls_relative_paths <-
+function(package, lib.loc = NULL)
+{
+    ## Currently, only URLs from Rd files and vignettes.
+    ## Could add more ...
+    rbind(.check_package_urls_relative_paths_from_Rd(package,
+                                                     lib.loc),
+          .check_package_urls_relative_paths_from_vignettes(package,
+                                                            lib.loc))
+}   
+
+.check_R_httpd_path <-
+function(x)
+{
+    y <- tryCatch(httpd(x, query = NULL), error = identity)
+    if(inherits(y, "error"))
+        return("")
+    if(is.list(y) &&
+       !is.null(m <- attr(y[[1L]], "message")) &&
+       startsWith(m, "httpd error"))
+        substring(m, 12L)
+    else
+        ""
 }

@@ -1,6 +1,6 @@
 % File src/library/base/man/dimnames.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{dimnames}
@@ -17,7 +17,8 @@
 dimnames(x)
 dimnames(x) <- value
 
-provideDimnames(x, sep = "", base = list(LETTERS), unique = TRUE)
+provideDimnames(x, sep = "", base = list(. = LETTERS), unique = TRUE,
+                use.names = FALSE)
 }
 \arguments{
   \item{x}{an \R object, for example a matrix, array or data frame.}
@@ -31,6 +32,10 @@ provideDimnames(x, sep = "", base = list(LETTERS), unique = TRUE)
     examples.}
   \item{unique}{logical indicating that the dimnames constructed are
     unique within each dimension in the sense of \code{\link{make.unique}}.}
+  \item{use.names}{a logical indicating if \code{names(base)}
+    is used to replace empty elements of \code{names(dimnames(x))}.  If
+    \code{TRUE}, then \code{unique} and \code{sep} apply to the
+    constructed names, as well.}
 }
 \details{
   The functions \code{dimnames} and \code{dimnames<-} are generic.
@@ -109,6 +114,12 @@ strd(provideDimnames(N, base= list(letters[-(1:9)], tail(LETTERS)))) # recycling
 strd(provideDimnames(A, base= list(c("AA","BB")))) # recycling on both levels
 ## set "empty dimnames":
 provideDimnames(rbind(1, 2:3), base = list(""), unique=FALSE)
+
+## optionally handling names(dimnames(.))
+L3 <- structure(vector("list", 3L), names = c("", "~~", ""))
+strd(N3 <- structure(N, dimnames = L3))
+strd(provideDimnames(N3, use.names = TRUE, unique = FALSE))
+strd(provideDimnames(N3, use.names = TRUE))
 }
 \keyword{array}
 \keyword{manip}

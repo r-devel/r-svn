@@ -3466,9 +3466,10 @@ PSDeviceDriver(pDevDesc dd, const char *file, const char *paper,
     pd->paperspecial = FALSE;
     if(!strcmp(pd->papername, "Default") ||
        !strcmp(pd->papername, "default")) {
-	SEXP s = STRING_ELT(GetOption1(install("papersize")), 0);
+	SEXP p = GetOption1(install("papersize"));
+        SEXP s = (isString(p) && LENGTH(p) > 0) ? STRING_ELT(p, 0) : NA_STRING;
 	if(s != NA_STRING && strlen(CHAR(s)) > 0)
-	    strcpy(pd->papername, CHAR(s));
+            safestrcpy(pd->papername, CHAR(s), sizeof(pd->papername));
 	else strcpy(pd->papername, "a4");
     }
     if(!strcmp(pd->papername, "A4") ||
@@ -3739,27 +3740,26 @@ static void PS_Open(pDevDesc dd, PostScriptDesc *pd)
 	if(strlen(pd->command) == 0)
 	    pd->psfp = NULL;
 	else {
-	    errno = 0;
 	    pd->psfp = R_popen(pd->command, "w");
 	    pd->open_type = 1;
 	}
-	if (!pd->psfp || errno != 0) {
+	if (!pd->psfp) {
 	    char errbuf[strlen(pd->command) + 1];
 	    strcpy(errbuf, pd->command);
 	    PS_cleanup(4, dd, pd);
-	    error(_("cannot open 'postscript' pipe to '%s'"), errbuf);
+	    error(_("cannot open 'postscript' pipe to '%s' (reason: %s)"), 
+                  errbuf, strerror(errno));
 	    return;
 	}
     } else if (pd->filename[0] == '|') {
-	errno = 0;
 	pd->psfp = R_popen(pd->filename + 1, "w");
 	pd->open_type = 1;
-	if (!pd->psfp || errno != 0) {
+	if (!pd->psfp) {
 	    char errbuf[strlen(pd->filename + 1) + 1];
 	    strcpy(errbuf, pd->filename + 1);
 	    PS_cleanup(4, dd, pd);
-	    error(_("cannot open 'postscript' pipe to '%s'"),
-		     errbuf);
+	    error(_("cannot open 'postscript' pipe to '%s' (reason: %s)"), 
+                  errbuf, strerror(errno));
 	    return;
 	}
     } else {
@@ -7152,9 +7152,10 @@ PDFDeviceDriver(pDevDesc dd, const char *file, const char *paper,
 
     if(!strcmp(pd->papername, "Default") ||
        !strcmp(pd->papername, "default")) {
-	SEXP s = STRING_ELT(GetOption1(install("papersize")), 0);
+        SEXP p = GetOption1(install("papersize"));
+        SEXP s = (isString(p) && LENGTH(p) > 0) ? STRING_ELT(p, 0) : NA_STRING;
 	if(s != NA_STRING && strlen(CHAR(s)) > 0)
-	    strcpy(pd->papername, CHAR(s));
+            safestrcpy(pd->papername, CHAR(s), sizeof(pd->papername));
 	else strcpy(pd->papername, "a4");
     }
     if(!strcmp(pd->papername, "A4") ||
@@ -8201,13 +8202,13 @@ static void PDF_Open(pDevDesc dd, PDFDesc *pd)
 	strncpy(pd->filename, tmp, R_PATH_MAX - 1);
 	pd->filename[R_PATH_MAX - 1] = '\0';
 	free(tmp);
-	errno = 0;
 	pd->pipefp = R_popen(pd->cmd, "w");
-	if (!pd->pipefp || errno != 0) {
+	if (!pd->pipefp) {
 	    char errbuf[strlen(pd->cmd) + 1];
 	    strcpy(errbuf, pd->cmd);
 	    PDFcleanup(7, pd);
-	    error(_("cannot open 'pdf' pipe to '%s'"), errbuf);
+	    error(_("cannot open 'pdf' pipe to '%s' (reason: %s)"), 
+                  errbuf, strerror(errno));
 	    return;
 	}
 	pd->open_type = 1;

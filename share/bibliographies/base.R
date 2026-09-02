@@ -5,11 +5,11 @@ bibentry(bibtype = "Book",
                     person(given = c("Irene", "A."),
                            family = "Stegun")),
          title = "Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables",
-         publisher = "Dover",
+         publisher = "Dover Publications",
          year = "1972",
          address = "New York",
-         isbn = "0471800074",
-         pointers = "https://permalink.obvsg.at/AC05624541")
+         isbn = "0486612724",
+         pointers = "https://permalink.obvsg.at/AC00256630")
 
 bibentry(bibtype = "Article",
          key = "R:Ahrens+Dieter:1973",
@@ -613,6 +613,22 @@ bibentry(bibtype = "Article",
                            family = "Hill")),
          year = "1984",
          pages = "123")
+		 
+bibentry(bibtype = "Article",
+         key = "R:Youngs+Cramer:1971",
+         title = "Some results relevant to choice of sum and sum-of-product algorithms",
+         volume = "13",
+         doi = "10.1080/00401706.1971.10488826",
+         number = "3",
+         journal = "Technometrics",
+         publisher = "Taylor & Francis",
+         author = c(person(given = "Edward A.",
+                           family = "Youngs"),
+                    person(given = "Elliot M.",
+                           family = "Cramer")),
+         year = "1971",
+		 month = "aug",
+         pages = "657--665")
 
 bibentry(bibtype = "Book",
          key = "R:Anderson+Bai+Bischof:1999",

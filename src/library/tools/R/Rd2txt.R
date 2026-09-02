@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Rd2txt.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -48,9 +48,140 @@ Rd2txt_options <- local({
         else {
             if (is.list(args[[1L]])) args <- args[[1L]]
             result <- opts[names(args)]
+            names(result) <- names(args)
             opts[names(args)] <<- args
             invisible(result)
         }
+    }
+})
+
+eqn_to_text <- local({
+    ## http://htmlhelp.com/reference/html40/entities/symbols.html
+    replacements <- matrix(c(
+        "Alpha",     "\u391",  "Alpha",   "&Alpha;",
+        "Beta",      "\u392",  "Beta",    "&Beta;",
+        "Gamma",     "\u393",  "Gamma",   "&Gamma;",
+        "Delta",     "\u394",  "Delta",   "&Delta;",
+        "Epsilon",   "\u395",  "Epsilon", "&Epsilon;",
+        "Zeta",      "\u396",  "Zeta",    "&Zeta;",
+        "Eta",       "\u397",  "Eta",     "&Eta;",
+        "Theta",     "\u398",  "Theta",   "&Theta;",
+        "Iota",      "\u399",  "Iota",    "&Iota;",
+        "Kappa",     "\u39a",  "Kappa",   "&Kappa;",
+        "Lambda",    "\u39b",  "Lambda",  "&Lambda;",
+        "Mu",        "\u39c",  "Mu",      "&Mu;",
+        "Nu",        "\u39d",  "Nu",      "&Nu;",
+        "Xi",        "\u39e",  "Xi",      "&Xi;",
+        "Omicron",   "\u39f",  "Omicron", "&Omicron;",
+        "Pi",        "\u3a0",  "Pi",      "&Pi;",
+        "Rho",       "\u3a1",  "Rho",     "&Rho;",
+        "Sigma",     "\u3a3",  "Sigma",   "&Sigma;",
+        "Tau",       "\u3a4",  "Tau",     "&Tau;",
+        "Upsilon",   "\u3a5",  "Upsilon", "&Upsilon;",
+        "Phi",       "\u3a6",  "Phi",     "&Phi;",
+        "Chi",       "\u3a7",  "Chi",     "&Chi;",
+        "Psi",       "\u3a8",  "Psi",     "&Psi;",
+        "Omega",     "\u3a9",  "Omega",   "&Omega;",
+        "alpha",     "\u3b1",  "alpha",   "&alpha;",
+        "beta",      "\u3b2",  "beta",    "&beta;",
+        "gamma",     "\u3b3",  "gamma",   "&gamma;",
+        "delta",     "\u3b4",  "delta",   "&delta;",
+        "varepsilon","\u3b5",  "epsilon", "&epsilon;",
+        "zeta",      "\u3b6",  "zeta",    "&zeta;",
+        "eta",       "\u3b7",  "eta",     "&eta;",
+        "theta",     "\u3b8",  "theta",   "&theta;",
+        "iota",      "\u3b9",  "iota",    "&iota;",
+        "kappa",     "\u3ba",  "kappa",   "&kappa;",
+        "lambda",    "\u3bb",  "lambda",  "&lambda;",
+        "mu",        "\u3bc",  "mu",      "&mu;",
+        "nu",        "\u3bd",  "nu",      "&nu;",
+        "xi",        "\u3be",  "xi",      "&xi;",
+        "omicron",   "\u3bf",  "omicron", "&omicron;",
+        "pi",        "\u3c0",  "pi",      "&pi;",
+        "rho",       "\u3c1",  "rho",     "&rho;",
+        "varsigma",  "\u3c2",  "sigma",   "&sigmaf;",
+        "sigma",     "\u3c3",  "sigma",   "&sigma;",
+        "tau",       "\u3c4",  "tau",     "&tau;",
+        "upsilon",   "\u3c5",  "upsilon", "&upsilon;",
+        "varphi",    "\u3c6",  "phi",     "&phi;",
+        "chi",       "\u3c7",  "chi",     "&chi;",
+        "psi",       "\u3c8",  "psi",     "&psi;",
+        "omega",     "\u3c9",  "omega",   "&omega;",
+        "phi",       "\u3d5",  "phi",     "&phi;",
+        "vartheta",  "\u3d1",  "theta",   "&thetasym;",
+        "varpi",     "\u3d6",  "pi",      "&piv;",
+        "epsilon",   "\u3f5",  "epsilon", "&varepsilon;",
+        # the following three may not look as well in monospace
+        "dots",      "...",    "...",     "&hellip;",
+        "ldots",     "...",    "...",     "&hellip;",
+        "infty",     "Inf",    "Inf",     "&infin;",
+        "ne",        "\u2260", "!=",      "&ne;",
+        "neq",       "\u2260", "!=",      "&ne;",
+        "le",        "\u2264", "<=",      "&le;",
+        "leq",       "\u2264", "<=",      "&le;",
+        "ge",        "\u2265", ">=",      "&ge;",
+        "geq",       "\u2265", ">=",      "&ge;",
+        "in",        "\u2208", "%in%",    "&isin;",
+        "notin",     "\u2209", "%notin%", "&notin;",
+        "sim",       "\u223c", "~",       "&sim;",
+        "pm",        "\ub1",   "+/-",     "&pm;",
+        "mp",        "\u2213", "-/+",     "&mp;",
+        "times",     "\ud7",   "x",       "&times;",
+        "cdot",      "\u22c5", "*",       "&sdot;",
+        ",",         " ",      " ",       " ",
+        "\\",        "\n\n",   "\n\n",    "<br>",
+        "mid",       "|",      "|",       "|",
+        "|",         "||",     "||",      "||",
+        "to",        "\u2192", "->",      "&rarr;",
+        "quad",      "   ",    "   ",     "&emsp;",
+        NULL), ncol = 4, byrow = TRUE,
+        dimnames = list(NULL, c("name", "unicode", "ascii", "html")))
+    as_is <- c(
+        # The 32 common functions whose names generally appear in roman
+        # letters, Knuth, TeXbook, Chapter 18 and Appendix B:
+        "arccos", "arcsin", "arctan", "arg", "cos", "cosh",
+        "cot", "coth", "csc", "deg", "det", "dim", "exp",
+        "gcd", "hom", "inf", "ker", "lg", "lim", "liminf",
+        "limsup", "ln", "log", "max", "min", "Pr", "sec",
+        "sin", "sinh", "sup", "tan", "tanh",
+        # plus escaped special symbols and sqrt as a function:
+        # monospace U+221A is too narrow and even &radic; may hurt
+        # readability
+        " ", "_", "%", "sqrt"
+    )
+    to_replace <- c(replacements[,"name"], as_is)
+    rx <- paste0(
+        # For macro names consisting of letters, we need the negative
+        # look-ahead assertion. Use the PCRE(1|2) "duplicate group numbers"
+        # feature to reset the capture group number to 1 in each
+        # alternative.
+        "\\\\(?|",
+        paste0(
+            "(", gsub("([\\|])", "\\\\\\1", to_replace), ")",
+            ifelse(grepl("[a-z]$", to_replace),
+                   "(?:(?![a-zA-Z])|\\{\\})", "(?:\\{\\})?"),
+            collapse = "|"
+        ),
+        ")"
+    )
+    function(x, kind, quotes) {
+        replacements <- c(replacements[,kind], as_is)
+        m <- gregexec(rx, x, perl = TRUE)
+        ii <- lapply(regmatches(x, m),
+                     function(mm) if (length(mm)) match(mm[2,], to_replace))
+        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) replacements[i])
+        x <- psub("\\\\(?:left|right)(?![a-zA-Z])", "", x)
+        x <- psub("\\\\(?:bold|emph|mathbf|boldsymbol|mbox|mathrm|text|textrm)\\{([^}]*)\\}", "\\1", x)
+        x <- psub("\\\\(?:code|samp)\\{([^}]*)\\}",
+                  sprintf("%s\\1%s", quotes[[1]], quotes[[2]]), x)
+        # Since we're processing in multiple stages, a regex replacement
+        # must *not* produce a valid pattern for a following replacement.
+        # For example, if we support \textbackslash, "\textbackslash{}pm"
+        # must not result in "&pm;" after two replacements. Here we mostly
+        # care about \{ \} being unescaped (e.g. "\foo\{\}" must not eat the
+        # braces), so they will go last.
+        x <- psub("\\\\([{}])(?:\\{\\})?", "\\1", x)
+        x
     }
 })
 
@@ -342,10 +473,9 @@ Rd2txt <-
     }
 
     ## for efficiency
-    li <- l10n_info()
-    WriteLines <-
-        if(outputEncoding == "UTF-8" ||
-           (outputEncoding == "" && li[["UTF-8"]])) {
+    asUTF8 <- outputEncoding == "UTF-8" ||
+        (outputEncoding == "" && l10n_info()[["UTF-8"]])
+    WriteLines <- if(asUTF8) {
         function(x, con, outputEncoding, ...)
             writeLines(x, con, useBytes = TRUE, ...)
     } else {
@@ -460,15 +590,11 @@ Rd2txt <-
     	linestart <<- TRUE
     }
 
-    ## See the comment in ?Rd2txt as to why we do not attempt fancy quotes
-    ## in Windows CJK locales -- and in any case they would need more work
-    ## This covers the common single-byte locales and Thai (874)
-    use_fancy_quotes <-
-        (.Platform$OS.type == "windows" &&
-         ((li$codepage >= 1250 && li$codepage <= 1258) || li$codepage == 874)) ||
-        li[["UTF-8"]]
+    unicode_symbols <- asUTF8 &&
+        ## disable in title (see .Rd_get_text) to match existing *-Ex.Rout.save
+        !isFALSE(Rd2txt_options()$unicode_symbols)
 
-    if(!isFALSE(getOption("useFancyQuotes")) && use_fancy_quotes) {
+    if(unicode_symbols && !isFALSE(getOption("useFancyQuotes"))) {
     	LSQM <- "\u2018"                # Left single quote
     	RSQM <- "\u2019"                # Right single quote
     	LDQM <- "\u201c"                # Left double quote
@@ -496,7 +622,12 @@ Rd2txt <-
     }
 
     unescape <- function(x) {
-        x <- psub("(---|--)", "-", x)
+        if (unicode_symbols) {
+            x <- fsub("---", "\u2014", x)
+            x <- fsub("--",  "\u2013", x)
+        } else {
+            x <- psub("(---|--)", "-", x)
+        }
         x
     }
 
@@ -527,17 +658,9 @@ Rd2txt <-
 	dropBlank <<- TRUE
     }
 
-    txt_eqn <- function(x) {
-        x <- psub("\\\\(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|sum|prod|sqrt)", "\\1", x)
-        x <- psub("\\\\(dots|ldots)", "...", x)
-        x <- fsub("\\le", "<=", x)
-        x <- fsub("\\ge", ">=", x)
-        x <- fsub("\\infty", "Inf", x)
-        ## FIXME: are these needed?
-        x <- psub("\\\\(bold|strong|emph|var)\\{([^}]*)\\}", "\\2", x)
-        x <- psub("\\\\(code|samp)\\{([^}]*)\\}", "'\\2'", x)
-        x
-    }
+    eqn_kind <- if (unicode_symbols) "unicode" else "ascii"
+    txt_eqn <- function(x)
+        eqn_to_text(x, eqn_kind, c(LSQM, RSQM))
 
     wrappers <- list(
         "\\var"    = c("<", ">"),
@@ -585,8 +708,9 @@ Rd2txt <-
                "\\newcommand" =,
                "\\renewcommand" = {},
                COMMENT = {
-                   stripBlankLine()     # drop indentation
-                   linestart <<- FALSE  # eat subsequent \n also for non-indented comments
+                   if (linestart)
+                       linestart <<- FALSE # eat subsequent \n also for non-indented comments
+                   else stripBlankLine()   # drop indentation
                },
                LIST = writeContent(block, tag),
                "\\describe" = {
@@ -661,6 +785,7 @@ Rd2txt <-
                    }
                },
                "\\linkS4class" =,
+               "\\linkS4methods" =,
                "\\link" = writeContent(block, tag),
                "\\cr" = {
                    if (!length(buffer)) { # \cr\cr
@@ -936,7 +1061,7 @@ Rd2txt <-
                        ## The next item must be TEXT, and start with a space.
                        itemskip <- FALSE
                        if (tag == "TEXT") {
-                           txt <- psub("^ ", "", as.character(tabExpand(block)))
+                           txt <- psub("^ ", "", as.character(unescape(tabExpand(block))))
                            put(txt)
                            if (!haveBlanks &&
                                blocktag %in% c("\\describe", "\\value", "\\arguments"))

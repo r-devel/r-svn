@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2025   The R Core Team
+ *  Copyright (C) 1998-2026   The R Core Team
  *  Copyright (C) 2002-2025   The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -277,28 +277,55 @@ SEXP alloc3DArray(SEXPTYPE mode, int nrow, int ncol, int nface)
     return s;
 }
 
+// dim(.) --> prod(dim(.)) { = length(.)} with all checks --- also called from attrib.c
+attribute_hidden
+R_xlen_t dim2total(SEXP dim /* INTSXP */, bool *err)
+{
+    int ndim = LENGTH(dim);
+    if (ndim == 0)
+	error(_("'dim' cannot be of length 0"));
+    *err = false;
+    double dn = 1.;
+    for (int i = 0; i < ndim; i++) {
+        int d;
+
+	d = INTEGER(dim)[i];
+	/* dn *= d can overflow, but the result is 0 if any dimension is
+	 * (unless NA, so we can't simply break here).
+	 */
+        if (d == 0)
+            dn = 0.0;
+       /* Actually, NA_INTEGER is < 0, so we don't need to test for it
+           explicitly, but the value might change, so better be safe... 
+           An optimizing compiler will likely strip the && part.
+         */
+	if (d >= 0 && d != NA_INTEGER) {
+            dn *= d;
+	// Better to check for total here to avoid f/p overflow.
+        } else {
+            if (d == NA_INTEGER)
+	        error(_("the dims contain missing values"));
+            else
+	        error(_("the dims contain negative values"));
+        }
+    }
+#ifdef LONG_VECTOR_SUPPORT
+    if (dn > R_XLEN_T_MAX)
+#else
+    if (dn > INT_MAX)
+#endif
+	*err = true; // and callers should not use the return value.
+    return (R_xlen_t) dn;
+}
 
 SEXP allocArray(SEXPTYPE mode, SEXP dims)
 {
-    SEXP array;
-    int i;
-    R_xlen_t n = 1;
-    double dn = 1;
-
-    for (i = 0; i < LENGTH(dims); i++) {
-	dn *= INTEGER(dims)[i];
-#ifdef LONG_VECTOR_SUPPORT
-	if(dn > R_XLEN_T_MAX)
-	    error(_("'allocArray': too many elements specified by 'dims'"));
-#else
-	if(dn > INT_MAX)
-	    error(_("'allocArray': too many elements specified by 'dims'"));
-#endif
-	n *= INTEGER(dims)[i];
-    }
-
+    bool err;
+    R_xlen_t n = dim2total(dims, &err);
+    if(err)
+	error(_("'allocArray': too many elements specified by 'dims'"));
     PROTECT(dims = duplicate(dims));
-    PROTECT(array = allocVector(mode, n));
+    SEXP array = PROTECT(allocVector(mode, n));
     setAttrib(array, R_DimSymbol, dims);
     UNPROTECT(2);
     return array;
@@ -1747,6 +1774,15 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
     }
 
+    /* handle the resize */
+    int resize = asLogical(CADDR(args));
+    if (resize == NA_LOGICAL) error(_("'resize' must be TRUE or FALSE"));
+
+    /* short-circuit identity permutation (PR#19069) */
+    bool skip = true;
+    for (i = 0; i < n; i++) if (pp[i] != i) {skip = false; break;}
+    if (resize && skip) {UNPROTECT(1); return(a);}
+
     R_xlen_t *iip = (R_xlen_t *) R_alloc((size_t) n, sizeof(R_xlen_t));
     Memzero(iip, n);
     for (i = 0; i < n; i++)
@@ -1754,6 +1790,19 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else error(_("value out of range in 'perm'"));
     for (i = 0; i < n; i++)
 	if (iip[i] == 0) error(_("invalid '%s' argument"), "perm");
+
+    if (n == 2 && !skip) {
+	/* special case for 2D arrays (PR#19133) */
+	SEXP r = do_transpose(call, op, args, rho);
+	if (resize) {
+	    UNPROTECT(1);
+	    return r;
+	}
+	PROTECT(r);
+	setAttrib(r, R_DimSymbol, dimsa);
+	UNPROTECT(2);
+        return r;
+    }
 
     /* create the stride object and permute */
 
@@ -1842,11 +1891,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNIMPLEMENTED_TYPE("aperm", a);
     }
 
-    /* handle the resize */
-    int resize = asLogical(CADDR(args));
-    if (resize == NA_LOGICAL) error(_("'resize' must be TRUE or FALSE"));
-
-    /* and handle names(dim(.)) and the dimnames if any */
+    /* handle names(dim(.)) and the dimnames if any */
     if (resize) {
 	SEXP nmdm = getAttrib(dimsa, R_NamesSymbol);
 	if(nmdm != R_NilValue) { // dimsr needs correctly permuted names()
@@ -1885,6 +1930,8 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     else // !resize
 	setAttrib(r, R_DimSymbol, dimsa);
+
+    copyMostAttrib(a, r);
 
     UNPROTECT(3); /* dimsa, r, dimsr */
     return r;
@@ -2144,11 +2191,8 @@ attribute_hidden SEXP do_colsum(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* array(data, dim, dimnames) */
 attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP vals, ans, dims, dimnames;
-    R_xlen_t lendat, i, nans;
-
     checkArity(op, args);
-    vals = CAR(args); // = data
+    SEXP vals = CAR(args); // = data
     /* at least NULL can get here */
     switch(TYPEOF(vals)) {
 	case LGLSXP:
@@ -2162,22 +2206,16 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    break;
 	default:
 	    error(_("'data' must be of a vector type, was '%s'"),
-		R_typeToChar(vals));
+		  R_typeToChar(vals));
     }
-    lendat = XLENGTH(vals);
-    dims = CADR(args);
-    dimnames = CADDR(args);
+    SEXP ans,
+	dims     = CADR(args),
+	dimnames = CADDR(args);
     PROTECT(dims = coerceVector(dims, INTSXP));
-    int nd = LENGTH(dims);
-    if (nd == 0) error(_("'dims' cannot be of length 0"));
-    double d = 1.0;
-    for (int j = 0; j < nd; j++) d *= INTEGER(dims)[j];
-#ifdef LONG_VECTOR_SUPPORT
-    if (d > R_XLEN_T_MAX) error(_("too many elements specified"));
-#else
-    if (d > INT_MAX) error(_("too many elements specified"));
-#endif
-    nans = (R_xlen_t) d;
+    bool err;
+    R_xlen_t nans = dim2total(dims, &err);
+    if(err) error(_("too many elements specified"));
+    R_xlen_t lendat = XLENGTH(vals), i;
 
     PROTECT(ans = allocVector(TYPEOF(vals), nans));
     switch(TYPEOF(vals)) {

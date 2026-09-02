@@ -199,7 +199,7 @@ function(role)
     pos <- which(is.na(match(role, MARC_relator_db$code)))
     if(length(pos)) {
         ind <- pmatch(tolower(role[pos]),
-                      tolower(MARC_relator_db$name),
+                      tolower(MARC_relator_db$term),
                       0L)
         role[pos[ind > 0L]] <- MARC_relator_db$code[ind]
         if(any(ind <- (ind == 0L))) {
@@ -1768,17 +1768,43 @@ function(x, package = NULL)
 }
 
 .read_authors_at_R_field <-
-function(x)
+function(x, strict = FALSE)
 {
-    out <- if((Encoding(x) == "UTF-8") && !l10n_info()$"UTF-8") {
+    exprs <- if((Encoding(x) == "UTF-8") && !l10n_info()$"UTF-8") {
         con <- file()
         on.exit(close(con))
         writeLines(x, con, useBytes = TRUE)
-        eval(parse(con, encoding = "UTF-8"))
+        parse(con, encoding = "UTF-8")
     } else {
-        eval(str2expression(x))
+        str2expression(x)
     }
 
+    oknms_from_base <-
+        c("c", "list", "paste", "paste0", "(")
+    oknms_from_utils <-
+        c("person", "as.person")
+    oknms <- c(oknms_from_utils, oknms_from_base)
+    env <- new.env(parent = emptyenv())
+    for(n in oknms_from_base)
+        assign(n, get(n, baseenv()), env)
+    for(n in oknms_from_utils)
+        assign(n, get(n, getNamespace("utils")), env)
+    fun <- function(e) {
+        msg <- c("Found the following non-standard call:",
+                 sprintf("  %s", deparse1(e$call)),
+                 strwrap(sprintf("Please only use calls to %s.", 
+                                 paste(sQuote(oknms[-length(oknms)]),
+                                       collapse = ", "))))
+        msg <- paste(msg, collapse = "\n")
+        if(strict)
+            stop(msg, call. = FALSE)
+        else {
+            message(msg)
+            return(person())
+        }
+    }
+    out <- tryCatch(eval(exprs, env),
+                    functionNotFoundError = fun)
     ## Let's by nice ...
     ## Alternatively, we could throw an error.
     if(!inherits(out, "person"))

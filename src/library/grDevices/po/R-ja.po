@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.1.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-03-07 12:17\n"
 "PO-Revision-Date: 2024-03-18 21:25+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: RjpWiki Message Translation Team <mokada@md.tsukuba.ac.jp>\n"
@@ -189,6 +189,27 @@ msgstr ""
 msgid "Invalid glyph anchor"
 msgstr ""
 
+msgid "Registered axis names must be lower case"
+msgstr ""
+
+msgid "Custom axis names must be upper case"
+msgstr ""
+
+#, fuzzy
+msgid "Axis value(s) out of range"
+msgstr "添え字が範囲外です"
+
+#, fuzzy
+msgid "No axes specified"
+msgstr "'z' 行列が指定されていません"
+
+msgid "Axis names must be 4 ASCII letters long"
+msgstr ""
+
+#, fuzzy
+msgid "Axis values must be numeric"
+msgstr "rgb 行列は数値でなければなりません"
+
 msgid "Font file longer than 500 will be truncated"
 msgstr ""
 
@@ -220,7 +241,7 @@ msgid "There must be anchors named \"left\" and \"bottom\""
 msgstr ""
 
 msgid "Invalid glyph info"
-msgstr ""
+msgstr "無効なグリフ情報"
 
 msgid "'%s' was removed in R 4.5.0."
 msgstr ""
@@ -323,9 +344,8 @@ msgstr "未知のフォントです"
 msgid "font encoding mismatch '%s'/'%s'"
 msgstr "フォントエンコーディングがミスマッチです '%s'/'%s'"
 
-#, fuzzy
 msgid "'%s' must be a non-empty character string"
-msgstr "'file' は空でない文字列でなければなりません"
+msgstr "'%s' は空でない文字列でなければなりません"
 
 msgid "GhostScript was not found"
 msgstr "GhostScript が見つかりません"
@@ -494,7 +514,7 @@ msgid "unknown family for X11(type = \"XLib\")"
 msgstr "X11(type = \"XLib\") に対して、未知のファミリーです"
 
 msgid "invalid X11 font specification:"
-msgstr "不正な X11 フォントの指定方法です"
+msgstr "不正な X11 フォントの指定方法:"
 
 msgid "invalid arguments in 'X11Fonts' (must be font names)"
 msgstr "'X11Fonts' 中の不正な引数です (フォント名が必要です)"

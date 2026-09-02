@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2025-03-31 11:51\n"
+"POT-Creation-Date: 2026-06-09 14:51\n"
 "PO-Revision-Date: 2024-03-25 14:56+0300\n"
 "Last-Translator: Ivan Krylov <ikrylov@disroot.org>\n"
 "Language-Team: Russian\n"
@@ -313,9 +313,6 @@ msgstr "Метаданные для шаблона лицензии не являются корректным DCF."
 msgid "License stub records with missing/empty fields:"
 msgstr "Поля шаблона лицензии с пустыми или пропущенными полями:"
 
-msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
-msgstr "Использует лицензию ACM: применимо только к коду из ACM TOMS до 2013 года"
-
 msgid "Non-portable flags in variable '%s':"
 msgstr "Непереносимые флаги в переменной '%s':"
 
@@ -492,8 +489,9 @@ msgstr "Аргументы функции без описания в Rd файле '%s':"
 msgid "Auto-generated content requiring editing in Rd file '%s':"
 msgstr "Автоматические сгенерированное содержимое требует редактирования в Rd файле '%s':"
 
-msgid "Rd files without \\description:"
-msgstr "Rd-файлы без \\description:"
+#, fuzzy
+msgid "Rd files without %s:"
+msgstr "Rd-файлы без \\alias:"
 
 msgid "no Rd sections specified"
 msgstr "не указаны разделы Rd"
@@ -673,9 +671,6 @@ msgstr "файл '%s' не найден"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "имя файла очерка '%s' не соответствует никакому из '%s' паттернов имен файла"
 
-msgid "+-+"
-msgstr "+-+"
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "Среди миниатюр '%s' '%s' и '%s' имеют одинаковые имена"
 
@@ -810,9 +805,6 @@ msgstr "Запустите R CMD build с опцией --no-build-vignettes, чтобы предотвратить
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "неправильное значение для '--compact-vignettes', предполагаю %s"
 
-msgid "Error: cannot rename directory to %s"
-msgstr "Ошибка: не могу переименовать папку в %s"
-
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "достигнуто ограничение затраченного времени %g %s для субпроцесса"
 
@@ -846,11 +838,19 @@ msgstr "нет пакетов для проверки"
 msgid "'reverse$repos' should be a subset of getOption(\"repos\")"
 msgstr "'reverse$repos' должно быть подмножеством getOption(\"repos\")"
 
-msgid "downloading reverse dependencies ..."
+#, fuzzy
+msgid "downloading reverse dependencies %s"
 msgstr "скачиваю обратные зависимости ..."
 
-msgid "downloading %s ..."
-msgstr "скачиваю %s ..."
+#, fuzzy
+msgid "download of reverse dependency %s failed"
+msgstr "скачиваю обратные зависимости ..."
+
+#, fuzzy
+msgid ""
+"download of %d reverse dependencies failed:\n"
+"  %s"
+msgstr "скачиваю обратные зависимости ..."
 
 msgid "checking %s ..."
 msgstr "проверяю %s..."
@@ -961,20 +961,21 @@ msgstr "не могу прочитать индексную информацию из файла '%s'"
 msgid ".install_packages() exit status"
 msgstr ".install_packages() статус выхода"
 
-msgid "restoration failed"
-msgstr "восстановление не удалось"
-
-msgid "invalid value"
-msgstr "неправильное значение"
-
-msgid "for R_CROSS_BUILD"
-msgstr "для R_CROSS_BUILD"
-
 msgid "error reading file '%s'"
 msgstr "ошибка чтения файла '%s'"
 
 msgid "this seems to be a bundle -- and they are defunct"
 msgstr "похоже, что это сборник -- они отключены"
+
+#, fuzzy
+msgid "package %s successfully unpacked and %s sums checked"
+msgstr "пакет %s удачно распакован, MD5 sums проверены"
+
+msgid "package %s signature verified (%s %s)"
+msgstr ""
+
+msgid "Valid signature is required, but package %s could not be successfully verified."
+msgstr ""
 
 msgid "'cleanup' exists but is not executable -- see the 'R Installation and Administration Manual'"
 msgstr "'cleanup' есть, но его невозможно выполнить  -- смотрите 'R Installation and Adminstration Manual'"
@@ -985,23 +986,8 @@ msgstr "создаю символы отладки (%s)"
 msgid "no DLL was created"
 msgstr "DLL не создан"
 
-msgid "NOTE: fixed path"
-msgstr "ЗАМЕЧАНИЕ: предустановленный путь"
-
-msgid "NOTE: fixed library identification name"
-msgstr "ЗАМЕЧАНИЕ: предустановленное идентификационное название библиотеки"
-
-msgid "NOTE: fixed library path"
-msgstr "ЗАМЕЧАНИЕ: предустановленный путь для библиотеки"
-
-msgid "NOTE: fixed rpath"
-msgstr "ЗАМЕЧАНИЕ: предустановленный rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "ПРЕДУПРЕЖДЕНИЕ: разделенные объекты / динамические библиотеки с встроенными временными инсталляционными путями"
-
-msgid "package %s successfully unpacked and MD5 sums checked"
-msgstr "пакет %s удачно распакован, MD5 sums проверены"
 
 msgid "not using staged install with --libs-only"
 msgstr "не использую ступенчатую инсталляцию с --libs-only"
@@ -1009,29 +995,7 @@ msgstr "не использую ступенчатую инсталляцию с --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "ступенчатая инсталляция возможна только с блокировкой"
 
-# not translating installation-time patches
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr ""
-
 msgid "patch utility is needed for installation-time patching"
-msgstr ""
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr ""
-
-msgid "which seems to be already applied."
-msgstr ""
-
-msgid "WARNING: failed to apply patch"
-msgstr ""
-
-msgid "Applied installation-time patch"
-msgstr ""
-
-msgid "and saved it as"
-msgstr ""
-
-msgid "in package installation"
 msgstr ""
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1073,26 +1037,9 @@ msgstr "ОШИБКА: нет прав для установочной папки"
 msgid "building a fake installation is disallowed"
 msgstr "сборка ложной установки не разрешается"
 
-msgid "using C compiler:"
-msgstr ""
-
-msgid "using Fortran compiler:"
-msgstr ""
-
-msgid "using C++ compiler:"
-msgstr ""
-
-msgid "using C++"
-msgstr ""
-
-msgid "using SDK:"
-msgstr ""
-
-msgid "WARNING: failed to revert patch"
-msgstr ""
-
-msgid "Reverted installation-time patch"
-msgstr ""
+#, fuzzy
+msgid "Input must be character"
+msgstr "'text' должен быть текстовым вектором"
 
 msgid ""
 "See\n"
@@ -1202,6 +1149,13 @@ msgstr ""
 "  %s\n"
 "не содержит \\item."
 
+msgid "There is no binary type for this build of R."
+msgstr ""
+
+#, fuzzy
+msgid "invalid 'type'"
+msgstr "неправильный пакет"
+
 msgid "Processing packages:"
 msgstr "Обрабатываю пакеты:"
 
@@ -1233,6 +1187,30 @@ msgstr "аргумент 'x' должен быть текстовой строкой"
 
 msgid "invalid hex string"
 msgstr ""
+
+#, fuzzy
+msgid "'gpg' is not available for signing"
+msgstr "тест '%s' недоступен"
+
+msgid "Target file for the signature already exists"
+msgstr ""
+
+#, fuzzy
+msgid "'%s' must be a character string"
+msgstr "аргумент 'x' должен быть текстовой строкой"
+
+msgid "'keyring' must be specified if 'use.default.keyring=FALSE'"
+msgstr ""
+
+msgid "Failed to invoke 'gpg' for signing"
+msgstr ""
+
+msgid "Cannot sign due to failed pin entry for key %s"
+msgstr ""
+
+#, fuzzy
+msgid "Signing failed:"
+msgstr "загрузка не удалась"
 
 msgid "this requires 'objdump.exe' to be on the PATH"
 msgstr "нужно чтобы 'objdump.exe' был указан в PATH"
@@ -1292,9 +1270,6 @@ msgstr "не удался запуск 'xgettext'"
 
 msgid "Running vignettes for package %s"
 msgstr "Запускаю миниатюры для пакета %s"
-
-msgid "Comparing %s to %s ..."
-msgstr "Сравниваю %s и %s ..."
 
 msgid "no parsed files found"
 msgstr "не анализированных файлов"
@@ -1381,10 +1356,6 @@ msgstr "Записываю окончательные варианты обновленных файлов PACKAGES."
 msgid "update_PACKAGES complete."
 msgstr "обновление_PACKAGES завершено."
 
-#, fuzzy
-msgid "'%s' must be a character string"
-msgstr "аргумент 'x' должен быть текстовой строкой"
-
 msgid "test '%s' is not available"
 msgstr "тест '%s' недоступен"
 
@@ -1435,6 +1406,11 @@ msgstr "Неизвестная кодировка с не-ASCII данными: конвертирую в ASCII"
 
 msgid "cannot source package code:"
 msgstr "не могу выполнить код пакета:"
+
+msgid ""
+"error in inferior call:\n"
+"  %s"
+msgstr ""
 
 #, fuzzy
 msgid "inferiorCallError"
@@ -1641,6 +1617,27 @@ msgstr[0] "Соответствующая запись BibTeX:"
 msgstr[1] "Соответствующие записи BibTeX:"
 msgstr[2] "Соответствующие записи BibTeX:"
 
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Ошибка: не могу переименовать папку в %s"
+
+#~ msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
+#~ msgstr "Использует лицензию ACM: применимо только к коду из ACM TOMS до 2013 года"
+
+#~ msgid "Rd files without \\description:"
+#~ msgstr "Rd-файлы без \\description:"
+
+#~ msgid "downloading %s ..."
+#~ msgstr "скачиваю %s ..."
+
+#~ msgid "invalid value"
+#~ msgstr "неправильное значение"
+
+#~ msgid "for R_CROSS_BUILD"
+#~ msgstr "для R_CROSS_BUILD"
+
+#~ msgid "Comparing %s to %s ..."
+#~ msgstr "Сравниваю %s и %s ..."
+
 #~ msgid "one of 'package' and 'dir' must be specified."
 #~ msgstr "в точности один аргумент из 'package' и 'dir' должен быть указан"
 
@@ -1803,101 +1800,8 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "installing dependencies %s"
 #~ msgstr "устанавливаю зависимости %s"
 
-#~ msgid "%s"
-#~ msgstr "%s"
-
-#~ msgid ":"
-#~ msgstr ":"
-
-#~ msgid "latin1"
-#~ msgstr "latin1"
-
-#~ msgid "ASCII"
-#~ msgstr "ASCII"
-
-#~ msgid "byte"
-#~ msgstr "байт"
-
-#~ msgid "Inconsistent encoding specifications: %s with %%\\SweaveUTF8"
-#~ msgstr "Противоречивое указание кодировки: %s, но %%\\SweaveUTF8"
-
 #~ msgid "argument 'file' must be a character string or connection"
 #~ msgstr "аргумент 'file' должен быть текстовой строкой  или соединением"
-
-#~ msgid "to logical"
-#~ msgstr "в логический"
-
-#~ msgid "Vignette product"
-#~ msgstr "Продукт миниатюры"
-
-#~ msgid ")"
-#~ msgstr ")"
-
-#~ msgid "Failed to locate the"
-#~ msgstr "Не могу найти"
-
-#~ msgid "output file (by engine"
-#~ msgstr "файл вывода (в соответствии с устройством"
-
-#~ msgid "%s::%s"
-#~ msgstr "%s::%s"
-
-#~ msgid ") for vignette with name"
-#~ msgstr ") для очерка с именем"
-
-#~ msgid ". The following files exists in directory"
-#~ msgstr ". Следующие файлы есть в папке"
-
-#~ msgid "Located more than one"
-#~ msgstr "Нашел больше одного"
-
-#~ msgid "Vignette"
-#~ msgstr "Миниатюра"
-
-#~ msgid "overwrites the following"
-#~ msgstr "переписывает следующее"
-
-#~ msgid "output by vignette"
-#~ msgstr "вывод очерка"
-
-#~ msgid "Detected vignette source files ("
-#~ msgstr "Обнаружены исходники очерка ("
-
-#~ msgid ") with shared names ("
-#~ msgstr ") с общими именами ("
-
-#~ msgid "None of packages"
-#~ msgstr "Ни один из пакетов"
-
-#~ msgid "Vignette engine"
-#~ msgstr "Устройство очерка"
-
-#~ msgid "Engine name"
-#~ msgstr "Имя устройства"
-
-#~ msgid "and package"
-#~ msgstr "и пакет"
-
-#~ msgid "do not match"
-#~ msgstr "не соответствует"
-
-#~ msgid "Argument"
-#~ msgstr "Аргумент"
-
-#~ msgid "weave"
-#~ msgstr "weave"
-
-#~ msgid "tangle"
-#~ msgstr "tangle"
-
-#~ msgid "pattern"
-#~ msgstr "паттерн"
-
-#~ msgid "Cannot change the"
-#~ msgstr "Не могу изменить файл"
-
-#~ msgid "Sweave"
-#~ msgstr "Sweave"
 
 #~ msgid "'file' must be a character string or connection"
 #~ msgstr "'file' должен быть текстовой строкой или соединением"
@@ -1935,18 +1839,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgstr[1] "Предупреждение: найдены не-ASCII строки"
 #~ msgstr[2] "Предупреждение: найдены не-ASCII строки"
 
-#~ msgid "name"
-#~ msgstr "имя"
-
-#~ msgid "code"
-#~ msgstr "код"
-
-#~ msgid "docs"
-#~ msgstr "документы"
-
-#~ msgid "\\VignetteDepends{}"
-#~ msgstr "\\VignetteDepends{}"
-
 #~ msgid "Invalid package name."
 #~ msgstr "Неправильное имя пакета."
 
@@ -1959,42 +1851,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "package must be loaded"
 #~ msgstr "должен быть загружен пакет"
 
-#~ msgid "lib"
-#~ msgstr "lib"
-
-#~ msgid "pkg"
-#~ msgstr "pkg"
-
-#~ msgid "packageStartupMessage"
-#~ msgstr "packageStartupMessage"
-
-#~ msgid "Good practice"
-#~ msgstr "Хорошо сделано"
-
-#~ msgid "NEWS"
-#~ msgstr "НОВОСТИ"
-
-#~ msgid "DESCRIPTION"
-#~ msgstr "ОПИСАНИЕ"
-
-#~ msgid "doc/"
-#~ msgstr "doc/"
-
-#~ msgid "demo/"
-#~ msgstr "demo/"
-
-#~ msgid "%s (%s)"
-#~ msgstr "%s (%s)"
-
-#~ msgid "ssname"
-#~ msgstr "ssname"
-
-#~ msgid "language"
-#~ msgstr "язык"
-
-#~ msgid "processing"
-#~ msgstr "обрабытываю"
-
 #~ msgid "package directory"
 #~ msgstr "директория пакета"
 
@@ -2003,15 +1859,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "running 'zip' failed"
 #~ msgstr "не удался запуск 'zip'"
-
-#~ msgid "as"
-#~ msgstr "как"
-
-#~ msgid "installing via 'install.libs.R' to"
-#~ msgstr "инсталлирую четез 'install.libs.R' в"
-
-#~ msgid "installing to"
-#~ msgstr "устанавливаю в"
 
 #~ msgid "running 'src/Makefile.win' ..."
 #~ msgstr "запускаю src/Makefile.win ..."
@@ -2022,63 +1869,8 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "ERROR: failed to lock directory"
 #~ msgstr "ОШИБКА: не удалось заблокировать папку"
 
-#~ msgid ""
-#~ "for modifying\n"
-#~ "Try removing"
-#~ msgstr ""
-#~ "для модификации\n"
-#~ "Пытаюсь переместить"
-
 #~ msgid "ERROR: failed to create lock directory"
 #~ msgstr "ОШИБКА: не удалось создать блокированную папку"
-
-#~ msgid "finding HTML links ..."
-#~ msgstr "нахожу ссылки HTML..."
-
-#~ msgid "finding level-2 HTML links ..."
-#~ msgstr "нахожу ссылки HTML второго уровня..."
-
-#~ msgid "Internal error, no tag"
-#~ msgstr "Внутренняя ошибка, тега нет"
-
-#~ msgid "Internal error:  NULL tag"
-#~ msgstr "Внутренняя ошибка:  тег NULL"
-
-#~ msgid "Inconsistent arg count for"
-#~ msgstr "Несоответственный аргумент найден у"
-
-#~ msgid "Entry for"
-#~ msgstr "Вход для"
-
-#~ msgid "already defined to be"
-#~ msgstr "уже определен быть"
-
-#~ msgid "found encoding"
-#~ msgstr "найдена кодировка"
-
-#~ msgid "cannot be opened"
-#~ msgstr "нельзя открыть"
-
-#~ msgid "comparing"
-#~ msgstr "сравниваю"
-
-#~ msgid "to"
-#~ msgstr "в"
-
-#~ msgid "Comparing"
-#~ msgstr "Сравниваю"
-
-#~ msgid "creation of"
-#~ msgstr "создание"
-
-#~ msgid "failed"
-#~ msgstr "не удалось"
-
-#~ msgid "creating"
-#~ msgstr "создаю"
-
-#~ msgid "running code in"
-#~ msgstr "запускаю код в "
 
 #~ msgid "running strict specific tests"
 #~ msgstr "запускаю узкоспецифические тесты"
@@ -2112,24 +1904,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "running tests to possibly trigger segfaults"
 #~ msgstr "запускаю тесты на возможное переключение ошибок сегментации"
-
-#~ msgid "not installing"
-#~ msgstr "не устанавливаю"
-
-#~ msgid "Generics g in env ="
-#~ msgstr "Общие 'g' в env ="
-
-#~ msgid "where hasMethods(g, env) errors:"
-#~ msgstr "где ошибки hasMethods(g, env):"
-
-#~ msgid "May need something like"
-#~ msgstr "Возможно, надо что-то вроде"
-
-#~ msgid "importFrom("
-#~ msgstr "importFrom("
-
-#~ msgid "in NAMESPACE."
-#~ msgstr "в NAMESPACE."
 
 #~ msgid "running msgmerge failed"
 #~ msgstr "не удался запуск 'msgmerge'"
@@ -2204,12 +1978,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "WARNING: 'Depends' entry has multiple dependencies on R:"
 #~ msgstr "ПРЕДУПРЕЖДЕНИЕ: У 'Depends' множественные зависимости в R:"
 
-#~ msgid "only the first will be used in R < 2.7.0"
-#~ msgstr "только первый будет использован R < 2.7.0"
-
-#~ msgid "'"
-#~ msgstr "'"
-
 #~ msgid "--binary is deprecated"
 #~ msgstr "--binary устарело"
 
@@ -2222,20 +1990,8 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "use of '--no-docs' is deprecated: use '--install-args' instead"
 #~ msgstr "использование '--no-docs' устарело: используйте '--install-args' вместо"
 
-#~ msgid "** Options"
-#~ msgstr "** Опции"
-
-#~ msgid "are only for '--binary'  and will be ignored"
-#~ msgstr "только для '--binary' и будет пропущено"
-
 #~ msgid "--pkglock applies only to a single package"
 #~ msgstr "--pkglock применим только к одиночному пакету"
-
-#~ msgid "--no-help overrides"
-#~ msgstr "--no-help переписан"
-
-#~ msgid "--"
-#~ msgstr "--"
 
 #~ msgid "'--auto-zip' is for Windows only"
 #~ msgstr "'--auto-zip' -- это только для Windows"
@@ -2251,21 +2007,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "... done"
 #~ msgstr "... готово"
-
-#~ msgid "Unable to locate help document %s in package %s"
-#~ msgstr "Не могу найти документ помощи %s в пакете %s"
-
-#~ msgid "ERROR: this R is version %s, bundle '%s' requires R %s %s"
-#~ msgstr "ОШИБКА: это R версии %s, а набор '%s' требует R %s %s"
-
-#~ msgid "Bundle package:"
-#~ msgstr "Связка пакетов:"
-
-#~ msgid "Bundle 'DESCRIPTION' is missing."
-#~ msgstr "У связки пакетов отсутствует 'DESCRIPTION'."
-
-#~ msgid "*** 'hhc.exe' not found: not building CHM help"
-#~ msgstr "*** 'hhc.exe' не найден: не собираю CHM помощь"
 
 #~ msgid "Rd files with syntax errors:"
 #~ msgstr "Rd-файлы с синтаксическими ошибками:"
@@ -2318,9 +2059,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 #~ msgid "skipping repeated alias(es)"
 #~ msgstr "пропускаю повторяющиеся имена-ссылк(и)"
 
-#~ msgid "in file"
-#~ msgstr "в файле"
-
 #~ msgid "directory '%s' does not contain Rd sources"
 #~ msgstr "папка '%s' не содержит Rd-исходников"
 
@@ -2329,9 +2067,6 @@ msgstr[2] "Соответствующие записи BibTeX:"
 
 #~ msgid "Please reinstall using a current version of R."
 #~ msgstr "Пожалуйста, переустановите, используя текущую версию R."
-
-#~ msgid "*** error on file"
-#~ msgstr "*** ошибка в файле"
 
 #~ msgid "argument 'lines' must be a character vector"
 #~ msgstr "аргумент 'lines' должен быть текстовым вектором"
