@@ -19,6 +19,13 @@
 sample <- function(x, size, replace = FALSE, prob = NULL,
                    method = c("sequential", "marginal", "poisson"))
 {
+    if(!replace && !is.null(prob)) {
+	method <- match.arg(method)
+	if((missing(size) || is.null(size)) && method != "sequential")
+	    stop(gettextf("'size' must be specified for method = \"%s\"",
+			  method), domain = NA)
+    }
+
     if(length(x) == 1L && is.numeric(x) && is.finite(x) && x >= 1) {
 	if(missing(size)) size <- x
 	sample.int(x, size, replace, prob, method = method)
@@ -34,7 +41,6 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
 {
   stopifnot(length(n) == 1L)
   if (replace || is.null(prob)) {
-    size <- size %||% n
     if (useHash) {
       ## will work with size > n/2 but may be slow.
       stopifnot(is.null(prob), !replace)
@@ -43,11 +49,13 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
     return(.Internal(sample(n, size, replace, prob)))
   }
   ## sampling without replacement and with specified probability weights
-  size <- size %||% sum(prob)
   if (length(prob) != n) {
     stop("incorrect number of probabilities")
   }
   method <- match.arg(method)
+  if ((missing(size) || is.null(size)) && method != "sequential")
+    stop(gettextf("'size' must be specified for method = \"%s\"",
+                  method), domain = NA)
   switch(
     method,
     sequential = .Internal(sample(n, size, replace, prob)),
@@ -61,6 +69,9 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
 
 
 sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
+
+  if (missing(size) || is.null(size))
+    stop("'size' must be specified")
 
     inclusion_probs <- function(a, size) {
         a <- as.double(a)
@@ -85,24 +96,18 @@ sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
   sums_to_one <- isTRUE(all.equal(sum_prob, 1, tolerance = tolerance))
   sums_to_int <- 
     isTRUE(all.equal(sum_prob, round(sum_prob), tolerance = tolerance))
-  if (is.null(size)) {
-    if(!sums_to_int)
-      stop("sum(prob) must be an integer")
-    size <- round(sum_prob)
-  } else {
-    size_is_sum <- isTRUE(all.equal(size, sum(prob), tolerance = tolerance))
-    size_is_int <- isTRUE(all.equal(size, round(size), tolerance = tolerance))
-    if (!size_is_int)
-        stop("size must be NULL or an integer")
-    if (size>n)
-        stop("cannot take a sample larger than the population when 'replace = FALSE'")
-    if (sums_to_one && !size_is_sum) {
-      warning("rescaling prob, which changes inclusion probabilities")
-      prob <- inclusion_probs(prob * size, size)
-    } else if (sums_to_int && !size_is_sum) {
-      warning("sum(prob) is not equal to size or 1, rescaling")
-      prob <- inclusion_probs(prob/sum_prob * size, size)
-    }
+  size_is_sum <- isTRUE(all.equal(size, sum_prob, tolerance = tolerance))
+  size_is_int <- isTRUE(all.equal(size, round(size), tolerance = tolerance))
+  if (!size_is_int)
+      stop("'size' must be an integer")
+  if (size>n)
+      stop("cannot take a sample larger than the population when 'replace = FALSE'")
+  if (sums_to_one && !size_is_sum) {
+    warning("rescaling prob, which changes inclusion probabilities")
+    prob <- inclusion_probs(prob * size, size)
+  } else if (sums_to_int && !size_is_sum) {
+    warning("sum(prob) is not equal to size or 1, rescaling")
+    prob <- inclusion_probs(prob/sum_prob * size, size)
   }
   up_brewer(prob)
 }

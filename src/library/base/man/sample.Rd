@@ -28,9 +28,12 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
     or a positive integer.  See \sQuote{Details.}}
   \item{n}{a positive number, the number of items to choose from.  See
     \sQuote{Details.}}
-  \item{size}{a non-negative integer giving the number of items to choose.  The
-    default is \code{n} except for unequal-probability sampling without
-    replacement, where it should be \code{sum(prob)}.}
+  \item{size}{a non-negative integer giving the number of items to choose.
+    The default is \code{n} for \code{sample.int} and the number of items
+    inferred from \code{x} for \code{sample}. When \code{replace = FALSE},
+    \code{prob} is supplied, and \code{method} is \code{"marginal"} or
+    \code{"poisson"}, \code{size} must be supplied explicitly. For
+    \code{"poisson"}, it specifies the expected sample size.}
   \item{replace}{should sampling be with replacement?}
   \item{prob}{a vector of probability weights for obtaining the elements
     of the vector being sampled.}
