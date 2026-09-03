@@ -247,6 +247,18 @@ attribute_hidden int R_Newhashpjw(const char *s)
     return h;
 }
 
+/* Index of 'symbol' in 'table', from the hash cached in the name's
+   CHARSXP, computing and caching that hash if needed. */
+static int hashIndex(SEXP symbol, SEXP table)
+{
+    SEXP c = PRINTNAME(symbol);
+    if( !HASHASH(c) ) {
+	SET_HASHVALUE(c, R_Newhashpjw(CHAR(c)));
+	SET_HASHASH(c, 1);
+    }
+    return HASHVALUE(c) % HASHSIZE(table);
+}
+
 /*----------------------------------------------------------------------
 
   R_HashSet
@@ -435,37 +447,20 @@ static SEXP R_HashResize(SEXP table)
     if (TYPEOF(table) != VECSXP)
 	error("first argument ('table') not of type VECSXP, from R_HashResize");
 
-    /* This may have to change.	 The growth rate should
-       be independent of the size (not implemented yet) */
-    /* hash_grow = HASHSIZE(table); */
-
-    /* Allocate the new hash table */
+    /* Allocate the new hash table.  The names' hashes are cached in
+       their CHARSXPs, so the strings are not rehashed. */
     SEXP new_table = R_NewHashTable(1 + (int)(HASHSIZE(table) * HASHTABLEGROWTHRATE));
-    for (int counter = 0; counter < length(table); counter++) {
+    for (int counter = 0; counter < HASHSIZE(table); counter++) {
 	SEXP chain = VECTOR_ELT(table, counter);
 	while (!ISNULL(chain)) {
-	    int new_hashcode = R_Newhashpjw(CHAR(PRINTNAME(TAG(chain)))) %
-		HASHSIZE(new_table);
-	    SEXP new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    SEXP tmp_chain = chain;
-	    chain = CDR(chain);
-	    SETCDR(tmp_chain, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode,  tmp_chain);
-#ifdef MIKE_DEBUG
-	    fprintf(stdout, "HASHSIZE = %d\nHASHCOUNT = %d\ncounter = %d\nHASHCODE = %d\n",
-		    HASHSIZE(table), HASHCOUNT(table), counter, new_hashcode);
-#endif
+	    int new_hashcode = hashIndex(TAG(chain), new_table);
+	    SEXP next = CDR(chain);
+	    SETCDR(chain, VECTOR_ELT(new_table, new_hashcode));
+	    SET_VECTOR_ELT(new_table, new_hashcode, chain);
+	    chain = next;
 	}
     }
     SET_HASHCOUNT(new_table, HASHCOUNT(table));
-    /* Some debugging statements */
-#ifdef MIKE_DEBUG
-    fprintf(stdout, "Resized O.K.\n");
-    fprintf(stdout, "Old size: %d, New size: %d\n",
-	    HASHSIZE(table), HASHSIZE(new_table));
-    fprintf(stdout, "Old count: %d, New count: %d\n",
-	    HASHCOUNT(table), HASHCOUNT(new_table));
-#endif
     return new_table;
 } /* end R_HashResize */
 
@@ -519,12 +514,7 @@ static SEXP R_HashFrame(SEXP rho)
     table = HASHTAB(rho);
     frame = FRAME(rho);
     while (!ISNULL(frame)) {
-	if( !HASHASH(PRINTNAME(TAG(frame))) ) {
-	    SET_HASHVALUE(PRINTNAME(TAG(frame)),
-			  R_Newhashpjw(CHAR(PRINTNAME(TAG(frame)))));
-	    SET_HASHASH(PRINTNAME(TAG(frame)), 1);
-	}
-	hashcode = HASHVALUE(PRINTNAME(TAG(frame))) % HASHSIZE(table);
+	hashcode = hashIndex(TAG(frame), table);
 	chain = VECTOR_ELT(table, hashcode);
 	SET_HASHCOUNT(table, HASHCOUNT(table) + 1);
 	tmp_chain = frame;
@@ -699,16 +689,6 @@ attribute_hidden void InitGlobalEnv(void)
 }
 
 #ifdef USE_GLOBAL_CACHE
-static int hashIndex(SEXP symbol, SEXP table)
-{
-    SEXP c = PRINTNAME(symbol);
-    if( !HASHASH(c) ) {
-	SET_HASHVALUE(c, R_Newhashpjw(CHAR(c)));
-	SET_HASHASH(c, 1);
-    }
-    return HASHVALUE(c) % HASHSIZE(table);
-}
-
 static void R_FlushGlobalCache(SEXP sym)
 {
     SEXP entry = R_HashGetLoc(hashIndex(sym, R_GlobalCache), sym,
