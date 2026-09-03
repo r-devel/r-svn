@@ -3709,15 +3709,15 @@ stopifnot(identical(L00, ksmooth(x,y, x.points=NULL)),
 ## did seg.fault, trying to access x.points[1] from C
 
 
-## Hashed environments count their bindings exactly: env.profile() must
-## agree with the contents, also after removals and a serialization
-## round trip.
+## Hashed environments grow at 0.75 bindings per chain and count their
+## bindings exactly: env.profile() must agree with the contents, also
+## after removals and a serialization round trip.
 e <- new.env(hash = TRUE)
 keys <- paste0("v", 1:5000)
 for(k in keys) assign(k, nchar(k), envir = e)
 p <- env.profile(e)
 stopifnot(sum(p$counts) == 5000L, p$nchains == sum(p$counts > 0L),
-          length(p$counts) == p$size)
+          sum(p$counts) <= 0.75 * p$size, length(p$counts) == p$size)
 rm(list = keys[1:2500], envir = e)
 p <- env.profile(e)
 stopifnot(sum(p$counts) == 2500L, p$nchains == sum(p$counts > 0L),
@@ -3727,7 +3727,7 @@ stopifnot(identical(env.profile(e2), env.profile(e)),
           identical(mget(keys[2501:2510], e2), mget(keys[2501:2510], e)))
 for(k in keys[1:2500]) assign(k, 0L, envir = e2)
 p <- env.profile(e2)
-stopifnot(sum(p$counts) == 5000L,
+stopifnot(sum(p$counts) == 5000L, sum(p$counts) <= 0.75 * p$size,
           identical(sort(ls(e2)), sort(keys)))
 rm(e, e2, keys, p)
 ## env.profile()$nchains was the resize-time chain count, wrong after

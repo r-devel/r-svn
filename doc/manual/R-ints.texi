@@ -619,9 +619,13 @@ For the pros and cons of hashing, see a basic text on Computer Science.
 
 The code to implement hashed environments is in @file{src/main/envir.c}.
 Unless set otherwise (e.g.@: by the @code{size} argument of
-@code{new.env()}) the initial table size is @code{29}.  The table will
-be resized by a factor of 1.2 once it holds more than 0.85 bindings per
-slot.
+@code{new.env()}) the initial table size is @code{29}.  Once the table
+holds more than 0.75 bindings per slot it moves to a prime size of
+about twice as many slots: each binding on a chain visited by a lookup
+is usually a cache miss, so the load factor sets the cost of a lookup,
+and the sizes are chosen so that the hash function, a base-16
+polynomial of the characters, spreads names with running numbers
+evenly (sizes near a small multiple of a power of two do not).
 
 The hash chains are stored as pairlist elements of the @code{VECSXP}:
 items are inserted at the front of the pairlist.  Hashing is principally
