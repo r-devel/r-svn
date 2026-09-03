@@ -1,0 +1,154 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR The R Core Team
+# This file is distributed under the same license as the R package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.2.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2026-08-01 04:41-0700\n"
+"PO-Revision-Date: 2026-06-25 19:01+0000\n"
+"Last-Translator: Abdulrahman Alswaji <alswajiab@gmail.com>\n"
+"Language-Team: none\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+"X-Generator: Weblate 5.11.4\n"
+
+msgid "graphical parameter 'fontfamily' has a maximum length of 200 bytes"
+msgstr ""
+
+msgid "updateGContext must only be called after initGContext"
+msgstr ""
+
+msgid "Turning clipping on or off within a (clipping) path is no honoured"
+msgstr ""
+
+msgid "cannot clip to rotated viewport"
+msgstr ""
+
+msgid "Clipping paths within a (clipping) path are not honoured"
+msgstr ""
+
+msgid "Masks within a (clipping) path are not honoured"
+msgstr ""
+
+#, c-format
+msgid "Viewport '%s' was not found"
+msgstr ""
+
+msgid "cannot pop the top-level viewport ('grid' and 'graphics' output mixed?)"
+msgstr ""
+
+msgid "attempt to plot on null device"
+msgstr ""
+
+msgid "there is no layout defined"
+msgstr ""
+
+msgid "polygon edge not found (zero-width or zero-height?)"
+msgstr ""
+
+msgid "polygon edge not found"
+msgstr ""
+
+msgid "require at least two points to draw arrow"
+msgstr ""
+
+msgid "non-finite control point in Xspline"
+msgstr ""
+
+msgid "non-finite x or y in graphics path"
+msgstr ""
+
+msgid "Empty raster"
+msgstr ""
+
+msgid "Coordinates for text pch not yet supported"
+msgstr ""
+
+#, c-format
+msgid "pch value '%d' is invalid in this locale"
+msgstr "pch قيمة '%d' غير صالح في هذه البيئة المحلية"
+
+#, c-format
+msgid "unimplemented pch value '%d'"
+msgstr "غير منفّذ pch قيمة '%d'"
+
+msgid "invalid plotting symbol"
+msgstr ""
+
+msgid "unable to clip to rotated rectangle"
+msgstr ""
+
+msgid "invalid 'layout.pos.row'"
+msgstr ""
+
+msgid "invalid 'layout.pos.col'"
+msgstr ""
+
+msgid "singular transformation matrix"
+msgstr ""
+
+msgid "unable to store 'grid' state.  Too many devices open?"
+msgstr ""
+
+msgid "Cannot create unit scalar from 0-length unit vector"
+msgstr ""
+
+msgid "invalid unit or unit not yet implemented"
+msgstr ""
+
+msgid "Viewport has zero dimension(s)"
+msgstr ""
+
+msgid "Unsupported unit conversion"
+msgstr ""
+
+msgid "Invalid unit"
+msgstr ""
+
+msgid "'units' must be character"
+msgstr ""
+
+msgid "'units' must be of length > 0"
+msgstr ""
+
+msgid "data must be either NULL, have length 1, or match the length of the final unit vector"
+msgstr ""
+
+msgid "no string supplied for 'strwidth/height' unit"
+msgstr ""
+
+msgid "no 'grob' supplied for 'grobwidth/height' unit"
+msgstr ""
+
+msgid "'gPath' must have depth 1 in 'grobwidth/height' units"
+msgstr ""
+
+msgid "non-NULL value supplied for plain unit"
+msgstr ""
+
+msgid "old version of unit class is no longer allowed"
+msgstr ""
+
+msgid "object is not coercible to a unit"
+msgstr ""
+
+msgid "object is not a unit"
+msgstr ""
+
+msgid "units can only be multiplied with numerics and integers"
+msgstr ""
+
+msgid "Unable to calculate text width/height (using zero)"
+msgstr ""
+
+msgid "Mask is not logical value ('none' or 'inherit')"
+msgstr ""
+
+msgid "non-finite location and/or size for viewport"
+msgstr ""
