@@ -50,6 +50,7 @@ struct BindData {
  R_xlen_t ans_length;
  SEXP ans_names;
  R_xlen_t  ans_nnames;
+ int  ans_wide; /* some integer input is wide (64-bit) */
 /* int  deparse_level; Initialize to 1. */
 };
 
@@ -86,6 +87,8 @@ AnswerType(SEXP x, bool recurse, bool usenames, struct BindData *data, SEXP call
     case INTSXP:
 	data->ans_flags |= 16;
 	data->ans_length += XLENGTH(x);
+	if (R_isWideInteger(x))
+	    data->ans_wide = 1;
 	break;
     case REALSXP:
 	data->ans_flags |= 32;
@@ -186,6 +189,12 @@ ListAnswer(SEXP x, int recurse, struct BindData *data, SEXP call)
 	    LIST_ASSIGN(ScalarRaw(RAW(x)[i]));
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    /* elements of a wide vector stay wide, as for subsetting */
+	    for (i = 0; i < XLENGTH(x); i++)
+		LIST_ASSIGN(ScalarWideInt(INTEGER64_ELT(x, i)));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    LIST_ASSIGN(ScalarInteger(INTEGER(x)[i]));
 	break;
@@ -315,14 +324,34 @@ IntegerAnswer(SEXP x, struct BindData *data, SEXP call)
 	    IntegerAnswer(VECTOR_ELT(x, i), data, call);
 	break;
     case LGLSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++) {
+		int v = LOGICAL(x)[i];
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  v == NA_LOGICAL ? NA_INTEGER64 : v);
+	    }
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = LOGICAL(x)[i];
 	break;
     case INTSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++)
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  INTEGER64_ELT(x, i));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = INTEGER(x)[i];
 	break;
     case RAWSXP:
+	if (data->ans_wide) {
+	    for (i = 0; i < XLENGTH(x); i++)
+		SET_INTEGER64_ELT(data->ans_ptr, data->ans_length++,
+				  (R_wideint_t) RAW(x)[i]);
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++)
 	    INTEGER(data->ans_ptr)[data->ans_length++] = (int)RAW(x)[i];
 	break;
@@ -364,6 +393,20 @@ RealAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    bool prec = false;
+	    for (i = 0; i < XLENGTH(x); i++) {
+		R_wideint_t v = INTEGER64_ELT(x, i);
+		if (v != NA_INTEGER64 &&
+		    (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT))
+		    prec = true;
+		REAL(data->ans_ptr)[data->ans_length++] =
+		    v == NA_INTEGER64 ? NA_REAL : (double) v;
+	    }
+	    if (prec)
+		warning(_("coercing wide integers above 2^53 loses precision"));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = INTEGER(x)[i];
 	    if (xi == NA_INTEGER)
@@ -430,6 +473,30 @@ ComplexAnswer(SEXP x, struct BindData *data, SEXP call)
 	}
 	break;
     case INTSXP:
+	if (R_isWideInteger(x)) {
+	    bool prec = false;
+	    for (i = 0; i < XLENGTH(x); i++) {
+		R_wideint_t v = INTEGER64_ELT(x, i);
+		if (v == NA_INTEGER64) {
+		    COMPLEX(data->ans_ptr)[data->ans_length].r = NA_REAL;
+#ifdef NA_TO_COMPLEX_NA
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = NA_REAL;
+#else
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+#endif
+		}
+		else {
+		    if (v > R_WIDEINT_DBL_EXACT || v < -R_WIDEINT_DBL_EXACT)
+			prec = true;
+		    COMPLEX(data->ans_ptr)[data->ans_length].r = (double) v;
+		    COMPLEX(data->ans_ptr)[data->ans_length].i = 0.0;
+		}
+		data->ans_length++;
+	    }
+	    if (prec)
+		warning(_("coercing wide integers above 2^53 loses precision"));
+	    break;
+	}
 	for (i = 0; i < XLENGTH(x); i++) {
 	    xi = INTEGER(x)[i];
 	    if (xi == NA_INTEGER) {
@@ -818,6 +885,7 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide   = 0;
 
     SEXP t, ans;
     for (t = args; t != R_NilValue; t = CDR(t)) {
@@ -845,7 +913,10 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    if (mode == INTSXP && data.ans_wide)
+	PROTECT(ans = R_allocWideIntVector(data.ans_length));
+    else
+	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -926,6 +997,7 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags  = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide   = 0;
 
     if (isNewList(args)) {
 	n = xlength(args);
@@ -969,7 +1041,10 @@ attribute_hidden SEXP do_unlist(SEXP call, SEXP op, SEXP args, SEXP env)
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
-    PROTECT(ans = allocVector(mode, data.ans_length));
+    if (mode == INTSXP && data.ans_wide)
+	PROTECT(ans = R_allocWideIntVector(data.ans_length));
+    else
+	PROTECT(ans = allocVector(mode, data.ans_length));
     data.ans_ptr = ans;
     data.ans_length = 0;
     t = args;
@@ -1138,6 +1213,7 @@ attribute_hidden SEXP do_bind(SEXP call, SEXP op, SEXP args, SEXP env)
     data.ans_flags = 0;
     data.ans_length = 0;
     data.ans_nnames = 0;
+    data.ans_wide = 0;
     for (SEXP t = args; t != R_NilValue; t = CDR(t))
 	AnswerType(PRVALUE(CAR(t)), 0, 0, &data, call);
 
@@ -1284,7 +1360,21 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == rows)
 	have_rnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    bool anyWideBind = false;
+    if (mode == INTSXP)
+	for (t = args; t != R_NilValue; t = CDR(t))
+	    if (R_isWideInteger(PRVALUE(CAR(t)))) {
+		anyWideBind = true;
+		break;
+	    }
+    if (anyWideBind) {
+	PROTECT(result = R_allocWideIntVector((R_xlen_t) rows * cols));
+	SEXP bdim = allocVector(INTSXP, 2);
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
     R_xlen_t n = 0; // index, possibly of long vector
 
     if (mode == STRSXP) {
@@ -1371,9 +1461,42 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		     * sometimes does.  But if cbind-ing a NULL, there
 		     * are zero rows and u is not a matrix, so nothing to do. */
 		    if (mode <= INTSXP) {
-			xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
-						n, idx, k);
-			n += idx;
+			if (R_isWideInteger(result)) {
+			    if (k > 0) {
+				R_xlen_t i, i1;
+				MOD_ITERATE1(idx, k, i, i1, {
+				    R_wideint_t v;
+				    if (TYPEOF(u) == INTSXP)
+					v = INTEGER64_ELT(u, i1);
+				    else {
+					int lv = LOGICAL(u)[i1];
+					v = (lv == NA_LOGICAL)
+					    ? NA_INTEGER64 : (R_wideint_t) lv;
+				    }
+				    WIDEINT_PTR(result)[n++] = v;
+				});
+			    }
+			}
+			else {
+			    xcopyIntegerWithRecycle(INTEGER(result), INTEGER(u),
+						    n, idx, k);
+			    n += idx;
+			}
+		    }
+		    else if (R_isWideInteger(u)) {
+			R_xlen_t i, i1;
+			bool prec = false;
+			MOD_ITERATE1(idx, k, i, i1, {
+			    R_wideint_t v = INTEGER64_ELT(u, i1);
+			    if (v != NA_INTEGER64 &&
+				(v > R_WIDEINT_DBL_EXACT ||
+				 v < -R_WIDEINT_DBL_EXACT))
+				prec = true;
+			    REAL(result)[n++] =
+				(v == NA_INTEGER64) ? NA_REAL : (double) v;
+			});
+			if (prec)
+			    warning(_("coercing wide integers above 2^53 loses precision"));
 		    }
 		    else {
 			R_xlen_t i, i1;
@@ -1401,9 +1524,16 @@ static SEXP cbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 			});
 		    } else if (mode == INTSXP) {
 			R_xlen_t i, i1;
-			MOD_ITERATE1(idx, k, i, i1, {
-			    INTEGER(result)[n++] = (unsigned char) RAW(u)[i1];
-			});
+			if (R_isWideInteger(result)) {
+			    MOD_ITERATE1(idx, k, i, i1, {
+				WIDEINT_PTR(result)[n++] =
+				    (R_wideint_t)(unsigned char) RAW(u)[i1];
+			    });
+			} else {
+			    MOD_ITERATE1(idx, k, i, i1, {
+				INTEGER(result)[n++] = (unsigned char) RAW(u)[i1];
+			    });
+			}
 		    } else if (mode == REALSXP) {
 			R_xlen_t i, i1;
 			MOD_ITERATE1(idx, k, i, i1, {
@@ -1560,7 +1690,21 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
     if (mnames || nnames == cols)
 	have_cnames = true;
 
-    PROTECT(result = allocMatrix(mode, rows, cols));
+    bool anyWideBind = false;
+    if (mode == INTSXP)
+	for (t = args; t != R_NilValue; t = CDR(t))
+	    if (R_isWideInteger(PRVALUE(CAR(t)))) {
+		anyWideBind = true;
+		break;
+	    }
+    if (anyWideBind) {
+	PROTECT(result = R_allocWideIntVector((R_xlen_t) rows * cols));
+	SEXP bdim = allocVector(INTSXP, 2);
+	INTEGER(bdim)[0] = rows; INTEGER(bdim)[1] = cols;
+	setAttrib(result, R_DimSymbol, bdim);
+    }
+    else
+	PROTECT(result = allocMatrix(mode, rows, cols));
 
     R_xlen_t n = 0;
 
@@ -1625,7 +1769,13 @@ static SEXP rbind(SEXP call, SEXP args, SEXPTYPE mode, SEXP rho,
 		u = coerceVector(u, INTSXP);
 		R_xlen_t k = XLENGTH(u);
 		R_xlen_t idx = (isMatrix(u)) ? nrows(u) : (k > 0);
-		xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
+		if (R_isWideInteger(result)) {
+		    if (k > 0)
+			FILL_MATRIX_ITERATE(n, rows, idx, cols, k)
+			    WIDEINT_PTR(result)[didx] = INTEGER64_ELT(u, sidx);
+		}
+		else
+		    xfillIntegerMatrixWithRecycle(INTEGER(result), INTEGER(u), n, rows, idx,
 					  cols, k);
 		n += idx;
 	    }

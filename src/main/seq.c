@@ -183,6 +183,12 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	} \
 	break; \
     case INTSXP: \
+	if (R_isWideInteger(s)) { \
+	    for (i = 0; i < nc; i++) \
+		for (j = (R_xlen_t) it[i]; j > 0; j--) \
+		    WIDEINT_PTR(a)[n++] = INTEGER64_ELT(s, i); \
+	    break; \
+	} \
 	for (i = 0; i < nc; i++) { \
 /*	    if ((i+1) % ni == 0) R_CheckUserInterrupt();*/ \
 	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
@@ -265,7 +271,8 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	ratio = na/nc; // average no of replications
 	if (ratio > 1000U) ni = 1000U;
 	} */
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_isWideInteger(s) ? R_allocWideIntVector(na)
+		: allocVector(TYPEOF(s), na));
     n = 0;
     if (TYPEOF(t) == REALSXP)
 	R2_SWITCH_LOOP(REAL(t))
@@ -282,7 +289,8 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     R_xlen_t i, j;
     SEXP a;
 
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_isWideInteger(s) ? R_allocWideIntVector(na)
+		: allocVector(TYPEOF(s), na));
 
     switch (TYPEOF(s)) {
     case LGLSXP:
@@ -292,6 +300,12 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
 	});
 	break;
     case INTSXP:
+	if (R_isWideInteger(s)) {
+	    MOD_ITERATE1(na, ns, i, j, {
+		WIDEINT_PTR(a)[i] = INTEGER64_ELT(s, j);
+	    });
+	    break;
+	}
 	MOD_ITERATE1(na, ns, i, j, {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 	    INTEGER(a)[i] = INTEGER(s)[j];
@@ -487,7 +501,8 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     // faster code for common special case
     if (each == 1 && nt == 1) return rep3(x, lx, len);
 
-    PROTECT(a = allocVector(TYPEOF(x), len));
+    PROTECT(a = R_isWideInteger(x) ? R_allocWideIntVector(len)
+		: allocVector(TYPEOF(x), len));
 
 #define R4_SWITCH_LOOP(itimes)						\
     switch (TYPEOF(x)) {						\
@@ -502,6 +517,16 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	}								\
 	break;								\
     case INTSXP:							\
+	if (R_isWideInteger(x)) {					\
+	    for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
+		for(j = 0, sum = 0; j < each; j++) sum += (R_xlen_t) itimes[k++]; \
+		for(k3 = 0; k3 < sum; k3++) {				\
+		    WIDEINT_PTR(a)[k2++] = INTEGER64_ELT(x, i);		\
+		    if(k2 == len) goto done;				\
+		}							\
+	    }								\
+	    break;							\
+	}								\
 	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 	    /*		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();*/ \
 	    for(j = 0, sum = 0; j < each; j++) sum += (R_xlen_t) itimes[k++]; \
@@ -576,6 +601,11 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 	    }
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		for(i = 0; i < len; i++)
+		    WIDEINT_PTR(a)[i] = INTEGER64_ELT(x, (i/each) % lx);
+		break;
+	    }
 	    for(i = 0; i < len; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
 		INTEGER(a)[i] = INTEGER(x)[(i/each) % lx];

@@ -89,8 +89,12 @@ static R_size_t objectsize(SEXP s)
 	isVec = true;
 	break;
     case LGLSXP:
-    case INTSXP:
 	vcnt = INT2VEC(xlength(s));
+	isVec = true;
+	break;
+    case INTSXP:
+	/* wide integer vectors store 8-byte elements in the payload */
+	vcnt = R_isWideInteger(s) ? FLOAT2VEC(xlength(s)) : INT2VEC(xlength(s));
 	isVec = true;
 	break;
     case REALSXP:

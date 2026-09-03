@@ -525,6 +525,8 @@ FUNTAB R_FunTab[] =
 {"asCharacterFactor",	do_asCharacterFactor,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
 {"as.vector",	do_asvector,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"as.wideint",	do_aswideint,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"is.wideint",	do_iswideint,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"paste",	do_paste,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"paste0",	do_paste,	1,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"file.path",	do_filepath,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},

@@ -42,6 +42,16 @@ static int icmp(int x, int y, bool nalast)
     return 0;
 }
 
+static int wcmp(R_wideint_t x, R_wideint_t y, bool nalast)
+{
+    if (x == NA_INTEGER64 && y == NA_INTEGER64) return 0;
+    if (x == NA_INTEGER64)	return nalast ? 1 : -1;
+    if (y == NA_INTEGER64)	return nalast ? -1 : 1;
+    if (x < y)		return -1;
+    if (x > y)		return 1;
+    return 0;
+}
+
 static int rcmp(double x, double y, bool nalast)
 {
     int nax = ISNAN(x), nay = ISNAN(y);
@@ -109,6 +119,19 @@ Rboolean isUnsorted(SEXP x, Rboolean strictly)
 	       outside of the tight loop and be ALTREP safe. */
 	case LGLSXP:
 	case INTSXP:
+	    if (R_isWideInteger(x)) {
+		const R_wideint_t *wx = WIDEINT_PTR(x);
+		if (strictly) {
+		    for (R_xlen_t k = 0; k < n - 1; k++)
+			if (wx[k] >= wx[k+1])
+			    return TRUE;
+		} else {
+		    for (R_xlen_t k = 0; k < n - 1; k++)
+			if (wx[k] > wx[k+1])
+			    return TRUE;
+		}
+		break;
+	    }
 	    if(strictly) {
 		ITERATE_BY_REGION(x, xptr, i, nbatch, int, INTEGER, {
 			/* itmp initialized to INT_MIN which is < all
@@ -471,7 +494,8 @@ static bool fastpass_sortcheck(SEXP x, int wanted) {
     /* Increasing, usually fairly short, sequences of integers often
        arise as levels in as.factor.  A quick check here allows a fast
        return in sort.int. */
-    if (! done && TYPEOF(x) == INTSXP && wanted > 0 && ! ALTREP(x)) {
+    if (! done && TYPEOF(x) == INTSXP && wanted > 0 && ! ALTREP(x) &&
+	! R_isWideInteger(x)) {
 	R_xlen_t len = XLENGTH(x);
 	if (len > 0) {
 	    int *px = INTEGER(x);
@@ -567,6 +591,23 @@ static void R_isort2(int *x, R_xlen_t n, bool decreasing)
 #undef less
 }
 
+static void R_wsort2(R_wideint_t *x, R_xlen_t n, bool decreasing)
+{
+    R_wideint_t v;
+    R_xlen_t i, j, h, t;
+
+    if (n < 2) error("'n >= 2' is required");
+    for (t = 0; incs[t] > n; t++);
+    if(decreasing)
+#define less <
+	sort2_body
+#undef less
+    else
+#define less >
+	sort2_body
+#undef less
+}
+
 static void R_rsort2(double *x, R_xlen_t n, bool decreasing)
 {
     double v;
@@ -639,6 +680,10 @@ void sortVector(SEXP s, bool decreasing)
 	switch (TYPEOF(s)) {
 	case LGLSXP:
 	case INTSXP:
+	    if (R_isWideInteger(s)) {
+		R_wsort2(WIDEINT_PTR(s), n, decreasing);
+		break;
+	    }
 	    R_isort2(INTEGER(s), n, decreasing);
 	    break;
 	case REALSXP:
@@ -847,7 +892,10 @@ static int equal(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast, SEXP rho)
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
-	    c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
+	    if (R_isWideInteger(x))
+		c = wcmp(INTEGER64_ELT(x, i), INTEGER64_ELT(x, j), nalast);
+	    else
+		c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
 	    break;
 	case REALSXP:
 	    c = rcmp(REAL(x)[i], REAL(x)[j], nalast);
@@ -885,7 +933,10 @@ static int greater(R_xlen_t i, R_xlen_t j, SEXP x, bool nalast,
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
-	    c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
+	    if (R_isWideInteger(x))
+		c = wcmp(INTEGER64_ELT(x, i), INTEGER64_ELT(x, j), nalast);
+	    else
+		c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
 	    break;
 	case REALSXP:
 	    c = rcmp(REAL(x)[i], REAL(x)[j], nalast);
@@ -917,7 +968,10 @@ static int listgreater(int i, int j, SEXP key, bool nalast,
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
-	    c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
+	    if (R_isWideInteger(x))
+		c = wcmp(INTEGER64_ELT(x, i), INTEGER64_ELT(x, j), nalast);
+	    else
+		c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
 	    break;
 	case REALSXP:
 	    c = rcmp(REAL(x)[i], REAL(x)[j], nalast);
@@ -1014,7 +1068,10 @@ static int listgreaterl(R_xlen_t i, R_xlen_t j, SEXP key, bool nalast,
 	switch (TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
-	    c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
+	    if (R_isWideInteger(x))
+		c = wcmp(INTEGER64_ELT(x, i), INTEGER64_ELT(x, j), nalast);
+	    else
+		c = icmp(INTEGER(x)[i], INTEGER(x)[j], nalast);
 	    break;
 	case REALSXP:
 	    c = rcmp(REAL(x)[i], REAL(x)[j], nalast);
@@ -1157,12 +1214,16 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
     const SEXP *sx = NULL /* -Wall */;
+    R_wideint_t *wx = NULL;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
     case LGLSXP:
     case INTSXP:
-	ix = INTEGER(key);
+	if (R_isWideInteger(key))
+	    wx = WIDEINT_PTR(key);
+	else
+	    ix = INTEGER(key);
 	break;
     case REALSXP:
 	x = REAL(key);
@@ -1181,7 +1242,10 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
-	    for (i = 0; i < n; i++) isna[i] = (ix[i] == NA_INTEGER);
+	    if (wx)
+		for (i = 0; i < n; i++) isna[i] = (wx[i] == NA_INTEGER64);
+	    else
+		for (i = 0; i < n; i++) isna[i] = (ix[i] == NA_INTEGER);
 	    break;
 	case REALSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(x[i]);
@@ -1230,6 +1294,18 @@ orderVector1(int *indx, int n, SEXP key, bool nalast, bool decreasing, SEXP rho)
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
+	    if (wx) {
+		if (decreasing) {
+#define less(a, b) (wx[a] < wx[b] || (wx[a] == wx[b] && a > b))
+		    sort2_with_index
+#undef less
+		} else {
+#define less(a, b) (wx[a] > wx[b] || (wx[a] == wx[b] && a > b))
+		    sort2_with_index
+#undef less
+		}
+		break;
+	    }
 	    if (decreasing) {
 #define less(a, b) (ix[a] < ix[b] || (ix[a] == ix[b] && a > b))
 		sort2_with_index
@@ -1293,13 +1369,17 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
     double *x = NULL /* -Wall */;
     Rcomplex *cx = NULL /* -Wall */;
     const SEXP *sx = NULL /* -Wall */;
+    R_wideint_t *wx = NULL;
     R_xlen_t itmp;
 
     if (n < 2) return;
     switch (TYPEOF(key)) {
     case LGLSXP:
     case INTSXP:
-	ix = INTEGER(key);
+	if (R_isWideInteger(key))
+	    wx = WIDEINT_PTR(key);
+	else
+	    ix = INTEGER(key);
 	break;
     case REALSXP:
 	x = REAL(key);
@@ -1318,7 +1398,10 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
-	    for (i = 0; i < n; i++) isna[i] = (ix[i] == NA_INTEGER);
+	    if (wx)
+		for (i = 0; i < n; i++) isna[i] = (wx[i] == NA_INTEGER64);
+	    else
+		for (i = 0; i < n; i++) isna[i] = (ix[i] == NA_INTEGER);
 	    break;
 	case REALSXP:
 	    for (i = 0; i < n; i++) isna[i] = ISNAN(x[i]);
@@ -1367,6 +1450,18 @@ orderVector1l(R_xlen_t *indx, R_xlen_t n, SEXP key, bool nalast,
 	switch (TYPEOF(key)) {
 	case LGLSXP:
 	case INTSXP:
+	    if (wx) {
+		if (decreasing) {
+#define less(a, b) (wx[a] < wx[b] || (wx[a] == wx[b] && a > b))
+		    sort2_with_index
+#undef less
+		} else {
+#define less(a, b) (wx[a] > wx[b] || (wx[a] == wx[b] && a > b))
+		    sort2_with_index
+#undef less
+		}
+		break;
+	    }
 	    if (decreasing) {
 #define less(a, b) (ix[a] < ix[b] || (ix[a] == ix[b] && a > b))
 		sort2_with_index

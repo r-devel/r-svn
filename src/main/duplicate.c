@@ -344,7 +344,20 @@ static SEXP duplicate1(SEXP s, Rboolean deep)
 	UNPROTECT(2);
 	break;
     case LGLSXP: DUPLICATE_ATOMIC_VECTOR(int, LOGICAL, LOGICAL_RO, t, s, deep); break;
-    case INTSXP: DUPLICATE_ATOMIC_VECTOR(int, INTEGER, INTEGER_RO, t, s, deep); break;
+    case INTSXP:
+	if (IS_WIDEINT(s)) {
+	    n = XLENGTH(s);
+	    PROTECT(s);
+	    PROTECT(t = R_allocWideIntVector(n));
+	    if (n > 0)
+		memcpy(STDVEC_DATAPTR(t), STDVEC_DATAPTR(s),
+		       n * sizeof(R_wideint_t));
+	    DUPLICATE_ATTRIB(t, s, deep);
+	    COPY_TRUELENGTH(t, s);
+	    UNPROTECT(2);
+	    break;
+	}
+	DUPLICATE_ATOMIC_VECTOR(int, INTEGER, INTEGER_RO, t, s, deep); break;
     case REALSXP: DUPLICATE_ATOMIC_VECTOR(double, REAL, REAL_RO, t, s, deep); break;
     case CPLXSXP: DUPLICATE_ATOMIC_VECTOR(Rcomplex, COMPLEX, COMPLEX_RO, t, s, deep); break;
     case RAWSXP: DUPLICATE_ATOMIC_VECTOR(Rbyte, RAW, RAW_RO, t, s, deep); break;
@@ -397,6 +410,12 @@ void copyVector(SEXP s, SEXP t)
 	xcopyLogicalWithRecycle(LOGICAL(s), LOGICAL_RO(t), 0, ns, nt);
 	break;
     case INTSXP:
+	if (R_isWideInteger(s) || R_isWideInteger(t)) {
+	    if (nt > 0)
+		for (R_xlen_t i = 0; i < ns; i++)
+		    SET_INTEGER64_ELT(s, i, INTEGER64_ELT(t, i % nt));
+	    break;
+	}
 	xcopyIntegerWithRecycle(INTEGER(s), INTEGER_RO(t), 0, ns, nt);
 	break;
     case REALSXP:
@@ -470,6 +489,11 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 		LOGICAL(s)[didx] = LOGICAL(t)[sidx];
 	    break;
 	case INTSXP:
+	    if (R_isWideInteger(s) || R_isWideInteger(t)) {
+		FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
+		    SET_INTEGER64_ELT(s, didx, INTEGER64_ELT(t, sidx));
+		break;
+	    }
 	    FILL_MATRIX_BYROW_ITERATE(0, nr, nc, nt)
 		INTEGER(s)[didx] = INTEGER(t)[sidx];
 	    break;

@@ -127,6 +127,32 @@ SEXP CAR(SEXP e);
 # define CHKVEC(x) do {} while(0)
 #endif
 
+/* Wide (64-bit) integer helpers.  These sit on the hot path of every
+   integer accessor, so they are inlined within R itself; inlined.c
+   emits the extern copies that package code links against. */
+NORET void R_wideIntPtrError(void);
+
+INLINE_FUN int R_isWideInteger(SEXP x)
+{
+    return TYPEOF(x) == INTSXP && IS_WIDEINT(x);
+}
+
+INLINE_FUN int R_wideIntegerElt32(SEXP x, R_xlen_t i)
+{
+    R_wideint_t v = WIDEINT_PTR(x)[i];
+    if (v == NA_INTEGER64)
+	return NA_INTEGER;
+    if (v > INT_MIN && v <= INT_MAX)
+	return (int) v;
+    error("wide integer value %lld out of range for a 32-bit access",
+	  (long long) v);
+}
+
+INLINE_FUN void R_wideIntegerSetElt32(SEXP x, R_xlen_t i, int v)
+{
+    WIDEINT_PTR(x)[i] = (v == NA_INTEGER) ? NA_INTEGER64 : (R_wideint_t) v;
+}
+
 INLINE_FUN void *DATAPTR(SEXP x) {
     CHKVEC(x);
     if (ALTREP(x))
@@ -153,10 +179,37 @@ INLINE_FUN const void *DATAPTR_RO(SEXP x) {
 	return STDVEC_DATAPTR(x);
 }
 
+/* the INTEGER()/INTEGER_RO()/INTEGER0() macros in Defn.h expand to
+   these; they error on wide vectors, so no silent-misread path exists */
+INLINE_FUN int *R_INTEGER32chk(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	R_wideIntPtrError();
+    return (int *) DATAPTR(x);
+}
+
+INLINE_FUN const int *R_INTEGER32chk_ro(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	R_wideIntPtrError();
+    return (const int *) DATAPTR_RO(x);
+}
+
+INLINE_FUN int *R_INTEGER32chk0(SEXP x)
+{
+    if (IS_WIDEINT(x))
+	R_wideIntPtrError();
+    return (int *) STDVEC_DATAPTR(x);
+}
+
 INLINE_FUN const void *DATAPTR_OR_NULL(SEXP x) {
     CHKVEC(x);
     if (ALTREP(x))
 	return ALTVEC_DATAPTR_OR_NULL(x);
+    else if (R_isWideInteger(x))
+	/* no 32-bit view exists; callers must use the region/ELT
+	   paths, which narrow with per-element range checks */
+	return NULL;
     else
 	return STDVEC_DATAPTR(x);
 }
@@ -193,6 +246,8 @@ INLINE_FUN const int *LOGICAL_OR_NULL(SEXP x) {
 
 INLINE_FUN const int *INTEGER_OR_NULL(SEXP x) {
     CHECK_VECTOR_INT(x);
+    if (R_isWideInteger(x))
+	return NULL; /* no 32-bit view of a wide vector exists */
     return ALTREP(x) ? ALTVEC_DATAPTR_OR_NULL(x) : STDVEC_DATAPTR(x);
 }
 
@@ -347,15 +402,17 @@ HIDDEN INLINE_FUN void SET_SCALAR_LVAL(SEXP x, int v) {
 
 /*HIDDEN (inlining)*/ INLINE_FUN int *INTEGER0(SEXP x) {
     CHECK_STDVEC_INT(x);
-    return (int *) STDVEC_DATAPTR(x);
+    return R_INTEGER32chk0(x); /* errors on wide integer vectors */
 }
 HIDDEN INLINE_FUN int SCALAR_IVAL(SEXP x) {
     CHECK_SCALAR_INT(x);
-    return INTEGER(x)[0];
+    /* scalars are never wide (R_allocWideIntVector clears the scalar
+       bit), so bypass INTEGER()'s wide check on this hot path */
+    return ((int *) DATAPTR(x))[0];
 }
 /*HIDDEN (inlining)*/ INLINE_FUN void SET_SCALAR_IVAL(SEXP x, int v) {
     CHECK_SCALAR_INT(x);
-    INTEGER(x)[0] = v;
+    ((int *) DATAPTR(x))[0] = v;
 }
 
 /*HIDDEN*/ INLINE_FUN double *REAL0(SEXP x) {
@@ -407,14 +464,51 @@ INLINE_FUN void R_set_altrep_data2(SEXP x, SEXP v) { SETCDR(x, v); }
 INLINE_FUN int INTEGER_ELT(SEXP x, R_xlen_t i)
 {
     CHECK_VECTOR_INT_ELT(x, i);
-    return ALTREP(x) ? ALTINTEGER_ELT(x, i) : INTEGER0(x)[i];
+    if (R_isWideInteger(x))
+	/* narrows when the value is representable, errors otherwise */
+	return R_wideIntegerElt32(x, i);
+    /* wideness already ruled out: index the payload directly rather than
+       through INTEGER0(), which would repeat the wide check */
+    return ALTREP(x) ? ALTINTEGER_ELT(x, i) : ((int *) STDVEC_DATAPTR(x))[i];
 }
 
 INLINE_FUN void SET_INTEGER_ELT(SEXP x, R_xlen_t i, int v)
 {
     CHECK_VECTOR_INT_ELT(x, i);
-    if (ALTREP(x)) ALTINTEGER_SET_ELT(x, i, v);
-    else INTEGER0(x)[i] = v;
+    if (R_isWideInteger(x)) R_wideIntegerSetElt32(x, i, v);
+    else if (ALTREP(x)) ALTINTEGER_SET_ELT(x, i, v);
+    else ((int *) STDVEC_DATAPTR(x))[i] = v;
+}
+
+INLINE_FUN R_wideint_t INTEGER64_ELT(SEXP x, R_xlen_t i)
+{
+    if (TYPEOF(x) != INTSXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "INTEGER64_ELT", "integer", R_typeToChar(x));
+    if (IS_WIDEINT(x))
+	return WIDEINT_PTR(x)[i];
+
+    int v = INTEGER_ELT(x, i);
+    return v == NA_INTEGER ? NA_INTEGER64 : (R_wideint_t) v;
+}
+
+INLINE_FUN void SET_INTEGER64_ELT(SEXP x, R_xlen_t i, R_wideint_t v)
+{
+    if (TYPEOF(x) != INTSXP)
+	error("%s() can only be applied to a '%s', not a '%s'",
+	      "SET_INTEGER64_ELT", "integer", R_typeToChar(x));
+    if (IS_WIDEINT(x)) {
+	WIDEINT_PTR(x)[i] = v;
+	return;
+    }
+
+    if (v == NA_INTEGER64)
+	SET_INTEGER_ELT(x, i, NA_INTEGER);
+    else if (v > INT_MIN && v <= INT_MAX)
+	SET_INTEGER_ELT(x, i, (int) v);
+    else
+	error("value %lld cannot be stored in a narrow integer vector",
+	      (long long) v);
 }
 
 INLINE_FUN int LOGICAL_ELT(SEXP x, R_xlen_t i)

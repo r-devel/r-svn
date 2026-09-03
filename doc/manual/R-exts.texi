@@ -14995,6 +14995,18 @@ have to fully materialize the object.
 @apifun SET_RAW_ELT
 @apifun SET_REAL_ELT
 
+As an experimental extension, an integer vector may store 64-bit
+(``wide'') elements.  @code{R_isWideInteger} tests for this storage,
+and such elements can be accessed and set with @code{INTEGER64_ELT}
+and @code{SET_INTEGER64_ELT}; @code{R_allocWideIntVector} allocates an
+integer vector with wide storage.  There is deliberately no wide
+data-pointer accessor, and the 32-bit data-pointer accessors signal an
+error for wide vectors.
+@eapifun INTEGER64_ELT
+@eapifun R_allocWideIntVector
+@eapifun R_isWideInteger
+@eapifun SET_INTEGER64_ELT
+
 
 @node Character encoding issues
 @section Character encoding issues

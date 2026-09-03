@@ -1586,6 +1586,11 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (SEXP ap = args; ap != R_NilValue; ap = CDR(ap), narg++) {
 	if (!isVector(CAR(ap)))
 	    error(_("argument %d is not a vector"), narg + 1);
+	/* radix sort works on 32-bit keys; the R-level wrappers exclude
+	   wide integers from method="auto", but method="radix" reaches
+	   here directly, so refuse rather than misread the payload */
+	if (R_isWideInteger(CAR(ap)))
+	    error(_("radix sort is not supported for wide integer vectors"));
         //Rprintf("%d, %d\n", XLENGTH(CAR(ap)), nl);
 	if (XLENGTH(CAR(ap)) != nl)
 	    error(_("argument lengths differ"));
