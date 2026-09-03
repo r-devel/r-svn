@@ -44,7 +44,7 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
       FALSE}, \code{prob = NULL}, and \code{size <= n/2}, and really
     should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
-  \item{tolerance}{tolerance for checking \code{prob==1} and \code{prob==0} when 
+  \item{tolerance}{tolerance for checking \code{prob==1} and \code{prob==0} when
    \code{prob=TRUE}, \code{method = "marginal"}.}
 }
 \details{
