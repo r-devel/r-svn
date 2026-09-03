@@ -263,9 +263,9 @@ src/nmath/dpois.c
 
 
 src/main/random.c
-src/library/base/sample.R
+src/library/base/R/sample.R
   the code for the "marginal" method of unequal-probability sampling
-  without replacement is based on R code (C) 2005 by Yves Tillé and Alina Matei  
+  without replacement is based on R code (C) 2005 by Yves Tillé and Alina Matei
 
 src/main/RNG.c
 
