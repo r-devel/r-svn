@@ -61,28 +61,18 @@ sample.int <- function(n, size = n, replace = FALSE, prob = NULL,
     sequential = .Internal(sample(n, size, replace, prob)),
     marginal = sample.pps(n, size, prob),
     poisson = { ## shuffle if length > 1
-      rval <- which(stats::runif(n) <= prob/sum(prob) * size)
+      pik <- .Internal(inclusion_probs(prob, size))
+      rval <- which(stats::runif(n) <= pik)
       if (length(rval) < 2) rval else sample(rval) 
     }
   )
 }
 
 
-sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
+sample.pps <- function(n, size, prob) {
 
   if (missing(size) || is.null(size))
     stop("'size' must be specified")
-
-    inclusion_probs <- function(a, size) {
-        a <- as.double(a)
-        size <- as.integer(round(size))
-        b <- a < 0
-        if (any(b)) {
-            warning("there are ", sum(b), " negative value(s) shifted to zero")
-            a[b] <- 0
-        }
-        .Internal(inclusion_probs(a, size))
-    }
     
     up_brewer <- function(pi_k, eps = sqrt(.Machine$double.eps)) {
         if (anyNA(pi_k))
@@ -91,23 +81,10 @@ sample.pps <- function(n, size, prob, tolerance = sqrt(.Machine$double.eps)) {
         eps <- as.double(eps)
         .Internal(up_brewer(pi_k, eps))
     }
-    
-  sum_prob <- sum(prob)
-  sums_to_one <- isTRUE(all.equal(sum_prob, 1, tolerance = tolerance))
-  sums_to_int <- 
-    isTRUE(all.equal(sum_prob, round(sum_prob), tolerance = tolerance))
-  size_is_sum <- isTRUE(all.equal(size, sum_prob, tolerance = tolerance))
-  size_is_int <- isTRUE(all.equal(size, round(size), tolerance = tolerance))
-  if (!size_is_int)
-      stop("'size' must be an integer")
-  if (size>n)
-      stop("cannot take a sample larger than the population when 'replace = FALSE'")
-  if (sums_to_one && !size_is_sum) {
-    warning("rescaling prob, which changes inclusion probabilities")
-    prob <- inclusion_probs(prob * size, size)
-  } else if (sums_to_int && !size_is_sum) {
-    warning("sum(prob) is not equal to size or 1, rescaling")
-    prob <- inclusion_probs(prob/sum_prob * size, size)
-  }
-  up_brewer(prob)
+
+  if (length(prob) != n)
+      stop("incorrect number of probabilities")
+
+  pik <- .Internal(inclusion_probs(prob, size))
+  up_brewer(pik)
 }

@@ -21,7 +21,7 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
            useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2),
            method = c("sequential", "marginal", "poisson"))
 
-sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
+sample.pps(n, size, prob)
 }
 \arguments{
   \item{x}{either a vector of one or more elements from which to choose,
@@ -44,8 +44,6 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
       FALSE}, \code{prob = NULL}, and \code{size <= n/2}, and really
     should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
-  \item{tolerance}{tolerance for checking \code{prob==1} and \code{prob==0} when
-   \code{prob=TRUE}, \code{method = "marginal"}.}
 }
 \details{
   If \code{x} has length 1, is numeric (in the sense of
@@ -98,27 +96,29 @@ sample.pps(n, size, prob, tolerance = sqrt(.Machine$double.eps))
   Using \code{"marginal"} draws a sample so that the inclusion probabilities
   are equal or proportional to the values of \code{prob}. It uses the Brewer
   procedure, Algorithm 6.10 from Tille (2006). The number of nonzero
-  weights must be at least \code{size} in this case and the weights should sum
-  to the desired sample size.  If \code{sum(prob) != size}, the weights will be
-  rescaled. Where \code{prob*size>1} the element is sampled with
-  probability one, otherwise the sampling is proportional to the
-  specified probability.  The \code{"marginal"} method is much slower
-  for large \code{n} than the other methods and long vectors are not currently supported.
+  weights must be at least \code{size}. The relative weights are converted
+  to inclusion probabilities that sum to \code{size}. Units whose scaled
+  probability would exceed one are selected with certainty, and the
+  remaining probability is redistributed over the other units. The
+  \code{"marginal"} method is much slower for large \code{n} than the other
+  methods and long vectors are not currently supported.
 
   Finally, \code{"poisson"} does Poisson sampling, where the inclusion
-  probabilities are equal or proportional to the values of \code{prob}, but
-  the \emph{sample size is random}, with mean \code{size} rather than being
-  fixed at \code{size}. It is most useful when \code{size} is large and the
-  variability in sample size is thus small in relative terms.
+  probabilities are obtained from the relative weights using the same
+  conversion as for \code{"marginal"}. Each unit is then selected
+  independently. The \emph{sample size is random}, with mean \code{size}
+  rather than being fixed at \code{size}. It is most useful when \code{size}
+  is large and the variability in sample size is thus small in relative terms.
 }
 
 \value{
   For \code{sample} a vector of length \code{size} with elements
   drawn from either \code{x} or from the integers \code{1:x}.
 
-  For \code{sample.int}, an integer vector of length \code{size} with
-  elements from \code{1:n}, or a double vector if
-  \eqn{n \ge 2^{31}}{n >= 2^31}.
+  For \code{sample.int}, an integer vector with elements from \code{1:n},
+  or a double vector if \eqn{n \ge 2^{31}}{n >= 2^31}. Its length is
+  \code{size}, except for \code{method = "poisson"}, where the length is
+  random with mean \code{size}.
 }
 
 \references{

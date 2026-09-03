@@ -561,60 +561,116 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 attribute_hidden SEXP do_inclusion_probs(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-	SEXP a, size;
     checkArity(op, args);
-    a = CAR(args);
-    size = CADR(args);
-    int i, l, l1;
-    double sum_a = 0.0;
-    int len = length(a);
-    int size_val = INTEGER(size)[0];
-    double* a_ptr = REAL(a);
+    SEXP a = CAR(args);
+    SEXP size = CADR(args);
+
+    if (XLENGTH(size) != 1)
+	error(_("invalid '%s' argument"), "size");
+
+    double size_d = asReal(size);
+    if (!R_FINITE(size_d) || size_d < 0.0 || size_d != floor(size_d))
+	error(_("invalid '%s' argument"), "size");
+    if (size_d > INT_MAX)
+	error(_("long vectors are not supported"));
+    if (XLENGTH(a) > INT_MAX)
+	error(_("long vectors are not supported"));
+
+    int len = LENGTH(a);
+    int size_val = (int) size_d;
+    if (size_val > len)
+	error(_("cannot take a sample larger than the population when 'replace = FALSE'"));
+
+    PROTECT(a = coerceVector(a, REALSXP));
+    const double *a_ptr = REAL(a);
     SEXP pi_k;
     PROTECT(pi_k = allocVector(REALSXP, len));
-    double* pi_k_ptr = REAL(pi_k);
-    /* Calculate sum of a and correct negative values */
-    for (i = 0; i < len; i++) {
-        if (a_ptr[i] < 0) {
-            a_ptr[i] = 0;
-        }
-        sum_a += a_ptr[i];
+    double *pi_k_ptr = REAL(pi_k);
+
+    /*
+       The scaling and iterative capping follow inclusion_prob.c from
+       the GPL-2-or-later R package 'sondage' (version 0.9.1).
+       Unlike that package's public helper, sample() retains its established
+       behaviour of rejecting negative probability weights.
+    */
+    double max_a = 0.0;
+    int n_positive = 0;
+    for (int i = 0; i < len; i++) {
+	if (!R_FINITE(a_ptr[i]))
+	    error(_("NA in probability vector"));
+	if (a_ptr[i] < 0.0)
+	    error(_("negative probability"));
+	if (a_ptr[i] > 0.0) {
+	    n_positive++;
+	    if (a_ptr[i] > max_a)
+		max_a = a_ptr[i];
+	}
     }
-    /* Initialize pi_k */
-    for (i = 0; i < len; i++) {
-        pi_k_ptr[i] = (sum_a == 0) ? 0 : size_val * a_ptr[i] / sum_a;
+
+    if (n_positive < size_val)
+	error(_("too few positive probabilities"));
+
+    if (size_val == 0) {
+	for (int i = 0; i < len; i++)
+	    pi_k_ptr[i] = 0.0;
+	UNPROTECT(2);
+	return pi_k;
     }
-    /* Count and adjust inclusion probabilities greater than or equal to 1 */
-    l = 0;
-    for (i = 0; i < len; i++) {
-        if (pi_k_ptr[i] >= 1) {
-            l++;
-        }
+
+    /* Dividing first by the maximum preserves relative weights and avoids
+       overflow when the finite weights have a very large raw sum. */
+    double sum_a = 0.0;
+    for (int i = 0; i < len; i++) {
+	if (a_ptr[i] == 0.0) {
+	    pi_k_ptr[i] = 0.0;
+	} else {
+	    pi_k_ptr[i] = a_ptr[i] / max_a;
+	    sum_a += pi_k_ptr[i];
+	}
     }
-    if (l > 0) { 
-        l1 = 0;
-        while (l != l1) {
-            double temp_sum = 0;
-            for (i = 0; i < len; i++) {
-                if (pi_k_ptr[i] < 1) {
-                    temp_sum += pi_k_ptr[i];
-                }
-            }
-            for (i = 0; i < len; i++) {
-                pi_k_ptr[i] = (pi_k_ptr[i] < 1) ? 
-                  (size_val - l) * (pi_k_ptr[i] / temp_sum) :
-                  1;
-            }
-            l1 = l;
-            l = 0;
-            for (i = 0; i < len; i++) {
-                if (pi_k_ptr[i] >= 1) {
-                    l++;
-                }
-            }
-        }
+
+    double scale = size_d / sum_a;
+    int n_capped = 0;
+    double sum_uncapped = 0.0;
+    for (int i = 0; i < len; i++) {
+	double pi = pi_k_ptr[i] * scale;
+	if (pi >= 1.0) {
+	    pi_k_ptr[i] = 1.0;
+	    n_capped++;
+	} else {
+	    pi_k_ptr[i] = pi;
+	    sum_uncapped += pi;
+	}
     }
-    UNPROTECT(1); /* pi_k */
+
+    while (n_capped > 0 && sum_uncapped > 0.0) {
+	R_CheckUserInterrupt();
+	double remaining = size_d - n_capped;
+	double rescale = remaining / sum_uncapped;
+	int newly_capped = 0;
+	double new_sum_uncapped = 0.0;
+
+	for (int i = 0; i < len; i++) {
+	    if (pi_k_ptr[i] < 1.0) {
+		double pi = pi_k_ptr[i] * rescale;
+		if (pi >= 1.0) {
+		    pi_k_ptr[i] = 1.0;
+		    newly_capped++;
+		} else {
+		    pi_k_ptr[i] = pi;
+		    new_sum_uncapped += pi;
+		}
+	    }
+	}
+
+	if (newly_capped == 0)
+	    break;
+
+	n_capped += newly_capped;
+	sum_uncapped = new_sum_uncapped;
+    }
+
+    UNPROTECT(2);
     return pi_k;
 }
 
