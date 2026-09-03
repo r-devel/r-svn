@@ -329,6 +329,13 @@
       zeros now, similarly to \code{lm()} via \code{glm.control()}; correct
       AIC and logLik() for this case, fixing \PR{16008}, thanks to \I{Bill
 	Dunlap} and \I{Mauricio Vargas}.
+
+      \item Hashed environments keep an exact count of their bindings.
+      Previously an insert counted bindings while a resize,
+      \code{attach()} and loading a saved environment counted occupied
+      chains, so \code{env.profile()} reported a wrong number of chains
+      and the resize threshold compared against a mixture of the two.
+      \code{env.profile()} now reports the number of non-empty chains.
     }
   }
 }
