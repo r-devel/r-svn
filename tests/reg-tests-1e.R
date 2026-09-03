@@ -3709,6 +3709,43 @@ stopifnot(identical(L00, ksmooth(x,y, x.points=NULL)),
 ## did seg.fault, trying to access x.points[1] from C
 
 
+## debugonce() on primitive generics should fire only once
+## and undebug() should be able to cancel it
+Sys.setenv("_R_CHECK_BROWSER_NONINTERACTIVE_" = "true")
+##
+debugonce(`[`)
+stopifnot(grepl("non-interactive browser", tryCmsg(mtcars[1])))
+x <- mtcars[1]                        # must NOT enter debugger
+stopifnot(identical(x, mtcars[1]))
+##
+debugonce(`[`)
+undebug(`[`)
+x <- mtcars[1] # must NOT enter debugger
+stopifnot(identical(x, mtcars[1]))
+##
+## undebug() after debugonce() on a primitive should not warn
+debugonce(`[`)
+op <- options(warn = 2)
+undebug(`[`)  # warned spuriously in R <= 4.5.z
+options(op)
+##
+## debug() + undebug() on a primitive must still work
+debug(`[`)
+stopifnot(grepl("non-interactive browser", tryCmsg(mtcars[1])))
+undebug(`[`)
+x <- mtcars[1] # must NOT enter debugger
+stopifnot(identical(x, mtcars[1]))
+##
+## undebug() should cancel debugonce() on closures too
+f <- function(x) x + 1
+debugonce(f)
+undebug(f)
+stopifnot(identical(f(1), 2)) # must NOT enter debugger
+##
+Sys.unsetenv("_R_CHECK_BROWSER_NONINTERACTIVE_")
+## debugonce() on primitives was permanent in R <= 4.5.z
+## undebug() after debugonce() never worked in R <= 4.5.z
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
