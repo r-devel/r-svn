@@ -3745,6 +3745,27 @@ local({
 ## these loops used the element-at-a-time accessors too
 
 
+## anyNA() accumulates the NA test branchlessly over 1024-element
+## chunks and only branches between chunks, so the answer must not
+## depend on where an NA falls relative to a chunk boundary.  A
+## materialized vector is scanned as one region, so the chunking
+## itself is what these positions probe.
+local({
+    n <- 5000L
+    for(pos in c(1L, 1023L, 1024L, 1025L, 2048L, 4097L, n)) {
+        i <- rep.int(1L, n);    i[pos] <- NA; stopifnot(anyNA(i))
+        d <- rep.int(1,  n);    d[pos] <- NA; stopifnot(anyNA(d))
+        l <- rep.int(TRUE, n);  l[pos] <- NA; stopifnot(anyNA(l))
+        d[pos] <- NaN;                        stopifnot(anyNA(d))
+    }
+    stopifnot(!anyNA(rep.int(1L, n)), !anyNA(rep.int(1, n)),
+              !anyNA(rep.int(TRUE, n)), !anyNA(logical(0)),
+              !anyNA(seq_len(n)), !anyNA(as.numeric(seq_len(n))))
+})
+## the per-element early exit could not vectorise; LGLSXP also read
+## one element at a time
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

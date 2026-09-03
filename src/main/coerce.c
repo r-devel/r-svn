@@ -2370,15 +2370,31 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     R_xlen_t i, n = xlength(x);
+    /* Scan in chunks, accumulating the NA test branchlessly within a
+       chunk and only branching between chunks: a per-element early
+       exit is a data-dependent branch the compiler cannot vectorise
+       past.  ALTREP regions are at most 512 elements, so there the
+       chunk loop collapses to one test per region. */
+    const R_xlen_t chunksize = 1024;
     switch (xT) {
     case REALSXP:
     {
 	if(REAL_NO_NA(x))
 	    return false;
 	ITERATE_BY_REGION(x, xD, i, nbatch, double, REAL, {
-		for (int k = 0; k < nbatch; k++)
-		    if (ISNAN(xD[k]))
+		R_xlen_t k = 0;
+		while (k < nbatch) {
+		    R_xlen_t kend = k + chunksize;
+		    if (kend > nbatch)
+			kend = nbatch;
+
+		    int found = 0;
+		    for (; k < kend; k++)
+			found |= ISNAN(xD[k]);
+
+		    if (found)
 			return true;
+		}
 	    });
 	break;
     }
@@ -2387,16 +2403,41 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(INTEGER_NO_NA(x))
 	    return false;
 	ITERATE_BY_REGION(x, xI, i, nbatch, int, INTEGER, {
-		for (int k = 0; k < nbatch; k++)
-		    if (xI[k] == NA_INTEGER)
+		R_xlen_t k = 0;
+		while (k < nbatch) {
+		    R_xlen_t kend = k + chunksize;
+		    if (kend > nbatch)
+			kend = nbatch;
+
+		    int found = 0;
+		    for (; k < kend; k++)
+			found |= (xI[k] == NA_INTEGER);
+
+		    if (found)
 			return true;
+		}
 	    });
 	break;
     }
     case LGLSXP:
     {
-	for (i = 0; i < n; i++)
-	    if (LOGICAL_ELT(x, i) == NA_LOGICAL) return true;
+	if(LOGICAL_NO_NA(x))
+	    return false;
+	ITERATE_BY_REGION(x, xL, i, nbatch, int, LOGICAL, {
+		R_xlen_t k = 0;
+		while (k < nbatch) {
+		    R_xlen_t kend = k + chunksize;
+		    if (kend > nbatch)
+			kend = nbatch;
+
+		    int found = 0;
+		    for (; k < kend; k++)
+			found |= (xL[k] == NA_LOGICAL);
+
+		    if (found)
+			return true;
+		}
+	    });
 	break;
     }
     case CPLXSXP:
