@@ -1,13 +1,11 @@
 
-R Under development (unstable) (2024-08-15 r87022) -- "Unsuffered Consequences"
+R Under development (unstable) (2024-08-27 r87063) -- "Unsuffered Consequences"
 Copyright (C) 2024 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin23.5.0
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
 Type 'license()' or 'licence()' for distribution details.
-
-  Natural language support but running in an English locale
 
 R is a collaborative project with many contributors.
 Type 'contributors()' for more information and
@@ -1185,12 +1183,9 @@ class(from) <- "foo"
 > ## ----- from here on, keep at EOF -----
 > 
 > cat('Time elapsed: ', proc.time(),'\n')
-Time elapsed:  1.461 0.055 1.604 0.001 0.003 
+Time elapsed:  0.869 0.169 1.642 0.001 0.003
 > 
 > ### NB: Only add new tests here _IF_   checking output,
 > ### --  otherwise use ./classes-methods.R
 > ###			^^^^^^^^^^^^^^^^^
 > 
-> proc.time()
-   user  system elapsed 
-  1.462   0.058   1.604 
