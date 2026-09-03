@@ -180,7 +180,6 @@ dkwtest("f", df1=10, df2=2, ncp=3)
 rpps<-replicate(10000, sample(LETTERS[1:6], 3, prob=(1:6)*3/21, method="marginal"))
 testpps<-chisq.test(table(rpps), p=(1:6)/21)
 if (testpps$p.value<=1e-3) stop("FAILED: sample(method='marginal')")
-
 rppois<-replicate(10000, sample(LETTERS[1:6], 3, prob=(1:6)*3/21, method="poisson"))
 rppois_table <- table(unlist(rppois))
 test_rppois <- chisq.test(rppois_table, p = (1:6)/21)
