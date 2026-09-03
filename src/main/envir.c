@@ -195,7 +195,9 @@ attribute_hidden Rboolean R_envHasNoSpecialSymbols (SEXP env)
   Hash Tables
 
   We use a basic separate chaining algorithm.	A hash table consists
-  of SEXP (vector) which contains a number of SEXPs (lists).
+  of SEXP (vector) which contains a number of SEXPs (lists).  Its
+  truelength holds the number of bindings in the table, so that the
+  load factor is known exactly.
 
   The only non-static function is R_NewHashedEnv, which allows code to
   request a hashed environment.  All others are static to allow
@@ -203,10 +205,38 @@ attribute_hidden Rboolean R_envHasNoSpecialSymbols (SEXP env)
 */
 
 #define HASHSIZE(x)	     ((int) STDVEC_LENGTH(x))
-#define HASHPRI(x)	     ((int) STDVEC_TRUELENGTH(x))
-#define HASHTABLEGROWTHRATE  1.2
+#define HASHCOUNT(x)	     ((int) STDVEC_TRUELENGTH(x))
+#define SET_HASHCOUNT(x,v)   SET_TRUELENGTH(x,v)
+#define HASHTABLELOAD	     0.75
 #define HASHMINSIZE	     29
+
+/* The CHARSXP cache at the end of this file stores its number of
+   occupied chains in the same slot. */
+#define HASHPRI(x)	     ((int) STDVEC_TRUELENGTH(x))
 #define SET_HASHPRI(x,v)     SET_TRUELENGTH(x,v)
+
+/* Sizes a table grows through: the first prime above 1.618 times each
+   power of two from 2^5 to 2^30.  A table more than HASHTABLELOAD full
+   moves to the next of these, about twice its size.  The sizes matter
+   because R_Newhashpjw() is a base-16 polynomial of the characters and
+   the hash is reduced by division: with sizes near a small multiple of
+   a power of two, such as 2n + 1 from 29 (15 * 2^k - 1) or the primes
+   just above a power of two, names which differ in a running number
+   collapse onto a fraction of the chains (a table of a million such
+   names had 23% of its chains in use where a uniform hash gives 40%,
+   and twice the lookups of a uniform table).  Simulated over a million
+   names of six shapes, these sizes are within a few percent of uniform,
+   while the old growth by 1.2 avoided the problem by accident. */
+static const int HashTableSizes[] = {
+    53, 107, 211, 419,
+    829, 1657, 3319, 6637,
+    13259, 26513, 53047, 106087,
+    212081, 424163, 848321, 1696649,
+    3393311, 6786529, 13573067, 27146107,
+    54292219, 108584447, 217168859, 434337707,
+    868675439, 1737350779
+};
+#define NHASHTABLESIZES (sizeof(HashTableSizes) / sizeof(HashTableSizes[0]))
 #define HASHCHAIN(table, i)  ((SEXP *) STDVEC_DATAPTR(table))[i]
 
 #define IS_HASHED(x)	     (HASHTAB(x) != R_NilValue)
@@ -240,6 +270,18 @@ attribute_hidden int R_Newhashpjw(const char *s)
     return h;
 }
 
+/* Index of 'symbol' in 'table', from the hash cached in the name's
+   CHARSXP, computing and caching that hash if needed. */
+static int hashIndex(SEXP symbol, SEXP table)
+{
+    SEXP c = PRINTNAME(symbol);
+    if( !HASHASH(c) ) {
+	SET_HASHVALUE(c, R_Newhashpjw(CHAR(c)));
+	SET_HASHASH(c, 1);
+    }
+    return HASHVALUE(c) % HASHSIZE(table);
+}
+
 /*----------------------------------------------------------------------
 
   R_HashSet
@@ -267,11 +309,10 @@ static void R_HashSet(int hashcode, SEXP symbol, SEXP table, SEXP value,
 	}
     if (frame_locked)
 	error(_("cannot add bindings to a locked environment"));
-    if (ISNULL(chain))
-	SET_HASHPRI(table, HASHPRI(table) + 1);
     /* Add the value into the chain */
     SET_VECTOR_ELT(table, hashcode, CONS(value, VECTOR_ELT(table, hashcode)));
     SET_TAG(VECTOR_ELT(table, hashcode), symbol);
+    SET_HASHCOUNT(table, HASHCOUNT(table) + 1);
     return;
 }
 
@@ -357,7 +398,7 @@ static SEXP R_NewHashTable(int size)
 
     /* Allocate hash table in the form of a vector */
     PROTECT(table = allocVector(VECSXP, size));
-    SET_HASHPRI(table, 0);
+    SET_HASHCOUNT(table, 0);
     UNPROTECT(1);
     return(table);
 }
@@ -404,9 +445,8 @@ static void R_HashDelete(int hashcode, SEXP symbol, SEXP env, int *found)
     if (*found) {
 	if (env == R_GlobalEnv)
 	    R_DirtyImage = 1;
-	if (list == R_NilValue)
-	    SET_HASHPRI(hashtab, HASHPRI(hashtab) - 1);
 	SET_VECTOR_ELT(hashtab, idx, list);
+	SET_HASHCOUNT(hashtab, HASHCOUNT(hashtab) - 1);
     }
 }
 
@@ -430,39 +470,27 @@ static SEXP R_HashResize(SEXP table)
     if (TYPEOF(table) != VECSXP)
 	error("first argument ('table') not of type VECSXP, from R_HashResize");
 
-    /* This may have to change.	 The growth rate should
-       be independent of the size (not implemented yet) */
-    /* hash_grow = HASHSIZE(table); */
-
-    /* Allocate the new hash table */
-    SEXP new_table = R_NewHashTable(1 + (int)(HASHSIZE(table) * HASHTABLEGROWTHRATE));
-    for (int counter = 0; counter < length(table); counter++) {
+    /* Move to the first of the sizes at least one and a half times the
+       current one: the next one up for a table already on the ladder,
+       as consecutive sizes are about double, and between one and a
+       half and three times for a table sized by the user.  The names'
+       hashes are cached in their CHARSXPs, so the strings are not
+       rehashed. */
+    int n = HASHSIZE(table), i = 0;
+    while (i < NHASHTABLESIZES - 1 && HashTableSizes[i] < 1.5 * n)
+	i++;
+    SEXP new_table = R_NewHashTable(HashTableSizes[i]);
+    for (int counter = 0; counter < n; counter++) {
 	SEXP chain = VECTOR_ELT(table, counter);
 	while (!ISNULL(chain)) {
-	    int new_hashcode = R_Newhashpjw(CHAR(PRINTNAME(TAG(chain)))) %
-		HASHSIZE(new_table);
-	    SEXP new_chain = VECTOR_ELT(new_table, new_hashcode);
-	    /* If using a primary slot then increase HASHPRI */
-	    if (ISNULL(new_chain))
-		SET_HASHPRI(new_table, HASHPRI(new_table) + 1);
-	    SEXP tmp_chain = chain;
-	    chain = CDR(chain);
-	    SETCDR(tmp_chain, new_chain);
-	    SET_VECTOR_ELT(new_table, new_hashcode,  tmp_chain);
-#ifdef MIKE_DEBUG
-	    fprintf(stdout, "HASHSIZE = %d\nHASHPRI = %d\ncounter = %d\nHASHCODE = %d\n",
-		    HASHSIZE(table), HASHPRI(table), counter, new_hashcode);
-#endif
+	    int new_hashcode = hashIndex(TAG(chain), new_table);
+	    SEXP next = CDR(chain);
+	    SETCDR(chain, VECTOR_ELT(new_table, new_hashcode));
+	    SET_VECTOR_ELT(new_table, new_hashcode, chain);
+	    chain = next;
 	}
     }
-    /* Some debugging statements */
-#ifdef MIKE_DEBUG
-    fprintf(stdout, "Resized O.K.\n");
-    fprintf(stdout, "Old size: %d, New size: %d\n",
-	    HASHSIZE(table), HASHSIZE(new_table));
-    fprintf(stdout, "Old pri: %d, New pri: %d\n",
-	    HASHPRI(table), HASHPRI(new_table));
-#endif
+    SET_HASHCOUNT(new_table, HASHCOUNT(table));
     return new_table;
 } /* end R_HashResize */
 
@@ -472,24 +500,24 @@ static SEXP R_HashResize(SEXP table)
 
   R_HashSizeCheck
 
-  Hash table size rechecking function.	Compares the load factor
-  (size/# of primary slots used)  to a particular threshold value.
-  Returns true if the table needs to be resized.
+  Hash table size rechecking function.	Compares the number of entries
+  in the table to a threshold fraction of its size.  Returns true if
+  the table needs to be resized.
 
 */
 
 static int R_HashSizeCheck(SEXP table)
 {
-    int resize;
-    double thresh_val;
-
     /* Do some checking */
     if (TYPEOF(table) != VECSXP)
 	error("first argument ('table') not of type VECSXP, R_HashSizeCheck");
-    resize = 0; thresh_val = 0.85;
-    if ((double)HASHPRI(table) > (double)HASHSIZE(table) * thresh_val)
-	resize = 1;
-    return resize;
+    /* Every binding on a chain which a lookup visits is usually a cache
+       miss, so the load factor sets the cost of a lookup.  The table
+       used to grow by 20% at 85% full, which left it at one to two
+       bindings per chain and moved each binding about six times on the
+       way to a million. */
+    return HASHCOUNT(table) > HASHTABLELOAD * HASHSIZE(table) &&
+	HASHSIZE(table) < HashTableSizes[NHASHTABLESIZES - 1];
 }
 
 
@@ -516,15 +544,9 @@ static SEXP R_HashFrame(SEXP rho)
     table = HASHTAB(rho);
     frame = FRAME(rho);
     while (!ISNULL(frame)) {
-	if( !HASHASH(PRINTNAME(TAG(frame))) ) {
-	    SET_HASHVALUE(PRINTNAME(TAG(frame)),
-			  R_Newhashpjw(CHAR(PRINTNAME(TAG(frame)))));
-	    SET_HASHASH(PRINTNAME(TAG(frame)), 1);
-	}
-	hashcode = HASHVALUE(PRINTNAME(TAG(frame))) % HASHSIZE(table);
+	hashcode = hashIndex(TAG(frame), table);
 	chain = VECTOR_ELT(table, hashcode);
-	/* If using a primary slot then increase HASHPRI */
-	if (ISNULL(chain)) SET_HASHPRI(table, HASHPRI(table) + 1);
+	SET_HASHCOUNT(table, HASHCOUNT(table) + 1);
 	tmp_chain = frame;
 	frame = CDR(frame);
 	SETCDR(tmp_chain, chain);
@@ -544,8 +566,7 @@ static SEXP R_HashFrame(SEXP rho)
 
    size: the total size of the hash table
 
-   nchains: the number of non-null chains in the table (as reported by
-	    HASHPRI())
+   nchains: the number of non-null chains in the table
 
    counts: an integer vector the same length as size giving the length of
 	   each chain (or zero if no chain is present).  This allows
@@ -566,8 +587,8 @@ static SEXP R_HashProfile(SEXP table)
     UNPROTECT(1);
 
     SET_VECTOR_ELT(ans, 0, ScalarInteger(length(table)));
-    SET_VECTOR_ELT(ans, 1, ScalarInteger(HASHPRI(table)));
 
+    int nchains = 0;
     PROTECT(chain_counts = allocVector(INTSXP, length(table)));
     for (i = 0; i < length(table); i++) {
 	chain = VECTOR_ELT(table, i);
@@ -576,8 +597,10 @@ static SEXP R_HashProfile(SEXP table)
 	    count++;
 	}
 	INTEGER(chain_counts)[i] = count;
+	if (count > 0)
+	    nchains++;
     }
-
+    SET_VECTOR_ELT(ans, 1, ScalarInteger(nchains));
     SET_VECTOR_ELT(ans, 2, chain_counts);
 
     UNPROTECT(2);
@@ -696,16 +719,6 @@ attribute_hidden void InitGlobalEnv(void)
 }
 
 #ifdef USE_GLOBAL_CACHE
-static int hashIndex(SEXP symbol, SEXP table)
-{
-    SEXP c = PRINTNAME(symbol);
-    if( !HASHASH(c) ) {
-	SET_HASHVALUE(c, R_Newhashpjw(CHAR(c)));
-	SET_HASHASH(c, 1);
-    }
-    return HASHVALUE(c) % HASHSIZE(table);
-}
-
 static void R_FlushGlobalCache(SEXP sym)
 {
     SEXP entry = R_HashGetLoc(hashIndex(sym, R_GlobalCache), sym,
@@ -748,7 +761,6 @@ static void R_FlushGlobalCacheFromUserTable(SEXP udb)
 
 static void R_AddGlobalCache(SEXP symbol, SEXP place)
 {
-    int oldpri = HASHPRI(R_GlobalCache);
     R_HashSet(hashIndex(symbol, R_GlobalCache), symbol, R_GlobalCache, place,
 	      FALSE);
 #ifdef FAST_BASE_CACHE_LOOKUP
@@ -757,8 +769,7 @@ static void R_AddGlobalCache(SEXP symbol, SEXP place)
     else
 	UNSET_BASE_SYM_CACHED(symbol);
 #endif
-    if (oldpri != HASHPRI(R_GlobalCache) &&
-	HASHPRI(R_GlobalCache) > 0.85 * HASHSIZE(R_GlobalCache)) {
+    if (R_HashSizeCheck(R_GlobalCache)) {
 	R_GlobalCache = R_HashResize(R_GlobalCache);
 	SETCAR(R_GlobalCachePreserve, R_GlobalCache);
     }
@@ -4125,9 +4136,10 @@ attribute_hidden void R_RestoreHashCount(SEXP rho)
 	table = HASHTAB(rho);
 	size = HASHSIZE(table);
 	for (i = 0, count = 0; i < size; i++)
-	    if (VECTOR_ELT(table, i) != R_NilValue)
+	    for (SEXP chain = VECTOR_ELT(table, i); chain != R_NilValue;
+		 chain = CDR(chain))
 		count++;
-	SET_HASHPRI(table, count);
+	SET_HASHCOUNT(table, count);
     }
 }
 
@@ -4838,8 +4850,11 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 	   protected.
 	   Maximum possible power of two is 2^30 for a VECSXP.
 	   FIXME: this has changed with long vectors.
-	*/
-	if (R_HashSizeCheck(R_StringHash)
+
+	   The cache uses its own hash and power-of-two sizes, so it
+	   keeps its old growth trigger, occupied chains above 85% of
+	   the size, rather than R_HashSizeCheck(). */
+	if (HASHPRI(R_StringHash) > 0.85 * HASHSIZE(R_StringHash)
 	    && char_hash_size < 1073741824 /* 2^30 */)
 	    R_StringHash_resize(char_hash_size * 2);
 

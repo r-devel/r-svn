@@ -367,7 +367,7 @@ types are a @code{VECTOR_SEXPREC}, which again consists of the header
 and the same three pointers, but followed by two integers giving the
 length and `true length'@footnote{The only current use is for hash tables of
 environments (@code{VECSXP}s), where @code{length} is the size of the table
-and @code{truelength} is the number of primary slots in use, for the
+and @code{truelength} is the number of bindings it holds, for the
 reference hash tables in serialization (@code{VECSXP}s), and for `growable'
 vectors (atomic vectors, @code{VECSXP}s and @code{EXPRSXP}s) which are
 created by slightly over-committing when enlarging a vector during
@@ -610,7 +610,7 @@ table.
 Environments in @R{} usually have a hash table, and nowadays that is the
 default in @code{new.env()}.  It is stored as a @code{VECSXP} where
 @code{length} is used for the allocated size of the table and
-@code{truelength} is the number of primary slots in use---the pointer to
+@code{truelength} is the number of bindings it holds---the pointer to
 the @code{VECSXP} is part of the header of a @code{SEXP} of type
 @code{ENVSXP}, and this points to @code{R_NilValue} if the environment
 is not hashed.
@@ -619,9 +619,13 @@ For the pros and cons of hashing, see a basic text on Computer Science.
 
 The code to implement hashed environments is in @file{src/main/envir.c}.
 Unless set otherwise (e.g.@: by the @code{size} argument of
-@code{new.env()}) the initial table size is @code{29}.  The table will
-be resized by a factor of 1.2 once the load factor (the proportion of
-primary slots in use) reaches 85%.
+@code{new.env()}) the initial table size is @code{29}.  Once the table
+holds more than 0.75 bindings per slot it moves to a prime size of
+about twice as many slots: each binding on a chain visited by a lookup
+is usually a cache miss, so the load factor sets the cost of a lookup,
+and the sizes are chosen so that the hash function, a base-16
+polynomial of the characters, spreads names with running numbers
+evenly (sizes near a small multiple of a power of two do not).
 
 The hash chains are stored as pairlist elements of the @code{VECSXP}:
 items are inserted at the front of the pairlist.  Hashing is principally
