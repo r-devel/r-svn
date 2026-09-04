@@ -1658,9 +1658,12 @@ ConvertChar(void *obj, char *inp, size_t inplen, cetype_t enc)
 	    }
 	    return mkCharLenCE(buf, (int)(buflen - bufleft), enc);
 	} else {
-	    char *buf = CallocCharBuf(buflen);
+	    /* R_alloc, not Calloc: mkCharLenCE can signal errors (e.g. for
+	       an embedded nul), which would leak a Calloc'd buffer */
+	    const void *vmax = vmaxget();
+	    char *buf = R_alloc(buflen + 1, sizeof(char));
 	    if (TryConvertString(obj, inp, inplen, buf, &bufleft) == -1) {
-		R_Free(buf);
+		vmaxset(vmax);
 		if (errno == E2BIG) {
 		    buflen *= 2;
 		    continue;
@@ -1668,7 +1671,7 @@ ConvertChar(void *obj, char *inp, size_t inplen, cetype_t enc)
 		    return R_NilValue;
 	    }
 	    SEXP ans = mkCharLenCE(buf, (int)(buflen - bufleft), enc);
-	    R_Free(buf);
+	    vmaxset(vmax);
 	    return ans;
 	}
     }
@@ -2027,9 +2030,12 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 		char cbuf[length+1];
 		PROTECT(s = ReadChar(stream, cbuf, length, levs));
 	    } else {
-		char *cbuf = CallocCharBuf(length);
+		/* R_alloc, not Calloc: ReadChar can signal errors (truncated
+		   stream, embedded nul), which would leak a Calloc'd buffer */
+		const void *vmax = vmaxget();
+		char *cbuf = R_alloc((size_t)length + 1, sizeof(char));
 		PROTECT(s = ReadChar(stream, cbuf, length, levs));
-		R_Free(cbuf);
+		vmaxset(vmax);
 	    }
 	    break;
 	case LGLSXP:
