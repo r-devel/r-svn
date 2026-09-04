@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2022-03-19 r81942) -- "Unsuffered Consequences"
-Copyright (C) 2022 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R Under development (unstable) (-- r89168) -- "Unsuffered Consequences"
+Copyright (C)  The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin22.5.0
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -319,8 +319,15 @@ t(df = 20, ncp = 3) PASSED
 f(df1 = 10, df2 = 2, ncp = 3) PASSED
 [1] TRUE
 > 
+> ## unequal-probability sampling without replacement
+> rpps<-replicate(10000, sample(LETTERS[1:6], 3, prob=(1:6)*3/21, method="marginal"))
+> testpps<-chisq.test(table(rpps), p=(1:6)/21)
+> if (testpps$p.value<=1e-3) stop("FAILED: sample(method='marginal')")
+> rppois<-replicate(10000, sample(LETTERS[1:6], 3, prob=(1:6)*3/21, method="poisson"))
+> rppois_table <- table(unlist(rppois))
+> test_rppois <- chisq.test(rppois_table, p = (1:6)/21)
+> if (test_rppois$p.value<=1e-3) stop("FAILED: sample(method='poisson')")
 > 
 > cat('Time elapsed: ', proc.time() - .proctime00,'\n')
-Time elapsed:  2.978 0.073 3.078 0 0 
-> 
+Time elapsed:  0.966 0.022 0.988 0 0
 > 
