@@ -1021,6 +1021,7 @@ void setup_Rmainloop(void)
     R_Toplevel.sysparent = R_BaseEnv;
     R_Toplevel.conexit = R_NilValue;
     R_Toplevel.vmax = NULL;
+    R_Toplevel.vmaxtop = 0;
     R_Toplevel.nodestack = R_BCNodeStackTop;
     R_Toplevel.bcprottop = R_BCProtTop;
     R_Toplevel.cend = NULL;
