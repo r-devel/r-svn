@@ -82,6 +82,8 @@ struct _HashData {
        it has to take the same route, so the decision belongs to the table
        and not to whichever object altsxphash() is looking at. */
     Rboolean altsxpClassHash;
+    /* Common boxed-element hash route: 1 = bytes, 2 = class, 0 = neither. */
+    unsigned int altsxpListHash;
 
 };
 
@@ -320,6 +322,40 @@ static int rawequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return (RAW_ELT(x, i) == RAW_ELT(y, j));
 }
 
+static hlen altsxphash(SEXP, R_xlen_t, HashData *);
+
+/* identical() permits a byte-equality class to compare with a class using
+   Compare.  Such classes need not share a hash convention.  Choose a route
+   common to every boxed opaque value in all keys before building the table;
+   retain the structural hash when no common content hash is available.
+   Attributes and environments are omitted here just as they are in vhash. */
+static unsigned int boxed_altsxp_hash(SEXP x, unsigned int allowed)
+{
+    if (!allowed) return 0;
+    switch (TYPEOF(x)) {
+    case ALTSXP:
+        if (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ)
+            return ALTSXP_ELT_SIZE(x) <= ALTREP_ELT_MAX_SIZE ? allowed & 1u : 0;
+        return R_altsxp_hashable(x) ? allowed & 2u : 0;
+    case VECSXP: case EXPRSXP:
+        R_CheckStack();
+        for (R_xlen_t i = 0; i < XLENGTH(x) && allowed; i++)
+            allowed = boxed_altsxp_hash(VECTOR_ELT(x, i), allowed);
+        break;
+    case LANGSXP: case LISTSXP:
+        R_CheckStack();
+        for (SEXP p = x; p != R_NilValue && allowed; p = CDR(p))
+            allowed = boxed_altsxp_hash(CAR(p), allowed);
+        break;
+    case CLOSXP:
+        R_CheckStack();
+        allowed = boxed_altsxp_hash(BODY_EXPR(x), allowed);
+        break;
+    default: break;
+    }
+    return allowed;
+}
+
 static hlen vhash_one(SEXP _this, HashData *d);
 static hlen vhash(SEXP x, R_xlen_t indx, HashData *d)
 {
@@ -376,6 +412,16 @@ static hlen vhash_one(SEXP _this, HashData *d)
 	    key *= 97;
 	}
 	break;
+    case ALTSXP:
+        if (d->altsxpListHash) {
+            HashData element = *d;
+            element.altsxpClassHash = d->altsxpListHash == 2u;
+            for (R_xlen_t j = 0; j < XLENGTH(_this); j++) {
+                key ^= altsxphash(_this, j, &element);
+                key *= 97;
+            }
+        }
+        break;
     case EXPRSXP:
     case VECSXP:
 	R_CheckStack();
@@ -773,6 +819,7 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
     case VECSXP:
 	d->hash = vhash;
 	d->equal = vequal;
+        d->altsxpListHash = boxed_altsxp_hash(x, 3u);
 	MKsetup(XLENGTH(x), d, nmax);
 	break;
     case ALTSXP:
@@ -2395,6 +2442,8 @@ rowsum(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
+    if (TYPEOF(g) == VECSXP || TYPEOF(g) == EXPRSXP)
+        data.altsxpListHash = boxed_altsxp_hash(g, data.altsxpListHash);
     DoHashing(uniqueg, &data);
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);
@@ -2480,6 +2529,8 @@ rowsum_df(SEXP x, SEXP g, SEXP uniqueg, SEXP snarm, SEXP rn)
 
     HashTableSetup(uniqueg, &data, NA_INTEGER);
     PROTECT(data.HashTable);
+    if (TYPEOF(g) == VECSXP || TYPEOF(g) == EXPRSXP)
+        data.altsxpListHash = boxed_altsxp_hash(g, data.altsxpListHash);
     DoHashing(uniqueg, &data);
     PROTECT(matches = HashLookup(uniqueg, g, &data));
     int *pmatches = INTEGER(matches);

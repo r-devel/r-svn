@@ -3025,6 +3025,32 @@ if (length(dll.paths)) local({
                         c(5L, 1L, NA_integer_)),
               identical(match(-1L, valid, nomatch = 0L), 0L))
 
+    ## Boxed values use their content hash: test comparisons rather than time.
+    boxed <- as.list(new.kind("counthash_byte", as.raw(1:200)))
+    call.test("C_altsxp_test_compare_count", TRUE)
+    stopifnot(!any(duplicated(boxed)))
+    stopifnot(call.test("C_altsxp_test_compare_count", TRUE) < 4L * length(boxed))
+    repeated <- c(boxed, rev(boxed))
+    stopifnot(identical(duplicated(repeated), rep(c(FALSE, TRUE), each = 200L)),
+              identical(anyDuplicated(repeated), 201L),
+              identical(duplicated(lapply(repeated, list)),
+                        rep(c(FALSE, TRUE), each = 200L)))
+    frame <- data.frame(value = I(repeated))
+    stopifnot(identical(duplicated(frame), rep(c(FALSE, TRUE), each = 200L)))
+
+    ## Different NA encodings hash alike.  Mixed byte/Compare classes retain
+    ## a common fallback, including when nested in lists.
+    boxes <- list(new.kind("multina_byte", as.raw(254L)),
+                  new.kind("multiptr_byte", as.raw(255L)))
+    stopifnot(identical(duplicated(boxes), c(FALSE, TRUE)))
+    boxes <- c(boxes, list(new.kind("multicmp_byte", as.raw(255L))))
+    stopifnot(identical(duplicated(boxes), c(FALSE, TRUE, TRUE)),
+              identical(duplicated(lapply(boxes, list)), c(FALSE, TRUE, TRUE)),
+              identical(duplicated(boxes[1:2], incomparables = boxes[3L]), c(FALSE, FALSE)))
+    shared <- list(new.kind("cmp_byte", as.raw(1L)),
+                   new.kind("mod_byte", as.raw(1L)))
+    stopifnot(identical(duplicated(shared), c(FALSE, identical(shared[[1L]], shared[[2L]]))))
+
     set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
     for (v in list(as.int64(1:5), as.uint64(1:5))) {
         stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness
@@ -3580,6 +3606,19 @@ local({
                 stopifnot(identical(do.call(f, c(args, list(na.rm = narm))), want))
         }
     }, warning = function(w) stop(w))
+})
+
+## Boxed base 64-bit values participate in list and data-frame hashing.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        values <- make(c("9007199254740993", "9007199254740994", NA,
+                         "9007199254740993", NA))
+        boxed <- as.list(values)
+        stopifnot(identical(duplicated(boxed), c(FALSE, FALSE, FALSE, TRUE, TRUE)),
+                  identical(match(boxed, rev(boxed)), c(2L, 4L, 1L, 2L, 1L)),
+                  identical(duplicated(data.frame(x = values)), duplicated(values)),
+                  identical(duplicated(lapply(boxed, list)), duplicated(values)))
+    }
 })
 
 cat("altsxp tests OK\n")
