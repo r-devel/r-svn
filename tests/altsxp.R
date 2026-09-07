@@ -3018,6 +3018,13 @@ if (length(dll.paths)) local({
         stopifnot(!is.unsorted(v))
     }
 
+    valid <- new.kind("validmatch_byte", as.raw(c(1L, 2L, 3L)))
+    stopifnot(identical(match(c(2L, -1L, NA_integer_, 300L, 1L), valid, nomatch = 99L),
+                        c(2L, 99L, 99L, 99L, 1L)),
+              identical(match(valid, c(2L, -1L, NA_integer_, 300L, 1L)),
+                        c(5L, 1L, NA_integer_)),
+              identical(match(-1L, valid, nomatch = 0L), 0L))
+
     set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
     for (v in list(as.int64(1:5), as.uint64(1:5))) {
         stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness
@@ -3543,6 +3550,36 @@ local({
         assertWarning(stopifnot(is.na(f(as.uint64(2L)))))
         assertError(f(as.uint64(2L, na = FALSE)))
     }
+})
+
+## Integral double endpoints above 2^53 are exact inputs to the class.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        a <- make("9007199254740993")
+        b <- 9007199254740994
+        want <- make(c("9007199254740993", "9007199254740994"))
+        stopifnot(identical(a:b, want), identical(b:a, rev(want)))
+        for (f in list(seq, seq.int))
+            stopifnot(identical(f(a, b, by = 1L), want),
+                      identical(f(b, a, by = -1L), rev(want)))
+    }
+    a <- as.int64("-9007199254740993")
+    stopifnot(identical(a:-9007199254740994,
+                        as.int64(c("-9007199254740993", "-9007199254740994"))))
+})
+
+## NULL contributes no values to extrema, including across NA domains.
+local({
+    pairs <- list(list(as.int64("-9223372036854775808", na = FALSE), as.int64(1L)),
+                  list(as.uint64("18446744073709551615", na = FALSE), as.uint64(1L)))
+    withCallingHandlers({
+        for (pair in pairs) for (f in list(min, max)) for (narm in c(FALSE, TRUE)) {
+            want <- do.call(f, c(pair, list(na.rm = narm)))
+            for (args in list(c(list(NULL), pair), c(pair, list(NULL)),
+                              list(pair[[1L]], NULL, pair[[2L]])))
+                stopifnot(identical(do.call(f, c(args, list(na.rm = narm))), want))
+        }
+    }, warning = function(w) stop(w))
 })
 
 cat("altsxp tests OK\n")

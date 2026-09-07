@@ -1837,13 +1837,16 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	}
 	else DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
-	ans = HashLookup(table, x, &data);
-	if (!alt_table && alt_valid != R_NilValue) {
-	    const int *pv = LOGICAL_RO(alt_valid);
-	    int *pa = INTEGER(ans);
-	    for (R_xlen_t i = 0; i < XLENGTH(x); i++)
-		if (!pv[i]) pa[i] = nmatch;
-	}
+        if (!alt_table && alt_valid != R_NilValue) {
+            /* Invalid converted positions have no element to read or hash.
+               The class's validity mask excludes them from lookup itself. */
+            PROTECT(ans = allocVector(INTSXP, XLENGTH(x))); nprot++;
+            const int *pv = LOGICAL_RO(alt_valid);
+            int *pa = INTEGER(ans);
+            for (R_xlen_t i = 0; i < XLENGTH(x); i++)
+                pa[i] = pv[i] ? Lookup(table, x, i, &data) : nmatch;
+        }
+        else ans = HashLookup(table, x, &data);
     }
     UNPROTECT(nprot);
     return ans;

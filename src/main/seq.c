@@ -147,13 +147,11 @@ static Rboolean seq_endpoint(SEXP x)
     case ALTSXP: case INTSXP: case LGLSXP:
 	return TRUE;
     case REALSXP: {
-	/* an endpoint with a fractional part is not a value of the class, and
-	   base R counts from it in doubles: 1.5:5 is 1.5 2.5 3.5 4.5.  Past
-	   2^53 a double is not an exact whole number either, so leave those
-	   to the ordinary path too. */
+        /* Fractional endpoints use the ordinary double sequence.  Integral
+           doubles remain exact values beyond 2^53, although their spacing
+           grows; the class determines whether a given one fits its domain. */
 	double d = asReal(x);
-	return (Rboolean) (R_FINITE(d) && d == floor(d) &&
-			   fabs(d) <= 9007199254740992.0);
+	return (Rboolean) (R_FINITE(d) && d == floor(d));
     }
     default:
 	return FALSE;

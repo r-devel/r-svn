@@ -49,14 +49,14 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    with R_altsxp_share_type() at the same width, and K_SHAREW tries to adopt
    it at a different one, which is the promise R can actually check. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_NONEW, K_MULTINA, K_MULTIPTR, K_MULTICMP, K_N };
+       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_NONEW, K_MULTINA, K_MULTIPTR, K_MULTICMP, K_VALIDMATCH, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
     1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
-    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1, 1, 1, 1, 1
+    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1, 1, 1, 1, 1, 1
 };
 
 static const char *const test_class_names[K_N] = {
@@ -64,7 +64,7 @@ static const char *const test_class_names[K_N] = {
     "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64",
     "shortfmt_byte", "share_byte", "share2_byte", "sharew_byte",
     "half_byte", "limitfmt_byte", "nonew_byte", "multina_byte", "multiptr_byte",
-    "multicmp_byte"
+    "multicmp_byte", "validmatch_byte"
 };
 
 static int test_kind(SEXP x)
@@ -228,6 +228,10 @@ test_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     R_xlen_t ncopy = test_ncopy(x, i, n);
     if (ncopy > GET_CHUNK) ncopy = GET_CHUNK;
     int kind = test_kind(x);
+    if (kind == K_VALIDMATCH)
+        for (R_xlen_t k = 0; k < ncopy; k++)
+            if (RAW(R_altrep_data1(x))[i + k] == 255)
+                error("read an invalid converted match position");
     for (R_xlen_t k = 0; k < ncopy; k++)
         buf[k] = (kind == K_MULTINA || kind == K_MULTIPTR || kind == K_MULTICMP) &&
             RAW(R_altrep_data1(x))[i + k] >= 254;
@@ -330,6 +334,23 @@ static SEXP test_half_coerce(SEXP proto, SEXP from)
         if (!R_FINITE(v) || v < 0 || v > 255 || v != (int) v)
             error("not a representable half-byte");
         RAW(data)[i] = (Rbyte) v;
+    }
+    SEXP ans = test_make(test_class(proto), data);
+    UNPROTECT(2);
+    return ans;
+}
+
+/* Invalid converted slots deliberately have no readable element. */
+static SEXP test_validmatch_coerce(SEXP proto, SEXP from, SEXP *valid)
+{
+    if (TYPEOF(from) != INTSXP) return NULL;
+    R_xlen_t n = XLENGTH(from);
+    SEXP data = PROTECT(allocVector(RAWSXP, n));
+    PROTECT(*valid = allocVector(LGLSXP, n));
+    for (R_xlen_t i = 0; i < n; i++) {
+        int v = INTEGER_ELT(from, i), ok = v >= 0 && v < 255;
+        RAW(data)[i] = ok ? (Rbyte) v : 255;
+        LOGICAL(*valid)[i] = ok;
     }
     SEXP ans = test_make(test_class(proto), data);
     UNPROTECT(2);
@@ -571,6 +592,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_NONEW] = install("altsxp_test_nonew");
     test_type_syms[K_MULTINA] = test_type_syms[K_MULTIPTR] =
         test_type_syms[K_MULTICMP] = install("altsxp_test_multina");
+    test_type_syms[K_VALIDMATCH] = install("altsxp_test_validmatch");
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -611,6 +633,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Compare_method(test_classes[K_HALF], test_compare);
     R_set_altsxp_Hash_method(test_classes[K_HALF], test_mod_hash);
     R_set_altsxp_Coerce_from_method(test_classes[K_HALF], test_half_coerce);
+    R_set_altsxp_Coerce_for_match_method(test_classes[K_VALIDMATCH], test_validmatch_coerce);
     R_set_altsxp_Format_method(test_classes[K_LIMITFMT], test_limit_format);
     R_set_altsxp_Compare_method(test_classes[K_MULTICMP], test_compare);
     R_set_altvec_Dataptr_or_null_method(test_classes[K_MULTIPTR],

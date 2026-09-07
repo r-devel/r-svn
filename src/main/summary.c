@@ -653,7 +653,7 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (TAG(a) == R_NaRmSymbol)
 		continue;
 	    switch (TYPEOF(CAR(a))) {
-	    case RAWSXP: case LGLSXP: case INTSXP:
+	    case NILSXP: case RAWSXP: case LGLSXP: case INTSXP:
 		break;
 	    case ALTSXP:
 		if (proto == NULL)
