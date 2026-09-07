@@ -3004,6 +3004,20 @@ if (length(dll.paths)) local({
     options(old.max)
     stopifnot(counts(v)[1L] - before == 10L)
 
+    for (make in list(as.int64, as.uint64)) {
+        v <- make(1:3)
+        ref <- call.test("C_altsxp_test_retain_pointer", v)
+        stopifnot(!anyNA(v), !is.unsorted(v))
+        call.test("C_altsxp_test_write_pointer", ref, make(NA))
+        stopifnot(anyNA(v), identical(is.na(v), c(TRUE, FALSE, FALSE)))
+        call.test("C_altsxp_test_write_pointer", ref, make(1L))
+        stopifnot(!anyNA(v), !is.unsorted(v))
+        call.test("C_altsxp_test_write_pointer", ref, make(9L))
+        stopifnot(is.unsorted(v), identical(as.integer(sort(v)), c(2L, 3L, 9L)))
+        call.test("C_altsxp_test_write_pointer", ref, make(1L))
+        stopifnot(!is.unsorted(v))
+    }
+
     set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
     for (v in list(as.int64(1:5), as.uint64(1:5))) {
         stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness
@@ -3447,6 +3461,38 @@ local({
         stopifnot(is.na(scan(text = "N.A", what = make(), dec = ",",
                              na.strings = "N.A", quiet = TRUE)))
     }
+})
+
+## Parallel extrema compare signed candidates and NA before conversion.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            x <- as.uint64(c(1L, 3L), na = nullable)
+            stopifnot(identical(pmax(x, -1L), x), identical(pmax(-1L, x), x),
+                      identical(pmax(x, NA_integer_, na.rm = TRUE), x),
+                      identical(pmin(NA_integer_, x, na.rm = TRUE), x),
+                      identical(pmax(-1L, NA_integer_, x, na.rm = TRUE), x),
+                      identical(pmin(x, c(2L, NA_integer_), na.rm = TRUE), x),
+                      identical(as.integer(pmax(x, c(2L, 0L))), c(2L, 3L)))
+        }
+        lo <- as.int64("-9223372036854775808", na = FALSE)
+        stopifnot(identical(as.integer(pmax(lo, as.int64(1L))), 1L))
+    }, warning = function(w) stop(w))
+})
+
+## Ordinary integer and logical operands share the mixed distance path.
+local({
+    for (make in list(as.int64, as.uint64))
+        for (pair in list(list(make(1L), 2L), list(make(0L), TRUE)))
+            for (p in list(pair, rev(pair))) {
+                args <- c(p, list(check.attributes = FALSE, check.class = FALSE,
+                                  scale = 1, giveErr = TRUE))
+                f <- if(is.logical(p[[1L]])) all.equal.numeric else all.equal
+                ans <- do.call(f, c(args, list(tolerance = 2)))
+                stopifnot(isTRUE(ans), identical(attr(ans, "err"), 1))
+                ans <- do.call(f, c(args, list(tolerance = 0)))
+                stopifnot(!isTRUE(ans), identical(attr(ans, "err"), 1))
+            }
 })
 
 cat("altsxp tests OK\n")

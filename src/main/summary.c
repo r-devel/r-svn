@@ -1526,6 +1526,45 @@ static SEXP PmaxAltsxpArg(SEXP proto, SEXP u, SEXP call)
     return v;
 }
 
+/* Keep candidates in their source domains until a winner has been chosen. */
+static int pmin_missing(SEXP x, R_xlen_t i)
+{
+    int na;
+    if (TYPEOF(x) == ALTSXP) R_altsxp_is_na_region(x, i, 1, &na);
+    else na = INTEGER_ELT(x, i) == NA_INTEGER;
+    return na;
+}
+
+static SEXP pmin_element(SEXP x, R_xlen_t i)
+{
+    if (TYPEOF(x) != ALTSXP) return ScalarInteger(INTEGER_ELT(x, i));
+    SEXP one = PROTECT(R_allocVectorLike(x, 1, FALSE));
+    R_altsxp_copy_region(one, 0, x, i, 1);
+    UNPROTECT(1);
+    return one;
+}
+
+static bool pmin_better(SEXP call, SEXP x, R_xlen_t i, SEXP y, R_xlen_t j, int max)
+{
+    if (TYPEOF(x) == ALTSXP && TYPEOF(y) == ALTSXP) {
+        int cmp = ALTSXP_COMPARE(x, i, y, j);
+        return max ? cmp > 0 : cmp < 0;
+    }
+    if (TYPEOF(x) != ALTSXP && TYPEOF(y) != ALTSXP)
+        return max ? INTEGER_ELT(x, i) > INTEGER_ELT(y, j)
+                   : INTEGER_ELT(x, i) < INTEGER_ELT(y, j);
+    SEXP a = PROTECT(pmin_element(x, i));
+    SEXP b = PROTECT(pmin_element(y, j));
+    SEXP cmp = ALTSXP_RELOP(call, R_Primitive(max ? ">" : "<"), a, b);
+    if (cmp == NULL) errorcall(call, _("comparison of these types is not implemented"));
+    PROTECT(cmp);
+    if (TYPEOF(cmp) != LGLSXP || XLENGTH(cmp) != 1 || LOGICAL(cmp)[0] == NA_LOGICAL)
+        errorcall(call, _("invalid comparison result in summary"));
+    bool better = LOGICAL(cmp)[0];
+    UNPROTECT(3);
+    return better;
+}
+
 /* op = 0 is pmin, op = 1 is pmax
    NULL and logicals are handled as if they had been coerced to integer.
  */
@@ -1615,33 +1654,35 @@ attribute_hidden SEXP do_pmin(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     SEXP ans;
     if (anstype == ALTSXP) {
-	/* An opaque element has no C type this switch could read, so the
-	   class moves whole elements and answers the comparisons; the NA
-	   tests below are the base arms', with Is_na_region in place of the
-	   type's own sentinel. */
-	PROTECT(ans = R_allocVectorLike(proto, len, FALSE));
-
-	PROTECT(x = PmaxAltsxpArg(proto, CAR(args), call));
-	R_altsxp_recycle_region(ans, 0, x, len);
-	UNPROTECT(1);
-
-	for(a = CDR(args); a != R_NilValue; a = CDR(a)) {
-	    PROTECT(x = PmaxAltsxpArg(proto, CAR(a), call));
-	    n = XLENGTH(x);
-	    for(i = 0, i1 = 0; i < len; i++, i1++) {
-		if (i1 == n) i1 = 0;
-		int na_ans = 0, na_x = 0;
-		R_altsxp_is_na_region(ans, i, 1, &na_ans);
-		R_altsxp_is_na_region(x, i1, 1, &na_x);
-		int cmp = (na_ans || na_x) ? 0 : ALTSXP_COMPARE(x, i1, ans, i);
-		if ((narm && na_ans) ||
-		    (!na_ans && !na_x &&
-		     (PRIMVAL(op) == 1 ? cmp > 0 : cmp < 0)) ||
-		    (!narm && na_x))
-		    R_altsxp_copy_region(ans, i, x, i1, 1);
-	    }
-	    UNPROTECT(1);
-	}
+        /* Compare unconverted candidates, including their original NA
+           domains.  Only the selected element must fit the result domain. */
+        PROTECT(ans = R_allocVectorLike(proto, len, FALSE));
+        for (i = 0; i < len; i++) {
+            if (i % 1000000 == 0) R_CheckUserInterrupt();
+            SEXP best = CAR(args);
+            R_xlen_t bi = i % XLENGTH(best);
+            int best_na = pmin_missing(best, bi);
+            for (a = CDR(args); a != R_NilValue; a = CDR(a)) {
+                x = CAR(a);
+                R_xlen_t xi = i % XLENGTH(x);
+                int na = pmin_missing(x, xi);
+                if ((narm && best_na) || (!narm && na) ||
+                    (!best_na && !na && pmin_better(call, x, xi, best, bi, PRIMVAL(op)))) {
+                    best = x;
+                    bi = xi;
+                    best_na = na;
+                }
+            }
+            if (TYPEOF(best) == ALTSXP &&
+                (!R_altsxp_nullable(proto) || R_altsxp_nullable(best)))
+                R_altsxp_copy_region(ans, i, best, bi, 1);
+            else {
+                SEXP one = PROTECT(pmin_element(best, bi));
+                SEXP converted = PROTECT(PmaxAltsxpArg(proto, one, call));
+                R_altsxp_copy_region(ans, i, converted, 0, 1);
+                UNPROTECT(2);
+            }
+        }
 
 	UNPROTECT(1); /* ans */
 	return ans;

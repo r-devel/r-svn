@@ -2147,7 +2147,7 @@ static SEXP UInt64Symbol = NULL;
 #define I64_DATA(x) R_altrep_data1(x)
 #define I64_META(x) R_altrep_data2(x)
 
-enum { I64_SORTED = 0, I64_NO_NA, I64_NULLABLE_FIELD, I64_META_N };
+enum { I64_SORTED = 0, I64_NO_NA, I64_NULLABLE_FIELD, I64_WRITABLE, I64_META_N };
 
 /* I64_NO_NA is three-valued, so that a vector known to *contain* an NA is
    not rescanned either: a scan that finds one is as final an answer as a
@@ -2230,6 +2230,7 @@ static SEXP i64_alloc(SEXP proto, R_xlen_t n, Rboolean zeroinit)
     if (zeroinit && n > 0)
 	memset(RAW(data), 0, (size_t) n * sizeof(int64_t));
     SEXP meta = PROTECT(allocVector(INTSXP, I64_META_N));
+    INTEGER(meta)[I64_WRITABLE] = FALSE;
     INTEGER(meta)[I64_SORTED] = UNKNOWN_SORTEDNESS;
     INTEGER(meta)[I64_NO_NA] = I64_NA_UNKNOWN;
     INTEGER(meta)[I64_NULLABLE_FIELD] = ALTREP(proto) ? I64_NULLABLE(proto) : 1;
@@ -2774,12 +2775,13 @@ static Rboolean i64_Inspect(SEXP x, int pre, int deep, int pvec,
     return TRUE;
 }
 
-/* The payload is the object: no shadow copy, so no coherency problem.  A
-   writable pointer invalidates what we cached about the contents. */
+/* A consumer can retain this pointer and mutate after a metadata query.
+   Once exposed, writable storage therefore cannot carry cached answers. */
 static void *i64_Dataptr(SEXP x, Rboolean writable)
 {
     if (writable) {
 	int *m = INTEGER(I64_META(x));
+        m[I64_WRITABLE] = TRUE;
 	m[I64_SORTED] = UNKNOWN_SORTEDNESS;
 	m[I64_NO_NA] = I64_NA_UNKNOWN;
     }
@@ -3080,6 +3082,11 @@ static SEXP i64_Coerce_from(SEXP proto, SEXP from)
 static int i64_Is_sorted(SEXP x)
 {
     int *m = INTEGER(I64_META(x));
+    if (m[I64_WRITABLE]) {
+        /* Retain the last answer for inspection, but never reuse it. */
+        m[I64_SORTED] = UNKNOWN_SORTEDNESS;
+        m[I64_NO_NA] = I64_NA_UNKNOWN;
+    }
     if (m[I64_SORTED] != UNKNOWN_SORTEDNESS)
 	return m[I64_SORTED];
     /* an NA anywhere makes the answer unknown, and that will not change
@@ -3114,6 +3121,11 @@ static int i64_Is_sorted(SEXP x)
 static int i64_No_NA(SEXP x)
 {
     int *m = INTEGER(I64_META(x));
+    if (m[I64_WRITABLE]) {
+        /* Retain the last answer for inspection, but never reuse it. */
+        m[I64_SORTED] = UNKNOWN_SORTEDNESS;
+        m[I64_NO_NA] = I64_NA_UNKNOWN;
+    }
     if (m[I64_NO_NA] != I64_NA_UNKNOWN)
 	return m[I64_NO_NA] == I64_NA_ABSENT;
 

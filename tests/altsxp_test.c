@@ -390,6 +390,23 @@ static SEXP test_set_na(SEXP x, SEXP i, SEXP n)
     return ScalarReal((double) set);
 }
 
+/* Retain a writable pointer across separate R metadata queries. */
+static SEXP test_retain_pointer(SEXP x)
+{
+    return R_MakeExternalPtr(DATAPTR_RW(x), R_NilValue, x);
+}
+
+static SEXP test_write_pointer(SEXP ref, SEXP value)
+{
+    void *ptr = R_ExternalPtrAddr(ref);
+    if (!ptr || XLENGTH(value) != 1 || ALTSXP_ELT_SIZE(value) != sizeof(int64_t))
+        error("invalid pointer test argument");
+    int64_t bits;
+    R_altsxp_get_region(value, 0, 1, &bits);
+    memcpy(ptr, &bits, sizeof(bits));
+    return R_NilValue;
+}
+
 static SEXP test_as_list_vmax(SEXP x)
 {
     const void *before = vmaxget();
@@ -513,6 +530,8 @@ static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_contents", (DL_FUNC) &test_contents, 1},
     {"C_altsxp_test_counts", (DL_FUNC) &test_counts, 1},
     {"C_altsxp_test_copy", (DL_FUNC) &test_copy, 4},
+    {"C_altsxp_test_retain_pointer", (DL_FUNC) &test_retain_pointer, 1},
+    {"C_altsxp_test_write_pointer", (DL_FUNC) &test_write_pointer, 2},
     {"C_altsxp_test_set_na", (DL_FUNC) &test_set_na, 3},
     {"C_altsxp_test_as_list_vmax", (DL_FUNC) &test_as_list_vmax, 1},
     {"C_altsxp_test_register_type", (DL_FUNC) &test_register_type, 1},

@@ -181,16 +181,19 @@ all.equal.numeric <-
         delta[i] <- distance(current[i], target[i])
         target <- as.double(target)
     } else if(!cplx &&
-              ((typeof(target) %in% c("int64", "uint64") && is.double(current)) ||
-               (typeof(current) %in% c("int64", "uint64") && is.double(target)))) {
-        a <- if(is.double(target)) current else target
-        b <- if(is.double(target)) target else current
+              ((typeof(target) %in% c("int64", "uint64") &&
+                typeof(current) %in% c("double", "integer", "logical")) ||
+               (typeof(current) %in% c("int64", "uint64") &&
+                typeof(target) %in% c("double", "integer", "logical")))) {
+        exact.target <- typeof(target) %in% c("int64", "uint64")
+        a <- if(exact.target) target else current
+        b <- as.double(if(exact.target) current else target)
         ad <- as.double(a)
         delta <- abs(ad - b)
         ## Every quotient fits exactly in a double.  For large integers,
         ## subtract the high parts before adding the low integer remainder;
         ## nearby operands then retain differences below the double spacing.
-        i <- which(abs(ad) > 2^53 | abs(ad) == 2^53)
+        i <- which(abs(ad) >= 2^53)
         delta[i] <- abs((4096 * as.double(a[i] %/% 4096L) - b[i]) +
                         as.double(a[i] %% 4096L))
         target <- as.double(target)
