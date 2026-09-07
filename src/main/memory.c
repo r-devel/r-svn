@@ -507,6 +507,8 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 /* Miscellaneous Globals. */
 
 static SEXP R_VStack = NULL;		/* R_alloc stack pointer */
+static SEXP *vmaxstack = NULL;		/* vmax protection stack */
+static R_xlen_t vmaxstacksize = 0;
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;
@@ -1827,6 +1829,9 @@ static int RunGenCollect(R_size_t size_needed)
     for (i = 0; i < R_PPStackTop; i++)	   /* Protected pointers */
 	FORWARD_NODE(R_PPStack[i]);
 
+    for (R_xlen_t a = 0; a < vmaxtop; a++) /* vmax-protected objects */
+	FORWARD_NODE(vmaxstack[a]);
+
     FORWARD_NODE(R_VStack);		   /* R_alloc stack */
 
     for (R_bcstack_t *sp = R_BCNodeStackBase; sp < R_BCNodeStackTop; sp++) {
@@ -2304,18 +2309,71 @@ attribute_hidden void InitMemory(void)
     MARK_NOT_MUTABLE(R_LogicalNAValue);
 }
 
+/* The vmax protection stack keeps objects alive for the vmax scope:
+   an object passed to vmaxprotect() lives at least as long as R_alloc
+   memory obtained at the same point would, the lifetime callers
+   already respect for translateChar() results.  It is a GC root like
+   R_PPStack, but entries are released by scope rather than by count:
+   the builtin/special dispatch in eval.c and contexts save and restore
+   vmaxtop as they do R_PPStackTop, and vmaxset() releases what was
+   protected since the matching vmaxget() when it can tell (see below).
+   Nothing is allocated on the R heap.  ALTSTRING_ELT() uses it for
+   Elt results that nothing else may reference. */
+
+attribute_hidden void vmaxprotect(SEXP s)
+{
+    /* the same object is commonly protected several times in a row */
+    if (vmaxtop > 0 && vmaxstack[vmaxtop - 1] == s)
+	return;
+
+    if (vmaxtop >= vmaxstacksize) {
+	R_xlen_t newsize = vmaxstacksize ? 2 * vmaxstacksize : 1024;
+	SEXP *stack = realloc(vmaxstack, newsize * sizeof(SEXP));
+	if (stack == NULL)
+	    error(_("cannot grow the vmax protection stack"));
+	vmaxstack = stack;
+	vmaxstacksize = newsize;
+    }
+    vmaxstack[vmaxtop++] = s;
+}
+
+/* Release the entries above 'top'.  The top is never raised, as the
+   slots above it are stale. */
+attribute_hidden void vmaxrelease(R_xlen_t top)
+{
+    if (top < vmaxtop)
+	vmaxtop = top;
+}
+
 /* Since memory allocated from the heap is non-moving, R_alloc just
    allocates off the heap as RAWSXP/REALSXP and maintains the stack of
    allocations through the ATTRIB pointer.  The stack pointer R_VStack
-   is traced by the collector. */
+   is traced by the collector.
+
+   vmaxget() also remembers the protection stack depth for the handle
+   it hands out, and vmaxset() releases the objects protected since then
+   when given that handle back.  Only the most recent vmaxget() is
+   remembered, so an inner vmaxget() that got the same handle (nothing
+   was R_alloc'ed in between) leaves the outer vmaxset() unable to
+   release: those objects are then released by the enclosing builtin
+   dispatch or context instead.  A later vmaxget() can only have
+   recorded a depth at least as large, so an object protected before
+   a scope began is never released by that scope's vmaxset(). */
+static const void *vmaxlast = NULL;
+static R_xlen_t vmaxlasttop = 0;
+
 void *vmaxget(void)
 {
+    vmaxlast = R_VStack;
+    vmaxlasttop = vmaxtop;
     return (void *) R_VStack;
 }
 
 void vmaxset(const void *ovmax)
 {
     R_VStack = (SEXP) ovmax;
+    if (ovmax == vmaxlast)
+	vmaxrelease(vmaxlasttop);
 }
 
 char *R_alloc(size_t nelem, int eltsize)

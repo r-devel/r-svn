@@ -1427,6 +1427,7 @@ typedef struct RCNTXT {
     void (*cend)(void *);	/* C "on.exit" thunk */
     void *cenddata;		/* data for C "on.exit" thunk */
     void *vmax;		        /* top of R_alloc stack */
+    R_xlen_t vmaxtop;		/* vmaxtop value */
     int intsusp;                /* interrupts are suspended */
     int gcenabled;		/* R_GCEnabled value */
     int bcintactive;            /* R_BCIntActive value */
@@ -1586,6 +1587,9 @@ extern0 int	R_Is_Running;	    /* for Windows memory manager */
 LibExtern int	R_PPStackSize	INI_as(R_PPSSIZE); /* The stack size (elements) */
 LibExtern int	R_PPStackTop;	    /* The top of the stack */
 LibExtern SEXP*	R_PPStack;	    /* The pointer protection stack */
+
+/* The vmax protection stack (see memory.c) */
+extern0 R_xlen_t vmaxtop INI_as(0); /* The top of the stack */
 
 void R_ReleaseMSet(SEXP mset, int keepSize);
 
@@ -2377,6 +2381,8 @@ Rboolean R_SetMaxNSize(R_size_t);
 R_size_t R_Decode2Long(char *p, int *ierr);
 void R_SetPPSize(R_size_t);
 void R_SetNconn(int);
+void vmaxprotect(SEXP);
+void vmaxrelease(R_xlen_t);
 
 void R_expand_binding_value(SEXP);
 #ifdef IMMEDIATE_PROMISE_VALUES
