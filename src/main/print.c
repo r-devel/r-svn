@@ -935,88 +935,59 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case VECSXP:
 	PrintGenericVector(s, data); /* handles attributes/slots */
 	goto done;
-    case ALTSXP:
-	/* An ALTSXP has no printable element type of its own, so ask the
-	   class to render itself.  A class with no Format method still gets
-	   a usable summary line rather than an "unimplemented type" error. */
-	{
-	    R_xlen_t n_ = XLENGTH(s);
-	    SEXP fmt = ALTSXP_FORMAT(s, 0, n_);
-	    /* protect before the Rprintf(): output to a text connection can
-	       allocate, and fmt is not reachable from anywhere else */
-	    PROTECT_INDEX fpi;
-	    PROTECT_WITH_INDEX(fmt == NULL ? R_NilValue : fmt, &fpi);
-	    SEXP et = ALTSXP_ELT_TYPE(s);
-	    Rprintf("<%s[%lld]>\n",
-		    et == R_NilValue ? "altrep" : CHAR(PRINTNAME(et)),
-		    (long long) n_);
-	    if (fmt != NULL) {
-		/* the rendering carries the shape, so an opaque matrix or
-		   array prints as one rather than as a flat vector */
-		PROTECT(t = getAttrib(s, R_DimSymbol));
-
-		/* A matrix or array is laid out column by column by its own
-		   printer, as the base numeric types are, so its rendering is
-		   handed over unpadded; padding to one width across the whole
-		   slice first would print every column at the width of the
-		   widest cell.  A vector does take one common width. */
-		Rboolean shaped = TYPEOF(t) == INTSXP && LENGTH(t) > 1;
-		REPROTECT(fmt = R_altsxp_format_common(fmt, shaped, 0), fpi);
-
-		if (TYPEOF(t) == INTSXP && LENGTH(t) == 1) {
-		    /* as for the base types: a 1-D array is labelled by its
-		       dimnames, and the name of that dimnames element is a
-		       title above them.  getAttrib() already answers the
-		       labels for R_NamesSymbol here, but not the title. */
-		    const void *vmax = vmaxget();
-		    SEXP dn = PROTECT(getAttrib(s, R_DimNamesSymbol));
-		    if (dn != R_NilValue && VECTOR_ELT(dn, 0) != R_NilValue) {
-			SEXP nn = getAttrib(dn, R_NamesSymbol);
-			const char *title = isNull(nn) ? NULL
-			    : translateChar(STRING_ELT(nn, 0));
-			printNamedVector(fmt, VECTOR_ELT(dn, 0), 0, title);
-		    }
-		    else if (n_ > 0)
-			printVector(fmt, 1, 0);
-		    UNPROTECT(1); /* dn */
-		    vmaxset(vmax);
-		}
-		else if (TYPEOF(t) == INTSXP && LENGTH(t) > 1) {
-		    SEXP dnms = PROTECT(getAttrib(s, R_DimNamesSymbol));
-		    setAttrib(fmt, R_DimSymbol, t);
-		    setAttrib(fmt, R_DimNamesSymbol, dnms);
-		    UNPROTECT(1); /* dnms */
-		    if (LENGTH(t) == 2) {
-			SEXP rl, cl;
-			const char *rn, *cn;
-			GetMatrixDimnames(fmt, &rl, &cl, &rn, &cn);
-			/* the rendering is numeric-looking, so right-justify */
-			printMatrix(fmt, 0, t, 0, 1, rl, cl, rn, cn);
-		    }
-		    else {
-			SEXP dimnames = PROTECT(GetArrayDimnames(fmt));
-			printArray(fmt, t, 0, 1, dimnames);
-			UNPROTECT(1);
-		    }
-		}
-		else if (n_ > 0) {
-		    SEXP nms = getAttrib(s, R_NamesSymbol);
-		    if (nms != R_NilValue)
-			printNamedVector(fmt, nms, 0, NULL);
-		    else
-			printVector(fmt, 1, 0);
-		}
-		/* Nothing more for an empty vector: the header already gave
-		   the type and the length, which is all "integer(0)" says
-		   for an ordinary one.  The vector printers would announce
-		   the *rendering* instead, as "character(0)".  A zero-extent
-		   array still takes the branch above, which prints its
-		   margins. */
-		UNPROTECT(1); /* t */
-	    }
-	    UNPROTECT(1); /* fmt */
-	}
-	break;
+    case ALTSXP: {
+        R_xlen_t n = XLENGTH(s);
+        PROTECT(t = getAttrib(s, R_DimSymbol));
+        Rboolean shaped = TYPEOF(t) == INTSXP && LENGTH(t) > 1;
+        R_xlen_t n_pr = n <= (R_xlen_t) R_print.max + 1 ? n : R_print.max;
+        /* A shaped object is formatted by the matrix/array printer, which
+           knows the displayed rows and columns.  An empty request checks
+           whether the class offers formatting without materializing it. */
+        SEXP fmt = ALTSXP_FORMAT(s, 0, shaped ? 0 : n_pr);
+        PROTECT_INDEX fpi;
+        PROTECT_WITH_INDEX(fmt == NULL ? R_NilValue : fmt, &fpi);
+        SEXP et = ALTSXP_ELT_TYPE(s);
+        Rprintf("<%s[%lld]>\n",
+                et == R_NilValue ? "altrep" : CHAR(PRINTNAME(et)),
+                (long long) n);
+        if (fmt != NULL) {
+            if (shaped) {
+                if (LENGTH(t) == 2) {
+                    SEXP rl, cl;
+                    const char *rn, *cn;
+                    GetMatrixDimnames(s, &rl, &cl, &rn, &cn);
+                    printMatrix(s, 0, t, 0, 1, rl, cl, rn, cn);
+                } else {
+                    SEXP dn = PROTECT(GetArrayDimnames(s));
+                    printArray(s, t, 0, 1, dn);
+                    UNPROTECT(1);
+                }
+            } else {
+                REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
+                if (TYPEOF(t) == INTSXP && LENGTH(t) == 1) {
+                    const void *vmax = vmaxget();
+                    SEXP dn = PROTECT(getAttrib(s, R_DimNamesSymbol));
+                    if (dn != R_NilValue && VECTOR_ELT(dn, 0) != R_NilValue) {
+                        SEXP nn = getAttrib(dn, R_NamesSymbol);
+                        const char *title = isNull(nn) ? NULL
+                            : translateChar(STRING_ELT(nn, 0));
+                        printNamedVector(fmt, VECTOR_ELT(dn, 0), 0, title);
+                    } else if (n_pr > 0) printVector(fmt, 1, 0);
+                    UNPROTECT(1);
+                    vmaxset(vmax);
+                } else if (n_pr > 0) {
+                    SEXP nms = getAttrib(s, R_NamesSymbol);
+                    if (nms != R_NilValue) printNamedVector(fmt, nms, 0, NULL);
+                    else printVector(fmt, 1, 0);
+                }
+                if (n_pr < n)
+                    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
+                            (long long) (n - n_pr));
+            }
+        }
+        UNPROTECT(2); /* fmt, t */
+        break;
+    }
     case LISTSXP:
 	printList(s, data);
 	break;

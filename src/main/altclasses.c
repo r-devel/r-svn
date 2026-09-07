@@ -2347,6 +2347,34 @@ static Rboolean i64_from_double(double v, int uns, int64_t *out)
     return TRUE;
 }
 
+/* Read decimal integer spellings before trying double, which cannot retain
+   all 64-bit digits.  Matching additionally needs to know about truncation. */
+static Rboolean i64_parse_string(const char *q, int uns, int64_t *out,
+                                 Rboolean *exact)
+{
+    while (isspace((unsigned char) *q)) q++;
+    char *end;
+    errno = 0;
+    Rboolean ok;
+    if (uns) {
+        if (*q == '-') ok = FALSE;
+        else {
+            *out = (int64_t) strtoull(q, &end, 10);
+            ok = end != q && isBlankString(end) && errno != ERANGE;
+        }
+    } else {
+        *out = (int64_t) strtoll(q, &end, 10);
+        ok = end != q && isBlankString(end) && errno != ERANGE;
+    }
+    *exact = ok;
+    if (!ok) {
+        double d = R_strtod(q, &end);
+        ok = end != q && isBlankString(end) && i64_from_double(d, uns, out);
+        *exact = ok && R_FINITE(d) && d == floor(d);
+    }
+    return ok;
+}
+
 static SEXP i64_from(SEXP x, int uns, int nullable);
 
 /* PROTECT at the call site.  An operand that is not already of this class is
@@ -2439,36 +2467,8 @@ static SEXP i64_from(SEXP x, int uns, int nullable)
 		continue;
 	    }
 
-	    /* the same leading and trailing whitespace as as.integer(), so
-	       that a column of blank-padded numbers reads the same way */
-	    const char *q = cs;
-	    char *end;
-	    while (isspace((unsigned char) *q)) q++;
-
-	    errno = 0;
-	    Rboolean ok;
-	    if (uns) {
-		/* strtoull() silently wraps a negative literal */
-		uint64_t v = (*q == '-') ? 0 : (uint64_t) strtoull(q, &end, 10);
-		out[i] = (int64_t) v;
-		ok = (*q != '-' && end != q && isBlankString(end) &&
-		      errno != ERANGE);
-	    }
-	    else {
-		out[i] = (int64_t) strtoll(q, &end, 10);
-		ok = (end != q && isBlankString(end) && errno != ERANGE);
-	    }
-
-	    /* strtoll() reads a plain decimal exactly over the whole 64-bit
-	       range, which is the point of doing it first -- a double cannot.
-	       Anything it will not take, "1e15" and "1.5" and "0x10" among
-	       them, is then read the way as.integer() reads it.  Without this
-	       R could not read back a 1e+15 that write.csv() had just
-	       written. */
-	    if (! ok) {
-		double d = R_strtod(q, &end);
-		ok = isBlankString(end) && i64_from_double(d, uns, &out[i]);
-	    }
+            Rboolean exact;
+            Rboolean ok = i64_parse_string(cs, uns, &out[i], &exact);
 
 	    if (! ok || (nullable && out[i] == na)) {
 		out[i] = na;
@@ -2541,6 +2541,139 @@ static SEXP i64_from(SEXP x, int uns, int nullable)
     }
 
     UNPROTECT(1);
+    return ans;
+}
+
+/* Matching keeps validity outside the element domain.  In particular, the
+   full-range INT64_MIN datum must not be replaced with a nullable NA. */
+static SEXP i64_Coerce_for_match(SEXP proto, SEXP x, SEXP *valid)
+{
+    int type = TYPEOF(x);
+    if (type != RAWSXP && type != LGLSXP && type != INTSXP &&
+        type != REALSXP && type != STRSXP) return NULL;
+    int uns = i64_unsigned(proto), nullable = I64_NULLABLE(proto), warn = FALSE;
+    int64_t na = uns ? (int64_t) NA_UINT64 : NA_INT64;
+    R_xlen_t n = XLENGTH(x);
+    SEXP ans = PROTECT(i64_alloc(proto, n, FALSE));
+    PROTECT_INDEX vpi;
+    PROTECT_WITH_INDEX(*valid = R_NilValue, &vpi);
+    int64_t *out = i64_data(ans);
+    for (R_xlen_t i = 0; i < n; i++) {
+        Rboolean missing = FALSE, ok = TRUE, exact = TRUE, nan = FALSE;
+        int64_t v = na;
+        switch (type) {
+        case RAWSXP: v = RAW_ELT(x, i); break;
+        case LGLSXP: case INTSXP:
+            v = INTEGER_ELT(x, i);
+            missing = v == NA_INTEGER;
+            if (!missing && uns && v < 0) ok = FALSE;
+            break;
+        case REALSXP: {
+            double d = REAL_ELT(x, i);
+            missing = R_IsNA(d);
+            nan = R_IsNaN(d);
+            if (!missing && !nan) ok = i64_from_double(d, uns, &v);
+            exact = R_FINITE(d) && d == floor(d);
+            break;
+        }
+        case STRSXP: {
+            SEXP str = STRING_ELT(x, i);
+            missing = str == NA_STRING;
+            if (!missing) {
+                const char *cs = CHAR(str);
+                if (isBlankString(cs)) exact = FALSE;
+                else ok = i64_parse_string(cs, uns, &v, &exact);
+            }
+            break;
+        }
+        }
+        if (!missing && !nan && (!ok || (exact && nullable && v == na)))
+            warn = TRUE;
+        Rboolean keep = missing ? nullable
+            : !nan && ok && exact && (!nullable || v != na);
+        out[i] = missing || !keep ? na : v;
+        if (!keep && *valid == R_NilValue) {
+            REPROTECT(*valid = allocVector(LGLSXP, n), vpi);
+            for (R_xlen_t j = 0; j < i; j++) LOGICAL(*valid)[j] = TRUE;
+        }
+        if (*valid != R_NilValue) LOGICAL(*valid)[i] = keep;
+    }
+    if (warn) warning(_("NAs introduced by coercion"));
+    UNPROTECT(2);
+    return ans;
+}
+
+/* Unsigned subtraction represents the distance between any two ordered
+   signed endpoints, including the entire signed domain.  Generate by repeated
+   addition of the step in unsigned arithmetic, so neither the distance nor an
+   offset has to fit in the result's signed element type. */
+static SEXP i64_Sequence(SEXP call, SEXP from, SEXP to, SEXP by)
+{
+    SEXP proto = TYPEOF(from) == ALTSXP ? from : to;
+    if (!i64_is(proto)) return NULL;
+    int uns = i64_unsigned(proto), nullable = I64_NULLABLE(proto);
+    if ((TYPEOF(from) == ALTSXP && (!i64_is(from) || i64_unsigned(from) != uns)) ||
+        (TYPEOF(to) == ALTSXP && (!i64_is(to) || i64_unsigned(to) != uns)))
+        return NULL;
+    if (i64_is(from) && i64_is(to))
+        nullable = I64_NULLABLE(from) || I64_NULLABLE(to);
+
+    /* Validate the step before converting endpoints.  Fractional steps use
+       the ordinary double sequence implementation. */
+    uint64_t step = 1;
+    int step_down = FALSE;
+    if (by != NULL) {
+        if (i64_is(by)) {
+            int64_t v = i64_data(by)[0];
+            if (I64_NULLABLE(by) && v == (i64_unsigned(by) ? (int64_t) NA_UINT64 : NA_INT64))
+                errorcall(call, _("invalid '(to - from)/by'"));
+            step_down = !i64_unsigned(by) && v < 0;
+            step = step_down ? 0 - (uint64_t) v : (uint64_t) v;
+        } else {
+            if (TYPEOF(by) != INTSXP && TYPEOF(by) != LGLSXP && TYPEOF(by) != REALSXP)
+                return NULL;
+            double d = asReal(by);
+            if (!R_FINITE(d) || d != floor(d) || fabs(d) >= 18446744073709551616.0)
+                return NULL;
+            step_down = d < 0;
+            step = (uint64_t) fabs(d);
+        }
+        if (step == 0) return NULL;
+    }
+    SEXP a = PROTECT(i64_materialize(from, uns, nullable));
+    SEXP b = PROTECT(i64_materialize(to, uns, nullable));
+    int64_t av = i64_data(a)[0], bv = i64_data(b)[0];
+    if ((I64_NULLABLE(a) && av == (uns ? (int64_t) NA_UINT64 : NA_INT64)) ||
+        (I64_NULLABLE(b) && bv == (uns ? (int64_t) NA_UINT64 : NA_INT64))) {
+        UNPROTECT(2);
+        return NULL; /* preserve the caller's missing-endpoint diagnostic */
+    }
+    int cmp = i64_cmp(av, bv, uns), down = cmp > 0;
+    if (by == NULL) step_down = down;
+    if (cmp != 0 && step_down != down)
+        errorcall(call, _("wrong sign in 'by' argument"));
+    uint64_t distance = down ? (uint64_t) av - (uint64_t) bv
+        : (uint64_t) bv - (uint64_t) av;
+    uint64_t count = distance / step;
+    if (count >= (uint64_t) R_XLEN_T_MAX - 1)
+        errorcall(call, _("result would be too long a vector"));
+    R_xlen_t n = (R_xlen_t) count + 1;
+    SEXP ans = PROTECT(i64_alloc(proto, n, FALSE));
+    INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = nullable;
+    int64_t *out = i64_data(ans);
+    uint64_t value = (uint64_t) av;
+    for (R_xlen_t i = 0; i < n; i++) {
+        if (i % 1000000 == 0) R_CheckUserInterrupt();
+        /* Convert negative bit patterns without an out-of-range unsigned
+           to signed cast.  Unsigned payloads use the representation already
+           used throughout this class. */
+        out[i] = uns || value <= INT64_MAX ? (int64_t) value
+            : -1 - (int64_t) (UINT64_MAX - value);
+        if (nullable && out[i] == (uns ? (int64_t) NA_UINT64 : NA_INT64))
+            errorcall(call, _("sequence value is reserved for NA"));
+        value = step_down ? value - step : value + step;
+    }
+    UNPROTECT(3);
     return ans;
 }
 
@@ -3839,6 +3972,8 @@ static void InitOne64Class(R_altrep_class_t cls)
     R_set_altsxp_Relop_method(cls, i64_Relop);
     R_set_altsxp_Traits_method(cls, i64_Traits);
     R_set_altsxp_Coerce_from_method(cls, i64_Coerce_from);
+    R_set_altsxp_Coerce_for_match_method(cls, i64_Coerce_for_match);
+    R_set_altsxp_Sequence_method(cls, i64_Sequence);
     R_set_altsxp_Na_widen_method(cls, i64_Na_widen);
     R_set_altsxp_Sum_method(cls, i64_Sum);
     R_set_altsxp_Min_method(cls, i64_Min);

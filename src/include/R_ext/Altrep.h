@@ -225,6 +225,13 @@ typedef void (*R_altlist_Set_elt_method_t)(SEXP, R_xlen_t, SEXP);
  *   Coerce_from    build an object of this class from an ordinary R vector,
  *                  or return NULL.  This is what lets c() and x[i] <- v mix
  *                  an opaque vector with base types.
+ *   Coerce_for_match
+ *                  convert an ordinary matching operand with a separate
+ *                  validity mask, so rejected values need no NA placeholder
+ *                  in the element domain.  Optional; see the contract below.
+ *   Sequence       build a sequence from scalar endpoints and a step without
+ *                  requiring intermediate distances to fit in an element.
+ *                  Optional; NULL requests generic arithmetic.
  *   Na_widen       return an object with the same contents whose domain does
  *                  include NA, or NULL if the class has no such form.  R
  *                  calls this before an operation that must introduce NA
@@ -304,6 +311,18 @@ typedef SEXP (*R_altsxp_Arith_method_t)(SEXP, SEXP, SEXP, SEXP);
 typedef SEXP (*R_altsxp_Relop_method_t)(SEXP, SEXP, SEXP, SEXP);
 typedef unsigned int (*R_altsxp_Traits_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Coerce_from_method_t)(SEXP, SEXP);
+/* Coerce_for_match(proto, x, valid) returns an ALTSXP with x's length and
+   proto's element type.  It must preserve exact values in proto's domain;
+   *valid is R_NilValue for all valid entries, or a logical vector of x's
+   length (no NA).  Invalid positions are ignored, so they may hold any
+   placeholder, even when the domain has no NA.  Both outputs must remain
+   protected until the method returns.  NULL requests the generic conversion.
+   Sequence(call, from, to, by) receives scalar endpoints and a scalar step;
+   by == NULL requests a unit step toward to.  Return NULL to request the
+   generic arithmetic implementation.  A class may compute its distance and
+   count in a wider domain than its elements, avoiding intermediate overflow. */
+typedef SEXP (*R_altsxp_Coerce_for_match_method_t)(SEXP, SEXP, SEXP *);
+typedef SEXP (*R_altsxp_Sequence_method_t)(SEXP, SEXP, SEXP, SEXP);
 typedef SEXP (*R_altsxp_Na_widen_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Sum_method_t)(SEXP, Rboolean);
 typedef SEXP (*R_altsxp_Min_method_t)(SEXP, Rboolean);
@@ -449,6 +468,8 @@ DECLARE_METHOD_SETTER(altsxp, Arith)
 DECLARE_METHOD_SETTER(altsxp, Relop)
 DECLARE_METHOD_SETTER(altsxp, Traits)
 DECLARE_METHOD_SETTER(altsxp, Coerce_from)
+DECLARE_METHOD_SETTER(altsxp, Coerce_for_match)
+DECLARE_METHOD_SETTER(altsxp, Sequence)
 DECLARE_METHOD_SETTER(altsxp, Na_widen)
 DECLARE_METHOD_SETTER(altsxp, Sum)
 DECLARE_METHOD_SETTER(altsxp, Min)

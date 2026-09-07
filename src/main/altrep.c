@@ -226,6 +226,8 @@ static void SET_ALTREP_CLASS(SEXP x, SEXP class)
     R_altsxp_Relop_method_t Relop;			\
     R_altsxp_Traits_method_t Traits;			\
     R_altsxp_Coerce_from_method_t Coerce_from;	\
+    R_altsxp_Coerce_for_match_method_t Coerce_for_match;	\
+    R_altsxp_Sequence_method_t Sequence;		\
     R_altsxp_Na_widen_method_t Na_widen;		\
     R_altsxp_Sum_method_t Sum;			\
     R_altsxp_Min_method_t Min;			\
@@ -1826,6 +1828,39 @@ static SEXP altsxp_Math_default(SEXP call, SEXP op, SEXP x) { return NULL; }
 
 static SEXP altsxp_Deparse_default(SEXP x) { return NULL; }
 
+static SEXP altsxp_Coerce_for_match_default(SEXP x, SEXP y, SEXP *valid)
+{ return NULL; }
+
+static SEXP altsxp_Sequence_default(SEXP call, SEXP from, SEXP to, SEXP by)
+{ return NULL; }
+
+SEXP ALTSXP_COERCE_FOR_MATCH(SEXP x, SEXP other, SEXP *valid)
+{
+    SEXP ans = ALTSXP_DISPATCH(Coerce_for_match, x, other, valid);
+    if (ans == NULL) return NULL;
+    PROTECT(ans);
+    PROTECT(*valid);
+    if (!IS_ALTSXP(ans) || ALTSXP_ELT_TYPE(ans) != ALTSXP_ELT_TYPE(x) ||
+        ALTSXP_ELT_SIZE(ans) != ALTSXP_ELT_SIZE(x) ||
+        XLENGTH(ans) != XLENGTH(other))
+        ALTREP_ERROR_IN_CLASS("invalid result from Coerce_for_match", x);
+    if (*valid != R_NilValue) {
+        if (TYPEOF(*valid) != LGLSXP || XLENGTH(*valid) != XLENGTH(other))
+            ALTREP_ERROR_IN_CLASS("invalid validity mask from Coerce_for_match", x);
+        for (R_xlen_t i = 0; i < XLENGTH(*valid); i++)
+            if (LOGICAL_ELT(*valid, i) != FALSE && LOGICAL_ELT(*valid, i) != TRUE)
+                ALTREP_ERROR_IN_CLASS("invalid validity mask from Coerce_for_match", x);
+    }
+    UNPROTECT(2);
+    return ans;
+}
+
+SEXP ALTSXP_SEQUENCE(SEXP call, SEXP from, SEXP to, SEXP by)
+{
+    SEXP proto = IS_ALTSXP(from) ? from : to;
+    return ALTSXP_METHODS_TABLE(proto)->Sequence(call, from, to, by);
+}
+
 /* Generic subsetting: copy whole elements by index, filling NA where the
    subscript is NA or out of bounds. */
 static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
@@ -2185,6 +2220,8 @@ static altsxp_methods_t altsxp_default_methods = {
     .Relop = altsxp_Relop_default,
     .Traits = altsxp_Traits_default,
     .Coerce_from = altsxp_Coerce_from_default,
+    .Coerce_for_match = altsxp_Coerce_for_match_default,
+    .Sequence = altsxp_Sequence_default,
     .Na_widen = altsxp_Na_widen_default,
     .Sum = altsxp_Sum_default,
     .Min = altsxp_Min_default,
@@ -2368,6 +2405,8 @@ DEFINE_METHOD_SETTER(altsxp, Arith)
 DEFINE_METHOD_SETTER(altsxp, Relop)
 DEFINE_METHOD_SETTER(altsxp, Traits)
 DEFINE_METHOD_SETTER(altsxp, Coerce_from)
+DEFINE_METHOD_SETTER(altsxp, Coerce_for_match)
+DEFINE_METHOD_SETTER(altsxp, Sequence)
 DEFINE_METHOD_SETTER(altsxp, Na_widen)
 DEFINE_METHOD_SETTER(altsxp, Sum)
 DEFINE_METHOD_SETTER(altsxp, Min)

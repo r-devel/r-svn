@@ -182,6 +182,9 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     if (! seq_endpoint(from) || ! seq_endpoint(to))
 	return NULL;
 
+    SEXP direct = ALTSXP_SEQUENCE(call, from, to, by);
+    if (direct != NULL) return direct;
+
     /* Both endpoints are promoted into the class before any arithmetic runs.
        That is what makes the sequence exact for a mixed pair like
        1:as.int64(n) -- and it also keeps an ordinary operand away from

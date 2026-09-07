@@ -2946,6 +2946,37 @@ if (length(dll.paths)) local({
                                                             as.raw(1:2)))))
     gctorture(FALSE)
 
+    ## Fractional representations use their own coercion for matching and
+    ## incomparables, including the character spelling of a fraction.
+    half <- new.kind("half_byte", as.raw(c(1, 3, 1)))
+    stopifnot(identical(match(c(0.5, 1.5), half), c(1L, 2L)),
+              identical(match(half, c(0.5, 1.5)), c(1L, 2L, 1L)),
+              identical(match(half, half, incomparables = 0.5),
+                        c(NA_integer_, 2L, NA_integer_)),
+              identical(duplicated(half, incomparables = "0.5"),
+                        c(FALSE, FALSE, FALSE)))
+
+    ## max.print bounds Format requests for vectors, matrices, and arrays.
+    ## The byte class refuses any request larger than ten elements.
+    for (dims in list(NULL, 100L, c(20L, 5L), c(5L, 20L), c(5L, 2L, 10L))) {
+        v <- new.kind("limitfmt_byte", as.raw(rep(1:10, 10)))
+        if (!is.null(dims)) dim(v) <- dims
+        before <- counts(v)[1L]
+        out <- capture.output(print(v, max = 10L))
+        stopifnot(counts(v)[1L] - before == 10L,
+                  grepl("100", out[1L]), any(grepl("omitted", out)))
+    }
+    v <- new.kind("limitfmt_byte", as.raw(rep(1:10, 10)))
+    names(v) <- paste0("v", seq_along(v))
+    out <- capture.output(print(v, max = 10L))
+    stopifnot(counts(v)[1L] == 10L, any(grepl("omitted 90 entries", out)))
+    dim(v) <- c(20L, 5L)
+    old.max <- options(max.print = 10L)
+    before <- counts(v)[1L]
+    invisible(capture.output(prmatrix(v)))
+    options(old.max)
+    stopifnot(counts(v)[1L] - before == 10L)
+
     set.na <- function(x, i, n) call.test("C_altsxp_test_set_na", x, i, n)
     for (v in list(as.int64(1:5), as.uint64(1:5))) {
         stopifnot(!anyNA(v), !is.unsorted(v))    # caches no-NA and sortedness
@@ -3027,6 +3058,62 @@ local({
     assertError(seq.int(hi, lo, by = 1L))
     assertError(seq.int(lo, hi, by = -1L))
     assertError(seq.int(as.uint64(NA)))
+})
+
+## Adjacent large values must retain their absolute distance in all.equal().
+local({
+    for (make in list(as.int64, as.uint64)) {
+        a <- make(c("9007199254740993", "9007199254740992"))
+        b <- rev(a)
+        for (scale in list(1, c(1, 2))) {
+            answer <- all.equal(a, b, scale = scale, giveErr = TRUE)
+            stopifnot(!isTRUE(answer),
+                      identical(attr(answer, "err"), mean(1 / scale)))
+        }
+        stopifnot(isTRUE(all.equal(a, b)),
+                  !isTRUE(all.equal(a, b, tolerance = 0)))
+    }
+    m <- as.int64("-9223372036854775808", na = FALSE)
+    stopifnot(isTRUE(all.equal(c(m, 1L), c(m, 2L), countEQ = TRUE)))
+})
+
+## Matching carries validity separately from the full-range element domain.
+local({
+    x <- as.int64(c("-9223372036854775808", "0", "2"), na = FALSE)
+    other <- c(-2^63, NA_real_, NaN, Inf, 0, 2.5, 2)
+    withCallingHandlers({
+        stopifnot(identical(suppressWarnings(match(other, x)),
+                            c(1L, NA_integer_, NA_integer_, NA_integer_, 2L, NA_integer_, 3L)),
+                  identical(suppressWarnings(match(x, other)), c(1L, 5L, 7L)),
+                  identical(suppressWarnings(match(other, x, nomatch = 0L)),
+                            c(1L, 0L, 0L, 0L, 2L, 0L, 3L)),
+                  identical(match(x, x, incomparables = -2^63),
+                            c(NA_integer_, 2L, 3L)))
+        u <- as.uint64(c("18446744073709551615", "1"), na = FALSE)
+        stopifnot(identical(match(u, u, incomparables = "18446744073709551615"),
+                            c(NA_integer_, 2L)))
+    }, warning = function(w) stop(w))
+})
+
+## Sequence distances and offsets may exceed the signed element range even
+## when the result contains only three representable values.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            m <- as.int64("9223372036854775807", na = nullable)
+            zero <- as.int64(0L, na = nullable)
+            want <- c(-m, zero, m)
+            stopifnot(identical(seq.int(-m, m, by = m), want),
+                      identical(seq(-m, m, by = m), want),
+                      identical(seq.int(m, -m, by = -m), rev(want)))
+        }
+        lo <- as.int64("-9223372036854775808", na = FALSE)
+        hi <- as.int64("9223372036854775807", na = FALSE)
+        step <- as.uint64("18446744073709551615", na = FALSE)
+        stopifnot(identical(seq.int(lo, hi, by = step), c(lo, hi)),
+                  identical(seq.int(as.int64(0L, na = FALSE), lo, by = lo),
+                            c(as.int64(0L, na = FALSE), lo)))
+    }, warning = function(w) stop(w))
 })
 
 cat("altsxp tests OK\n")

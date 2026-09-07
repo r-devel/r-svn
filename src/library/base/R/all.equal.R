@@ -146,7 +146,8 @@ all.equal.numeric <-
     out <- out | target == current # equal NAs _or_ numbers
     if(all(out)) return(if(is.null(msg)) TRUE else msg)
     anyO <- any(out)
-    sabst0 <- if(countEQ && anyO) mean(abs(target[out])) else 0
+    sabst0 <- if(countEQ && anyO)
+        mean(abs(if(cplx) target[out] else as.double(target[out]))) else 0
     if(anyO) {
         keep <- which(!out)
 	target  <- target [keep]
@@ -155,15 +156,22 @@ all.equal.numeric <-
 	    scale <- rep_len(scale, length(out))[keep]
     }
     N <- length(target)
-    ## The difference below is computed in the operands' own type, so an exact
-    ## bounded one overflows on a pair that is far apart -- which is the pair
-    ## all.equal() is being asked to report on.  Promoting to double has always
-    ## been the answer for an integer pair; is.integer() does not see the other
-    ## exact numeric types, such as an ALTSXP class declaring itself numeric.
-    ## Complex is excluded by is.numeric(), which would otherwise lose the
-    ## imaginary part here.
-    if(is.numeric(target) && !is.double(target) &&
-       is.numeric(current) && !is.double(current)) target <- as.double(target)
+    ## Keep nearby exact values distinct before converting their distance to
+    ## double.  Subtract the smaller from the larger within each sign: neither
+    ## a negative unsigned result nor an overflowing signed distance is needed.
+    ## Across signs the distance can exceed the element's domain, and double
+    ## subtraction does not suffer cancellation there.
+    if(!cplx && !is.double(target) &&
+       identical(typeof(target), typeof(current))) {
+        delta <- abs(as.double(target) - as.double(current))
+        same <- (target < 0) == (current < 0)
+        larger <- target >= current
+        i <- which(same & larger)
+        delta[i] <- as.double(target[i] - current[i])
+        i <- which(same & !larger)
+        delta[i] <- as.double(current[i] - target[i])
+        target <- as.double(target)
+    } else delta <- abs(target - current)
     what <-
 	if(is.null(scale)) {
 	    scale <- (sabst0 + sum(abs(target)/N))
@@ -177,7 +185,7 @@ all.equal.numeric <-
 	    stopifnot(all(scale > 0))
 	    if(all(abs(scale - 1) < 1e-7)) "absolute" else "scaled"
 	}
-    xy <- sum(abs(target - current)/(N*scale)) ## abs(z) == Mod(z) for complex
+    xy <- sum(delta/(N*scale)) ## abs(z) == Mod(z) for complex
 
     if (cplx) what <- paste(what, "Mod") # PR#10575
     if(is.na(xy) || xy > tolerance)

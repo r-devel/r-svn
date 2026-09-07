@@ -630,6 +630,10 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings,
 	return NULL;
     }
 
+    SEXP direct = ALTSXP_COERCE_FOR_MATCH(alt, other, valid);
+    if (direct != NULL) return direct;
+    *valid = R_NilValue;
+
     SEXP proto = altsxp_nullable_proto(alt);
     if (proto == NULL)
 	return NULL;
@@ -645,6 +649,10 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings,
 	error(_("'%s' method returned %lld elements, not the %lld it was given"),
 	      "Coerce_from", (long long) XLENGTH(ans), (long long) n);
 
+    /* Fractional rejection is specific to integer element representations.
+       Other classes may preserve fractions or infinities exactly. */
+    SEXP type = ALTSXP_ELT_TYPE(alt);
+    Rboolean integer_type = type == install("int64") || type == install("uint64");
     int nprot = 1;
     for (R_xlen_t i = 0; i < n; i++) {
 	int na = 0;
@@ -652,12 +660,12 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings,
 	/* In particular, NaN is not NA: match() distinguishes them even
 	   though coercing either to an integer produces NA. */
 	Rboolean ok = !na || match_operand_isna(other, i);
-	if (ok && TYPEOF(other) == REALSXP) {
+	if (ok && integer_type && TYPEOF(other) == REALSXP) {
 	    double v = REAL_ELT(other, i);
 	    if (!ISNAN(v) && (!R_FINITE(v) || v != floor(v)))
 		ok = FALSE; /* truncation must not invent a match */
 	}
-	else if (ok && TYPEOF(other) == STRSXP) {
+	else if (ok && integer_type && TYPEOF(other) == STRSXP) {
 	    SEXP str = STRING_ELT(other, i);
 	    if (str != NA_STRING) {
 		char *end;
