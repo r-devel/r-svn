@@ -542,6 +542,48 @@ static R_INLINE SEXP complex_mean(SEXP x)
     return ScalarComplex(val);
 }
 
+/* Filter before concatenation: a missing ordinary value cannot first be
+   stored in an opaque domain that has deliberately given up its NA. */
+static SEXP summary_without_na(SEXP x, SEXP call)
+{
+    int type = TYPEOF(x);
+    if (type != ALTSXP && type != LGLSXP && type != INTSXP &&
+        type != REALSXP && type != CPLXSXP && type != STRSXP)
+        return x;
+    R_xlen_t n = XLENGTH(x), keep = 0;
+    SEXP missing = PROTECT(allocVector(LGLSXP, n));
+    int *mask = LOGICAL(missing);
+    if (type == ALTSXP) {
+        for (R_xlen_t i = 0; i < n;) {
+            R_xlen_t k = n - i > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n - i;
+            R_altsxp_is_na_region(x, i, k, mask + i);
+            i += k;
+        }
+    }
+    else for (R_xlen_t i = 0; i < n; i++) {
+        switch (type) {
+        case LGLSXP: case INTSXP: mask[i] = INTEGER_ELT(x, i) == NA_INTEGER; break;
+        case REALSXP: mask[i] = ISNAN(REAL_ELT(x, i)); break;
+        case CPLXSXP: {
+            Rcomplex z = COMPLEX_ELT(x, i);
+            mask[i] = ISNAN(z.r) || ISNAN(z.i);
+            break;
+        }
+        default: mask[i] = STRING_ELT(x, i) == NA_STRING;
+        }
+    }
+    for (R_xlen_t i = 0; i < n; i++) if (!mask[i]) keep++;
+    if (keep == n) { UNPROTECT(1); return x; }
+    SEXP index = PROTECT(allocVector(n > INT_MAX ? REALSXP : INTSXP, keep));
+    for (R_xlen_t i = 0, j = 0; i < n; i++) if (!mask[i]) {
+        if (n > INT_MAX) REAL(index)[j++] = (double) i + 1;
+        else INTEGER(index)[j++] = (int) i + 1;
+    }
+    SEXP ans = ExtractSubset(x, index, call);
+    UNPROTECT(2);
+    return ans;
+}
+
 attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
@@ -634,37 +676,19 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		SEXP v = CAR(a);
 		if (TAG(a) == R_NaRmSymbol || xlength(v) == 0)
 		    continue;	/* an empty argument contributes nothing */
-                PROTECT_INDEX vpi;
-                PROTECT_WITH_INDEX(v, &vpi);
-                if (TYPEOF(v) != ALTSXP) {
-                    /* Remove ordinary missing values before converting into
-                       a prototype whose domain may have no NA at all. */
-                    if (narm && (TYPEOF(v) == INTSXP || TYPEOF(v) == LGLSXP)) {
-                        R_xlen_t n = XLENGTH(v), keep = 0;
-                        for (R_xlen_t i = 0; i < n; i++)
-                            if (INTEGER_ELT(v, i) != NA_INTEGER) keep++;
-                        if (!keep) { UNPROTECT(1); continue; }
-                        if (keep != n) {
-                            SEXP clean = PROTECT(allocVector(TYPEOF(v), keep));
-                            for (R_xlen_t i = 0, j = 0; i < n; i++) {
-                                int value = INTEGER_ELT(v, i);
-                                if (value != NA_INTEGER) INTEGER(clean)[j++] = value;
-                            }
-                            REPROTECT(v = clean, vpi);
-                            UNPROTECT(1);
-                        }
-                    }
-                    SEXP converted = R_altsxp_coerce_from(proto, v);
-                    if (converted == NULL) {
-                        UNPROTECT(1);
-                        foldable = false;
-                        break;
-                    }
-                    REPROTECT(v = converted, vpi);
+                SEXP one;
+                if (TYPEOF(v) == ALTSXP)
+                    one = want < 0 ? ALTSXP_MIN(v, narm) : ALTSXP_MAX(v, narm);
+                else {
+                    /* Reduce in the source domain.  Negative integers, for
+                       example, need not be representable as uint64. */
+                    int value;
+                    PROTECT(v = coerceVector(v, INTSXP));
+                    bool have = want < 0 ? imin(v, &value, narm) : imax(v, &value, narm);
+                    UNPROTECT(1);
+                    if (!have) continue;
+                    one = ScalarInteger(value);
                 }
-		SEXP one = (want < 0) ? ALTSXP_MIN(v, narm)
-		    : ALTSXP_MAX(v, narm);
-		UNPROTECT(1); /* v */
 		if (one == NULL) {
 		    foldable = false;	/* the class declines to reduce */
 		    break;
@@ -680,7 +704,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			  want < 0 ? "Min" : "Max");
 
 		int na = 0;
-		R_altsxp_is_na_region(one, 0, 1, &na);
+                if (TYPEOF(one) == ALTSXP)
+                    R_altsxp_is_na_region(one, 0, 1, &na);
+                else na = INTEGER(one)[0] == NA_INTEGER;
 		if (na) {
 		    if (!narm) {
 			/* an NA anywhere is the answer, as for the base
@@ -690,10 +716,34 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 			break;
 		    }
 		}
-		else if (best == R_NilValue ||
-			 (want < 0 ? ALTSXP_COMPARE(one, 0, best, 0) < 0
-			           : ALTSXP_COMPARE(one, 0, best, 0) > 0))
-		    REPROTECT(best = one, bpi);
+                else {
+                    bool better = best == R_NilValue;
+                    if (!better) {
+                        if (TYPEOF(one) == ALTSXP && TYPEOF(best) == ALTSXP) {
+                            int cmp = ALTSXP_COMPARE(one, 0, best, 0);
+                            better = want < 0 ? cmp < 0 : cmp > 0;
+                        }
+                        else if (TYPEOF(one) != ALTSXP && TYPEOF(best) != ALTSXP)
+                            better = want < 0 ? INTEGER(one)[0] < INTEGER(best)[0]
+                                              : INTEGER(one)[0] > INTEGER(best)[0];
+                        else {
+                            SEXP cmp = ALTSXP_RELOP(call, R_Primitive(want < 0 ? "<" : ">"),
+                                                   one, best);
+                            if (cmp == NULL) {
+                                foldable = false;
+                                UNPROTECT(1);
+                                break;
+                            }
+                            PROTECT(cmp);
+                            if (TYPEOF(cmp) != LGLSXP || XLENGTH(cmp) != 1 ||
+                                LOGICAL(cmp)[0] == NA_LOGICAL)
+                                error(_("invalid comparison result in summary"));
+                            better = LOGICAL(cmp)[0];
+                            UNPROTECT(1);
+                        }
+                    }
+                    if (better) REPROTECT(best = one, bpi);
+                }
 		UNPROTECT(1); /* one */
 	    }
 
@@ -733,7 +783,9 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 	    PROTECT_INDEX cpi;
 	    PROTECT_WITH_INDEX(cargs, &cpi);
 	    for (SEXP a = args; a != R_NilValue; a = CDR(a)) {
-		SEXP cell = CONS(CAR(a), R_NilValue);
+                SEXP value = PROTECT(narm ? summary_without_na(CAR(a), call) : CAR(a));
+		SEXP cell = CONS(value, R_NilValue);
+                UNPROTECT(1);
 		if (tail == R_NilValue)
 		    REPROTECT(cargs = cell, cpi);
 		else

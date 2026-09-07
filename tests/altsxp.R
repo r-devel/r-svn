@@ -3380,4 +3380,73 @@ local({
     }
 })
 
+## Missing values are removed before sum() chooses a combined domain.
+local({
+    withCallingHandlers({
+        for (make in list(as.int64, as.uint64)) {
+            x <- make(1L, na = FALSE)
+            stopifnot(identical(sum(x, NA_integer_, na.rm = TRUE), x),
+                      identical(sum(NA, x, na.rm = TRUE), x),
+                      identical(sum(x, c(NA_integer_, 2L), na.rm = TRUE),
+                                make(3L, na = FALSE)),
+                      identical(sum(make(integer(), na = FALSE), NA, na.rm = TRUE),
+                                make(0L, na = FALSE)))
+            stopifnot(identical(sum(make(c(NA, 2L)), 1L, na.rm = TRUE), make(3L)))
+        }
+    }, warning = function(w) stop(w))
+})
+
+## An ordinary extremum is compared in its own domain, even when that
+## domain contains negative values or NA that an unsigned prototype cannot.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            x <- as.uint64(1L, na = nullable)
+            for (args in list(list(x, -1L), list(-1L, x))) {
+                stopifnot(identical(do.call(max, args), x),
+                          identical(do.call(min, args), -1L))
+            }
+            stopifnot(identical(max(x, c(NA_integer_, -1L), na.rm = TRUE), x),
+                      is.na(max(x, NA_integer_)),
+                      identical(max(x, -1L, 2L), 2L),
+                      identical(min(x, -1L, -2L), -2L))
+            hi <- as.uint64("18446744073709551615", na = FALSE)
+            stopifnot(identical(max(-1L, hi), hi))
+        }
+    }, warning = function(w) stop(w))
+})
+
+## Mixed double/exact comparisons retain unit distances in both directions.
+local({
+    pairs <- list(list(as.int64("9007199254740993"), 2^53),
+                  list(as.uint64("9007199254740993"), 2^53 + 2),
+                  list(as.int64("-9007199254740993"), -2^53),
+                  list(as.int64("9223372036854775807"), 2^63),
+                  list(as.uint64("18446744073709551615", na = FALSE), 2^64))
+    for (pair in pairs) for (p in list(pair, rev(pair))) {
+        ans <- all.equal(p[[1L]], p[[2L]], check.attributes = FALSE,
+                         check.class = FALSE, tolerance = 0, scale = 1, giveErr = TRUE)
+        stopifnot(!isTRUE(ans), identical(attr(ans, "err"), 1))
+    }
+    for (make in list(as.int64, as.uint64)) {
+        ans <- all.equal(make(1L), 1 + .Machine$double.eps, check.attributes = FALSE,
+                         check.class = FALSE, tolerance = 0, scale = 1, giveErr = TRUE)
+        stopifnot(identical(attr(ans, "err"), .Machine$double.eps))
+    }
+})
+
+## The configured decimal mark excludes '.', except in recognized NA tokens.
+local({
+    for (make in list(int64, uint64)) {
+        for (txt in c("1.5", "1.0", "1.2,3")) {
+            assertError(scan(text = txt, what = make(), dec = ",", quiet = TRUE))
+            assertError(scan(text = paste0(txt, ";x"), what = list(make(), character()),
+                             sep = ";", dec = ",", quiet = TRUE))
+            assertError(read.table(text = txt, colClasses = typeof(make()), dec = ","))
+        }
+        stopifnot(is.na(scan(text = "N.A", what = make(), dec = ",",
+                             na.strings = "N.A", quiet = TRUE)))
+    }
+})
+
 cat("altsxp tests OK\n")

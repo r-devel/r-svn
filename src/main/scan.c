@@ -576,6 +576,8 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d,
 	else {
             /* Coerce_from receives a locale-independent numeric spelling.
                Recognize NA tokens first, since they may contain decchar. */
+            if (opaque_numeric && d->decchar != '.' && strchr(buffer, '.'))
+                expected("a real", buffer, d);
             if (opaque_numeric && d->decchar != '.')
                 for (char *p = buffer; *p; p++)
                     if (*p == d->decchar) *p = '.';
