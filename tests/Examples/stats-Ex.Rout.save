@@ -16234,6 +16234,30 @@ Standard deviations:
 > 
 > 
 > cleanEx()
+> nameEx("se")
+> ### * se
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: se
+> ### Title: Extract Standard Errors
+> ### Aliases: se se.default
+> ### Keywords: models regression
+> 
+> ### ** Examples
+> 
+> fit <- lm(mpg ~ wt + cyl, data = mtcars)
+> se(fit)
+(Intercept)          wt         cyl 
+  1.7149840   0.7569065   0.4146883 
+> 
+> sqrt(diag(vcov(fit)))
+(Intercept)          wt         cyl 
+  1.7149840   0.7569065   0.4146883 
+> 
+> 
+> 
+> cleanEx()
 > nameEx("se.contrast")
 > ### * se.contrast
 > 
