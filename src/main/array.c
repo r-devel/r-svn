@@ -379,34 +379,51 @@ SEXP alloc3DArray(SEXPTYPE mode, int nrow, int ncol, int nface)
 
 // dim(.) --> prod(dim(.)) { = length(.)} with all checks --- also called from attrib.c
 attribute_hidden
-R_xlen_t dim2total(SEXP dim /* INTSXP */, const char *ErrMsg)
+R_xlen_t dim2total(SEXP dim /* INTSXP */, bool *err)
 {
     int ndim = LENGTH(dim);
     if (ndim == 0)
 	error(_("'dim' cannot be of length 0"));
+    *err = false;
     double dn = 1.;
     for (int i = 0; i < ndim; i++) {
-	/* need this test first as NA_INTEGER is < 0 */
-	if (INTEGER(dim)[i] == NA_INTEGER)
-	    error(_("the dims contain missing values"));
-	if (INTEGER(dim)[i] < 0)
-	    error(_("the dims contain negative values"));
-	if(INTEGER(dim)[i])
-	    dn *= INTEGER(dim)[i];
-	else dn = 0.; // but continue checking ..
+        int d;
+
+	d = INTEGER(dim)[i];
+	/* dn *= d can overflow, but the result is 0 if any dimension is
+	 * (unless NA, so we can't simply break here).
+	 */
+        if (d == 0)
+            dn = 0.0;
+       /* Actually, NA_INTEGER is < 0, so we don't need to test for it
+           explicitly, but the value might change, so better be safe... 
+           An optimizing compiler will likely strip the && part.
+         */
+	if (d >= 0 && d != NA_INTEGER) {
+            dn *= d;
+	// Better to check for total here to avoid f/p overflow.
+        } else {
+            if (d == NA_INTEGER)
+	        error(_("the dims contain missing values"));
+            else
+	        error(_("the dims contain negative values"));
+        }
     }
 #ifdef LONG_VECTOR_SUPPORT
     if (dn > R_XLEN_T_MAX)
 #else
     if (dn > INT_MAX)
 #endif
-	error("%s", ErrMsg); // avoid -Wformat-security warning
+	*err = true; // and callers should not use the return value.
     return (R_xlen_t) dn;
 }
 
 SEXP allocArray(SEXPTYPE mode, SEXP dims)
 {
-    R_xlen_t n = dim2total(dims, _("'allocArray': too many elements specified by 'dims'"));
+    bool err;
+    R_xlen_t n = dim2total(dims, &err);
+    if(err)
+	error(_("'allocArray': too many elements specified by 'dims'"));
     PROTECT(dims = duplicate(dims));
     SEXP array = PROTECT(allocVector(mode, n));
     setAttrib(array, R_DimSymbol, dims);
@@ -2343,8 +2360,10 @@ attribute_hidden SEXP do_array(SEXP call, SEXP op, SEXP args, SEXP rho)
 	dims     = CADR(args),
 	dimnames = CADDR(args);
     PROTECT(dims = coerceVector(dims, INTSXP));
-    R_xlen_t nans = dim2total(dims, _("too many elements specified")),
-	lendat = XLENGTH(vals), i;
+    bool err;
+    R_xlen_t nans = dim2total(dims, &err);
+    if(err) error(_("too many elements specified"));
+    R_xlen_t lendat = XLENGTH(vals), i;
 
     if (TYPEOF(vals) == ALTSXP) {
 	SEXP lidx = PROTECT(allocVector(REALSXP, nans));

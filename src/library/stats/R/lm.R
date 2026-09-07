@@ -68,15 +68,21 @@ lm <- function (formula, data, subset, weights, na.action,
     }
     else {
 	x <- model.matrix(mt, mf, contrasts)
-	z <- if(is.null(w)) lm.fit(x, y, offset = offset,
-                                   singular.ok=singular.ok, ...)
-	else lm.wfit(x, y, w, offset = offset, singular.ok=singular.ok, ...)
+	z <- if(is.null(w))
+		  lm.fit (x, y,    offset = offset, singular.ok=singular.ok, ...)
+	     else lm.wfit(x, y, w, offset = offset, singular.ok=singular.ok, ...)
     }
     class(z) <- c(if(mlm) "mlm", "lm")
     z$na.action <- attr(mf, "na.action")
     z$offset <- offset
     z$contrasts <- attr(x, "contrasts")
     z$xlevels <- .getXlevels(mt, mf)
+    if(length(f <- cl$formula) != 3L) { # PR#17463  and  PR#17476
+	if(missing(data)) # as in  lm(rock)
+	    cl$data <- f
+	## missing(formula) may be true
+	cl$formula <- `attributes<-`(stats::formula(mt), NULL) # no env
+    }
     z$call <- cl
     z$terms <- mt
     if (model)
@@ -149,7 +155,7 @@ lm.fit <- function (x, y, offset = NULL, method = "qr", tol = 1e-07,
 .lm.fit <- function(x, y, tol = 1e-07) .Call(C_Cdqrls, x, y, tol, check=TRUE)
 
 lm.wfit <- function (x, y, w, offset = NULL, method = "qr", tol = 1e-7,
-                     singular.ok = TRUE, ...)
+                     wtol = 0, singular.ok = TRUE, ...)
 {
     if(is.null(n <- nrow(x))) stop("'x' must be a matrix")
     if(n == 0) stop("0 (non-NA) cases")
@@ -168,19 +174,24 @@ lm.wfit <- function (x, y, w, offset = NULL, method = "qr", tol = 1e-7,
                 domain = NA)
     chkDots(...)
     x.asgn <- attr(x, "assign")# save
-    zero.weights <- any(w == 0)
+    wtol.sw <- wtol * sum(w)
+    w0 <- w <= wtol.sw # as 'w' is known non-negative
+    zero.weights <- any(w0) # before: any(w == 0)
     if (zero.weights) {
+        if (wtol > 0)
+            warning(gettextf(
+                "weights smaller than tolerance wtol*sum(w) = %g treated as zero", wtol.sw),
+                domain = NA)
 	save.r <- y
 	save.f <- y
 	save.w <- w
-	ok <- w != 0
-	nok <- !ok
-	w <- w[ok]
-	x0 <- x[!ok, , drop = FALSE]
-	x <- x[ok,  , drop = FALSE]
+	nw0 <- !w0
+	w <- w[nw0]
+	x0 <- x[ w0, , drop = FALSE]
+	x  <- x[nw0, , drop = FALSE]
 	n <- nrow(x)
-	y0 <- if (ny > 1L) y[!ok, , drop = FALSE] else y[!ok]
-	y  <- if (ny > 1L) y[ ok, , drop = FALSE] else y[ok]
+	y0 <- if (ny > 1L) y[ w0, , drop = FALSE] else y[ w0]
+	y  <- if (ny > 1L) y[nw0, , drop = FALSE] else y[nw0]
     }
     p <- ncol(x)
     if (p == 0) {
@@ -217,26 +228,26 @@ lm.wfit <- function (x, y, w, offset = NULL, method = "qr", tol = 1e-7,
     z$coefficients <- coef
     z$residuals <- z$residuals/wts
     z$fitted.values <- y - z$residuals
-    z$weights <- w
     if (zero.weights) {
 	coef[is.na(coef)] <- 0
 	f0 <- x0 %*% coef
 	if (ny > 1) {
-	    save.r[ok, ] <- z$residuals
-	    save.r[nok, ] <- y0 - f0
-	    save.f[ok, ] <- z$fitted.values
-	    save.f[nok, ] <- f0
+	    save.r[nw0, ] <- z$residuals
+	    save.r[ w0, ] <- y0 - f0
+	    save.f[nw0, ] <- z$fitted.values
+	    save.f[ w0, ] <- f0
 	}
 	else {
-	    save.r[ok] <- z$residuals
-	    save.r[nok] <- y0 - f0
-	    save.f[ok] <- z$fitted.values
-	    save.f[nok] <- f0
+	    save.r[nw0] <- z$residuals
+	    save.r[ w0] <- y0 - f0
+	    save.f[nw0] <- z$fitted.values
+	    save.f[ w0] <- f0
 	}
 	z$residuals <- save.r
 	z$fitted.values <- save.f
 	z$weights <- save.w
-    }
+    } else
+	z$weights <- w
     if(!is.null(offset))
         z$fitted.values <- z$fitted.values + offset
     if(z$pivoted) colnames(z$qr) <- colnames(x)[z$pivot]

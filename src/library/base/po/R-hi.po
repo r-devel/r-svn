@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-03 23:24\n"
 "PO-Revision-Date: 2023-09-01 10:22+0000\n"
 "Last-Translator: Ayush Bipin Patel <ayush.ap58@gmail.com>\n"
 "Language-Team: none\n"
@@ -65,6 +65,10 @@ msgstr "'%s' RNG का एक वैध संक्षिप्त नाम �
 #, fuzzy
 msgid "'%s' must be a character string"
 msgstr "'sample.kind' लंबाई 1 का कैरेक्टर स्ट्रिंग होना चाहिए"
+
+#, fuzzy
+msgid "'%s' is not valid for '%s'"
+msgstr "'%s' एक वैध विकल्प नहीं है"
 
 msgid "'%s' is not a valid choice"
 msgstr "'%s' एक वैध विकल्प नहीं है"
@@ -346,9 +350,6 @@ msgid "invalid 'max' / getOption(\"max.print\"):"
 msgstr ""
 
 msgid "non-numeric-alike variable(s) in data frame:"
-msgstr ""
-
-msgid ","
 msgstr ""
 
 msgid "%s only defined for equally-sized data frames"
@@ -683,6 +684,9 @@ msgstr ""
 msgid "'subset' must be logical"
 msgstr ""
 
+msgid "No functions specified"
+msgstr ""
+
 msgid "value for %s not found"
 msgstr ""
 
@@ -940,10 +944,7 @@ msgstr ""
 msgid "must specify names of formal arguments for 'vectorize'"
 msgstr ""
 
-msgid "FUN"
-msgstr ""
-
-msgid "may not have argument(s) named"
+msgid "%s may not have argument(s) %s"
 msgstr ""
 
 msgid "'arg' must be NULL or a character vector"
@@ -1074,13 +1075,10 @@ msgstr ""
 msgid "package %s has a license that you need to accept after viewing"
 msgstr ""
 
-msgid "package %s has a license that you need to accept:"
-msgstr ""
-
-msgid "according to the DESCRIPTION file it is"
-msgstr ""
-
-msgid "%s"
+msgid ""
+"package %s has a license that you need to accept:\n"
+"  according to the DESCRIPTION file it is\n"
+"  %s"
 msgstr ""
 
 msgid "license for package %s not accepted"

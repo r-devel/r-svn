@@ -3667,6 +3667,8 @@ for(nd in c(2:4, 33:37)) {
     stopifnot(identical(x, y), is.integer(d <- dim(x)), all.equal(d., d))
 }
 ## above creation of x & y failed for a couple of hours in R-devel
+## r90452 overflowed the computation of the product of dimensions.
+## giving a negative answer on some platforms (x86_64, not macOS).
 
 
 ## PR#19116 -- <matrix>[[i, j]]: stochastic error with negative i
@@ -3684,10 +3686,10 @@ save("save", file=(tf <- tempfile("saveRdata")))
 sys.load.image(tf, FALSE); rm(tf, save)
 ## had called .Internal(RNGkind(..)) with wrong number of args
 
-## aperm and 
+## aperm and
 m <- matrix(1:10, 2, 5, dimnames = list(X = paste0("x", 1:2), Y = paste0("y", 1:5)))
-a <- array(m, dim = c(2, 5, 1), dimnames = list(X = paste0("x", 1:2), Y = paste0("y", 1:5), Z = "z1"))
-
+a <- array(m, dim = c(2, 5, 1),
+           dimnames = list(X = paste0("x", 1:2), Y = paste0("y", 1:5), Z = "z1"))
 stopifnot(
     identical(aperm(m, c(2, 1)), t(m)),
     identical(aperm(m), t(m)),
@@ -3696,6 +3698,25 @@ stopifnot(
     identical(drop(aperm(a, c("Y", "X", "Z"))), aperm(m, c("Y", "X"))),
     identical(drop(aperm(a, c(1, 2, 3), resize = FALSE)), aperm(m, c(1, 2), resize = FALSE))
 )
+
+
+
+## ksmooth(.., x.points = <invalid>) -- PR#19153
+x <- 1:11; y <- (x - 5)^2
+L00 <- list(x = numeric(), y = numeric())
+stopifnot(identical(L00, ksmooth(x,y, x.points=NULL)),
+          identical(L00, ksmooth(x,y, x.points=rep(NA,999))))
+## did seg.fault, trying to access x.points[1] from C
+
+
+## lm(data = .)
+(lmd <- lm(data = swiss))
+stopifnot(all.equal(coef(lmd), tolerance = 1e-4,
+                    c(`(Intercept)` = 66.92, Agriculture = -0.1721, Examination = -0.258,
+                      Education = -0.8709, Catholic = 0.1041, Infant.Mortality = 1.077)))
+## failed for 2 days
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

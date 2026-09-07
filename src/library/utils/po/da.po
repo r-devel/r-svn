@@ -1,0 +1,216 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR The R Core Team
+# This file is distributed under the same license as the R package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: R 4.6.0\n"
+"Report-Msgid-Bugs-To: bugs.r-project.org\n"
+"POT-Creation-Date: 2026-04-25 10:48-0700\n"
+"PO-Revision-Date: 2026-06-18 14:59+0000\n"
+"Last-Translator: Jonas Aldous <loprtq@users.noreply.translate.rx.studio>\n"
+"Language-Team: none\n"
+"Language: da\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.11.4\n"
+
+#, c-format
+msgid "invalid '%s' argument"
+msgstr "ugyldigt '%s'-argument"
+
+msgid "invalid quote symbol set"
+msgstr ""
+
+msgid "cannot open the connection"
+msgstr "kan ikke åbne forbindelsen"
+
+msgid "cannot read from this connection"
+msgstr "kan ikke læse fra denne forbindelse"
+
+#, c-format
+msgid "quoted string on line %d terminated by EOF"
+msgstr ""
+
+msgid "the first argument must be of mode character"
+msgstr ""
+
+#, c-format
+msgid "invalid 'numerals' string: \"%s\""
+msgstr ""
+
+#, c-format
+msgid "Selection: "
+msgstr ""
+
+msgid "cannot allocate buffer in 'readTableHead'"
+msgstr ""
+
+msgid "\\ followed by EOF"
+msgstr ""
+
+#, c-format
+msgid "incomplete final line found by readTableHeader on '%s'"
+msgstr ""
+
+msgid "index out of range"
+msgstr "Indeks uden for grænserne"
+
+#, c-format
+msgid "Problem closing connection:  %s"
+msgstr "Problem med at lukke forbindelsen:  %s"
+
+msgid "Problem closing connection"
+msgstr "Problem med at lukke forbindelsen"
+
+msgid "'file' is not a connection"
+msgstr "'file' er ikke en forbindelse"
+
+msgid "cannot write to this connection"
+msgstr "kan ikke skrive til denne forbindelse"
+
+msgid "'dec' must be a single character"
+msgstr ""
+
+#, c-format
+msgid "corrupt data frame -- length of column %d does not match nrows"
+msgstr ""
+
+#, c-format
+msgid "column %d claims to be a factor but does not have numeric codes"
+msgstr ""
+
+msgid "corrupt matrix -- dims do not match length"
+msgstr ""
+
+msgid "'savehistory' can only be used in Rgui and Rterm"
+msgstr ""
+
+msgid "'loadhistory' can only be used in Rgui and Rterm"
+msgstr ""
+
+msgid "invalid timestamp"
+msgstr "ugyldigt tidsstempel"
+
+msgid "X11 dataentry cannot be loaded"
+msgstr ""
+
+msgid "X11 is not available"
+msgstr "X11 er ikke tilgængelig"
+
+#, c-format
+msgid "invalid '%s' specification"
+msgstr "ugyldig '%s'-specifikation"
+
+#, c-format
+msgid "'%s' contains missing values"
+msgstr "'%s' indeholder manglende værdier"
+
+msgid "argument 'class' must be a character string"
+msgstr ""
+
+msgid "argument 'x' must be a length-1 character vector"
+msgstr ""
+
+msgid "argument 'x' must be UTF-8 encoded (including ASCII)"
+msgstr ""
+
+msgid "'hostname' must be a character vector of length 1"
+msgstr ""
+
+#, c-format
+msgid "nsl() was unable to resolve host '%s'"
+msgstr ""
+
+msgid "unknown format returned by 'gethostbyname'"
+msgstr ""
+
+msgid "nsl() is not supported on this platform"
+msgstr "nsl() er ikke understøttet på denne platform"
+
+msgid "unknown type"
+msgstr "ukendt type"
+
+msgid "menu functions can only be used in the GUI"
+msgstr "menu funktioner kan kun bruges i brugergrænsefladen"
+
+#, c-format
+msgid "unable to retrieve items for %s (%s)"
+msgstr ""
+
+#, c-format
+msgid "unable to add menu (%s)"
+msgstr "Ikke i stand til at tilføje menuen (%s)"
+
+#, c-format
+msgid "unable to add menu item (%s)"
+msgstr ""
+
+msgid "menu does not exist"
+msgstr "menu eksisterer ikke"
+
+#, c-format
+msgid "unable to delete menu item (%s)"
+msgstr ""
+
+#, c-format
+msgid "invalid '%s' value"
+msgstr "ugyldig '%s'-værdi"
+
+#, c-format
+msgid "Registry key '%ls' not found"
+msgstr ""
+
+msgid "unsupported version of Windows"
+msgstr "ikke understøttet version af Windows"
+
+msgid "argument must be a character vector or a raw vector"
+msgstr ""
+
+msgid "unable to open the clipboard"
+msgstr "kan ikke åbne udklipsholderen"
+
+msgid "unable to write to the clipboard"
+msgstr "kan ikke skrive til udklipsholderen"
+
+msgid "'title' must be a character string"
+msgstr ""
+
+msgid "'text' must be a character string"
+msgstr ""
+
+#, c-format
+msgid "'%s' must be length 1"
+msgstr ""
+
+#, c-format
+msgid "'%s' must be a list"
+msgstr "'%s' skal være en liste"
+
+#, c-format
+msgid "'%s' element %d is not a window handle"
+msgstr ""
+
+msgid "Select one or more"
+msgstr "Vælg én eller flere"
+
+msgid "Select one"
+msgstr "Vælg én"
+
+msgid "'default' must be a character string"
+msgstr ""
+
+msgid "'default' is overlong"
+msgstr ""
+
+msgid "'caption' must be a character string"
+msgstr ""
+
+msgid "'multi' must be a logical value"
+msgstr ""
+
+msgid "'filterindex' must be an integer value"
+msgstr ""
