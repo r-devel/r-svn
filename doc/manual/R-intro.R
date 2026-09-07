@@ -384,6 +384,46 @@ plot(ecdf(B), do.points=FALSE, verticals=TRUE, add=TRUE)
 
 ###--- @chapter Writing your own functions
 
+###--- @subsection Recursive numerical integration
+
+area <- function(f, a, b, eps = 1.0e-06, lim = 10) {
+    fun1 <- function(f, a, b, fa, fb, a0, eps, lim, fun) {
+        ## @r{function `fun1' is only visible inside `area'}
+        d <- (a + b)/2
+        h <- (b - a)/4
+        fd <- f(d)
+        a1 <- h * (fa + fd)
+        a2 <- h * (fd + fb)
+        if(abs(a0 - a1 - a2) < eps || lim == 0)
+            return(a1 + a2)
+        else {
+            return(fun(f, a, d, fa, fd, a1, eps, lim - 1, fun) +
+                       fun(f, d, b, fd, fb, a2, eps, lim - 1, fun))
+        }
+    }
+    fa <- f(a)
+    fb <- f(b)
+    a0 <- ((fa + fb) * (b - a))/2
+    fun1(f, a, b, fa, fb, a0, eps, lim, fun1)
+}
+
+area(sqrt,0,1)
+testfn <- function(x) 1/(1+x^2)
+area(testfn, 0, 100)
+
+###--- @subsection Least squares
+x <- c(0.02, 0.02, 0.06, 0.06, 0.11, 0.11, 0.22, 0.22, 0.56, 0.56,
+       1.10, 1.10)
+y <- c(76, 47, 97, 107, 123, 139, 159, 152, 191, 201, 207, 200)
+fn <- function(p) sum((y - (p[1] * x)/(p[2] + x))^2)
+
+out <- nlm(fn, p = c(200, 0.1), hessian = TRUE)
+out
+
+plot(x, y)
+xfit <- seq(.02, 1.1, .05)
+yfit <- out$estimate[1] * xfit/(out$estimate[2] + xfit)
+lines(spline(xfit, yfit))
 
 ###--- @chapter Statistical models in R
 
