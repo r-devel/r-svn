@@ -317,12 +317,16 @@ typedef SEXP (*R_altsxp_Coerce_from_method_t)(SEXP, SEXP);
    length (no NA).  Invalid positions are ignored, so they may hold any
    placeholder, even when the domain has no NA.  Both outputs must remain
    protected until the method returns.  NULL requests the generic conversion.
-   Sequence(call, from, to, by) receives scalar endpoints and a scalar step;
-   by == NULL requests a unit step toward to.  Return NULL to request the
+   Sequence(call, from, to, by, length) receives scalar endpoints and a step.
+   length == -1 means the count is inferred from the endpoints; otherwise it
+   is positive, and one endpoint may be R_MissingArg.  by == NULL requests
+   a unit step for an omitted endpoint, or evenly spaced values for a supplied
+   length and two endpoints.  Without a length it requests a unit step toward
+   to.  Return NULL to request the
    generic arithmetic implementation.  A class may compute its distance and
    count in a wider domain than its elements, avoiding intermediate overflow. */
 typedef SEXP (*R_altsxp_Coerce_for_match_method_t)(SEXP, SEXP, SEXP *);
-typedef SEXP (*R_altsxp_Sequence_method_t)(SEXP, SEXP, SEXP, SEXP);
+typedef SEXP (*R_altsxp_Sequence_method_t)(SEXP, SEXP, SEXP, SEXP, R_xlen_t);
 typedef SEXP (*R_altsxp_Na_widen_method_t)(SEXP);
 typedef SEXP (*R_altsxp_Sum_method_t)(SEXP, Rboolean);
 typedef SEXP (*R_altsxp_Min_method_t)(SEXP, Rboolean);

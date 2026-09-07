@@ -1831,7 +1831,8 @@ static SEXP altsxp_Deparse_default(SEXP x) { return NULL; }
 static SEXP altsxp_Coerce_for_match_default(SEXP x, SEXP y, SEXP *valid)
 { return NULL; }
 
-static SEXP altsxp_Sequence_default(SEXP call, SEXP from, SEXP to, SEXP by)
+static SEXP altsxp_Sequence_default(SEXP call, SEXP from, SEXP to, SEXP by,
+                                     R_xlen_t length)
 { return NULL; }
 
 SEXP ALTSXP_COERCE_FOR_MATCH(SEXP x, SEXP other, SEXP *valid)
@@ -1855,10 +1856,10 @@ SEXP ALTSXP_COERCE_FOR_MATCH(SEXP x, SEXP other, SEXP *valid)
     return ans;
 }
 
-SEXP ALTSXP_SEQUENCE(SEXP call, SEXP from, SEXP to, SEXP by)
+SEXP ALTSXP_SEQUENCE(SEXP call, SEXP from, SEXP to, SEXP by, R_xlen_t length)
 {
     SEXP proto = IS_ALTSXP(from) ? from : to;
-    return ALTSXP_METHODS_TABLE(proto)->Sequence(call, from, to, by);
+    return ALTSXP_METHODS_TABLE(proto)->Sequence(call, from, to, by, length);
 }
 
 /* Generic subsetting: copy whole elements by index, filling NA where the

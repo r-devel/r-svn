@@ -60,6 +60,15 @@ seq.default <-
     if (!missing(to) &&
         !is.finite(if(is.character(to)) to <- as.numeric(to) else to))
 	stop("'to' must be a finite number")
+    if(!is.null(length.out) && (is.opaque(from) || is.opaque(to))) {
+        ## Preserve missing endpoints and the step's exact type while the
+        ## class chooses how to build a sequence of the requested length.
+        args <- list(length.out = length.out)
+        if(!missing(from)) args$from <- from
+        if(!missing(to)) args$to <- to
+        if(!missing(by)) args$by <- by
+        return(do.call(seq.int, args))
+    }
     if(is.null(length.out))
 	if(missing(by))
 	    from:to

@@ -182,7 +182,7 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     if (! seq_endpoint(from) || ! seq_endpoint(to))
 	return NULL;
 
-    SEXP direct = ALTSXP_SEQUENCE(call, from, to, by);
+    SEXP direct = ALTSXP_SEQUENCE(call, from, to, by, -1);
     if (direct != NULL) return direct;
 
     /* Both endpoints are promoted into the class before any arithmetic runs.
@@ -1078,6 +1078,23 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(rout >= R_XLEN_T_MAX)
 	    errorcall(call, _("result would be too long a vector"));
 	lout = (R_xlen_t) rout;
+    }
+
+    if (lout > 0 && !One &&
+        (TYPEOF(from) == ALTSXP || TYPEOF(to) == ALTSXP)) {
+        if (!miss_from && XLENGTH(from) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "from");
+        if (!miss_to && XLENGTH(to) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "to");
+        if (by != R_MissingArg && XLENGTH(by) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "by");
+        /* Nonintegral ordinary endpoints retain the double sequence path. */
+        if ((miss_from || seq_endpoint(from)) && (miss_to || seq_endpoint(to))) {
+            SEXP a = ALTSXP_SEQUENCE(call, miss_from ? R_MissingArg : from,
+                                    miss_to ? R_MissingArg : to,
+                                    by == R_MissingArg ? NULL : by, lout);
+            if (a != NULL) { ans = a; goto done; }
+        }
     }
 
     if(lout == NA_INTEGER) {

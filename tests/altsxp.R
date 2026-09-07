@@ -3116,4 +3116,89 @@ local({
     }, warning = function(w) stop(w))
 })
 
+## Decimal, exponent, and hexadecimal spellings keep all significant digits
+## and determine fractional exactness before any conversion to double.
+local({
+    forms <- c("9007199254740993.0", "9.007199254740993e15",
+               "900719925474099300e-2", " +0009007199254740993.00 ",
+               "0x20000000000001", "0x20000000000001.0",
+               "0x200000000000010p-4")
+    for (make in list(as.int64, as.uint64)) {
+        stopifnot(identical(as.character(make(forms)),
+                            rep("9007199254740993", length(forms))))
+        v <- make(rep("9007199254740992", 2))
+        for (fraction in c("9007199254740992.5", "9.0071992547409925e15",
+                           "0x20000000000000.8"))
+            stopifnot(identical(duplicated(v, incomparables = fraction),
+                                c(FALSE, TRUE)))
+        v <- make(rep("9007199254740993", 2))
+        stopifnot(identical(duplicated(v, incomparables = forms),
+                            c(FALSE, FALSE)),
+                  identical(as.character(make(c("0e999999999999", "1e-999999999999"))),
+                            c("0", "0")))
+    }
+    stopifnot(identical(as.character(as.int64("-9223372036854775808.9", na = FALSE)),
+                        "-9223372036854775808"),
+              identical(as.character(as.uint64("1.8446744073709551615e19", na = FALSE)),
+                        "18446744073709551615"))
+    assertError(as.int64("9223372036854775808.0", na = FALSE))
+    assertError(as.uint64("18446744073709551616.0", na = FALSE))
+})
+
+## Requested lengths retain exact unit steps, explicit steps, and evenly
+## spaced endpoints, through both the R and primitive entry points.
+local({
+    withCallingHandlers({
+        for (make in list(as.int64, as.uint64))
+            for (nullable in c(TRUE, FALSE)) {
+                a <- make("9007199254740992", na = nullable)
+                b <- make("9007199254740994", na = nullable)
+                want <- make(c("9007199254740992", "9007199254740993",
+                               "9007199254740994"), na = nullable)
+                for (f in list(seq, seq.int)) {
+                    stopifnot(identical(f(from = a, by = 1L, length.out = 3L), want),
+                              identical(f(to = b, by = 1L, length.out = 3L), want),
+                              identical(f(from = b, by = -1L, length.out = 3L), rev(want)),
+                              identical(f(to = a, by = -1L, length.out = 3L), rev(want)),
+                              identical(f(from = a, length.out = 3L), want),
+                              identical(f(to = b, length.out = 3L), want),
+                              identical(f(a, b, length.out = 3L), want),
+                              identical(f(b, a, length.out = 3L), rev(want)),
+                              identical(f(a, b, length.out = 2L), want[c(1L, 3L)]),
+                              identical(f(from = a, by = 0L, length.out = 3L), rep(a, 3L)),
+                              identical(f(a, b, length.out = 1L), a),
+                              identical(f(a, b, length.out = 0L), integer()),
+                              identical(f(from = a, along.with = 1:3), want))
+                    assertError(f(a, b, by = 1L, length.out = 3L))
+                }
+            }
+        hi <- as.int64("9223372036854775807", na = FALSE)
+        want <- c(-hi, as.int64(0L, na = FALSE), hi)
+        for (f in list(seq, seq.int)) {
+            stopifnot(identical(f(-hi, hi, length.out = 3L), want),
+                      identical(f(from = -hi, by = hi, length.out = 3L), want),
+                      identical(f(to = hi, by = hi, length.out = 3L), want),
+                      identical(f(from = hi, by = -hi, length.out = 3L), rev(want)))
+            assertError(f(from = hi, by = 1L, length.out = 2L))
+        }
+    }, warning = function(w) stop(w))
+})
+
+## Math2 takes attributes from the argument supplying the result length,
+## with x taking precedence at equal lengths.
+local({
+    for (f in list(round, signif))
+        for (make in list(as.int64, as.uint64))
+            for (digits in list(setNames(c(-1, -2), c("a", "b")),
+                                matrix(c(-1, -2), 1L),
+                                array(c(-1, -2), c(1L, 1L, 2L)))) {
+                got <- f(make(1234L), digits)
+                ref <- f(1234L, digits)
+                stopifnot(identical(attributes(got), attributes(ref)),
+                          identical(as.double(got), as.double(ref)))
+                x <- setNames(make(c(1234L, 1234L)), c("x", "y"))
+                stopifnot(identical(names(f(x, digits)), names(x)))
+            }
+})
+
 cat("altsxp tests OK\n")

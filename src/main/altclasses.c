@@ -2347,32 +2347,77 @@ static Rboolean i64_from_double(double v, int uns, int64_t *out)
     return TRUE;
 }
 
-/* Read decimal integer spellings before trying double, which cannot retain
-   all 64-bit digits.  Matching additionally needs to know about truncation. */
+static int i64_digit(unsigned char c, int hex)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (hex && c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (hex && c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+/* Parse decimal and hexadecimal exponent spellings without double.  The
+   decimal point determines which digits are integral and which are discarded;
+   even a fraction far below double precision must make exactness false. */
 static Rboolean i64_parse_string(const char *q, int uns, int64_t *out,
                                  Rboolean *exact)
 {
     while (isspace((unsigned char) *q)) q++;
-    char *end;
-    errno = 0;
-    Rboolean ok;
-    if (uns) {
-        if (*q == '-') ok = FALSE;
-        else {
-            *out = (int64_t) strtoull(q, &end, 10);
-            ok = end != q && isBlankString(end) && errno != ERANGE;
+    int negative = *q == '-';
+    if (*q == '+' || *q == '-') q++;
+    int hex = q[0] == '0' && (q[1] == 'x' || q[1] == 'X');
+    if (hex) q += 2;
+    int width = hex ? 4 : 1;
+    unsigned int radix = hex ? 2 : 10;
+    const char *digits = q;
+    int64_t total = 0, fraction = 0, exponent = 0;
+    int dot = FALSE;
+    while (i64_digit(*q, hex) >= 0 || (*q == '.' && !dot)) {
+        if (*q == '.') dot = TRUE;
+        else { total++; if (dot) fraction++; }
+        q++;
+    }
+    const char *end_digits = q;
+    if (!total) return FALSE;
+    if (hex ? (*q == 'p' || *q == 'P') : (*q == 'e' || *q == 'E')) {
+        q++;
+        int exp_negative = *q == '-';
+        if (*q == '+' || *q == '-') q++;
+        if (*q < '0' || *q > '9') return FALSE;
+        while (*q >= '0' && *q <= '9') {
+            /* A string has at most INT_MAX bytes, so this bound is already
+               beyond any decimal-point shift that could fit in the domain. */
+            if (exponent < 10000000000LL) exponent = exponent * 10 + (*q - '0');
+            q++;
         }
-    } else {
-        *out = (int64_t) strtoll(q, &end, 10);
-        ok = end != q && isBlankString(end) && errno != ERANGE;
+        if (exp_negative) exponent = -exponent;
     }
-    *exact = ok;
-    if (!ok) {
-        double d = R_strtod(q, &end);
-        ok = end != q && isBlankString(end) && i64_from_double(d, uns, out);
-        *exact = ok && R_FINITE(d) && d == floor(d);
+    if (!isBlankString(q)) return FALSE;
+    int64_t integral = (total - fraction) * width + exponent, pos = 0;
+    uint64_t magnitude = 0;
+    uint64_t limit = uns ? UINT64_MAX
+        : negative ? (uint64_t) INT64_MAX + 1 : (uint64_t) INT64_MAX;
+    *exact = TRUE;
+    for (q = digits; q < end_digits; q++) {
+        if (*q == '.') continue;
+        unsigned int digit = i64_digit(*q, hex);
+        for (int bit = width - 1; bit >= 0; bit--) {
+            unsigned int d = hex ? (digit >> bit) & 1 : digit;
+            if (pos++ < integral) {
+                if (magnitude > (limit - d) / radix) return FALSE;
+                magnitude = magnitude * radix + d;
+            } else if (d) *exact = FALSE;
+        }
     }
-    return ok;
+    /* Zero stays zero however large the exponent.  A nonzero magnitude
+       reaches the range bound within sixty-four iterations. */
+    for (; magnitude && pos < integral; pos++) {
+        if (magnitude > limit / radix) return FALSE;
+        magnitude *= radix;
+    }
+    if (uns && negative && magnitude) return FALSE;
+    *out = negative && magnitude ? -1 - (int64_t) (magnitude - 1)
+        : (int64_t) magnitude;
+    return TRUE;
 }
 
 static SEXP i64_from(SEXP x, int uns, int nullable);
@@ -2607,7 +2652,8 @@ static SEXP i64_Coerce_for_match(SEXP proto, SEXP x, SEXP *valid)
    signed endpoints, including the entire signed domain.  Generate by repeated
    addition of the step in unsigned arithmetic, so neither the distance nor an
    offset has to fit in the result's signed element type. */
-static SEXP i64_Sequence(SEXP call, SEXP from, SEXP to, SEXP by)
+static SEXP i64_Sequence(SEXP call, SEXP from, SEXP to, SEXP by,
+                         R_xlen_t length)
 {
     SEXP proto = TYPEOF(from) == ALTSXP ? from : to;
     if (!i64_is(proto)) return NULL;
@@ -2638,30 +2684,62 @@ static SEXP i64_Sequence(SEXP call, SEXP from, SEXP to, SEXP by)
             step_down = d < 0;
             step = (uint64_t) fabs(d);
         }
-        if (step == 0) return NULL;
+        if (step == 0 && length < 0) return NULL;
     }
-    SEXP a = PROTECT(i64_materialize(from, uns, nullable));
-    SEXP b = PROTECT(i64_materialize(to, uns, nullable));
-    int64_t av = i64_data(a)[0], bv = i64_data(b)[0];
-    if ((I64_NULLABLE(a) && av == (uns ? (int64_t) NA_UINT64 : NA_INT64)) ||
-        (I64_NULLABLE(b) && bv == (uns ? (int64_t) NA_UINT64 : NA_INT64))) {
+    SEXP a = PROTECT(from == R_MissingArg ? R_NilValue
+                     : i64_materialize(from, uns, nullable));
+    SEXP b = PROTECT(to == R_MissingArg ? R_NilValue
+                     : i64_materialize(to, uns, nullable));
+    int64_t av = a == R_NilValue ? 0 : i64_data(a)[0];
+    int64_t bv = b == R_NilValue ? 0 : i64_data(b)[0];
+    if ((a != R_NilValue && I64_NULLABLE(a) && av == (uns ? (int64_t) NA_UINT64 : NA_INT64)) ||
+        (b != R_NilValue && I64_NULLABLE(b) && bv == (uns ? (int64_t) NA_UINT64 : NA_INT64))) {
         UNPROTECT(2);
         return NULL; /* preserve the caller's missing-endpoint diagnostic */
     }
-    int cmp = i64_cmp(av, bv, uns), down = cmp > 0;
-    if (by == NULL) step_down = down;
-    if (cmp != 0 && step_down != down)
-        errorcall(call, _("wrong sign in 'by' argument"));
-    uint64_t distance = down ? (uint64_t) av - (uint64_t) bv
-        : (uint64_t) bv - (uint64_t) av;
-    uint64_t count = distance / step;
+    uint64_t value = (uint64_t) av, count;
+    if (a != R_NilValue && b != R_NilValue) {
+        int cmp = i64_cmp(av, bv, uns), down = cmp > 0;
+        uint64_t distance = down ? (uint64_t) av - (uint64_t) bv
+            : (uint64_t) bv - (uint64_t) av;
+        if (length > 0) {
+            if (by != NULL) errorcall(call, _("too many arguments"));
+            count = (uint64_t) length - 1;
+            if (count && distance % count) {
+                UNPROTECT(2);
+                return NULL; /* nonintegral spacing needs a double result */
+            }
+            step = count ? distance / count : 0;
+            step_down = down;
+        } else {
+            if (by == NULL) step_down = down;
+            if (cmp != 0 && step_down != down)
+                errorcall(call, _("wrong sign in 'by' argument"));
+            count = distance / step;
+        }
+    } else {
+        /* An omitted endpoint is computed against the capacity of the result
+           domain before multiplying count by step.  The offset may be wider
+           than a signed element, but cannot exceed the unsigned distance. */
+        count = (uint64_t) length - 1;
+        uint64_t upper = uns ? UINT64_MAX - nullable : (uint64_t) INT64_MAX;
+        uint64_t lower = uns ? 0 : (uint64_t) INT64_MIN + nullable;
+        uint64_t capacity;
+        if (a == R_NilValue) {
+            value = (uint64_t) bv;
+            capacity = step_down ? upper - value : value - lower;
+        } else capacity = step_down ? value - lower : upper - value;
+        if (count && step > capacity / count)
+            errorcall(call, _("sequence endpoint is out of range"));
+        if (a == R_NilValue)
+            value = step_down ? value + count * step : value - count * step;
+    }
     if (count >= (uint64_t) R_XLEN_T_MAX - 1)
         errorcall(call, _("result would be too long a vector"));
     R_xlen_t n = (R_xlen_t) count + 1;
     SEXP ans = PROTECT(i64_alloc(proto, n, FALSE));
     INTEGER(I64_META(ans))[I64_NULLABLE_FIELD] = nullable;
     int64_t *out = i64_data(ans);
-    uint64_t value = (uint64_t) av;
     for (R_xlen_t i = 0; i < n; i++) {
         if (i % 1000000 == 0) R_CheckUserInterrupt();
         /* Convert negative bit patterns without an out-of-range unsigned

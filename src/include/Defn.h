@@ -762,7 +762,7 @@ int ALTSXP_NO_NA(SEXP x);
 SEXP ALTSXP_MATH(SEXP call, SEXP op, SEXP args);
 SEXP ALTSXP_DEPARSE(SEXP x);
 SEXP ALTSXP_COERCE_FOR_MATCH(SEXP, SEXP, SEXP *);
-SEXP ALTSXP_SEQUENCE(SEXP, SEXP, SEXP, SEXP);
+SEXP ALTSXP_SEQUENCE(SEXP, SEXP, SEXP, SEXP, R_xlen_t);
 SEXP R_altsxp_format_common(SEXP fmt, Rboolean trim, int width);
 R_xlen_t R_altsxp_recycle_region(SEXP dst, R_xlen_t di, SEXP src, R_xlen_t n);
 SEXP R_altsxp_arith_sym(SEXP call, const char *name, SEXP x, SEXP y);
