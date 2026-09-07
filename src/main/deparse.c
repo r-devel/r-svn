@@ -223,6 +223,12 @@ SEXP deparse1w(SEXP call, bool abbrev, int opts)
     return deparse1WithCutoff(call, abbrev, R_print.cutoff, backtick, opts, -1);
 }
 
+static void deparse_cleanup(void *data)
+{
+    LocalParseData *l = (LocalParseData *) data;
+    R_FreeStringBuffer(&(l->buffer));
+}
+
 static SEXP deparse1WithCutoff(SEXP call, bool abbrev, int cutoff,
 			       bool backtick, int opts, int nlines)
 {
@@ -260,6 +266,14 @@ static SEXP deparse1WithCutoff(SEXP call, bool abbrev, int cutoff,
     localData.backtick = backtick;
     localData.opts = opts;
     localData.strvec = R_NilValue;
+
+    /* Set up a context to free the heap-allocated buffer when an error
+       signalled during deparsing unwinds past this frame */
+    RCNTXT cntxt;
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &deparse_cleanup;
+    cntxt.cenddata = &localData;
 
     PrintDefaults(); /* from global options() */
     savedigits = R_print.digits;
@@ -309,6 +323,7 @@ static SEXP deparse1WithCutoff(SEXP call, bool abbrev, int cutoff,
 	warning(_("deparse may be not be source()able in R < 2.7.0"));
 #endif
     /* somewhere lower down might have allocated ... */
+    endcontext(&cntxt);
     R_FreeStringBuffer(&(localData.buffer));
     UNPROTECT(1);
     return svec;

@@ -3375,15 +3375,21 @@ int isValidName(const char *name)
 	/* This is not necessarily correct for stateful MBCS */
 	mbstate_t mb_st;
 	mbs_init(&mb_st);
-	used = Mbrtowc(&wc, p, n, &mb_st); p += used; n -= used;
-	if(used == 0) return 0;
+	/* mbrtowc, not Mbrtowc: an undecodable string is not a valid name,
+	   and must not signal an error, as this is reached while deparsing
+	   calls for error messages */
+	used = mbrtowc(&wc, p, n, &mb_st);
+	if((int) used <= 0) return 0;
+	p += used; n -= used;
 	if (wc != L'.' && !iswalpha(wc) ) return 0;
 	if (wc == L'.') {
 	    /* We don't care about other than ASCII digits */
 	    if(isdigit(0xff & (int)*p)) return 0;
 	    /* Mbrtowc(&wc, p, n, NULL); if(iswdigit(wc)) return 0; */
 	}
-	while((used = Mbrtowc(&wc, p, n, &mb_st))) {
+	while(n > 0) {
+	    used = mbrtowc(&wc, p, n, &mb_st);
+	    if((int) used <= 0) break;
 	    if (!(iswalnum(wc) || wc == L'.' || wc == L'_')) break;
 	    p += used; n -= used;
 	}
