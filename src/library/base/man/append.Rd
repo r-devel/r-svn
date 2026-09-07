@@ -24,6 +24,9 @@ append(x, values, after = length(x))
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988}
 }
+\seealso{
+  \code{\link{c}} for combining vectors.
+}
 \examples{
 append(1:5, 0:1, after = 3)
 }

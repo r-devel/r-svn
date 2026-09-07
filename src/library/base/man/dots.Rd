@@ -52,7 +52,7 @@
   \R, see \code{\link{Reserved}}.
 
   \manual{R-intro}{The ... argument},
-  and \code{?\link[methods]{dotsMethods}} for its use in formal (S4) methods.
+  and \code{?\link[methods]{dotsMethods}} for its use in formal (S4) methods and \code{\link{chkDots}} for S3 methods. 
 }
 \examples{
 tst <- function(n, ...) ...elt(n)
