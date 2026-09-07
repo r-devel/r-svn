@@ -2318,6 +2318,16 @@ void vmaxset(const void *ovmax)
     R_VStack = (SEXP) ovmax;
 }
 
+/* Anchor an otherwise unreferenced object on the R_alloc stack so that,
+   like R_alloc memory, it stays alive until the enclosing vmaxset().
+   Cached CHARSXPs chain the string hash through their ATTRIB field, so
+   they cannot be linked in directly the way R_alloc's RAWSXPs are; a
+   cons cell carries the reference instead. */
+attribute_hidden void R_VStackAnchor(SEXP s)
+{
+    R_VStack = CONS(s, R_VStack);
+}
+
 char *R_alloc(size_t nelem, int eltsize)
 {
     R_size_t size = nelem * eltsize;
