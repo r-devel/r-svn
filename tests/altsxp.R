@@ -2633,6 +2633,24 @@ if (length(dll.paths)) local({
     stopifnot(!call.test("C_altsxp_test_type_supported",
                          "altsxpTest::share_byte"))
     call.test("C_altsxp_test_register_type", "share_byte")
+    ## A C consumer may keep the returned prototype in a static without
+    ## preserving it, even when a later registration replaces the registry
+    ## entry.  Keep only a weak reference to an attribute as a collection
+    ## detector, so a broken implementation fails without dereferencing freed
+    ## memory.  Also exercise allocation through the original cached pointer.
+    ref <- local({
+        marker <- new.env(parent = emptyenv())
+        call.test("C_altsxp_test_cache_prototype",
+                  "altsxpTest::share_byte", marker)
+    })
+    for (i in 1:3) {
+        call.test("C_altsxp_test_register_type", "share_byte")
+        gc()
+        cached <- call.test("C_altsxp_test_cached_prototype_new", ref)
+        stopifnot(identical(contents(cached), as.raw(c(0, 0, 0))),
+                  typeof(cached) == "altsxpTest::share_byte",
+                  length(vector("altsxpTest::share_byte", 2L)) == 2L)
+    }
     stopifnot(call.test("C_altsxp_test_type_supported",
                         "altsxpTest::share_byte"),
               call.test("C_altsxp_test_type_supported", "int64"),
@@ -2842,6 +2860,77 @@ if (length(dll.paths)) local({
                   identical(as.double(sort(v)), c(3, 4, 5)),
                   identical(as.double(min(v, na.rm = TRUE)), 3))
     }
+})
+
+## Negative ordinary integers are values in comparisons with uint64, even
+## though converting them into uint64 would introduce NA.  Ordinary integers
+## are exact as doubles, so the existing mixed-double comparison is a useful
+## reference, including recycling, missing values and reversed operands.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            u <- as.uint64(c("0", "1", "9007199254740993",
+                             "18446744073709551614"), na = nullable)
+            for (rhs in list(-1L, c(-1L, 1L), c(NA_integer_, -1L),
+                             c(FALSE, TRUE), as.raw(c(0, 1)), integer()))
+                for (op in c("==", "!=", "<", "<=", ">", ">=")) {
+                    f <- get(op)
+                    stopifnot(identical(f(u, rhs), f(u, as.double(rhs))),
+                              identical(f(rhs, u), f(as.double(rhs), u)))
+                }
+        }
+        for (u in list(as.uint64(c(NA, 1L)),
+                       as.uint64("18446744073709551615", na = FALSE))) {
+            stopifnot(identical(u > -1L, u > -1),
+                      identical(-1L == u, -1 == u))
+        }
+        stopifnot(identical(as.uint64(1L) > -1L, TRUE),
+                  identical(as.uint64(1L) == -1L, FALSE))
+    }, warning = function(w) stop(w))
+})
+
+## Descending unsigned sequences need a positive distance and subtraction
+## from the starting value.  A negative intermediate cannot be represented
+## in uint64, and falling back to double changes both the values and length.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            hi <- as.uint64("9007199254740995", na = nullable)
+            lo <- as.uint64("9007199254740993", na = nullable)
+            want <- as.uint64(c("9007199254740995", "9007199254740994",
+                                "9007199254740993"), na = nullable)
+            stopifnot(identical(hi:lo, want), identical(seq(hi, lo), want),
+                      identical(seq.int(hi, lo), want),
+                      identical(seq(hi, lo, by = -1L), want),
+                      identical(seq.int(hi, lo, by = -1), want),
+                      identical(seq(hi, lo, by = -2), want[c(1L, 3L)]),
+                      identical(seq(hi, lo, by = -3L), want[1L]),
+                      identical(lo:hi, rev(want)),
+                      identical(hi:hi, hi),
+                      identical(as.double(as.uint64(2L, na = nullable):0L),
+                                c(2, 1, 0)))
+        }
+        hi <- as.uint64("18446744073709551615", na = FALSE)
+        lo <- as.uint64("18446744073709551613", na = FALSE)
+        stopifnot(identical(as.character(hi:lo),
+                            c("18446744073709551615", "18446744073709551614",
+                              "18446744073709551613")))
+        ## Keep signed steps whose positive magnitude is not representable.
+        lo <- as.int64("-9223372036854775808", na = FALSE)
+        zero <- as.int64(0L, na = FALSE)
+        one <- as.int64(1L, na = FALSE)
+        stopifnot(identical(seq.int(zero, lo, by = lo), c(zero, lo)),
+                  identical(seq.int(zero, zero, by = lo), zero),
+                  identical(seq.int(one, zero, by = lo), one))
+    }, warning = function(w) stop(w))
+    assertError(seq(as.uint64(3L), as.uint64(1L), by = 1L))
+    assertError(seq(as.uint64(1L), as.uint64(3L), by = -1L))
+    ## Rounding both endpoints to double would make these look equal.
+    hi <- as.uint64("9007199254740993")
+    lo <- as.uint64("9007199254740992")
+    assertError(seq.int(hi, lo, by = 1L))
+    assertError(seq.int(lo, hi, by = -1L))
+    assertError(seq.int(as.uint64(NA)))
 })
 
 cat("altsxp tests OK\n")

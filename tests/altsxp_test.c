@@ -361,6 +361,26 @@ static SEXP test_register_type(SEXP kind)
     return R_NilValue;
 }
 
+/* The public API permits a static cache without R_PreserveObject().  A weak
+   reference to an attribute lets the test detect collection before it tries
+   to use a dangling prototype. */
+static SEXP cached_prototype;
+
+static SEXP test_cache_prototype(SEXP name, SEXP marker)
+{
+    cached_prototype = R_altsxp_prototype(CHAR(STRING_ELT(name, 0)));
+    if (cached_prototype == NULL) error("unregistered test type");
+    setAttrib(cached_prototype, install("test_marker"), marker);
+    return R_MakeWeakRef(marker, R_NilValue, R_NilValue, FALSE);
+}
+
+static SEXP test_cached_prototype_new(SEXP ref)
+{
+    if (R_WeakRefKey(ref) == R_NilValue)
+	error("cached ALTSXP prototype was collected");
+    return R_altsxp_new(cached_prototype, 3, TRUE);
+}
+
 static SEXP test_share_type(SEXP kind, SEXP name)
 {
     if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
@@ -444,6 +464,8 @@ static const R_CallMethodDef call_methods[] = {
     {"C_altsxp_test_set_na", (DL_FUNC) &test_set_na, 3},
     {"C_altsxp_test_as_list_vmax", (DL_FUNC) &test_as_list_vmax, 1},
     {"C_altsxp_test_register_type", (DL_FUNC) &test_register_type, 1},
+    {"C_altsxp_test_cache_prototype", (DL_FUNC) &test_cache_prototype, 2},
+    {"C_altsxp_test_cached_prototype_new", (DL_FUNC) &test_cached_prototype_new, 1},
     {"C_altsxp_test_share_type", (DL_FUNC) &test_share_type, 2},
     {"C_altsxp_test_type_supported", (DL_FUNC) &test_type_supported, 1},
     {"C_altsxp_test_alloc_by_name", (DL_FUNC) &test_alloc_by_name, 2},

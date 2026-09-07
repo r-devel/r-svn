@@ -841,8 +841,13 @@ void R_altsxp_register_type(R_altrep_class_t cls)
 
     for (SEXP chain = CDR(EltTypeNames); chain != R_NilValue; chain = CDR(chain))
 	if (TAG(chain) == name) {
-	    if (same_altrep_class(ALTREP_CLASS(CAR(chain)), class))
+	    if (same_altrep_class(ALTREP_CLASS(CAR(chain)), class)) {
+		/* Published prototypes may be cached without preservation for
+		   the rest of the session.  Retain the old one before replacing
+		   its registry root, even when the class is re-registered. */
+		R_PreserveObject(CAR(chain));
 		SETCAR(chain, proto); /* re-registered, e.g. package reloaded */
+	    }
 	    else
 		/* First registration wins.  A name reaches every caller of
 		   vector(), so a later class taking one over would change

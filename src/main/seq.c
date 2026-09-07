@@ -163,8 +163,11 @@ static Rboolean seq_endpoint(SEXP x)
 /* from:to and seq(from, to, by) with an opaque endpoint.  asReal() answers for
    one of those now, but rounding a 64-bit endpoint through a double silently
    duplicates and skips values -- on the type whose whole point is exactness.
-   So the class does the work instead: the count is (to - from) %/% by and the
-   answer is from + (0:(n-1)) * by, all in the opaque representation.  A NULL
+   So the class does the work instead.  Descending nonnegative endpoints use
+   a positive distance and step magnitude, subtracting the offsets from the
+   start: an unsigned type cannot hold a negative distance or offset even
+   when every value of the sequence fits.  Other sequences use the signed
+   difference and add the offsets, all in the opaque representation.  A NULL
    'by' means a unit step in whichever direction the endpoints run, which is
    what `:` asks for.  Returns NULL when the class declines any step of that,
    and the caller falls back to the ordinary double path. */
@@ -196,7 +199,29 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     }
     PROTECT(b);
 
-    SEXP diff = R_altsxp_arith_sym(call, "-", b, a);
+    /* Compare before subtracting: a descending unsigned sequence has no
+       representation for b - a.  A class that declines comparison, or a
+       missing endpoint, leaves the ordinary path to report the result. */
+    SEXP cmp = ALTSXP_RELOP(call, R_Primitive(">"), a, b);
+    int down = NA_LOGICAL;
+    if (cmp != NULL) {
+	PROTECT(cmp);
+	down = asLogical(cmp);
+	UNPROTECT(1);
+    }
+    if (down == NA_LOGICAL) {
+	UNPROTECT(2);
+	return NULL;
+    }
+
+    /* Keep the signed difference for a negative lower endpoint or an
+       explicitly negative opaque step: their positive magnitudes may not
+       fit, e.g. to = by = INT64_MIN in a whole-range signed vector.  Only
+       signs are read through double. */
+    Rboolean signed_step = by != NULL && TYPEOF(by) == ALTSXP && asReal(by) < 0;
+    Rboolean subtract = down && asReal(b) >= 0 && !signed_step;
+    SEXP diff = R_altsxp_arith_sym(call, "-",
+				 subtract ? a : b, subtract ? b : a);
     if (diff == NULL) {
 	UNPROTECT(2);
 	return NULL;
@@ -204,12 +229,7 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     PROTECT(diff);
 
     if (by == NULL) {
-	double d = asReal(diff);
-	if (ISNAN(d)) {
-	    UNPROTECT(3);
-	    return NULL;	/* the caller reports the NA */
-	}
-	by = ScalarInteger(d < 0 ? -1 : 1);
+	by = ScalarInteger(down ? -1 : 1);
     }
     else if (TYPEOF(by) == REALSXP) {
 	/* a whole-number step is exact as an integer, and keeping it out of
@@ -221,7 +241,8 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
 	}
 	by = ScalarInteger((int) d);
     }
-    PROTECT(by);
+    PROTECT_INDEX bpi;
+    PROTECT_WITH_INDEX(by, &bpi);
 
     /* A zero step divides by zero below.  A class whose domain excludes NA
        answers that with an error rather than an NA, and the message would be
@@ -233,10 +254,19 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
 	return NULL;
     }
 
+    if ((down && dby > 0) || (!down && dby < 0 && asReal(diff) != 0))
+	errorcall(call, _("wrong sign in 'by' argument"));
+    if (subtract && dby < 0) {
+	if (TYPEOF(by) != INTSXP && TYPEOF(by) != LGLSXP) {
+	    UNPROTECT(4);
+	    return NULL;
+	}
+	REPROTECT(by = ScalarInteger(-(int) dby), bpi);
+    }
+
     SEXP nsteps = R_altsxp_arith_sym(call, "%/%", diff, by);
     double dn = (nsteps == NULL) ? NA_REAL : asReal(nsteps);
-    /* a wrong-signed or zero step gives a negative or infinite count; the
-       caller has the message for each of those */
+    /* The class may decline or report an unrepresentable count. */
     if (!R_FINITE(dn) || dn < 0) {
 	UNPROTECT(4);
 	return NULL;
@@ -265,7 +295,7 @@ static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
     }
     PROTECT(scaled);
 
-    SEXP ans = R_altsxp_arith_sym(call, "+", a, scaled);
+    SEXP ans = R_altsxp_arith_sym(call, subtract ? "-" : "+", a, scaled);
     UNPROTECT(7); /* scaled, step, off, by, diff, b, a */
 
     return ans;

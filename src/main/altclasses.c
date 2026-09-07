@@ -3349,18 +3349,21 @@ static int i64_cmp_double(int64_t a, int uns, double d)
     return c != 0 ? c : (d > f ? -1 : 0);
 }
 
-/* One operand is a double.  Promoting both to double would round the exact
-   one -- 2^53 + 1 would then compare equal to 2^53 -- and would disagree with
-   match() and %in%, which compare exactly.  So neither side is converted. */
-static SEXP i64_relop_double(SEXP call, int rel, SEXP x, SEXP y)
+/* One operand is an ordinary numeric vector.  Promoting both to double would
+   round the exact one -- 2^53 + 1 would then compare equal to 2^53 -- and
+   disagree with match() and %in%, which compare exactly.  Only the ordinary
+   operand is rendered as double: logical, raw and integer values are exact there,
+   including negative integers that cannot be rendered as uint64. */
+static SEXP i64_relop_numeric(SEXP call, int rel, SEXP x, SEXP y)
 {
-    Rboolean xd = (Rboolean) (TYPEOF(x) == REALSXP);
+    Rboolean xd = (Rboolean) !i64_is(x);
     SEXP alt = xd ? y : x, dbl = xd ? x : y;
 
     R_xlen_t na = i64_length(alt), nb = XLENGTH(dbl);
     if (na == 0 || nb == 0)
 	return allocVector(LGLSXP, 0);
 
+    PROTECT(dbl = coerceVector(dbl, REALSXP));
     int has_na, uns = i64_unsigned(alt);
     int64_t nav = i64_na_test(alt, &has_na);
     const int64_t *pa = i64_data(alt);
@@ -3398,7 +3401,7 @@ static SEXP i64_relop_double(SEXP call, int rel, SEXP x, SEXP y)
 	}
     }
 
-    UNPROTECT(1);
+    UNPROTECT(2); /* ans, dbl */
     return ans;
 }
 
@@ -3418,19 +3421,15 @@ static SEXP i64_Relop(SEXP call, SEXP opsym, SEXP x, SEXP y)
 	errorcall(call, _("operator '%s' is not defined for %s"),
 		  op, uns ? "uint64" : "int64");
 
-    /* The only inexact operand this class admits is a double, and comparing
-       against one is exact -- unlike arithmetic, where a double operand
-       promotes the whole operation and the result has nowhere exact to go. */
-    if (TYPEOF(x) == REALSXP || TYPEOF(y) == REALSXP)
-	return i64_relop_double(call, rel, x, y);
+    /* An ordinary operand is compared in its own domain.  In particular,
+       converting a negative integer to uint64 would invent a missing value
+       before the comparison even ran. */
+    if (!i64_is(x) || !i64_is(y))
+	return i64_relop_numeric(call, rel, x, y);
 
-    /* Unlike i64_binary(), an ordinary operand is rendered as nullable here
-       whatever the other side reserves: a comparison builds no opaque
-       result whose domain would have to accommodate it, and x == NA has to
-       answer NA rather than refuse.  The loop below then reads each operand
-       in its own domain, so a whole-range operand keeps its extremes. */
-    SEXP p1 = PROTECT(i64_materialize(x, uns, TRUE));
-    SEXP p2 = PROTECT(i64_materialize(y, uns, TRUE));
+    /* Both operands are now native 64-bit vectors. */
+    SEXP p1 = PROTECT(x);
+    SEXP p2 = PROTECT(y);
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
 
     if (nx == 0 || ny == 0) {
