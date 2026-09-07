@@ -1115,10 +1115,12 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	/* an opaque endpoint carries more precision than rfrom and rto above
 	   can hold, so let the class build the sequence while it still can */
-	if(!miss_from && !miss_to &&
-	   (TYPEOF(from) == ALTSXP || TYPEOF(to) == ALTSXP)) {
-	    SEXP a = altsxp_seq(call, from, to,
+	if(TYPEOF(from) == ALTSXP || TYPEOF(to) == ALTSXP) {
+	    SEXP one = PROTECT(ScalarInteger(1));
+	    SEXP a = altsxp_seq(call, miss_from ? one : from,
+				miss_to ? one : to,
 				by == R_MissingArg ? NULL : by);
+	    UNPROTECT(1);
 	    if(a != NULL) { ans = a; goto done; }
 	}
 	if(by == R_MissingArg)

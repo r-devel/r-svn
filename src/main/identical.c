@@ -397,13 +397,19 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	}
 
 	size_t esz = ALTSXP_ELT_SIZE(x);
+	/* BITWISE_EQ describes nonmissing values only.  Missing encodings
+	   may differ, unless the caller explicitly requests NA bit comparison. */
+	Rboolean bytes_only = !SINGLE_NA ||
+	    (ALTSXP_NO_NA(x) == TRUE && ALTSXP_NO_NA(y) == TRUE);
 	const void *px = DATAPTR_OR_NULL(x), *py = DATAPTR_OR_NULL(y);
-	if (px != NULL && py != NULL)
+	if (bytes_only && px != NULL && py != NULL)
 	    return memcmp(px, py, (size_t) n * esz) == 0 ? TRUE : FALSE;
 
 	R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
 	const void *vmax = vmaxget();
 	char *bx = R_alloc((size_t) nb, esz), *by = R_alloc((size_t) nb, esz);
+	int *nax = bytes_only ? NULL : (int *) R_alloc((size_t) nb, sizeof(int));
+	int *nay = bytes_only ? NULL : (int *) R_alloc((size_t) nb, sizeof(int));
 	Rboolean ans = TRUE;
 	for (R_xlen_t i = 0; i < n && ans; ) {
 	    R_xlen_t k = n - i > nb ? nb : n - i;
@@ -411,7 +417,17 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	    R_xlen_t ky = R_altsxp_get_region(y, i, k, by);
 	    if (kx <= 0 || kx != ky)
 		error(_("'%s' method reported no elements"), "Get_region");
-	    if (memcmp(bx, by, (size_t) kx * esz) != 0) ans = FALSE;
+	    if (bytes_only) {
+		if (memcmp(bx, by, (size_t) kx * esz) != 0) ans = FALSE;
+	    } else {
+		R_altsxp_is_na_region(x, i, kx, nax);
+		R_altsxp_is_na_region(y, i, kx, nay);
+		for (R_xlen_t j = 0; j < kx && ans; j++) {
+		    if (nax[j] || nay[j]) ans = nax[j] == nay[j];
+		    else if (memcmp(bx + j * esz, by + j * esz, esz) != 0)
+			ans = FALSE;
+		}
+	    }
 	    i += kx;
 	}
 	vmaxset(vmax);

@@ -49,21 +49,21 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    with R_altsxp_share_type() at the same width, and K_SHAREW tries to adopt
    it at a different one, which is the promise R can actually check. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_N };
+       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_NONEW, K_MULTINA, K_MULTIPTR, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
     1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
-    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1
+    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1, 1, 1, 1
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
     "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64",
     "shortfmt_byte", "share_byte", "share2_byte", "sharew_byte",
-    "half_byte", "limitfmt_byte"
+    "half_byte", "limitfmt_byte", "nonew_byte", "multina_byte", "multiptr_byte"
 };
 
 static int test_kind(SEXP x)
@@ -226,12 +226,17 @@ test_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
 {
     R_xlen_t ncopy = test_ncopy(x, i, n);
     if (ncopy > GET_CHUNK) ncopy = GET_CHUNK;
-    for (R_xlen_t k = 0; k < ncopy; k++) buf[k] = FALSE;
+    int kind = test_kind(x);
+    for (R_xlen_t k = 0; k < ncopy; k++)
+        buf[k] = (kind == K_MULTINA || kind == K_MULTIPTR) &&
+            RAW(R_altrep_data1(x))[i + k] >= 254;
     return ncopy;
 }
 
 static unsigned int test_traits(SEXP x)
 {
+    if (test_kind(x) == K_MULTINA || test_kind(x) == K_MULTIPTR)
+        return R_ALTREP_TRAITS_BITWISE_EQ;
     return R_ALTREP_TRAITS_BITWISE_EQ | R_ALTREP_TRAITS_NOT_NULLABLE;
 }
 
@@ -256,11 +261,11 @@ static int test_fake64_compare(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     return (a > b) - (a < b);
 }
 
-static void init_test_class(R_altrep_class_t cls)
+static void init_test_class(R_altrep_class_t cls, int kind)
 {
     R_set_altrep_Length_method(cls, test_length);
     R_set_altsxp_Elt_size_method(cls, test_elt_size);
-    R_set_altsxp_New_method(cls, test_new);
+    if (kind != K_NONEW) R_set_altsxp_New_method(cls, test_new);
     R_set_altsxp_Get_region_method(cls, test_get_region);
     R_set_altsxp_Set_region_method(cls, test_set_region);
     R_set_altsxp_Is_na_region_method(cls, test_is_na_region);
@@ -543,13 +548,15 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_SHORTFMT] = install("altsxp_test_shortfmt");
     test_type_syms[K_HALF] = install("altsxp_test_half");
     test_type_syms[K_LIMITFMT] = install("altsxp_test_limitfmt");
+    test_type_syms[K_NONEW] = install("altsxp_test_nonew");
+    test_type_syms[K_MULTINA] = test_type_syms[K_MULTIPTR] = install("altsxp_test_multina");
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
     for (int k = 0; k < K_N; k++) {
 	test_classes[k] = R_make_altsxp_class(test_class_names[k],
 					      "altsxpTest", dll);
-	init_test_class(test_classes[k]);
+	init_test_class(test_classes[k], k);
 	/* K_PLAIN and the K_SHARE* trio take the default, which has to name
 	   the package as well as the class or it would collide with any other
 	   "plain_byte" */
@@ -584,6 +591,8 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Hash_method(test_classes[K_HALF], test_mod_hash);
     R_set_altsxp_Coerce_from_method(test_classes[K_HALF], test_half_coerce);
     R_set_altsxp_Format_method(test_classes[K_LIMITFMT], test_limit_format);
+    R_set_altvec_Dataptr_or_null_method(test_classes[K_MULTIPTR],
+                                      test_readonly_dataptr);
 
     R_registerRoutines(dll, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);

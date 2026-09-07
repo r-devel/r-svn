@@ -2946,6 +2946,32 @@ if (length(dll.paths)) local({
                                                             as.raw(1:2)))))
     gctorture(FALSE)
 
+    ## A missing New method must diagnose both a class-object prototype and
+    ## an existing instance, naming the class and package instead of crashing.
+    no.new <- new.kind("nonew_byte", as.raw(1:3))
+    errors <- list(tryCatch(call.test("C_altsxp_test_new_from_class", "nonew_byte", 1L),
+                            error = identity),
+                   tryCatch(.allocVectorLike(no.new, 2L), error = identity))
+    for (err in errors)
+        stopifnot(inherits(err, "error"),
+                  grepl("New method", conditionMessage(err), fixed = TRUE),
+                  grepl("nonew_byte", conditionMessage(err), fixed = TRUE),
+                  grepl("altsxpTest", conditionMessage(err), fixed = TRUE))
+
+    ## Byte equality promises apply to nonmissing elements.  Multiple NA
+    ## spellings agree by default, through pointers and short region reads.
+    for (kx in c("multina_byte", "multiptr_byte"))
+        for (ky in c("multina_byte", "multiptr_byte")) {
+            x <- new.kind(kx, as.raw(c(1, 254, 2, 255, 3)))
+            y <- new.kind(ky, as.raw(c(1, 255, 2, 254, 3)))
+            z <- new.kind(ky, as.raw(c(1, 3, 2, 254, 3)))
+            stopifnot(identical(x, y), !identical(x, y, single.NA = FALSE),
+                      !identical(x, z),
+                      identical(match(x, y), c(1L, 2L, 3L, 2L, 5L)),
+                      identical(new.kind(kx, as.raw(1:5)),
+                                new.kind(ky, as.raw(1:5))))
+        }
+
     ## Fractional representations use their own coercion for matching and
     ## incomparables, including the character spelling of a fraction.
     half <- new.kind("half_byte", as.raw(c(1, 3, 1)))
@@ -3199,6 +3225,24 @@ local({
                 x <- setNames(make(c(1234L, 1234L)), c("x", "y"))
                 stopifnot(identical(names(f(x, digits)), names(x)))
             }
+})
+
+## Omitted endpoints in primitive seq.int() mean 1, just as explicit ones.
+## The default must enter exact dispatch before either endpoint is rounded.
+local({
+    a <- as.int64("9007199254740993")
+    b <- as.int64("-9007199254740992")
+    stopifnot(identical(seq.int(from = a, by = b),
+                        seq.int(from = a, to = 1L, by = b)),
+              identical(seq.int(to = a, by = -b),
+                        seq.int(from = 1L, to = a, by = -b)))
+    for (make in list(as.int64, as.uint64)) {
+        x <- make(4L)
+        stopifnot(identical(seq.int(from = x, by = -1L),
+                            seq.int(from = x, to = 1L, by = -1L)),
+                  identical(seq.int(to = x, by = 1L),
+                            seq.int(from = 1L, to = x, by = 1L)))
+    }
 })
 
 cat("altsxp tests OK\n")

@@ -117,10 +117,13 @@ attribute_hidden void R_reinit_altrep_classes(DllInfo *dll)
  **/
 
 #define ALTREP_ERROR_IN_CLASS(msg, x) do {			\
+	SEXP obj__ = (x);					\
+	SEXP cls__ = ALTREP(obj__) ? ALTREP_CLASS(obj__) : obj__; \
+	SEXP info__ = ALTREP_CLASS_SERIALIZED_CLASS(cls__);	\
 	error("%s [class: %s, pkg: %s]",			\
 	      msg,						\
-	      CHAR(PRINTNAME(ALTREP_OBJECT_CLSSYM(x))),		\
-	      CHAR(PRINTNAME(ALTREP_OBJECT_PKGSYM(x))));	\
+	      CHAR(PRINTNAME(ALTREP_SERIALIZED_CLASS_CLSSYM(info__))), \
+	      CHAR(PRINTNAME(ALTREP_SERIALIZED_CLASS_PKGSYM(info__)))); \
     } while(0)
 
 static void SET_ALTREP_CLASS(SEXP x, SEXP class)
