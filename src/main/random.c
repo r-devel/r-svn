@@ -504,12 +504,12 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    ProbSampleNoReplace(n, p, INTEGER(x), k, INTEGER(y));
 	UNPROTECT(2);
     }
-    else {  // uniform sampling
+    else {  /* uniform sampling */
 	double dn = asReal(sn);
 	R_xlen_t k = asVecSize(sk);
 	if (!R_FINITE(dn) || dn < 0 || dn > 4.5e15 || (k > 0 && dn == 0))
 	    error(_("invalid first argument"));
-	if (k < 0) error(_("invalid '%s' argument"), "size"); // includes NA
+	if (k < 0) error(_("invalid '%s' argument"), "size"); /* includes NA */
 	if (!replace && k > dn)
 	    error(_("cannot take a sample larger than the population when 'replace = FALSE'"));
 	if (dn > INT_MAX || k > INT_MAX) {
@@ -553,4 +553,234 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
     PutRNGstate();
     UNPROTECT(1);
     return y;
+}
+
+/* inclusion_probs - computing inclusion probabilities
+   .Internal(inclusion_probs(a, size))
+*/
+
+attribute_hidden SEXP do_inclusion_probs(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    SEXP a = CAR(args);
+    SEXP size = CADR(args);
+
+    if (XLENGTH(size) != 1)
+	error(_("invalid '%s' argument"), "size");
+
+    double size_d = asReal(size);
+    if (!R_FINITE(size_d) || size_d < 0.0 || size_d != floor(size_d))
+	error(_("invalid '%s' argument"), "size");
+    if (size_d > INT_MAX)
+	error(_("long vectors are not supported"));
+    if (XLENGTH(a) > INT_MAX)
+	error(_("long vectors are not supported"));
+
+    int len = LENGTH(a);
+    int size_val = (int) size_d;
+    if (size_val > len)
+	error(_("cannot take a sample larger than the population when 'replace = FALSE'"));
+
+    PROTECT(a = coerceVector(a, REALSXP));
+    const double *a_ptr = REAL(a);
+    SEXP pi_k;
+    PROTECT(pi_k = allocVector(REALSXP, len));
+    double *pi_k_ptr = REAL(pi_k);
+
+    /*
+       The scaling and iterative capping follow inclusion_prob.c from
+       the GPL-2-or-later R package 'sondage' (version 0.9.1).
+       Unlike that package's public helper, sample() retains its established
+       behaviour of rejecting negative probability weights.
+    */
+    double max_a = 0.0;
+    int n_positive = 0;
+    for (int i = 0; i < len; i++) {
+	if (!R_FINITE(a_ptr[i]))
+	    error(_("NA in probability vector"));
+	if (a_ptr[i] < 0.0)
+	    error(_("negative probability"));
+	if (a_ptr[i] > 0.0) {
+	    n_positive++;
+	    if (a_ptr[i] > max_a)
+		max_a = a_ptr[i];
+	}
+    }
+
+    if (n_positive < size_val)
+	error(_("too few positive probabilities"));
+
+    if (size_val == 0) {
+	for (int i = 0; i < len; i++)
+	    pi_k_ptr[i] = 0.0;
+	UNPROTECT(2);
+	return pi_k;
+    }
+
+    /* Dividing first by the maximum preserves relative weights and avoids
+       overflow when the finite weights have a very large raw sum. */
+    double sum_a = 0.0;
+    for (int i = 0; i < len; i++) {
+	if (a_ptr[i] == 0.0) {
+	    pi_k_ptr[i] = 0.0;
+	} else {
+	    pi_k_ptr[i] = a_ptr[i] / max_a;
+	    sum_a += pi_k_ptr[i];
+	}
+    }
+
+    double scale = size_d / sum_a;
+    int n_capped = 0;
+    double sum_uncapped = 0.0;
+    for (int i = 0; i < len; i++) {
+	double pi = pi_k_ptr[i] * scale;
+	if (pi >= 1.0) {
+	    pi_k_ptr[i] = 1.0;
+	    n_capped++;
+	} else {
+	    pi_k_ptr[i] = pi;
+	    sum_uncapped += pi;
+	}
+    }
+
+    while (n_capped > 0 && sum_uncapped > 0.0) {
+	R_CheckUserInterrupt();
+	double remaining = size_d - n_capped;
+	double rescale = remaining / sum_uncapped;
+	int newly_capped = 0;
+	double new_sum_uncapped = 0.0;
+
+	for (int i = 0; i < len; i++) {
+	    if (pi_k_ptr[i] < 1.0) {
+		double pi = pi_k_ptr[i] * rescale;
+		if (pi >= 1.0) {
+		    pi_k_ptr[i] = 1.0;
+		    newly_capped++;
+		} else {
+		    pi_k_ptr[i] = pi;
+		    new_sum_uncapped += pi;
+		}
+	    }
+	}
+
+	if (newly_capped == 0)
+	    break;
+
+	n_capped += newly_capped;
+	sum_uncapped = new_sum_uncapped;
+    }
+
+    UNPROTECT(2);
+    return pi_k;
+}
+
+/* up_brewer - sampling using Brewer's method to select a sample of units 
+   under unequal probability sampling without replacement
+   .Internal(up_brewer(pi_k, eps))
+*/
+
+attribute_hidden SEXP do_up_brewer(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    SEXP pi_k, eps;
+    checkArity(op, args);
+    pi_k = CAR(args);
+    eps = CADR(args);
+    int i, l, l1;
+    double *pi_k_ptr = REAL(pi_k);
+    double epsilon = REAL(eps)[0];
+    int N_val = LENGTH(pi_k);
+
+    /* Initialize variables */
+    double size = 0.0;
+
+    int ans_idx = 0;
+    SEXP ans;
+    /* Allocating maximum possible size we would need */
+    PROTECT(ans = allocVector(INTSXP, N_val));  
+    int *ans_ptr = INTEGER(ans);
+
+    GetRNGstate();
+
+    /* Count and allocate space for pi_k values between eps and 1 - eps */
+    int count = 0;
+    for (int k = 0; k < N_val; k++) {
+        if (pi_k_ptr[k] > epsilon && pi_k_ptr[k] < (1 - epsilon)) {
+            count++;
+        }
+    }
+
+    double *filtered_pi_k = (double *) R_alloc(count, sizeof(double));
+    int *original_idx = (int *) R_alloc(count,  sizeof(int));
+    /* from sampling pkg UPbrewer, tracks sampling */
+    int *sb = (int *) S_alloc(count, sizeof(int));  /* zeroes memory */
+    /* corrected sampling probability */
+    double *p = (double *) R_alloc(count,  sizeof(double));
+    int filtered_idx = 0;
+
+    if (filtered_pi_k == NULL || original_idx == NULL || 
+        sb == NULL || p == NULL) {
+        error("Memory allocation failed");
+    }
+
+    /* Pre-loop to handle pi_k >= 1 - eps and pi_k <= eps, and populate filtered_pi_k */
+    for (int k = 0; k < N_val; k++) {
+        if (pi_k_ptr[k] >= 1 - epsilon) {
+            ans_ptr[ans_idx++] = k + 1;
+        } else if (pi_k_ptr[k] > epsilon) {
+            filtered_pi_k[filtered_idx] = pi_k_ptr[k];
+            original_idx[filtered_idx] = k;
+            size += pi_k_ptr[k];
+            filtered_idx++;
+        }
+    }
+
+    int n = fround(size, 0);
+
+    /* Main loop with intentional 1-based index */
+    for (int i = 1; i <= n; i++) {
+        double p_sum = 0.0;
+        double a = 0.0;
+        double n_minus_i_plus_1 = n - i + 1;
+
+        for (int k = 0; k < count; k++) {
+            a += filtered_pi_k[k] * sb[k];
+        } 
+
+        /* Reduce repeated calculations */
+        double n_minus_a = n - a;
+
+        /* Calculate p */
+        for (int k = 0; k < count; k++) {
+            p[k] = ((1 - sb[k]) * filtered_pi_k[k] * (n_minus_a - filtered_pi_k[k])) / (n_minus_a - filtered_pi_k[k] * n_minus_i_plus_1);
+            p_sum += p[k];
+        }
+
+        /* Find the first index j such that p[j] - u > 0 */
+        double cumprob = 0.0;
+        double u = unif_rand();
+        int j;
+        for (j = 0; j < count; j++) {
+            cumprob += p[j] / p_sum;
+            if (u < cumprob) {
+                break;
+            }
+        }
+
+        /* Update sb and ans */
+        sb[j] = 1;
+        ans_ptr[ans_idx++] = original_idx[j] + 1;
+    }
+
+    /* Resize ans to actual size  */
+    SEXP ans_resized;
+    PROTECT(ans_resized = allocVector(INTSXP, ans_idx));
+    for (int j = 0; j < ans_idx; j++) {
+      INTEGER(ans_resized)[j] = ans_ptr[j]; 
+    }
+
+
+    PutRNGstate();
+    UNPROTECT(2); /* ans, ans_resized */
+    
+    return ans_resized;
 }

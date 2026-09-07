@@ -783,7 +783,9 @@ List of 7
 > 
 > ## implicit generics ..
 > setMethod("sample", "C2",
-+           function(x, size, replace=FALSE, prob=NULL) {"sample.C2"})
++           function(x, size, replace=FALSE, prob=NULL, method=c("sequential", "marginal", "poisson")) {"sample.C2"})
+Creating a generic function for 'sample' from 'base' in the global environment
+    (from the saved implicit definition)
 Creating a generic function for 'sample' from package 'base' in the global environment
 > stopifnot(is(sample,"standardGeneric"),
 + 	  ## the signature must come from the implicit generic:
@@ -1181,7 +1183,7 @@ class(from) <- "foo"
 > ## ----- from here on, keep at EOF -----
 > 
 > cat('Time elapsed: ', proc.time(),'\n')
-Time elapsed:  0.869 0.169 1.642 0.001 0.003 
+Time elapsed:  0.869 0.169 1.642 0.001 0.003
 > 
 > ### NB: Only add new tests here _IF_   checking output,
 > ### --  otherwise use ./classes-methods.R

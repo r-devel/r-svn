@@ -4,32 +4,45 @@
 % Distributed under GPL 2 or later
 
 \name{sample}
+\encoding{UTF-8}
 \alias{sample}
 \alias{sample.int}
+\alias{sample.pps}
 \title{Random Samples and Permutations}
 \description{
   \code{sample} takes a sample of the specified size from the elements
-  of \code{x} using either with or without replacement.
+  of \code{x} either with or without replacement.
 }
 \usage{
-sample(x, size, replace = FALSE, prob = NULL)
+sample(x, size, replace = FALSE, prob = NULL,
+       method = c("sequential", "marginal", "poisson"))
 
 sample.int(n, size = n, replace = FALSE, prob = NULL,
-           useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2))
+           useHash = (n > 1e+07 && !replace && is.null(prob) && size <= n/2),
+           method = c("sequential", "marginal", "poisson"))
+
+sample.pps(n, size, prob)
 }
 \arguments{
   \item{x}{either a vector of one or more elements from which to choose,
     or a positive integer.  See \sQuote{Details.}}
   \item{n}{a positive number, the number of items to choose from.  See
     \sQuote{Details.}}
-  \item{size}{a non-negative integer giving the number of items to choose.}
+  \item{size}{a non-negative integer giving the number of items to choose.
+    The default is \code{n} for \code{sample.int} and the number of items
+    inferred from \code{x} for \code{sample}. When \code{replace = FALSE},
+    \code{prob} is supplied, and \code{method} is \code{"marginal"} or
+    \code{"poisson"}, \code{size} must be supplied explicitly. For
+    \code{"poisson"}, it specifies the expected sample size.}
   \item{replace}{should sampling be with replacement?}
   \item{prob}{a vector of probability weights for obtaining the elements
     of the vector being sampled.}
+  \item{method}{when \code{replace = FALSE} and \code{prob} is not
+    \code{NULL}, the method to use for sampling, see \sQuote{Details.}}
   \item{useHash}{\code{\link{logical}} indicating if the hash-version of
     the algorithm should be used.  Can only be used for \code{replace =
       FALSE}, \code{prob = NULL}, and \code{size <= n/2}, and really
-    should be used for large \code{n}, as \code{useHash=FALSE} will use
+    should be used for large \code{n}, as \code{useHash = FALSE} will use
     memory proportional to \code{n}.}
 }
 \details{
@@ -62,11 +75,6 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
   used when there are more than 200 reasonably probable values: this
   gives results incompatible with those from \R < 2.2.0.
 
-  If \code{replace} is false, these probabilities are applied
-  sequentially, that is the probability of choosing the next item is
-  proportional to the weights amongst the remaining items.  The number
-  of nonzero weights must be at least \code{size} in this case.
-
   \code{sample.int} is a bare interface in which both \code{n} and
   \code{size} must be supplied as integers.
 
@@ -74,20 +82,50 @@ sample.int(n, size = n, replace = FALSE, prob = NULL,
   type \code{integer}, up to the largest representable integer in type
   \code{double}.  Only uniform sampling is supported.  Two
   random numbers are used to ensure uniform sampling of large integers.
+
+  If \code{replace} is false and \code{prob} is supplied there are three
+  options controlled by \code{method}: \code{"sequential"},
+  \code{"marginal"}, and \code{"poisson"}. All three of the methods have disadvantages.
+
+  The default, \code{"sequential"}, is compatible with \R < 4.6.0. For this method, the
+  probability of choosing the next item is proportional to the weights amongst
+  the remaining items. The number of nonzero weights must be at least
+  \code{size} in this case. Sequential sampling is fast, but \emph{the
+  overall probability of being sampled is not equal or proportional to \code{prob}}.
+
+  Using \code{"marginal"} draws a sample so that the inclusion probabilities
+  are equal or proportional to the values of \code{prob}. It uses the Brewer
+  procedure, Algorithm 6.10 from Tille (2006). The number of nonzero
+  weights must be at least \code{size}. The relative weights are converted
+  to inclusion probabilities that sum to \code{size}. Units whose scaled
+  probability would exceed one are selected with certainty, and the
+  remaining probability is redistributed over the other units. The
+  \code{"marginal"} method is much slower for large \code{n} than the other
+  methods and long vectors are not currently supported.
+
+  Finally, \code{"poisson"} does Poisson sampling, where the inclusion
+  probabilities are obtained from the relative weights using the same
+  conversion as for \code{"marginal"}. Each unit is then selected
+  independently. The \emph{sample size is random}, with mean \code{size}
+  rather than being fixed at \code{size}. It is most useful when \code{size}
+  is large and the variability in sample size is thus small in relative terms.
 }
 
 \value{
   For \code{sample} a vector of length \code{size} with elements
   drawn from either \code{x} or from the integers \code{1:x}.
 
-  For \code{sample.int}, an integer vector of length \code{size} with
-  elements from \code{1:n}, or a double vector if
-  \eqn{n \ge 2^{31}}{n >= 2^31}.
+  For \code{sample.int}, an integer vector with elements from \code{1:n},
+  or a double vector if \eqn{n \ge 2^{31}}{n >= 2^31}. Its length is
+  \code{size}, except for \code{method = "poisson"}, where the length is
+  random with mean \code{size}.
 }
 
 \references{
   \bibshow{R:Becker+Chambers+Wilks:1988,
     R:Ripley:1987}
+
+  \enc{Tillé}{Tille}, Y (2006) \emph{Sampling Algorithms} Springer.
 }
 \seealso{
   \code{\link{RNGkind}(sample.kind = ..)} about random number generation,
@@ -124,5 +162,11 @@ resample(x[x > 10]) # length 0
 ## R 3.0.0 and later
 sample.int(1e10, 12, replace = TRUE)
 sample.int(1e10, 12) # not that there is much chance of duplicates
+
+## unequal probability without replacement
+seq<-replicate(500, sample(LETTERS[1:6],3,prob=(1:6)/7, method="sequential"))
+marg<-replicate(500, sample(LETTERS[1:6],3,prob=(1:6)/7, method="marginal"))
+chisq.test(table(seq), p=(1:6)/21)  ## may fail
+chisq.test(table(marg), p=(1:6)/21) ## passes
 }
 \keyword{distribution}
