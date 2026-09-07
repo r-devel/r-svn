@@ -3291,4 +3291,93 @@ local({
     }
 })
 
+## Numeric opaque matrices are coordinate subscripts, not linear vectors.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        for (dims in list(c(2L, 3L), c(2L, 2L, 2L))) {
+            x <- array(seq_len(prod(dims)), dims)
+            plain <- if(length(dims) == 2L) rbind(c(1L, 2L), c(2L, 1L), c(0L, 1L))
+                     else rbind(c(1L, 2L, 2L), c(2L, 1L, 1L), c(0L, 1L, 1L))
+            idx <- matrix(make(as.vector(plain)), ncol = length(dims))
+            before <- idx
+            stopifnot(identical(x[idx], x[plain]))
+            got <- ref <- x
+            got[idx] <- c(90L, 80L)
+            ref[plain] <- c(90L, 80L)
+            stopifnot(identical(got, ref), identical(idx, before))
+            opaque <- array(make(seq_len(prod(dims))), dims)
+            stopifnot(identical(as.integer(opaque[idx]), x[plain]))
+            opaque[idx] <- make(c(90L, 80L))
+            stopifnot(identical(as.integer(opaque), as.integer(ref)))
+            plain[1L, 1L] <- NA_integer_
+            idx <- matrix(make(as.vector(plain)), ncol = length(dims))
+            stopifnot(identical(x[idx], x[plain]))
+        }
+        bad <- matrix(make(c(1L, 4L)), 1L)
+        assertError(matrix(1:6, 2L)[bad])
+    }
+})
+
+## Constructing an opaque diagonal preserves precision, recycling, zeros,
+## rectangular dimensions, and the full-range NA domain.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        x <- make(c("9007199254740993", "9007199254740995"))
+        got <- diag(x, nrow = 3L, ncol = 4L)
+        stopifnot(identical(typeof(got), typeof(x)),
+                  identical(dim(got), c(3L, 4L)),
+                  identical(diag(got), x[c(1L, 2L, 1L)]),
+                  all(got[row(got) != col(got)] == 0L),
+                  identical(diag(diag(x[1L], nrow = 1L)), x[1L]),
+                  identical(dim(diag(make(integer()), nrow = 0L, ncol = 3L)),
+                            c(0L, 3L)))
+    }
+    for (x in list(as.int64("-9223372036854775808", na = FALSE),
+                   as.uint64("18446744073709551615", na = FALSE)))
+        stopifnot(identical(diag(diag(x, nrow = 2L)), rep(x, 2L)))
+})
+
+## na.rm removes ordinary NA arguments before conversion into a full-range
+## prototype, including the empty-result identity for all-missing inputs.
+local({
+    withCallingHandlers({
+        for (make in list(as.int64, as.uint64)) {
+            x <- make(2L, na = FALSE)
+            for (f in list(min, max)) {
+                stopifnot(identical(f(x, NA_integer_, na.rm = TRUE), x),
+                          identical(f(NA, x, na.rm = TRUE), x))
+                got <- f(x, c(NA_integer_, 1L, 3L), na.rm = TRUE)
+                stopifnot(identical(as.integer(got), f(2L, 1L, 3L)))
+            }
+            empty <- make(integer(), na = FALSE)
+            stopifnot(identical(suppressWarnings(min(empty, NA_integer_, na.rm = TRUE)), Inf),
+                      identical(suppressWarnings(max(empty, NA_integer_, na.rm = TRUE)), -Inf))
+        }
+        lo <- as.int64("-9223372036854775808", na = FALSE)
+        hi <- as.uint64("18446744073709551615", na = FALSE)
+        stopifnot(identical(min(lo, NA_integer_, 0L, na.rm = TRUE), lo),
+                  identical(max(hi, NA_integer_, 0L, na.rm = TRUE), hi))
+    }, warning = function(w) stop(w))
+})
+
+## dec is normalized only in numeric fields, after recognizing custom NA
+## tokens; scalar, frame, and read.csv2 paths all preserve the exact digits.
+local({
+    for (make in list(int64, uint64)) {
+        txt <- "9007199254740993,0;M,ISSING;2,0"
+        got <- scan(text = txt, what = make(), sep = ";", dec = ",",
+                    na.strings = "M,ISSING", quiet = TRUE)
+        stopifnot(identical(as.character(got), c("9007199254740993", NA, "2")))
+        txt <- "9007199254740993,0;a,b\nM,ISSING;c,d\n2,0;e,f\n"
+        got <- scan(text = txt, what = list(make(), character()), sep = ";", dec = ",",
+                    na.strings = "M,ISSING", quiet = TRUE)
+        stopifnot(identical(as.character(got[[1L]]), c("9007199254740993", NA, "2")),
+                  identical(got[[2L]], c("a,b", "c,d", "e,f")))
+        got <- read.csv2(text = paste0("x;y\n", txt),
+                         colClasses = c(typeof(make()), "character"), na.strings = "M,ISSING")
+        stopifnot(identical(as.character(got[[1L]]), c("9007199254740993", NA, "2")),
+                  identical(got[[2L]], c("a,b", "c,d", "e,f")))
+    }
+})
+
 cat("altsxp tests OK\n")

@@ -573,8 +573,14 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d,
     case STRSXP:
 	if (isNAstring(buffer, opaque_numeric ? 0 : 1, d))
 	    SET_STRING_ELT(ans, i, NA_STRING);
-	else
+	else {
+            /* Coerce_from receives a locale-independent numeric spelling.
+               Recognize NA tokens first, since they may contain decchar. */
+            if (opaque_numeric && d->decchar != '.')
+                for (char *p = buffer; *p; p++)
+                    if (*p == d->decchar) *p = '.';
 	    SET_STRING_ELT(ans, i, insertString(buffer, d));
+        }
 	break;
     case RAWSXP:
 	if (isNAstring(buffer, 0, d))

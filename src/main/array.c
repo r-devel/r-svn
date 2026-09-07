@@ -2482,6 +2482,11 @@ attribute_hidden SEXP do_diag(SEXP call, SEXP op, SEXP args, SEXP rho)
    });
 
    switch(TYPEOF(x)) {
+   case ALTSXP:
+       PROTECT(ans = R_allocMatrixLike(x, nr, nc, TRUE));
+       for (R_xlen_t i = 0; i < mn; i++)
+           R_altsxp_copy_region(ans, i * (NR + 1), x, i % nx, 1);
+       break;
 
    case REALSXP:
    {

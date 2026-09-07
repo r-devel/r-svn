@@ -634,14 +634,34 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		SEXP v = CAR(a);
 		if (TAG(a) == R_NaRmSymbol || xlength(v) == 0)
 		    continue;	/* an empty argument contributes nothing */
-		if (TYPEOF(v) != ALTSXP) {
-		    v = R_altsxp_coerce_from(proto, v);
-		    if (v == NULL) {
-			foldable = false;
-			break;
-		    }
-		}
-		PROTECT(v);
+                PROTECT_INDEX vpi;
+                PROTECT_WITH_INDEX(v, &vpi);
+                if (TYPEOF(v) != ALTSXP) {
+                    /* Remove ordinary missing values before converting into
+                       a prototype whose domain may have no NA at all. */
+                    if (narm && (TYPEOF(v) == INTSXP || TYPEOF(v) == LGLSXP)) {
+                        R_xlen_t n = XLENGTH(v), keep = 0;
+                        for (R_xlen_t i = 0; i < n; i++)
+                            if (INTEGER_ELT(v, i) != NA_INTEGER) keep++;
+                        if (!keep) { UNPROTECT(1); continue; }
+                        if (keep != n) {
+                            SEXP clean = PROTECT(allocVector(TYPEOF(v), keep));
+                            for (R_xlen_t i = 0, j = 0; i < n; i++) {
+                                int value = INTEGER_ELT(v, i);
+                                if (value != NA_INTEGER) INTEGER(clean)[j++] = value;
+                            }
+                            REPROTECT(v = clean, vpi);
+                            UNPROTECT(1);
+                        }
+                    }
+                    SEXP converted = R_altsxp_coerce_from(proto, v);
+                    if (converted == NULL) {
+                        UNPROTECT(1);
+                        foldable = false;
+                        break;
+                    }
+                    REPROTECT(v = converted, vpi);
+                }
 		SEXP one = (want < 0) ? ALTSXP_MIN(v, narm)
 		    : ALTSXP_MAX(v, narm);
 		UNPROTECT(1); /* v */
@@ -677,7 +697,14 @@ attribute_hidden SEXP do_summary(SEXP call, SEXP op, SEXP args, SEXP env)
 		UNPROTECT(1); /* one */
 	    }
 
-	    if (foldable && best != R_NilValue) {
+	    if (foldable) {
+                if (best == R_NilValue) {
+                    if (want < 0)
+                        warning(_("no non-missing arguments to min; returning Inf"));
+                    else
+                        warning(_("no non-missing arguments to max; returning -Inf"));
+                    best = ScalarReal(want < 0 ? R_PosInf : R_NegInf);
+                }
 		UNPROTECT(2); /* best, args */
 		return best;
 	    }

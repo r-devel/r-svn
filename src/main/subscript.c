@@ -450,6 +450,7 @@ vectorIndex(SEXP x, SEXP thesub, int start, int stop, int pok, SEXP call,
 */
 attribute_hidden SEXP mat2indsub(SEXP dims, SEXP s, SEXP call, SEXP x)
 {
+    int nprotect = 1;
     int nrs = nrows(s);
     R_xlen_t NR = nrs;
     SEXP rvec;
@@ -458,6 +459,13 @@ attribute_hidden SEXP mat2indsub(SEXP dims, SEXP s, SEXP call, SEXP x)
 
     if (ncols(s) != ndim) {
 	ECALL(call, _("incorrect number of columns in matrix subscript"));
+    }
+
+    /* Capture the matrix dimensions before conversion: Coerce need not
+       preserve attributes, and the coordinate loops only need these counts. */
+    if (TYPEOF(s) == ALTSXP) {
+        PROTECT(s = coerceVector(s, REALSXP));
+        nprotect++;
     }
 
 #ifdef LONG_VECTOR_SUPPORT
@@ -534,7 +542,7 @@ attribute_hidden SEXP mat2indsub(SEXP dims, SEXP s, SEXP call, SEXP x)
 	}
     }
 
-    UNPROTECT(1);
+    UNPROTECT(nprotect);
     return rvec;
 }
 
