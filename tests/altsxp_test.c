@@ -49,21 +49,22 @@ enum { GET_CHUNK = 3, SET_CHUNK = 2, WIDE_ELT_SIZE = 4096 };
    with R_altsxp_share_type() at the same width, and K_SHAREW tries to adopt
    it at a different one, which is the promise R can actually check. */
 enum { K_BYTE, K_WIDE, K_TWIN, K_PLAIN, K_CMP, K_BARE, K_HASH, K_MOD, K_BOTH,
-       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_NONEW, K_MULTINA, K_MULTIPTR, K_N };
+       K_FAKE64, K_SHORTFMT, K_SHARE, K_SHARE2, K_SHAREW, K_HALF, K_LIMITFMT, K_NONEW, K_MULTINA, K_MULTIPTR, K_MULTICMP, K_N };
 
 static R_altrep_class_t test_classes[K_N];
 static SEXP test_type_syms[K_N];
 
 static const size_t test_elt_sizes[K_N] = {
     1, WIDE_ELT_SIZE, WIDE_ELT_SIZE, 1, 1, 1, WIDE_ELT_SIZE, 1, 1,
-    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1, 1, 1, 1
+    sizeof(int64_t), 1, 1, 1, WIDE_ELT_SIZE, 1, 1, 1, 1, 1, 1
 };
 
 static const char *const test_class_names[K_N] = {
     "short_byte", "wide_byte", "twin_byte", "plain_byte", "cmp_byte",
     "bare_byte", "hash_byte", "mod_byte", "both_byte", "fake_int64",
     "shortfmt_byte", "share_byte", "share2_byte", "sharew_byte",
-    "half_byte", "limitfmt_byte", "nonew_byte", "multina_byte", "multiptr_byte"
+    "half_byte", "limitfmt_byte", "nonew_byte", "multina_byte", "multiptr_byte",
+    "multicmp_byte"
 };
 
 static int test_kind(SEXP x)
@@ -228,7 +229,7 @@ test_is_na_region(SEXP x, R_xlen_t i, R_xlen_t n, int *buf)
     if (ncopy > GET_CHUNK) ncopy = GET_CHUNK;
     int kind = test_kind(x);
     for (R_xlen_t k = 0; k < ncopy; k++)
-        buf[k] = (kind == K_MULTINA || kind == K_MULTIPTR) &&
+        buf[k] = (kind == K_MULTINA || kind == K_MULTIPTR || kind == K_MULTICMP) &&
             RAW(R_altrep_data1(x))[i + k] >= 254;
     return ncopy;
 }
@@ -549,7 +550,8 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     test_type_syms[K_HALF] = install("altsxp_test_half");
     test_type_syms[K_LIMITFMT] = install("altsxp_test_limitfmt");
     test_type_syms[K_NONEW] = install("altsxp_test_nonew");
-    test_type_syms[K_MULTINA] = test_type_syms[K_MULTIPTR] = install("altsxp_test_multina");
+    test_type_syms[K_MULTINA] = test_type_syms[K_MULTIPTR] =
+        test_type_syms[K_MULTICMP] = install("altsxp_test_multina");
     test_type_syms[K_BARE] = install("altsxp_test_bare");
     test_type_syms[K_HASH] = install("altsxp_test_hash");
 
@@ -564,7 +566,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	    R_set_altsxp_Elt_type_method(test_classes[k], test_elt_type);
 	/* K_BARE, K_HASH and K_MOD take the default Traits: no BITWISE_EQ.
 	   K_BOTH does declare it, and registers Hash and Compare as well. */
-	if (k == K_FAKE64 || k == K_SHORTFMT || k == K_HALF)
+	if (k == K_FAKE64 || k == K_SHORTFMT || k == K_HALF || k == K_MULTICMP)
 	    R_set_altsxp_Traits_method(test_classes[k], test_open_traits);
 	else if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
@@ -591,6 +593,7 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
     R_set_altsxp_Hash_method(test_classes[K_HALF], test_mod_hash);
     R_set_altsxp_Coerce_from_method(test_classes[K_HALF], test_half_coerce);
     R_set_altsxp_Format_method(test_classes[K_LIMITFMT], test_limit_format);
+    R_set_altsxp_Compare_method(test_classes[K_MULTICMP], test_compare);
     R_set_altvec_Dataptr_or_null_method(test_classes[K_MULTIPTR],
                                       test_readonly_dataptr);
 

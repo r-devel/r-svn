@@ -166,10 +166,19 @@ all.equal.numeric <-
         delta <- abs(as.double(target) - as.double(current))
         same <- (target < 0) == (current < 0)
         larger <- target >= current
+        distance <- if(typeof(target) %in% c("int64", "uint64"))
+            function(a, b) {
+                ## Dividing before combining the operands keeps both halves
+                ## away from the reserved NA pattern.  Thus mixed NA domains
+                ## need not widen an extreme full-range datum into NA.
+                2 * as.double(a %/% 2L - b %/% 2L) +
+                    (as.double(a %% 2L) - as.double(b %% 2L))
+            }
+        else function(a, b) as.double(a - b)
         i <- which(same & larger)
-        delta[i] <- as.double(target[i] - current[i])
+        delta[i] <- distance(target[i], current[i])
         i <- which(same & !larger)
-        delta[i] <- as.double(current[i] - target[i])
+        delta[i] <- distance(current[i], target[i])
         target <- as.double(target)
     } else delta <- abs(target - current)
     what <-

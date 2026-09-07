@@ -2960,16 +2960,17 @@ if (length(dll.paths)) local({
 
     ## Byte equality promises apply to nonmissing elements.  Multiple NA
     ## spellings agree by default, through pointers and short region reads.
-    for (kx in c("multina_byte", "multiptr_byte"))
-        for (ky in c("multina_byte", "multiptr_byte")) {
+    for (kx in c("multina_byte", "multiptr_byte", "multicmp_byte"))
+        for (ky in c("multina_byte", "multiptr_byte", "multicmp_byte")) {
             x <- new.kind(kx, as.raw(c(1, 254, 2, 255, 3)))
             y <- new.kind(ky, as.raw(c(1, 255, 2, 254, 3)))
             z <- new.kind(ky, as.raw(c(1, 3, 2, 254, 3)))
             stopifnot(identical(x, y), !identical(x, y, single.NA = FALSE),
                       !identical(x, z),
-                      identical(match(x, y), c(1L, 2L, 3L, 2L, 5L)),
                       identical(new.kind(kx, as.raw(1:5)),
                                 new.kind(ky, as.raw(1:5))))
+            if (kx != "multicmp_byte" && ky != "multicmp_byte")
+                stopifnot(identical(match(x, y), c(1L, 2L, 3L, 2L, 5L)))
         }
 
     ## Fractional representations use their own coercion for matching and
@@ -3242,6 +3243,51 @@ local({
                             seq.int(from = x, to = 1L, by = -1L)),
                   identical(seq.int(to = x, by = 1L),
                             seq.int(from = 1L, to = x, by = 1L)))
+    }
+})
+
+## Mixed NA domains do not prevent exact differences between nonmissing
+## values at the boundary, including the sentinel used as full-range data.
+local({
+    pairs <- list(list(as.int64("-9223372036854775808", na = FALSE),
+                       as.int64("-9223372036854775807")),
+                  list(as.uint64("18446744073709551615", na = FALSE),
+                       as.uint64("18446744073709551614")))
+    withCallingHandlers({
+        for (pair in pairs) for (p in list(pair, rev(pair))) {
+            ans <- all.equal(p[[1L]], p[[2L]], scale = 1, giveErr = TRUE)
+            stopifnot(!isTRUE(ans), identical(attr(ans, "err"), 1),
+                      isTRUE(all.equal(p[[1L]], p[[2L]])))
+        }
+    }, warning = function(w) stop(w))
+})
+
+## Opaque numeric columns retain numeric whitespace and NA recognition in
+## scalar scans, frame scans, and read.table(), including custom NA strings.
+local({
+    for (make in list(int64, uint64)) {
+        for (strip in c(FALSE, TRUE)) {
+            txt <- "1, NA ,2, MISSING , ,3"
+            ref <- scan(text = txt, sep = ",", what = integer(), quiet = TRUE,
+                        strip.white = strip, na.strings = c("NA", "MISSING"))
+            got <- scan(text = txt, sep = ",", what = make(), quiet = TRUE,
+                        strip.white = strip, na.strings = c("NA", "MISSING"))
+            stopifnot(identical(as.integer(got), ref))
+            txt <- "1, a \n NA , b \n2, c \n MISSING , d \n , e \n3, f \n"
+            ref <- scan(text = txt, sep = ",", what = list(integer(), character()),
+                        quiet = TRUE, strip.white = strip,
+                        na.strings = c("NA", "MISSING"))
+            got <- scan(text = txt, sep = ",", what = list(make(), character()),
+                        quiet = TRUE, strip.white = strip,
+                        na.strings = c("NA", "MISSING"))
+            stopifnot(identical(as.integer(got[[1L]]), ref[[1L]]),
+                      identical(got[[2L]], ref[[2L]]))
+            got <- read.table(text = txt, sep = ",", header = FALSE,
+                              colClasses = c(typeof(make()), "character"),
+                              strip.white = strip, na.strings = c("NA", "MISSING"))
+            stopifnot(identical(as.integer(got[[1L]]), ref[[1L]]),
+                      identical(got[[2L]], ref[[2L]]))
+        }
     }
 })
 

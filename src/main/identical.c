@@ -381,19 +381,33 @@ R_compute_identical(SEXP x, SEXP y, int flags)
 	/* Raw bytes decide equality only for a class that says so; a
 	   floating element type must not, since +0/-0 and NaN payloads
 	   compare equal or unequal as values but not as bytes. */
-	if (! (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) ||
-	    ! (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ)) {
-	    for (R_xlen_t i = 0; i < n; i++) {
-		int nax = 0, nay = 0;
-		R_altsxp_is_na_region(x, i, 1, &nax);
-		R_altsxp_is_na_region(y, i, 1, &nay);
-		if (nax || nay) {
-		    if (nax != nay) return FALSE;
-		}
-		else if (ALTSXP_COMPARE(x, i, y, i) != 0)
-		    return FALSE;
-	    }
-	    return TRUE;
+	Rboolean xbytes = (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) != 0;
+	Rboolean ybytes = (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ) != 0;
+	if (!xbytes || !ybytes) {
+            const void *vmax = vmaxget();
+            size_t esz = ALTSXP_ELT_SIZE(x);
+            char *bx = SINGLE_NA ? NULL : R_alloc(1, esz);
+            char *by = SINGLE_NA ? NULL : R_alloc(1, esz);
+            Rboolean ans = TRUE;
+            for (R_xlen_t i = 0; i < n && ans; i++) {
+                int nax = 0, nay = 0;
+                R_altsxp_is_na_region(x, i, 1, &nax);
+                R_altsxp_is_na_region(y, i, 1, &nay);
+                if (nax || nay) {
+                    if (nax != nay) ans = FALSE;
+                    else if (!SINGLE_NA) {
+                        R_altsxp_get_region(x, i, 1, bx);
+                        R_altsxp_get_region(y, i, 1, by);
+                        ans = memcmp(bx, by, esz) == 0;
+                    }
+                /* A byte-equality class need not supply Compare; use the
+                   other class's method when only it requires comparison. */
+                } else if ((xbytes ? ALTSXP_COMPARE(y, i, x, i)
+                            : ALTSXP_COMPARE(x, i, y, i)) != 0)
+                    ans = FALSE;
+            }
+            vmaxset(vmax);
+            return ans;
 	}
 
 	size_t esz = ALTSXP_ELT_SIZE(x);
