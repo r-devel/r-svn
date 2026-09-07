@@ -1865,14 +1865,22 @@ static SEXP altsxp_Extract_subset_default(SEXP x, SEXP indx, SEXP call)
     SEXP ans = PROTECT(m->New(x, n, FALSE));
 
     const char *src = (const char *) ALTVEC_DATAPTR_OR_NULL(x);
-    char *dst = (src == NULL) ? NULL : (char *) ALTVEC_DATAPTR(ans);
+    /* A read pointer on x promises no writable pointer on ans.  Only bypass
+       Set_region when its default would request that same writable pointer;
+       classes with their own setter need not implement Dataptr at all. */
+    char *dst = (src != NULL &&
+		 ALTSXP_METHODS_TABLE(ans)->Set_region == altsxp_Set_region_default)
+	? (char *) ALTVEC_DATAPTR(ans) : NULL;
     const void *vmax = vmaxget();
     void *buf = (src == NULL) ? R_alloc(1, esz) : NULL;
 
 #define ALTSXP_COPY_ONE(k, ii) do {				\
-	if (src != NULL)					\
+	if (dst != NULL)					\
 	    memcpy(dst + (size_t) (k) * esz,			\
 		   src + (size_t) (ii) * esz, esz);		\
+	else if (src != NULL)					\
+	    R_altsxp_set_region(ans, k, 1,			\
+				src + (size_t) (ii) * esz);	\
 	else {							\
 	    R_altsxp_get_region(x, ii, 1, buf);			\
 	    R_altsxp_set_region(ans, k, 1, buf);			\

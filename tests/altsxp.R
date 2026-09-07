@@ -1421,6 +1421,32 @@ local({
               identical(seq(0, 1, length.out = 3), c(0, 0.5, 1)))
 })
 
+## Fractional precision follows round()/signif()'s normalization, while
+## infinite and large finite precision never narrows to an integer NA.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        d <- c(1234, 1250, 1350, 0, NA)
+        if (identical(make, as.int64)) d <- c(d, -1234, -1250, -1350)
+        x <- make(d)
+        for (fun in list(round, signif)) {
+            for (digits in c(-1.9, -1.5, -1.4, -0.5, 0, 1.5, 2.9,
+                              20, 100, Inf, -Inf, NA))
+                stopifnot(identical(as.double(fun(x, digits)), fun(d, digits)))
+            digits <- c(2.9, -1.9, Inf, -Inf, NA)
+            stopifnot(identical(as.double(fun(x, digits)), fun(d, digits)),
+                      identical(as.double(fun(make(1234L), digits)), fun(1234, digits)),
+                      all(is.na(fun(x, NaN))))
+            big <- make("9007199254740993", na = FALSE)
+            stopifnot(identical(fun(big, Inf), big),
+                      identical(fun(big, 1e30), big))
+        }
+        stopifnot(identical(as.double(round(make(1234L), c(1e30, -1e30))),
+                            c(1234, 0)),
+                  identical(as.double(signif(make(1234L), c(1e30, -1e30))),
+                            c(1234, 1000)))
+    }
+})
+
 ## round() and signif() read only the first element of 'digits' and used it
 ## for the whole vector, and a non-negative first element made the call a
 ## no-op for every element.
@@ -2031,9 +2057,69 @@ local({
                             as.double(f(1:3, NULL))))
 })
 
+## Reject individual inexact match operands, preserving exact matches and
+## their original positions.  NaN must not be converted into a matching NA.
+local({
+    for (make in list(as.int64, as.uint64)) {
+        x <- make(c("1000000000000000000", NA, "2"))
+        table <- c(1.5, 1e18, NA, NaN, Inf, -Inf, 1e25, 1e18)
+        for (nomatch in c(NA_integer_, 0L, -5L, 1L, 6L)) {
+            stopifnot(identical(suppressWarnings(match(x, table, nomatch)),
+                                c(2L, 3L, nomatch)),
+                      identical(suppressWarnings(match(table, x, nomatch)),
+                                c(nomatch, 1L, 2L, rep(nomatch, 4), 1L)))
+        }
+        stopifnot(identical(suppressWarnings(x %in% table), c(TRUE, TRUE, FALSE)),
+                  identical(suppressWarnings(table %in% x),
+                            c(FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE)),
+                  identical(match(make(NA), NaN), NA_integer_),
+                  identical(match(NaN, make(NA)), NA_integer_),
+                  identical(match(make(NA), c(NaN, NA_real_)), 2L),
+                  identical(match(c(NaN, NA_real_), make(NA)), c(NA, 1L)),
+                  identical(suppressWarnings(match(x, c(1.5, NaN, Inf))),
+                            rep(NA_integer_, 3)))
+        whole <- make(c("1000000000000000000", "2"), na = FALSE)
+        stopifnot(identical(match(whole, c(1.5, 1e18, 2)), c(2L, 3L)),
+                  identical(match(c(1.5, 1e18, 2), whole), c(NA, 1L, 2L)))
+
+        y <- make(c(2L, 2L, 3L, 3L))
+        for (incomp in list(c(2, 2.5), c(2, Inf), c(2, NaN), c(2, 1e25),
+                            c("2", "2.5"), c("2", "invalid"))) {
+            stopifnot(identical(as.double(suppressWarnings(
+                                  unique(y, incomparables = incomp))), c(2, 2, 3)),
+                      identical(suppressWarnings(duplicated(y, incomparables = incomp)),
+                                c(FALSE, FALSE, FALSE, TRUE)),
+                      identical(suppressWarnings(anyDuplicated(y, incomparables = incomp)),
+                                4L),
+                      identical(suppressWarnings(match(y, y, incomparables = incomp)),
+                                c(NA, NA, 3L, 3L)))
+        }
+        y <- make(c(2L, 2L, NA, NA))
+        stopifnot(identical(unique(y, incomparables = c(2, 2.5, NA)), y),
+                  identical(match(y, y, incomparables = c(2, 2.5, NA)),
+                            rep(NA_integer_, 4)))
+    }
+    ## Integer coercions can fail too; they must not invent matches to NA.
+    u <- as.uint64(c(2L, NA))
+    stopifnot(identical(suppressWarnings(match(u, c(-1L, 2L, NA))), c(2L, 3L)),
+              identical(suppressWarnings(match(c(-1L, 2L, NA), u)), c(NA, 1L, 2L)))
+})
+
+## The conversion and its validity mask are separate allocations, and the
+## incomparables path allocates another vector to keep only exact entries.
+local({
+    gctorture(TRUE)
+    on.exit(gctorture(FALSE))
+    x <- as.int64(c("1000000000000000000", NA))
+    stopifnot(identical(match(x, c(1.5, 1e18, NaN, NA)), c(2L, 4L)),
+              identical(match(c(1.5, 1e18, NaN, NA), x), c(NA, 1L, NA, 2L)),
+              identical(as.double(unique(as.int64(c(2L, 2L, 3L)),
+                                         incomparables = c(2, 2.5))), c(2, 2, 3)))
+})
+
 ## A character `incomparables` was silently discarded.  Unlike match(), which
-## compares as character when the promotion is not exact, the answer here has
-## to be in the class, so there is nothing to decline to -- and as.int64("2")
+## compares a character operand as character, the answer here has to be in
+## the class, so there is nothing to decline to -- and as.int64("2")
 ## is the documented way to enter a value a double cannot hold.
 local({
     y <- as.int64(c(1, 2, 2, 3))
@@ -2609,6 +2695,16 @@ if (length(dll.paths)) local({
     ## the qualified name the default Elt_type builds for plain_byte.
     b <- new.test(as.raw(1:4))
     plain <- new.kind("plain_byte", as.raw(1:4))
+    ## Dataptr_or_null supplies a read pointer, but this class writes only
+    ## through Set_region.  A source pointer must not force a writable one
+    ## on the result, including empty subsets and array permutations.
+    stopifnot(identical(contents(plain[c(4L, 2L, 2L)]), as.raw(c(4, 2, 2))),
+              identical(contents(plain[c(4, 2, 2)]), as.raw(c(4, 2, 2))),
+              identical(contents(plain[[2L]]), as.raw(2)),
+              identical(contents(plain[integer(0)]), raw(0)))
+    pm <- plain
+    dim(pm) <- c(2L, 2L)
+    stopifnot(identical(contents(t(pm)), as.raw(c(1, 3, 2, 4))))
     stopifnot(typeof(b) == "altsxp_test_byte",
               typeof(plain) == "altsxpTest::plain_byte")
     for (nm in c("altsxp_test_byte", "altsxpTest::plain_byte")) {

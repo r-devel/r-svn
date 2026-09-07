@@ -3604,10 +3604,10 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
        types -- reading only its first element would silently round every
        element to the same place. */
     SEXP dv = PROTECT((darg == R_NilValue || darg == R_MissingArg)
-		      ? ScalarInteger(is_signif ? 6 : 0)
-		      : coerceVector(darg, INTSXP));
+		      ? ScalarReal(is_signif ? 6 : 0)
+		      : coerceVector(darg, REALSXP));
     R_xlen_t nd = XLENGTH(dv), nx = i64_length(x);
-    const int *pdig = INTEGER_RO(dv);
+    const double *pdig = REAL_RO(dv);
 
     /* either operand empty gives an empty answer, again as math2() does */
     if (nx == 0 || nd == 0) {
@@ -3616,7 +3616,7 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 	return e;
     }
     /* an integer is already rounded to any decimal place */
-    if (!is_signif && nd == 1 && pdig[0] != NA_INTEGER && pdig[0] >= 0) {
+    if (!is_signif && nd == 1 && pdig[0] >= -0.5) {
 	UNPROTECT(1);
 	return x;
     }
@@ -3636,10 +3636,10 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 	if (id == nd) id = 0;
 
 	int64_t v = p[ix];
-	int digits = pdig[id];
+	double digits = pdig[id];
 
 	/* NA in either operand gives NA, as if_NA_Math2_set() does */
-	if ((has_na && v == na) || digits == NA_INTEGER) {
+	if ((has_na && v == na) || ISNAN(digits)) {
 	    if (!has_na) {
 		UNPROTECT(2);
 		errorcall(call, _("'%s' is NA, and this %s vector cannot represent NA"),
@@ -3651,10 +3651,19 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 
 	if (is_signif && digits < 1)
 	    digits = 1; /* as in do_Math2() for the base types */
-	if (!is_signif && digits >= 0) {
+	/* As in fround/fprec, normalize fractional precision before narrowing
+	   it.  Bound it first so infinities and large finite values never
+	   become NA or overflow an integer cast.  Twenty significant digits
+	   suffice for every uint64, and rounding to 10^20 gives zero. */
+	if (digits >= 20 || (!is_signif && digits >= -0.5)) {
 	    out[i] = v;
 	    continue;
 	}
+	if (!is_signif && digits < -20) {
+	    out[i] = 0;
+	    continue;
+	}
+	int dig = (int) floor(digits + 0.5);
 
 	int k;
 	if (is_signif) {
@@ -3664,14 +3673,14 @@ static SEXP i64_round(SEXP call, const char *op, SEXP x, SEXP args)
 		     : (uint64_t) (v < 0 ? -(uint64_t) v : (uint64_t) v);
 		 u != 0; u /= 10)
 		ndig++;
-	    k = ndig - digits;
+	    k = ndig - dig;
 	    if (k <= 0) {
 		out[i] = v;
 		continue;
 	    }
 	}
 	else
-	    k = -digits;
+	    k = -dig;
 
 	uint64_t pow = i64_pow10(k);
 	if (pow == 0) {

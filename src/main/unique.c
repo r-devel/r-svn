@@ -583,7 +583,7 @@ static int match_operand_isna(SEXP x, R_xlen_t i)
 {
     switch (TYPEOF(x)) {
     case LGLSXP: case INTSXP: return INTEGER_ELT(x, i) == NA_INTEGER;
-    case REALSXP: return ISNAN(REAL_ELT(x, i));
+    case REALSXP: return R_IsNA(REAL_ELT(x, i));
     case STRSXP: return STRING_ELT(x, i) == NA_STRING;
     default: return FALSE; /* a raw byte is never missing */
     }
@@ -606,71 +606,33 @@ static SEXP altsxp_nullable_proto(SEXP x)
     return ans;
 }
 
-/* Promote an ordinary vector into the class of an opaque one so that match()
-   compares values rather than renderings: 1e18 and "1000000000000000000" are
-   the same number but not the same string.  Returns NULL when the promotion
-   would change a value, and the caller falls back to comparing as character.
+/* Promote an ordinary operand for matching without losing its positions.
+   NULL means that the class declines the operand type altogether, and match()
+   can compare as character instead.  Otherwise 'valid' marks the elements
+   that survived exactly; R_NilValue means all of them did.  A rejected value
+   must neither enter the hash table nor match an NA created by coercion.
 
-   The promotion goes into a vector that can hold NA, so that a value the
-   class cannot represent becomes NA -- which the check below then spots --
-   instead of raising an error from inside match().  That is a property of
-   the prototype, not of the operand being matched: each object is read in
-   its own domain by altsxpequal(), so a whole-range vector is matched
-   against a nullable rendering of the other side quite happily.  Such a value still draws the
-   class's own coercion warning before the fallback; there is no quiet form
-   of Coerce_from, and a value the type cannot hold is worth mentioning.
-
-   'strings' is for a caller that has no character fallback to decline to;
-   match() itself compares a character operand as character, which is already
-   exact, so it leaves this off. */
-static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
+   The nullable prototype lets an unrepresentable value become NA instead
+   of raising an error for a whole-range operand.  Coerce_from still gives
+   its usual warnings.  Character operands normally compare as character;
+   'strings' allows incomparables to be promoted into the result's class. */
+static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings,
+				SEXP *valid)
 {
-    R_xlen_t n = XLENGTH(other);
-
-    SEXP proto = altsxp_nullable_proto(alt);
-    if (proto == NULL)
-	return NULL;
-
+    *valid = R_NilValue;
     switch (TYPEOF(other)) {
-    case RAWSXP: case LGLSXP: case INTSXP:
+    case RAWSXP: case LGLSXP: case INTSXP: case REALSXP:
 	break;
-    case REALSXP: {
-	/* a value with a fractional part equals no element of an exact
-	   type, and rounding it here would invent a match */
-	const double *p = REAL_RO(other);
-	for (R_xlen_t i = 0; i < n; i++)
-	    if (!ISNAN(p[i]) && (!R_FINITE(p[i]) || p[i] != floor(p[i])))
-		return NULL;
-	break;
-    }
-    case STRSXP: {
-	if (! strings)
-	    return NULL;
-
-	/* the same exactness rule as the REALSXP arm, and a double is enough
-	   to apply it: a magnitude too large to be exact is integral anyway,
-	   so only a genuinely fractional or infinite string is rejected.  The
-	   value itself still comes from the class, which reads a plain
-	   decimal exactly over the whole 64-bit range.  A string that does
-	   not parse at all is left to Coerce_from, which turns it into an NA
-	   the round-trip check below then catches. */
-	for (R_xlen_t i = 0; i < n; i++) {
-	    SEXP s = STRING_ELT(other, i);
-	    if (s == NA_STRING)
-		continue;
-
-	    char *end;
-	    double v = R_strtod(CHAR(s), &end);
-	    if (isBlankString(end) && !ISNAN(v) &&
-		(!R_FINITE(v) || v != floor(v)))
-		return NULL;
-	}
-	break;
-    }
+    case STRSXP:
+	if (strings) break;
+	return NULL;
     default:
 	return NULL;
     }
 
+    SEXP proto = altsxp_nullable_proto(alt);
+    if (proto == NULL)
+	return NULL;
     PROTECT(proto);
     SEXP ans = R_altsxp_coerce_from(proto, other);
     UNPROTECT(1); /* proto */
@@ -678,44 +640,50 @@ static SEXP altsxp_match_operand(SEXP alt, SEXP other, Rboolean strings)
 	return NULL;
     PROTECT(ans);
 
-    /* an NA in the result that was not one in the input is a value the
-       class could not hold, so it must not be allowed to match NA.  The loop
-       indexes ans at the length of 'other', so the class has to have
-       answered with one element per input, as checkScanned() also requires
-       of Coerce_from. */
-    if (XLENGTH(ans) != n) {
-	UNPROTECT(1); /* ans */
+    R_xlen_t n = XLENGTH(other);
+    if (XLENGTH(ans) != n)
 	error(_("'%s' method returned %lld elements, not the %lld it was given"),
 	      "Coerce_from", (long long) XLENGTH(ans), (long long) n);
-    }
 
-    Rboolean ok = TRUE;
-    for (R_xlen_t i = 0; i < n && ok; i++) {
+    int nprot = 1;
+    for (R_xlen_t i = 0; i < n; i++) {
 	int na = 0;
 	R_altsxp_is_na_region(ans, i, 1, &na);
-	if (na && ! match_operand_isna(other, i))
-	    ok = FALSE;
-    }
-    UNPROTECT(1);
+	/* In particular, NaN is not NA: match() distinguishes them even
+	   though coercing either to an integer produces NA. */
+	Rboolean ok = !na || match_operand_isna(other, i);
+	if (ok && TYPEOF(other) == REALSXP) {
+	    double v = REAL_ELT(other, i);
+	    if (!ISNAN(v) && (!R_FINITE(v) || v != floor(v)))
+		ok = FALSE; /* truncation must not invent a match */
+	}
+	else if (ok && TYPEOF(other) == STRSXP) {
+	    SEXP str = STRING_ELT(other, i);
+	    if (str != NA_STRING) {
+		char *end;
+		double v = R_strtod(CHAR(str), &end);
+		/* Parse only to detect fractional/infinite spellings; the
+		   class itself reads large decimal integers exactly. */
+		if (isBlankString(end) && !ISNAN(v) &&
+		    (!R_FINITE(v) || v != floor(v)))
+		    ok = FALSE;
+	    }
+	}
 
-    return ok ? ans : NULL;
+	if (!ok && *valid == R_NilValue) {
+	    PROTECT(*valid = allocVector(LGLSXP, n));
+	    nprot++;
+	    for (R_xlen_t j = 0; j < i; j++) LOGICAL(*valid)[j] = TRUE;
+	}
+	if (*valid != R_NilValue) LOGICAL(*valid)[i] = ok;
+    }
+    UNPROTECT(nprot);
+    return ans;
 }
 
-/* coerceVector() cannot allocate an opaque element type from its SEXPTYPE;
-   use the vector being matched as the required class prototype instead.
-
-   The promotion has to be exact.  Coerce_from truncates, so a fractional
-   incomparable would otherwise be rounded onto a neighbour and make *that*
-   value incomparable -- unique(<int64>, incomparables = 2.5) would drop the
-   2s.  A value the class cannot hold equals no element, which is what base R
-   already does with unique(1:3, incomparables = 2.5), so it is dropped;
-   altsxp_match_operand() is the same exactness check match() applies to its
-   other operand.
-
-   A character incomparable is promoted here though match() declines one,
-   because there is no character form of the answer to fall back to: the
-   result has to be in the class, so declining would silently drop a value
-   that as.int64("2") shows the class can hold. */
+/* Incomparables must have the table's representation.  Keep every exact
+   conversion, even if another entry is fractional or outside the domain.
+   Unlike a match operand, their original positions are not needed. */
 static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
 {
     if (TYPEOF(proto) != ALTSXP)
@@ -728,15 +696,23 @@ static SEXP coerce_incomparables(SEXP proto, SEXP incomp)
 	return incomp;
     }
 
-    SEXP nullable = altsxp_nullable_proto(proto);
-    SEXP ans = NULL;
-    if (nullable != NULL) {
-	PROTECT(nullable);
-	ans = altsxp_match_operand(nullable, incomp, TRUE);
-	UNPROTECT(1);
-    }
+    SEXP valid;
+    SEXP ans = altsxp_match_operand(proto, incomp, TRUE, &valid);
+    if (ans == NULL)
+	return R_allocVectorLike(proto, 0, FALSE);
+    if (valid == R_NilValue)
+	return ans;
+    PROTECT(ans);
+    PROTECT(valid);
 
-    return ans != NULL ? ans : R_allocVectorLike(proto, 0, FALSE);
+    R_xlen_t n = XLENGTH(ans), keep = 0;
+    const int *pv = LOGICAL_RO(valid);
+    for (R_xlen_t i = 0; i < n; i++) keep += pv[i];
+    SEXP filtered = PROTECT(R_allocVectorLike(ans, keep, FALSE));
+    for (R_xlen_t i = 0, j = 0; i < n; i++)
+	if (pv[i]) R_altsxp_copy_region(filtered, j++, ans, i, 1);
+    UNPROTECT(3); /* filtered, valid, ans */
+    return filtered;
 }
 
 static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
@@ -1701,6 +1677,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
         PROTECT_WITH_INDEX(table = match_transform(itable, env), &tbpi);
     }
 
+    SEXP alt_valid = R_NilValue;
+    Rboolean alt_table = FALSE;
     SEXPTYPE type;
     /* Coerce to a common type; type == NILSXP is ok here.
      * Note that above we coerce factors and "POSIXlt", only to character.
@@ -1713,13 +1691,14 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	/* Exactly one side is opaque.  Promoting the other into the class's
 	   representation compares values rather than their renderings --
 	   1e18 and "1000000000000000000" are the same number but not the
-	   same string.  It is only sound where the promotion is exact, so
-	   altsxp_match_operand() declines otherwise and the pair falls back
-	   to the character comparison below. */
+	   same string.  Nonrepresentable entries are excluded individually,
+	   preserving both exact matches and the original table positions. */
 	SEXP alt = TYPEOF(x) == ALTSXP ? x : table;
 	SEXP oth = TYPEOF(x) == ALTSXP ? table : x;
-	SEXP as_alt = altsxp_match_operand(alt, oth, FALSE);
+	SEXP as_alt = altsxp_match_operand(alt, oth, FALSE, &alt_valid);
 	if(as_alt != NULL) {
+	    PROTECT(alt_valid); nprot++;
+	    alt_table = TYPEOF(x) == ALTSXP;
 	    type = ALTSXP;
 	    if(TYPEOF(x) == ALTSXP) REPROTECT(table = as_alt, tbpi);
 	    else                    REPROTECT(x     = as_alt, xpi);
@@ -1843,9 +1822,20 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	    data.useUTF8 = useUTF8;
 	    data.useCache = useCache;
 	}
-	DoHashing(table, &data);
+	if (alt_table && alt_valid != R_NilValue) {
+	    const int *pv = LOGICAL_RO(alt_valid);
+	    for (R_xlen_t i = 0; i < XLENGTH(table); i++)
+		if (pv[i]) (void) isDuplicated(table, i, &data);
+	}
+	else DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
 	ans = HashLookup(table, x, &data);
+	if (!alt_table && alt_valid != R_NilValue) {
+	    const int *pv = LOGICAL_RO(alt_valid);
+	    int *pa = INTEGER(ans);
+	    for (R_xlen_t i = 0; i < XLENGTH(x); i++)
+		if (!pv[i]) pa[i] = nmatch;
+	}
     }
     UNPROTECT(nprot);
     return ans;

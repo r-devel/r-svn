@@ -1,8 +1,9 @@
 /* Test-only ALTSXP classes for tests/altsxp.R.
 
-   The classes deliberately have no data pointer and report short positive
-   region counts.  This exercises the generic consumer API independently of
-   the base int64 class, whose region methods always complete a request. */
+   Most classes deliberately have no data pointer; plain_byte exposes only
+   a read pointer.  All report short positive region counts.  This exercises
+   the generic consumer API independently of the base int64 class, whose
+   region methods always complete a request. */
 
 #include <R.h>
 #include <Rinternals.h>
@@ -100,6 +101,13 @@ static SEXP test_make(R_altrep_class_t cls, SEXP data)
 static R_xlen_t test_length(SEXP x)
 {
     return XLENGTH(R_altrep_data1(x));
+}
+
+/* A contiguous source need not offer a writable destination pointer: the
+   generic consumer must still use Set_region for this class. */
+static const void *test_readonly_dataptr(SEXP x)
+{
+    return RAW_RO(R_altrep_data1(x));
 }
 
 static SEXP test_elt_type(SEXP x)
@@ -514,6 +522,8 @@ void attribute_visible R_init_altsxp_test(DllInfo *dll)
 	else if (k != K_BARE && k != K_HASH && k != K_MOD)
 	    R_set_altsxp_Traits_method(test_classes[k], test_traits);
     }
+    R_set_altvec_Dataptr_or_null_method(test_classes[K_PLAIN],
+				      test_readonly_dataptr);
     R_set_altsxp_Compare_method(test_classes[K_CMP], test_compare);
     R_set_altsxp_Compare_method(test_classes[K_HASH], test_mod_compare);
     R_set_altsxp_Hash_method(test_classes[K_HASH], test_mod_hash);
