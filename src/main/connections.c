@@ -6973,13 +6973,15 @@ SEXP R_compress3(SEXP in)
     strm.next_out = buf + 5;
     strm.avail_out = outlen;
     while(!ret) ret = lzma_code(&strm, LZMA_FINISH);
-    if (ret != LZMA_STREAM_END || (strm.avail_in > 0)) {
+    bool zok = (ret == LZMA_STREAM_END && strm.avail_in == 0);
+    unsigned int total_out = (unsigned int) strm.total_out;
+    lzma_end(&strm);   /* before the warning: warn=2 turns it into a jump */
+    if (!zok) {
 	warning("internal error %d in R_compress3", ret);
 	outlen = inlen;
 	buf[4] = '0';
 	memcpy(buf+5, (char *)RAW(in), inlen);
-    } else outlen = (unsigned int) strm.total_out;
-    lzma_end(&strm);
+    } else outlen = total_out;
 
     /* printf("compressed %d to %d\n", inlen, outlen); */
     ans = allocVector(RAWSXP, outlen + 5);
@@ -7008,6 +7010,7 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	init_filters();
 	ret = lzma_raw_decoder(&strm, filters);
 	if (ret != LZMA_OK) {
+	    lzma_end(&strm);
 	    warning("internal error %d in R_decompress3", (int)ret);
 	    *err = TRUE;
 	    return R_NilValue;
@@ -7018,6 +7021,7 @@ SEXP R_decompress3(SEXP in, Rboolean *err)
 	strm.avail_out = outlen;
 	ret = lzma_code(&strm, LZMA_RUN);
 	if (ret != LZMA_OK && (strm.avail_in > 0)) {
+	    lzma_end(&strm);
 	    warning("internal error %d in R_decompress3 %llu",
 		    (int)ret, (unsigned long long)strm.avail_in);
 	    *err = TRUE;
@@ -7352,6 +7356,11 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	lzma_stream strm = LZMA_STREAM_INIT;
 	lzma_ret ret;
 	while(1) {
+	    /* R_alloc before initialising the decoder: R_alloc can signal
+	       (outlen grows and may hit the vector limit), and doing it while
+	       a decoder is live would leak the decoder on that error */
+	    buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
+
 	    /* Initialize lzma_stream in each iteration. */
 	    /* probably at most 80Mb is required, but 512Mb seems OK as a limit */
 	    if (subtype == 1)
@@ -7361,7 +7370,6 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (ret != LZMA_OK)
 		error(_("cannot initialize lzma decoder, error %d"), ret);
 
-	    buf = (unsigned char *) R_alloc(outlen, sizeof(unsigned char));
 	    strm.avail_in = inlen;
 	    strm.avail_out = outlen;
 	    strm.next_in = (unsigned char *) RAW(from);
