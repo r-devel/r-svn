@@ -3495,4 +3495,54 @@ local({
             }
 })
 
+## Signed sums check the final exact total, after cancellation, in every order.
+local({
+    orders <- list(1:3, c(1L, 3L, 2L), c(2L, 1L, 3L), c(2L, 3L, 1L),
+                   c(3L, 1L, 2L), 3:1)
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            hi <- as.int64("9223372036854775807", na = nullable)
+            for (sign in c(1L, -1L)) {
+                x <- c(hi * sign, as.int64(c(sign, -sign), na = nullable))
+                for (order in orders)
+                    stopifnot(identical(sum(x[order]), hi * sign))
+            }
+            x <- rep(c(hi, -hi), each = 100L)
+            stopifnot(identical(sum(x), as.int64(0L, na = nullable)),
+                      identical(sum(rev(x)), as.int64(0L, na = nullable)))
+        }
+        lo <- as.int64("-9223372036854775808", na = FALSE)
+        stopifnot(identical(sum(c(lo, -1L, 1L)), lo))
+    }, warning = function(w) stop(w))
+    assertWarning(sum(as.int64(c("9223372036854775807", "1"))))
+    assertError(sum(as.int64(c("9223372036854775807", "1"), na = FALSE)))
+})
+
+## Negative ordinary operands are kept signed until the uint64 result is known.
+local({
+    withCallingHandlers({
+        for (nullable in c(TRUE, FALSE)) {
+            u <- function(x) as.uint64(x, na = nullable)
+            stopifnot(identical(u(2L) + -1L, u(1L)),
+                      identical(-1L + u(2L), u(1L)),
+                      identical(u(2L) - -1L, u(3L)),
+                      identical(-1L * u(0L), u(0L)),
+                      identical(u(0L) %/% -2L, u(0L)),
+                      identical(-1L %% u(3L), u(2L)),
+                      identical(u(4L) %% -2L, u(0L)),
+                      identical(u(c(2L, 4L)) + c(-1L, -2L), u(c(1L, 2L))))
+            hi <- u("18446744073709551614")
+            stopifnot(identical(as.character(hi + -1L), "18446744073709551613"))
+        }
+        full <- as.uint64("18446744073709551615", na = FALSE)
+        stopifnot(identical(as.character(full + -1L), "18446744073709551614"))
+    }, warning = function(w) stop(w))
+    for (f in list(function(x) x + -3L, function(x) -1L - x,
+                   function(x) x * -1L, function(x) x %/% -1L,
+                   function(x) x %% -3L)) {
+        assertWarning(stopifnot(is.na(f(as.uint64(2L)))))
+        assertError(f(as.uint64(2L, na = FALSE)))
+    }
+})
+
 cat("altsxp tests OK\n")

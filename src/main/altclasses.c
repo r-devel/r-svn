@@ -3169,6 +3169,10 @@ static SEXP i64_reduce(SEXP x, Rboolean narm, int what)
     int nullable = I64_NULLABLE(ans);
     int64_t nav = i64_na(ans);
     int64_t acc = 0;
+    /* A signed 128-bit accumulator, expressed as two portable words.
+       Even R_XLEN_T_MAX signed 64-bit elements fit in this representation. */
+    uint64_t sum_lo = 0;
+    int64_t sum_hi = 0;
     int have = FALSE, overflow = FALSE;
 
     for (R_xlen_t i = 0; i < n; i++) {
@@ -3182,11 +3186,17 @@ static SEXP i64_reduce(SEXP x, Rboolean narm, int what)
 	}
 
 	if (what == 0) { /* sum */
-	    if (!have) {
-		acc = v;
-		have = TRUE;
-	    }
-	    else if (uns ? u64_acc(&acc, v) : i64_add(acc, v, &acc)) {
+            if (!uns) {
+                uint64_t before = sum_lo;
+                sum_lo += (uint64_t) v;
+                sum_hi += (v < 0 ? -1 : 0) + (sum_lo < before);
+                have = TRUE;
+            }
+            else if (!have) {
+                acc = v;
+                have = TRUE;
+            }
+            else if (u64_acc(&acc, v)) {
 		overflow = TRUE;
 		break;
 	    }
@@ -3200,6 +3210,12 @@ static SEXP i64_reduce(SEXP x, Rboolean narm, int what)
 	    else if (i64_cmp(v, acc, uns) == want)
 		acc = v;
 	}
+    }
+
+    if (what == 0 && !uns && have) {
+        overflow = !((sum_hi == 0 && sum_lo <= (uint64_t) INT64_MAX) ||
+                     (sum_hi == -1 && sum_lo >= (UINT64_C(1) << 63)));
+        memcpy(&acc, &sum_lo, sizeof(acc));
     }
 
     if (!have && what == 0) {
@@ -3346,8 +3362,11 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 
     SEXP p1, p2;
     PROTECT_INDEX pi1, pi2;
-    PROTECT_WITH_INDEX(p1 = i64_materialize(x, uns, nullable), &pi1);
-    PROTECT_WITH_INDEX(p2 = i64_materialize(y, uns, nullable), &pi2);
+    /* Ordinary signed integers keep their sign even in uint64 arithmetic;
+       only the result, rather than every operand, must fit uint64. */
+    int signed_x = uns && !i64_is(x), signed_y = uns && !i64_is(y);
+    PROTECT_WITH_INDEX(p1 = i64_materialize(x, signed_x ? FALSE : uns, nullable), &pi1);
+    PROTECT_WITH_INDEX(p2 = i64_materialize(y, signed_y ? FALSE : uns, nullable), &pi2);
     R_xlen_t nx = i64_length(p1), ny = i64_length(p2);
     int has_na = I64_NULLABLE(p1) || I64_NULLABLE(p2);
 
@@ -3368,6 +3387,7 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 	REPROTECT(p2 = i64_Na_widen(p2), pi2);
 
     int64_t nav = uns ? (int64_t) NA_UINT64 : NA_INT64;
+    int64_t na_x = i64_na(p1), na_y = i64_na(p2);
     R_xlen_t n = nx > ny ? nx : ny;
 
     SEXP ans = PROTECT(i64_alloc(I64_PROTO(uns), n, FALSE));
@@ -3383,7 +3403,7 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 	if (ib == ny) ib = 0;
 
 	int64_t a = pa[ia], b = pb[ib], r = 0;
-	if (has_na && (a == nav || b == nav)) {
+	if (has_na && (a == na_x || b == na_y)) {
 	    out[i] = nav;
 	    continue;
 	}
@@ -3403,14 +3423,34 @@ static SEXP i64_binary(SEXP call, const char *op, SEXP x, SEXP y, int uns)
 
 	int bad = FALSE;
 	if (uns) {
-	    uint64_t ua = (uint64_t) a, ub = (uint64_t) b, ur = 0;
-	    switch (code) {
-	    case I64_ADD:  bad = u64_add(ua, ub, &ur); break;
-	    case I64_SUB:  bad = u64_sub(ua, ub, &ur); break;
-	    case I64_MUL:  bad = u64_mul(ua, ub, &ur); break;
-	    case I64_IDIV: ur = ua / ub; break;
-	    default:       ur = ua % ub; break;
-	    }
+            int neg_a = signed_x && a < 0, neg_b = signed_y && b < 0;
+            uint64_t ua = neg_a ? (uint64_t) (-a) : (uint64_t) a;
+            uint64_t ub = neg_b ? (uint64_t) (-b) : (uint64_t) b, ur = 0;
+            switch (code) {
+            case I64_ADD:
+                if (neg_a) bad = u64_sub(ub, ua, &ur);
+                else if (neg_b) bad = u64_sub(ua, ub, &ur);
+                else bad = u64_add(ua, ub, &ur);
+                break;
+            case I64_SUB:
+                if (neg_a) bad = TRUE;
+                else if (neg_b) bad = u64_add(ua, ub, &ur);
+                else bad = u64_sub(ua, ub, &ur);
+                break;
+            case I64_MUL:
+                if ((neg_a || neg_b) && ua && ub) bad = TRUE;
+                else bad = u64_mul(ua, ub, &ur);
+                break;
+            case I64_IDIV:
+                if ((neg_a || neg_b) && ua) bad = TRUE;
+                else ur = ua / ub;
+                break;
+            default:
+                ur = ua % ub;
+                if (neg_b && ur) bad = TRUE;
+                else if (neg_a && ur) ur = ub - ur;
+                break;
+            }
 	    r = (int64_t) ur;
 	}
 	else {
