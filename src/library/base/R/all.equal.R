@@ -146,7 +146,8 @@ all.equal.numeric <-
     out <- out | target == current # equal NAs _or_ numbers
     if(all(out)) return(if(is.null(msg)) TRUE else msg)
     anyO <- any(out)
-    sabst0 <- if(countEQ && anyO) mean(abs(target[out])) else 0
+    sabst0 <- if(countEQ && anyO)
+        mean(abs(if(cplx) target[out] else as.double(target[out]))) else 0
     if(anyO) {
         keep <- which(!out)
 	target  <- target [keep]
@@ -155,7 +156,48 @@ all.equal.numeric <-
 	    scale <- rep_len(scale, length(out))[keep]
     }
     N <- length(target)
-    if(is.integer(target) && is.integer(current)) target <- as.double(target)
+    ## Keep nearby exact values distinct before converting their distance to
+    ## double.  Subtract the smaller from the larger within each sign: neither
+    ## a negative unsigned result nor an overflowing signed distance is needed.
+    ## Across signs the distance can exceed the element's domain, and double
+    ## subtraction does not suffer cancellation there.
+    if(!cplx && !is.double(target) &&
+       identical(typeof(target), typeof(current))) {
+        delta <- abs(as.double(target) - as.double(current))
+        same <- (target < 0) == (current < 0)
+        larger <- target >= current
+        distance <- if(typeof(target) %in% c("int64", "uint64"))
+            function(a, b) {
+                ## Dividing before combining the operands keeps both halves
+                ## away from the reserved NA pattern.  Thus mixed NA domains
+                ## need not widen an extreme full-range datum into NA.
+                2 * as.double(a %/% 2L - b %/% 2L) +
+                    (as.double(a %% 2L) - as.double(b %% 2L))
+            }
+        else function(a, b) as.double(a - b)
+        i <- which(same & larger)
+        delta[i] <- distance(target[i], current[i])
+        i <- which(same & !larger)
+        delta[i] <- distance(current[i], target[i])
+        target <- as.double(target)
+    } else if(!cplx &&
+              ((typeof(target) %in% c("int64", "uint64") &&
+                typeof(current) %in% c("double", "integer", "logical")) ||
+               (typeof(current) %in% c("int64", "uint64") &&
+                typeof(target) %in% c("double", "integer", "logical")))) {
+        exact.target <- typeof(target) %in% c("int64", "uint64")
+        a <- if(exact.target) target else current
+        b <- as.double(if(exact.target) current else target)
+        ad <- as.double(a)
+        delta <- abs(ad - b)
+        ## Every quotient fits exactly in a double.  For large integers,
+        ## subtract the high parts before adding the low integer remainder;
+        ## nearby operands then retain differences below the double spacing.
+        i <- which(abs(ad) >= 2^53)
+        delta[i] <- abs((4096 * as.double(a[i] %/% 4096L) - b[i]) +
+                        as.double(a[i] %% 4096L))
+        target <- as.double(target)
+    } else delta <- abs(target - current)
     what <-
 	if(is.null(scale)) {
 	    scale <- (sabst0 + sum(abs(target)/N))
@@ -169,7 +211,7 @@ all.equal.numeric <-
 	    stopifnot(all(scale > 0))
 	    if(all(abs(scale - 1) < 1e-7)) "absolute" else "scaled"
 	}
-    xy <- sum(abs(target - current)/(N*scale)) ## abs(z) == Mod(z) for complex
+    xy <- sum(delta/(N*scale)) ## abs(z) == Mod(z) for complex
 
     if (cplx) what <- paste(what, "Mod") # PR#10575
     if(is.na(xy) || xy > tolerance)

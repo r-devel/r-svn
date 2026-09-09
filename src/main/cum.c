@@ -214,6 +214,22 @@ attribute_hidden SEXP do_cum(SEXP call, SEXP op, SEXP args, SEXP env)
     checkArity(op, args);
     if (DispatchGroup("Math", call, op, args, env, &ans))
 	return ans;
+
+    /* after group dispatch, so a class attribute on an opaque vector still
+       wins -- see the note on Arith/Relop in R_ext/Altrep.h */
+    if (TYPEOF(CAR(args)) == ALTSXP) {
+	SEXP val = ALTSXP_MATH(call, op, args);
+	if (val != NULL) {
+	    /* cum*() keeps names but drops dim, as for the base types */
+	    SEXP nms = getAttrib(CAR(args), R_NamesSymbol);
+	    if (nms != R_NilValue && val != CAR(args)) {
+		PROTECT(val);
+		setAttrib(val, R_NamesSymbol, nms);
+		UNPROTECT(1);
+	    }
+	    return val;
+	}
+    }
     if (isComplex(CAR(args))) {
 	t = CAR(args);
 	n = XLENGTH(t);

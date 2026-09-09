@@ -135,8 +135,10 @@ read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
     Possible values are \code{NA} (the default, when
     \code{\link{type.convert}} is used), \code{"NULL"} (when the column
     is skipped), one of the atomic vector classes (logical, integer,
-    numeric, complex, character, raw), or \code{"factor"}, \code{"Date"}
-    or \code{"POSIXct"}.  Otherwise there needs to be an \code{as}
+    numeric, complex, character, raw), \code{"int64"} or \code{"uint64"}
+    (see \code{\link{int64}}, for columns of exact 64-bit integers that
+    a \code{numeric} column would round), or \code{"factor"},
+    \code{"Date"} or \code{"POSIXct"}.  Otherwise there needs to be an \code{as}
     method (from package \pkg{methods}) for conversion from
     \code{"character"} to the specified formal class.
 

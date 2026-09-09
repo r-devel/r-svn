@@ -22,6 +22,7 @@
 #include <config.h>
 #endif
 #include <Defn.h>
+#include <R_ext/Altrep.h> /* R_altsxp_get_region */
 /* -> Rinternals.h which exports R_compute_identical() */
 
 /* Implementation of identical(x, y) */
@@ -361,10 +362,96 @@ R_compute_identical(SEXP x, SEXP y, int flags)
     case OBJSXP:
 	/* attributes already tested, so all slots identical */
 	return TRUE;
+    case ALTSXP: {
+	/* Two opaque vectors are identical if they have the same element
+	   type, the same length, the same NA domain -- an object that
+	   reserves a value for NA is not the same object as one that reads
+	   the same bytes as data -- and equal elements. */
+	if (TYPEOF(y) != ALTSXP) return FALSE;
+	R_xlen_t n = XLENGTH(x);
+	if (n != XLENGTH(y)) return FALSE;
+	if (ALTSXP_ELT_TYPE(x) != ALTSXP_ELT_TYPE(y)) return FALSE;
+	/* two classes may share an element type deliberately, but sharing the
+	   name is a promise about the layout, and the memcmp below is sized
+	   from x alone */
+	if (ALTSXP_ELT_SIZE(x) != ALTSXP_ELT_SIZE(y)) return FALSE;
+	if (R_altsxp_nullable(x) != R_altsxp_nullable(y)) return FALSE;
+	if (n == 0) return TRUE;
+
+	/* Raw bytes decide equality only for a class that says so; a
+	   floating element type must not, since +0/-0 and NaN payloads
+	   compare equal or unequal as values but not as bytes. */
+	Rboolean xbytes = (ALTREP_TRAITS(x) & R_ALTREP_TRAITS_BITWISE_EQ) != 0;
+	Rboolean ybytes = (ALTREP_TRAITS(y) & R_ALTREP_TRAITS_BITWISE_EQ) != 0;
+	if (!xbytes || !ybytes) {
+            const void *vmax = vmaxget();
+            size_t esz = ALTSXP_ELT_SIZE(x);
+            char *bx = SINGLE_NA ? NULL : R_alloc(1, esz);
+            char *by = SINGLE_NA ? NULL : R_alloc(1, esz);
+            Rboolean ans = TRUE;
+            for (R_xlen_t i = 0; i < n && ans; i++) {
+                int nax = 0, nay = 0;
+                R_altsxp_is_na_region(x, i, 1, &nax);
+                R_altsxp_is_na_region(y, i, 1, &nay);
+                if (nax || nay) {
+                    if (nax != nay) ans = FALSE;
+                    else if (!SINGLE_NA) {
+                        R_altsxp_get_region(x, i, 1, bx);
+                        R_altsxp_get_region(y, i, 1, by);
+                        ans = memcmp(bx, by, esz) == 0;
+                    }
+                /* A byte-equality class need not supply Compare; use the
+                   other class's method when only it requires comparison. */
+                } else if ((xbytes ? ALTSXP_COMPARE(y, i, x, i)
+                            : ALTSXP_COMPARE(x, i, y, i)) != 0)
+                    ans = FALSE;
+            }
+            vmaxset(vmax);
+            return ans;
+	}
+
+	size_t esz = ALTSXP_ELT_SIZE(x);
+	/* BITWISE_EQ describes nonmissing values only.  Missing encodings
+	   may differ, unless the caller explicitly requests NA bit comparison. */
+	Rboolean bytes_only = !SINGLE_NA ||
+	    (ALTSXP_NO_NA(x) == TRUE && ALTSXP_NO_NA(y) == TRUE);
+	const void *px = DATAPTR_OR_NULL(x), *py = DATAPTR_OR_NULL(y);
+	if (bytes_only && px != NULL && py != NULL)
+	    return memcmp(px, py, (size_t) n * esz) == 0 ? TRUE : FALSE;
+
+	R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
+	const void *vmax = vmaxget();
+	char *bx = R_alloc((size_t) nb, esz), *by = R_alloc((size_t) nb, esz);
+	int *nax = bytes_only ? NULL : (int *) R_alloc((size_t) nb, sizeof(int));
+	int *nay = bytes_only ? NULL : (int *) R_alloc((size_t) nb, sizeof(int));
+	Rboolean ans = TRUE;
+	for (R_xlen_t i = 0; i < n && ans; ) {
+	    R_xlen_t k = n - i > nb ? nb : n - i;
+	    R_xlen_t kx = R_altsxp_get_region(x, i, k, bx);
+	    R_xlen_t ky = R_altsxp_get_region(y, i, k, by);
+	    if (kx <= 0 || kx != ky)
+		error(_("'%s' method reported no elements"), "Get_region");
+	    if (bytes_only) {
+		if (memcmp(bx, by, (size_t) kx * esz) != 0) ans = FALSE;
+	    } else {
+		R_altsxp_is_na_region(x, i, kx, nax);
+		R_altsxp_is_na_region(y, i, kx, nay);
+		for (R_xlen_t j = 0; j < kx && ans; j++) {
+		    if (nax[j] || nay[j]) ans = nax[j] == nay[j];
+		    else if (memcmp(bx + j * esz, by + j * esz, esz) != 0)
+			ans = FALSE;
+		}
+	    }
+	    i += kx;
+	}
+	vmaxset(vmax);
+	return ans;
+    }
     default:
 	/* these are all supposed to be types that represent constant
 	   entities, so no further testing required ?? */
-	printf("Unknown Type in identical(): %s (%x)\n", R_typeToChar(x), TYPEOF(x));
+	REprintf("Unknown Type in identical(): %s (%x)\n",
+		 R_typeToChar(x), TYPEOF(x));
 	return TRUE;
     }
 }

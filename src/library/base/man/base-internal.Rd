@@ -55,8 +55,12 @@
 \alias{.fixupGFortranStderr}
 \alias{.fixupGFortranStdout}
 
+\alias{.allocVectorLike}
+\alias{.allocMatrixLike}
+
 \alias{.doWrap}
 \alias{.doSortWrap}
+\alias{.radix.storage}
 
 \alias{.amatch_bounds}
 \alias{.amatch_costs}
@@ -123,8 +127,12 @@ lazyLoadDBfetch(key, file, compressed, hook)
 .fixupGFortranStdout()
 .fixupGFortranStderr()
 
+.allocVectorLike(x, length = 0L)
+.allocMatrixLike(x, nrow = 1L, ncol = 1L)
+
 .doWrap(vec, decr, nalast, noNA = NA) 
 .doSortWrap(vec, decr, nalast, noNA = NA)
+.radix.storage(x)
 
 .amatch_bounds(x = 0.1) 
 .amatch_costs(x = NULL)

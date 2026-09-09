@@ -27,6 +27,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <float.h>  /* for DBL_EPSILON */
 #include <Rmath.h>
@@ -139,6 +140,168 @@ static SEXP seq_colon(double n1, double n2, SEXP call)
     return ans;
 }
 
+/* Can this endpoint be a value of an opaque class, exactly? */
+static Rboolean seq_endpoint(SEXP x)
+{
+    switch (TYPEOF(x)) {
+    case ALTSXP: case INTSXP: case LGLSXP:
+	return TRUE;
+    case REALSXP: {
+        /* Fractional endpoints use the ordinary double sequence.  Integral
+           doubles remain exact values beyond 2^53, although their spacing
+           grows; the class determines whether a given one fits its domain. */
+	double d = asReal(x);
+	return (Rboolean) (R_FINITE(d) && d == floor(d));
+    }
+    default:
+	return FALSE;
+    }
+}
+
+/* from:to and seq(from, to, by) with an opaque endpoint.  asReal() answers for
+   one of those now, but rounding a 64-bit endpoint through a double silently
+   duplicates and skips values -- on the type whose whole point is exactness.
+   So the class does the work instead.  Descending nonnegative endpoints use
+   a positive distance and step magnitude, subtracting the offsets from the
+   start: an unsigned type cannot hold a negative distance or offset even
+   when every value of the sequence fits.  Other sequences use the signed
+   difference and add the offsets, all in the opaque representation.  A NULL
+   'by' means a unit step in whichever direction the endpoints run, which is
+   what `:` asks for.  Returns NULL when the class declines any step of that,
+   and the caller falls back to the ordinary double path. */
+static SEXP altsxp_seq(SEXP call, SEXP from, SEXP to, SEXP by)
+{
+    if (TYPEOF(from) != ALTSXP && TYPEOF(to) != ALTSXP)
+	return NULL;
+    if (by != NULL && length(by) != 1)
+	return NULL;
+    if (length(from) != 1 || length(to) != 1)
+	return NULL;
+    if (! seq_endpoint(from) || ! seq_endpoint(to))
+	return NULL;
+
+    SEXP direct = ALTSXP_SEQUENCE(call, from, to, by, -1);
+    if (direct != NULL) return direct;
+
+    /* Both endpoints are promoted into the class before any arithmetic runs.
+       That is what makes the sequence exact for a mixed pair like
+       1:as.int64(n) -- and it also keeps an ordinary operand away from
+       R_binary(), which may reuse an unreferenced argument's storage for the
+       answer and would then overwrite the caller's endpoint. */
+    SEXP proto = TYPEOF(from) == ALTSXP ? from : to;
+    SEXP a = TYPEOF(from) == ALTSXP ? from : R_altsxp_coerce_from(proto, from);
+    if (a == NULL)
+	return NULL;
+    PROTECT(a);
+    SEXP b = TYPEOF(to) == ALTSXP ? to : R_altsxp_coerce_from(proto, to);
+    if (b == NULL) {
+	UNPROTECT(1);
+	return NULL;
+    }
+    PROTECT(b);
+
+    /* Compare before subtracting: a descending unsigned sequence has no
+       representation for b - a.  A class that declines comparison, or a
+       missing endpoint, leaves the ordinary path to report the result. */
+    SEXP cmp = ALTSXP_RELOP(call, R_Primitive(">"), a, b);
+    int down = NA_LOGICAL;
+    if (cmp != NULL) {
+	PROTECT(cmp);
+	down = asLogical(cmp);
+	UNPROTECT(1);
+    }
+    if (down == NA_LOGICAL) {
+	UNPROTECT(2);
+	return NULL;
+    }
+
+    /* Keep the signed difference for a negative lower endpoint or an
+       explicitly negative opaque step: their positive magnitudes may not
+       fit, e.g. to = by = INT64_MIN in a whole-range signed vector.  Only
+       signs are read through double. */
+    Rboolean signed_step = by != NULL && TYPEOF(by) == ALTSXP && asReal(by) < 0;
+    Rboolean subtract = down && asReal(b) >= 0 && !signed_step;
+    SEXP diff = R_altsxp_arith_sym(call, "-",
+				 subtract ? a : b, subtract ? b : a);
+    if (diff == NULL) {
+	UNPROTECT(2);
+	return NULL;
+    }
+    PROTECT(diff);
+
+    if (by == NULL) {
+	by = ScalarInteger(down ? -1 : 1);
+    }
+    else if (TYPEOF(by) == REALSXP) {
+	/* a whole-number step is exact as an integer, and keeping it out of
+	   double is what lets the class keep doing the arithmetic */
+	double d = asReal(by);
+	if (!R_FINITE(d) || d != floor(d) || fabs(d) > INT_MAX) {
+	    UNPROTECT(3);
+	    return NULL;
+	}
+	by = ScalarInteger((int) d);
+    }
+    PROTECT_INDEX bpi;
+    PROTECT_WITH_INDEX(by, &bpi);
+
+    /* A zero step divides by zero below.  A class whose domain excludes NA
+       answers that with an error rather than an NA, and the message would be
+       about NA representability where the real complaint is about 'by', so
+       the division is not reached at all: the caller has the message. */
+    double dby = asReal(by);
+    if (dby == 0 || ISNAN(dby)) {
+	UNPROTECT(4);
+	return NULL;
+    }
+
+    if ((down && dby > 0) || (!down && dby < 0 && asReal(diff) != 0))
+	errorcall(call, _("wrong sign in 'by' argument"));
+    if (subtract && dby < 0) {
+	if (TYPEOF(by) != INTSXP && TYPEOF(by) != LGLSXP) {
+	    UNPROTECT(4);
+	    return NULL;
+	}
+	REPROTECT(by = ScalarInteger(-(int) dby), bpi);
+    }
+
+    SEXP nsteps = R_altsxp_arith_sym(call, "%/%", diff, by);
+    double dn = (nsteps == NULL) ? NA_REAL : asReal(nsteps);
+    /* The class may decline or report an unrepresentable count. */
+    if (!R_FINITE(dn) || dn < 0) {
+	UNPROTECT(4);
+	return NULL;
+    }
+    if (dn + 1 >= (double) R_XLEN_T_MAX)
+	errorcall(call, _("result would be too long a vector"));
+    R_xlen_t n = (R_xlen_t) dn + 1;
+
+    /* 0:(n-1) is exact in a double at any length R can allocate */
+    SEXP off = PROTECT(allocVector(REALSXP, n));
+    double *po = REAL(off);
+    for (R_xlen_t i = 0; i < n; i++)
+	po[i] = (double) i;
+
+    SEXP step = R_altsxp_coerce_from(proto, off);
+    if (step == NULL) {
+	UNPROTECT(5);
+	return NULL;
+    }
+    PROTECT(step);
+
+    SEXP scaled = R_altsxp_arith_sym(call, "*", step, by);
+    if (scaled == NULL) {
+	UNPROTECT(6);
+	return NULL;
+    }
+    PROTECT(scaled);
+
+    SEXP ans = R_altsxp_arith_sym(call, subtract ? "-" : "+", a, scaled);
+    UNPROTECT(7); /* scaled, step, off, by, diff, b, a */
+
+    return ans;
+}
+
 attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
@@ -164,6 +327,12 @@ attribute_hidden SEXP do_colon(SEXP call, SEXP op, SEXP args, SEXP rho)
     n2 = asReal(s2);
     if (ISNAN(n1) || ISNAN(n2))
 	errorcall(call, _("NA/NaN argument"));
+
+    if (TYPEOF(s1) == ALTSXP || TYPEOF(s2) == ALTSXP) {
+	SEXP ans = altsxp_seq(call, s1, s2, NULL);
+	if (ans != NULL) return ans;
+    }
+
     return seq_colon(n1, n2, call);
 }
 
@@ -175,6 +344,12 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 
 #define R2_SWITCH_LOOP(it) \
     switch (TYPEOF(s)) { \
+    case ALTSXP: \
+	for (i = 0; i < nc; i++) { \
+	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
+		R_altsxp_copy_region(a, n++, s, i, 1); \
+	} \
+	break; \
     case LGLSXP: \
 	for (i = 0; i < nc; i++) { \
 /*	    if ((i+1) % ni == 0) R_CheckUserInterrupt();*/ \
@@ -265,7 +440,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	ratio = na/nc; // average no of replications
 	if (ratio > 1000U) ni = 1000U;
 	} */
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na, FALSE));
     n = 0;
     if (TYPEOF(t) == REALSXP)
 	R2_SWITCH_LOOP(REAL(t))
@@ -282,9 +457,12 @@ static SEXP rep3(SEXP s, R_xlen_t ns, R_xlen_t na)
     R_xlen_t i, j;
     SEXP a;
 
-    PROTECT(a = allocVector(TYPEOF(s), na));
+    PROTECT(a = R_allocVectorLike(s, na, FALSE));
 
     switch (TYPEOF(s)) {
+    case ALTSXP:
+	R_altsxp_recycle_region(a, 0, s, na);
+	break;
     case LGLSXP:
 	MOD_ITERATE1(na, ns, i, j, {
 //	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -487,10 +665,20 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
     // faster code for common special case
     if (each == 1 && nt == 1) return rep3(x, lx, len);
 
-    PROTECT(a = allocVector(TYPEOF(x), len));
+    PROTECT(a = R_allocVectorLike(x, len, FALSE));
 
 #define R4_SWITCH_LOOP(itimes)						\
     switch (TYPEOF(x)) {						\
+    case ALTSXP:							\
+	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
+	    for(j = 0, sum = 0; j < each; j++)				\
+		sum += (R_xlen_t) itimes[k++];				\
+	    for(k3 = 0; k3 < sum; k3++) {				\
+		R_altsxp_copy_region(a, k2++, x, i, 1);			\
+		if(k2 == len) goto done;				\
+	    }								\
+	}								\
+	break;								\
     case LGLSXP:							\
 	for(i = 0, k = 0, k2 = 0; i < lx; i++) {			\
 	    /*		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();*/ \
@@ -569,6 +757,10 @@ static SEXP rep4(SEXP x, SEXP times, R_xlen_t len, R_xlen_t each, R_xlen_t nt)
 
     if(nt == 1)
 	switch (TYPEOF(x)) {
+	case ALTSXP:
+	    for(i = 0; i < len; i++)
+		R_altsxp_copy_region(a, i, x, (i/each) % lx, 1);
+	    break;
 	case LGLSXP:
 	    for(i = 0; i < len; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -830,6 +1022,29 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	miss_to   = (to   == R_MissingArg);
     if(One && !miss_from) {
 	int lf = length(from);
+	if(lf == 1 && TYPEOF(from) == ALTSXP) {
+	    /* seq(x) for one opaque value is 1:x, and x may be past where a
+	       double counts exactly */
+	    SEXP one = PROTECT(ScalarInteger(1));
+	    ans = altsxp_seq(call, one, from, NULL);
+	    UNPROTECT(1);
+	    if(ans != NULL) goto done;
+
+	    /* The class declined: an NA endpoint, or no exact arithmetic to
+	       do it with.  A numeric one is still an endpoint, so it takes
+	       the length-1 route below rather than the "one element, so
+	       count along it" branch, which would answer 1L for
+	       seq.int(as.int64(NA)) where seq.int(NA_integer_) is an error.
+	       A non-numeric opaque vector does fall through, since 1L is
+	       what base R answers for any other length-1 object. */
+	    if(isNumeric(from)) {
+		double rfrom = asReal(from);
+		if (!R_FINITE(rfrom))
+		    errorcall(call, _("'%s' must be a finite number"), "from");
+		ans = seq_colon(1.0, rfrom, call);
+		goto done;
+	    }
+	}
 	if(lf == 1 && (TYPEOF(from) == INTSXP || TYPEOF(from) == REALSXP)) {
 	    double rfrom = asReal(from);
 	    if (!R_FINITE(rfrom))
@@ -863,6 +1078,23 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	lout = (R_xlen_t) rout;
     }
 
+    if (lout > 0 && !One &&
+        (TYPEOF(from) == ALTSXP || TYPEOF(to) == ALTSXP)) {
+        if (!miss_from && XLENGTH(from) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "from");
+        if (!miss_to && XLENGTH(to) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "to");
+        if (by != R_MissingArg && XLENGTH(by) != 1)
+            errorcall(call, _("'%s' must be of length 1"), "by");
+        /* Nonintegral ordinary endpoints retain the double sequence path. */
+        if ((miss_from || seq_endpoint(from)) && (miss_to || seq_endpoint(to))) {
+            SEXP a = ALTSXP_SEQUENCE(call, miss_from ? R_MissingArg : from,
+                                    miss_to ? R_MissingArg : to,
+                                    by == R_MissingArg ? NULL : by, lout);
+            if (a != NULL) { ans = a; goto done; }
+        }
+    }
+
     if(lout == NA_INTEGER) {
 	double rfrom, rto;
 	if(miss_from) rfrom = 1.0;
@@ -878,6 +1110,16 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    rto = asReal(to);
 	    if(!R_FINITE(rto))
 		errorcall(call, _("'%s' must be a finite number"), "to");
+	}
+	/* an opaque endpoint carries more precision than rfrom and rto above
+	   can hold, so let the class build the sequence while it still can */
+	if(TYPEOF(from) == ALTSXP || TYPEOF(to) == ALTSXP) {
+	    SEXP one = PROTECT(ScalarInteger(1));
+	    SEXP a = altsxp_seq(call, miss_from ? one : from,
+				miss_to ? one : to,
+				by == R_MissingArg ? NULL : by);
+	    UNPROTECT(1);
+	    if(a != NULL) { ans = a; goto done; }
 	}
 	if(by == R_MissingArg)
 	    ans = seq_colon(rfrom, rto, call);

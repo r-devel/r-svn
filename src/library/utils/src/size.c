@@ -26,6 +26,7 @@
 #endif
 
 #include <Defn.h>
+#include <R_ext/Altrep.h>	/* ALTSXP_ELT_SIZE */
 
 /* A count of the memory used by an object. The following assumptions
    are made.
@@ -134,6 +135,14 @@ static R_size_t objectsize(SEXP s)
 	break;
     case RAWSXP:
 	vcnt = BYTE2VEC(xlength(s));
+	isVec = true;
+	break;
+    case ALTSXP:
+	/* The element type is opaque, but its width is not, so an opaque
+	   vector is charged for the bytes it would take laid out -- which is
+	   what the arms above report for an ALTREP integer or real vector
+	   that is stored compactly. */
+	vcnt = BYTE2VEC((R_size_t) xlength(s) * ALTSXP_ELT_SIZE(s));
 	isVec = true;
 	break;
     case OBJSXP:

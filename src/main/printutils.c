@@ -875,6 +875,23 @@ const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
     case RAWSXP:
 	res = EncodeRaw(RAW_RO(x)[indx], "");
 	break;
+    case ALTSXP: {
+	/* An opaque element has no C type this switch could read, so the
+	   class renders it.  This is what lets cat(), write.table() and
+	   format.info() reach an opaque column. */
+	SEXP fmt = ALTSXP_FORMAT(x, indx, 1);
+	if (fmt == NULL || XLENGTH(fmt) < 1)
+	    UNIMPLEMENTED_TYPE("EncodeElement", x);
+	PROTECT(fmt);
+	SEXP e = STRING_ELT(fmt, 0);
+	/* the result must outlive fmt, and R_alloc memory does */
+	const char *from = (e == NA_STRING) ? CHAR(R_print.na_string) : CHAR(e);
+	char *buf = R_alloc(strlen(from) + 1, 1);
+	strcpy(buf, from);
+	res = buf;
+	UNPROTECT(1);
+	break;
+    }
     default:
 	res = NULL; /* -Wall */
 	UNIMPLEMENTED_TYPE("EncodeElement", x);

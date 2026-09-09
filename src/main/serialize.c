@@ -1261,6 +1261,13 @@ static void WriteItem (SEXP s, SEXP ref_table, R_outpstream_t stream)
 	    break;
 	case OBJSXP:
 	  break; /* only attributes (i.e., slots) count */
+	case ALTSXP:
+	    /* Only reached under version 2, where the ALTREP branch above is
+	       skipped.  An ALTREP class of one of the base types degrades to
+	       its materialized vector there; an opaque vector has no such
+	       form, so say what to do rather than failing internally. */
+	    error(_("cannot serialize an object of type '%s' with serialization version %d: use version 3 or later"),
+		  R_typeToChar(s), stream->version);
 	default:
 	    error(_("WriteItem: unknown type %i"), TYPEOF(s));
 	}

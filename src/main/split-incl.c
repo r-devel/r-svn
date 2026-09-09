@@ -21,8 +21,8 @@
     /* for the ith group. */
     PROTECT(vec = allocVector(VECSXP, nlevs));
     for (R_xlen_t i = 0;  i < nlevs; i++) {
-	SET_VECTOR_ELT(vec, i, 
-		       allocVector(TYPEOF(x), (_L_int_)_L_INTEG_(counts)[i]));
+	SET_VECTOR_ELT(vec, i,
+		       R_allocVectorLike(x, (_L_int_)_L_INTEG_(counts)[i], FALSE));
 	setAttrib(VECTOR_ELT(vec, i), R_LevelsSymbol,
 		  getAttrib(x, R_LevelsSymbol));
 	if(have_names)
@@ -30,6 +30,8 @@
 		      allocVector(STRSXP, (_L_int_)_L_INTEG_(counts)[i]));
     }
     for (int i = 0; i < nlevs; i++) _L_INTEG_(counts)[i] = 0;
+    size_t altsxp_esz = (TYPEOF(x) == ALTSXP) ? ALTSXP_ELT_SIZE(x) : 0;
+    void *altsxp_buf = altsxp_esz ? R_alloc(1, altsxp_esz) : NULL;
     MOD_ITERATE1(nobs, nfac, i, i1, {
 	int j = INTEGER(f)[i1];
 	if (j != NA_INTEGER) {
@@ -53,6 +55,10 @@
 		break;
 	    case RAWSXP:
 		RAW(VECTOR_ELT(vec, j - 1))[k] = RAW(x)[i];
+		break;
+	    case ALTSXP:
+		R_altsxp_get_region(x, i, 1, altsxp_buf);
+		R_altsxp_set_region(VECTOR_ELT(vec, j - 1), k, 1, altsxp_buf);
 		break;
 	    default:
 		UNIMPLEMENTED_TYPE("split", x);

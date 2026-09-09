@@ -28,7 +28,8 @@
 /* #define NINTERRUPT 10000000 */
 
 #include <Parse.h>
-#include <Defn.h> /*-- Maybe modularize into own Coerce.h ..*/
+#include <Defn.h>
+#include <R_ext/Altrep.h> /*-- Maybe modularize into own Coerce.h ..*/
 #include <Internal.h>
 #include <float.h> /* for DBL_DIG */
 #define R_MSG_mode	_("invalid 'mode' argument")
@@ -1175,6 +1176,26 @@ SEXP coerceVector(SEXP v, SEXPTYPE type)
     if (TYPEOF(v) == type)
 	return v;
 
+    if (TYPEOF(v) == ALTSXP && (type == VECSXP || type == EXPRSXP)) {
+	/* boxing each element as a length-one vector of the same class is
+	   the only list form an opaque vector has */
+	R_xlen_t n = xlength(v);
+	SEXP ans = PROTECT(allocVector(type, n));
+	SEXP idx = PROTECT(allocVector(REALSXP, 1));
+	for (R_xlen_t i = 0; i < n; i++) {
+	    REAL(idx)[0] = (double) (i + 1);
+	    SET_VECTOR_ELT(ans, i, ExtractSubset(v, idx, R_NilValue));
+	}
+	if (type == VECSXP) {
+	    /* as coerceToVectorList() ends; coerceToExpression() does not */
+	    SEXP nms = getAttrib(v, R_NamesSymbol);
+	    if (nms != R_NilValue)
+		setAttrib(ans, R_NamesSymbol, nms);
+	}
+	UNPROTECT(2);
+	return ans;
+    }
+
     SEXP ans = R_NilValue;	/* -Wall */
     if (ALTREP(v)) {
 	PROTECT(v); /* the methods should protect, but ... */
@@ -1522,13 +1543,28 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error_return(R_MSG_mode);
 
     SEXP x = CAR(args);
-    int type =
-	(!strcmp("function", CHAR(STRING_ELT(CADR(args), 0))))  /* ASCII */
-	? CLOSXP
-	: str2type(CHAR(STRING_ELT(CADR(args), 0))); /* ASCII */
+    const char *modestr = CHAR(STRING_ELT(CADR(args), 0)); /* ASCII */
+    int type = (!strcmp("function", modestr)) ? CLOSXP : str2type(modestr);
 
-    /* "any" case added in 2.13.0 */
-    if(type == ANYSXP || TYPEOF(x) == type) {
+    /* An ALTSXP class names itself by its element type, which is not a
+       SEXPTYPE and so is not in the type table.  Two resolutions, and the
+       order matters: the object's own name is the identity case, which
+       preserves traits belonging to this object that no name could carry,
+       and a registered name is a conversion into that class.  Both only
+       when str2type() found nothing, so a class whose element type shadows
+       a base type name does not take that name's meaning here. */
+    SEXP proto = NULL;
+    if ((SEXPTYPE) type == (SEXPTYPE) -1) {
+	if (TYPEOF(x) == ALTSXP && streql(modestr, R_typeToChar(x)))
+	    type = ALTSXP;
+	else if ((proto = R_altsxp_prototype(modestr)) != NULL)
+	    type = ALTSXP;
+    }
+
+    /* "any" case added in 2.13.0.  Not for a conversion into a named class:
+       x may already be an ALTSXP, and every ALTSXP shares one SEXPTYPE, so
+       TYPEOF(x) == type would return an object of the wrong class here. */
+    if(proto == NULL && (type == ANYSXP || TYPEOF(x) == type)) {
 	switch(TYPEOF(x)) {
 	case LGLSXP:
 	case INTSXP:
@@ -1536,6 +1572,9 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	case CPLXSXP:
 	case STRSXP:
 	case RAWSXP:
+	/* an opaque vector is atomic too, and as.vector() drops its
+	   attributes the same way -- on a copy, not on the caller's object */
+	case ALTSXP:
 	    if(ATTRIB(x) == R_NilValue) return x;
 	    ans  = MAYBE_REFERENCED(x) ? duplicate(x) : x;
 	    CLEAR_ATTRIB(ans);
@@ -1566,6 +1605,23 @@ attribute_hidden SEXP do_asvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(v == R_NilValue)
 	    error(_("no method for coercing this S4 class to a vector"));
 	x = v;
+    }
+
+    if(proto != NULL) {
+	/* Into an opaque class: the class builds the object, since only it
+	   knows its representation.  Declining is a type error, as having no
+	   conversion between two types is anywhere else. */
+	ans = R_altsxp_coerce_from(proto, x);
+	if(ans == NULL)
+	    error(_(COERCE_ERROR_STRING), R_typeToChar(x), modestr);
+	if(ATTRIB(ans) != R_NilValue) { /* as above, dropped on a copy */
+	    PROTECT(ans);
+	    if(MAYBE_REFERENCED(ans))
+		ans = duplicate(ans);
+	    UNPROTECT(1);
+	    CLEAR_ATTRIB(ans);
+	}
+	return ans;
     }
 
     switch(type) {/* only those are valid : */
@@ -1775,6 +1831,26 @@ attribute_hidden SEXP do_ascall(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 
+/* The first element of an opaque vector as a length-one vector of 'type'.
+   The as*() accessors below have no C type to read an opaque payload as, so
+   the class renders the element; only the one element, since these are
+   reached with a whole vector too (asReal(x) for `if (x)`, say). */
+static SEXP altsxp_first_as(SEXP x, SEXPTYPE type)
+{
+    SEXP one = x;
+    if (XLENGTH(x) != 1) {
+	SEXP idx = PROTECT(ScalarReal(1));
+	one = ExtractSubset(x, idx, R_NilValue);
+	UNPROTECT(1);
+    }
+
+    PROTECT(one);
+    SEXP ans = coerceVector(one, type);
+    UNPROTECT(1);
+
+    return ans;
+}
+
 /* return int, not Rboolean, for NA_LOGICAL : */
 attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 {
@@ -1799,6 +1875,8 @@ attribute_hidden int asLogical2(SEXP x, int checking, SEXP call)
 	    return LogicalFromString(STRING_ELT(x, 0), &warn);
 	case RAWSXP:
 	    return LogicalFromInteger((int)RAW_ELT(x, 0), &warn);
+	case ALTSXP:
+	    return LOGICAL_ELT(altsxp_first_as(x, LGLSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asLogical", x);
 	}
@@ -1872,6 +1950,8 @@ int asInteger(SEXP x)
 	    res = IntegerFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case ALTSXP:
+	    return INTEGER_ELT(altsxp_first_as(x, INTSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asInteger", x);
 	}
@@ -1902,6 +1982,7 @@ R_xlen_t asXLength(SEXP x)
 	case REALSXP:
 	case CPLXSXP:
 	case STRSXP:
+	case ALTSXP:	/* asReal() below asks the class */
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("asXLength", x);
@@ -1941,6 +2022,8 @@ double asReal(SEXP x)
 	    res = RealFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return res;
+	case ALTSXP:
+	    return REAL_ELT(altsxp_first_as(x, REALSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asReal", x);
 	}
@@ -1977,6 +2060,8 @@ Rcomplex asComplex(SEXP x)
 	    z = ComplexFromString(STRING_ELT(x, 0), &warn);
 	    CoercionWarning(warn);
 	    return z;
+	case ALTSXP:
+	    return COMPLEX_ELT(altsxp_first_as(x, CPLXSXP), 0);
 	default:
 	    UNIMPLEMENTED_TYPE("asComplex", x);
 	}
@@ -1997,6 +2082,14 @@ attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
     checkArity(op, args);
     if(TYPEOF(CAR(args)) == OBJSXP && ! IS_S4_OBJECT(CAR(args)))
 	return mkString("object");
+    else if(TYPEOF(CAR(args)) == ALTSXP) {
+	/* The useful answer for an opaque vector is its element type, not
+	   the fact that it is opaque; ALTSXP_ELT_TYPE() falls back to the
+	   class name for classes that declare none. */
+	SEXP et = ALTSXP_ELT_TYPE(CAR(args));
+	return et != R_NilValue ? ScalarString(PRINTNAME(et))
+			        : type2rstr(ALTSXP);
+    }
     else
 	return type2rstr(TYPEOF(CAR(args)));
 }
@@ -2107,6 +2200,7 @@ attribute_hidden SEXP do_is(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     case 200:		/* is.atomic */
 	switch(TYPEOF(CAR(args))) {
+	case ALTSXP:  /* one indivisible value per position */
 #ifdef S_compatible_BUT_UNDESIRABLE
 	case NILSXP:
 	    /* NULL is atomic (S compatibly), but not in isVectorAtomic(.) */
@@ -2263,6 +2357,14 @@ static R_INLINE void copyDimAndNames(SEXP x, SEXP ans)
     }
 }
 
+/* The NA flags of x[0..n-1] in one call, insisting the class report them
+   all: a short answer would leave the tail of buf uninitialised. */
+static void altsxp_na_flags(SEXP x, R_xlen_t n, int *buf)
+{
+    if (n > 0 && R_altsxp_is_na_region(x, 0, n, buf) != n)
+	error(_("'%s' method reported too few elements"), "Is_na_region");
+}
+
 attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, x;
@@ -2285,6 +2387,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(ans = allocVector(LGLSXP, n));
     int *pa = LOGICAL(ans);
     switch (TYPEOF(x)) {
+    case ALTSXP:
+	altsxp_na_flags(x, n, pa);
+	break;
     case LGLSXP:
        for (i = 0; i < n; i++)
 	   pa[i] = (LOGICAL_ELT(x, i) == NA_LOGICAL);
@@ -2329,6 +2434,9 @@ attribute_hidden SEXP do_isna(SEXP call, SEXP op, SEXP args, SEXP rho)
 			Rcomplex v = COMPLEX_ELT(s, 0);			\
 			pa[i] = (ISNAN(v.r) || ISNAN(v.i));		\
 		    }							\
+		    break;						\
+		case ALTSXP:						\
+		    R_altsxp_is_na_region(s, 0, 1, &pa[i]);		\
 		    break;						\
 		default:						\
 		    pa[i] = 0;						\
@@ -2392,6 +2500,26 @@ static bool anyNA(SEXP call, SEXP op, SEXP args, SEXP env)
 
     R_xlen_t i, n = xlength(x);
     switch (xT) {
+    case ALTSXP:
+    {
+	R_xlen_t n = xlength(x);
+	if (n == 0) return false;
+	if (ALTSXP_NO_NA(x)) return false;
+	R_xlen_t nb = n > ALTSXP_REGION_CHUNK ? ALTSXP_REGION_CHUNK : n;
+	const void *vmax = vmaxget();
+	int *buf = (int *) R_alloc((size_t) nb, sizeof(int));
+	for (R_xlen_t i = 0; i < n; ) {
+	    R_xlen_t k = n - i > nb ? nb : n - i;
+	    k = R_altsxp_is_na_region(x, i, k, buf);
+	    if (k <= 0)
+		error(_("'%s' method reported no elements"), "Is_na_region");
+	    for (R_xlen_t j = 0; j < k; j++)
+		if (buf[j]) { vmaxset(vmax); return true; }
+	    i += k;
+	}
+	vmaxset(vmax);
+	return false;
+    }
     case REALSXP:
     {
 	if(REAL_NO_NA(x))
@@ -2537,6 +2665,11 @@ attribute_hidden SEXP do_isnan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    /* All R knows about an opaque element is whether the class calls it NA:
+       there is no generic notion of an infinity or a NaN, so an exact type
+       is assumed.  A class whose elements do have non-finite values defines
+       an S3 method, which DispatchOrEval() above reaches first. */
+    case ALTSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -2601,6 +2734,12 @@ attribute_hidden SEXP do_isfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
 	for (i = 0; i < n; i++)
 	    pa[i] = (INTEGER_ELT(x, i) != NA_INTEGER);
 	break;
+    case ALTSXP:
+	/* as in is.nan(): an opaque element is finite unless it is NA */
+	altsxp_na_flags(x, n, pa);
+	for (i = 0; i < n; i++)
+	    pa[i] = !pa[i];
+	break;
     case REALSXP:
 	for (i = 0; i < n; i++)
 	    pa[i] = R_FINITE(REAL_ELT(x, i));
@@ -2664,6 +2803,7 @@ attribute_hidden SEXP do_isinfinite(SEXP call, SEXP op, SEXP args, SEXP rho)
     case NILSXP:
     case LGLSXP:
     case INTSXP:
+    case ALTSXP:	/* as in is.nan() */
 	for (i = 0; i < n; i++)
 	    pa[i] = 0;
 	break;
@@ -3113,7 +3253,18 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
       value = CADR(args);
     if (!isValidString(value) || STRING_ELT(value, 0) == NA_STRING)
 	error(_("'value' must be non-null character string"));
-    SEXPTYPE type = str2type(CHAR(STRING_ELT(value, 0)));
+    const char *valstr = CHAR(STRING_ELT(value, 0));
+    SEXPTYPE type = str2type(valstr);
+    /* as in do_asvector(): an opaque class names itself by its element type,
+       the object's own name being the identity case and a registered one a
+       conversion */
+    SEXP proto = NULL;
+    if(type == (SEXPTYPE) -1) {
+	if(TYPEOF(obj) == ALTSXP && streql(valstr, R_typeToChar(obj)))
+	    type = ALTSXP;
+	else if((proto = R_altsxp_prototype(valstr)) != NULL)
+	    type = ALTSXP;
+    }
     if(type == (SEXPTYPE) -1) {
 	if(streql(CHAR(STRING_ELT(value, 0)), "real")) {
 	    error("use of 'real' is defunct: use 'double' instead");
@@ -3122,10 +3273,21 @@ attribute_hidden SEXP do_storage_mode(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else
 	    error(_("invalid value"));
     }
-    if(TYPEOF(obj) == type) return obj;
+    /* not on a conversion into a named class: every ALTSXP shares one
+       SEXPTYPE, so this would make storage.mode(<uint64>) <- "int64" a
+       silent no-op rather than a conversion */
+    if(proto == NULL && TYPEOF(obj) == type) return obj;
     if(isFactor(obj))
 	error(_("invalid to change the storage mode of a factor"));
-    SEXP ans = PROTECT(coerceVector(obj, type));
+    SEXP ans;
+    if(proto != NULL) {
+	ans = R_altsxp_coerce_from(proto, obj);
+	if(ans == NULL)
+	    error(_(COERCE_ERROR_STRING), R_typeToChar(obj), valstr);
+    }
+    else
+	ans = coerceVector(obj, type);
+    PROTECT(ans);
     SHALLOW_DUPLICATE_ATTRIB(ans, obj); // keeping attributes plus OBJECT & S4 bits
     UNPROTECT(1);
     return ans;

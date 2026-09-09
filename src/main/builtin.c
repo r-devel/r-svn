@@ -25,6 +25,7 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <Internal.h>
 #include <Print.h>
 #include <Fileio.h>
@@ -633,8 +634,20 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     width = 0;
     ntot = 0;
     nlines = 0;
+    PROTECT_INDEX spi;
+    PROTECT_WITH_INDEX(R_NilValue, &spi);
     for (iobj = 0; iobj < nobjs; iobj++) {
 	s = VECTOR_ELT(objs, iobj);
+	if (TYPEOF(s) == ALTSXP) {
+	    /* An opaque element has no C type EncodeElement0() could read,
+	       so the class renders it and cat() goes on to treat the result
+	       as it does any character vector, i.e. unquoted and unpadded. */
+	    SEXP fmt = ALTSXP_FORMAT(s, 0, XLENGTH(s));
+	    if (fmt == NULL)
+		error(_("argument %d (type '%s') cannot be handled by 'cat'"),
+		      1 + iobj, R_typeToChar(s));
+	    REPROTECT(s = fmt, spi);
+	}
 	if (iobj != 0 && !isNull(s))
 	    cat_printsep(sepr, ntot++);
 	n = length(s);
@@ -711,6 +724,7 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     cat_cleanup(&ci);
 
+    UNPROTECT(1); /* s */
     return R_NilValue;
 }
 
@@ -797,6 +811,17 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     mode = str2type(CHAR(STRING_ELT(s, 0))); /* ASCII */
     if (mode == -1 && streql(CHAR(STRING_ELT(s, 0)), "double"))
 	mode = REALSXP;
+
+    if (mode == -1) {
+	/* Not a SEXPTYPE, so it may be the element type of an opaque class,
+	   which allocates and zeroes for itself -- only it knows what its
+	   zero is.  Consulted after str2type(), so no class can take over the
+	   meaning of a base type's name. */
+	SEXP proto = R_altsxp_prototype(CHAR(STRING_ELT(s, 0)));
+	if (proto != NULL)
+	    return R_allocVectorLike(proto, len, TRUE);
+    }
+
     switch (mode) {
     case LGLSXP:
     case INTSXP:
@@ -846,6 +871,50 @@ SEXP xlengthgets(SEXP x, R_xlen_t len)
     lenx = xlength(x);
     if (lenx == len)
 	return (x);
+
+    if (len > lenx && ! R_altsxp_nullable(x)) {
+	/* The new tail is NA, which this object cannot hold as it stands.
+	   Na_widen() knows only about the data, so it hands back a bare
+	   vector: carry the attributes over, or the names read below are the
+	   ones this object no longer has. */
+	SEXP w = R_altsxp_na_widen(x);
+	if (w == NULL)
+	    error(_("'%s' cannot represent NA"), R_typeToChar(x));
+	if (ATTRIB(x) != R_NilValue) {
+	    PROTECT(w);
+	    SHALLOW_DUPLICATE_ATTRIB(w, x);
+	    UNPROTECT(1); /* w */
+	}
+	x = w;
+    }
+    PROTECT(x);
+
+    if (TYPEOF(x) == ALTSXP) {
+	/* An opaque vector cannot be allocated by SEXPTYPE, so ask the class
+	   for storage; copying and NA filling are then generic operations
+	   that need no knowledge of the element type. */
+	R_xlen_t ncopy = lenx < len ? lenx : len;
+	PROTECT(rval = R_allocVectorLike(x, len, FALSE));
+	R_altsxp_copy_region(rval, 0, x, 0, ncopy);
+	if (len > ncopy)
+	    R_altsxp_set_na_region(rval, ncopy, len - ncopy);
+	PROTECT(xnames = getAttrib(x, R_NamesSymbol));
+	if (xnames != R_NilValue) {
+	    /* A name that was not there is blank, not NA -- the arms below fill
+	       a fresh STRSXP and leave the tail at allocVector()'s blank.
+	       Recursing into xlengthgets() would instead pad with NA_STRING,
+	       which is what it does for a character vector in its own right. */
+	    PROTECT(names = allocVector(STRSXP, len));
+	    for (i = 0; i < ncopy; i++)
+		SET_STRING_ELT(names, i, STRING_ELT(xnames, i));
+	    setAttrib(rval, R_NamesSymbol, names);
+	    UNPROTECT(1); /* names */
+	}
+	UNPROTECT(3); /* xnames, rval, x */
+	return rval;
+    }
+    UNPROTECT(1); /* x */
+
     PROTECT(rval = allocVector(TYPEOF(x), len));
     PROTECT(xnames = getAttrib(x, R_NamesSymbol));
     if (xnames != R_NilValue)

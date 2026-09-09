@@ -23,6 +23,12 @@ integer <- function(length = 0L) .Internal(vector("integer", length))
 numeric <- double <-
     function(length = 0L) .Internal(vector("double", length))
 
+## vector() names the type it builds, which an opaque vector cannot supply:
+## its element type belongs to its ALTREP class, not to its SEXPTYPE.  This
+## takes an example object instead, and fills the result as vector() does.
+.allocVectorLike <- function(x, length = 0L)
+    .Internal(allocVectorLike(x, length))
+
 complex <- function(length.out = 0L,
 		    real = numeric(), imaginary = numeric(),
 		    modulus = 1, argument = 0) {

@@ -232,6 +232,8 @@ FUNTAB R_FunTab[] =
 {"vector",	do_makevector,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"complex",	do_complex,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"matrix",	do_matrix,	0,	11,	7,	{PP_FUNCALL, PREC_FN,	0}},
+{"allocVectorLike",do_allocvectorlike,0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"allocMatrixLike",do_allocmatrixlike,0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"array",	do_array,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"diag",	do_diag,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"backsolve",	do_backsolve,	0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
@@ -781,6 +783,7 @@ FUNTAB R_FunTab[] =
 {"wrap_meta",	do_wrap_meta,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"tryWrap",	do_tryWrap,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"altrep_class",do_altrep_class, 0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"as.int64",	do_as_int64,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Functions To Interact with the Operating System */
 

@@ -433,6 +433,10 @@ str.default <-
 		    mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }
 		else if(mod == "comp") mod <- "cplx" #- else: keep 'logi'
+		else if(!any(mod == c("logi", "raw")))
+		    ## an opaque element type names itself; truncating it to
+		    ## four characters ("int6") would be nonsense
+		    mod <- mode(object)
 		if(is.array(object)) {
 		    le.str <- arrLenstr(object)
 		    if(m <- match("AsIs", cl, 0L)) ## workaround bad format.AsIs()

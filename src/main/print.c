@@ -64,6 +64,7 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include "Print.h"
 #include "Fileio.h"
 #include "Rconnections.h"
@@ -519,6 +520,27 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 	    case RAWSXP:
 		snprintf(pbuf, 115, "raw,%d", LENGTH(s_i));
 		break;
+	    case ALTSXP:
+	    {
+		/* an opaque element has no C type this switch could read, so
+		   the class renders it; one that declines falls back to the
+		   type and length, as a longer vector does */
+		SEXP fmt = LENGTH(s_i) == 1 ? ALTSXP_FORMAT(s_i, 0, 1) : NULL;
+		if (fmt == NULL)
+		    snprintf(pbuf, 115, "%s,%d", R_typeToChar(s_i),
+			     LENGTH(s_i));
+		else {
+		    PROTECT(fmt);
+		    const void *vmax = vmaxget();
+		    SEXP e = STRING_ELT(fmt, 0);
+		    snprintf(pbuf, 115, "%s",
+			     e == NA_STRING ? CHAR(data->na_string)
+					    : translateChar(e));
+		    vmaxset(vmax);
+		    UNPROTECT(1); /* fmt */
+		}
+	    }
+		break;
 	    case LISTSXP:
 	    case VECSXP:
 		snprintf(pbuf, 115, "list,%d", length(s_i));
@@ -690,6 +712,13 @@ static void printList(SEXP s, R_PrintData *data)
 
 	    case RAWSXP:
 		snprintf(pbuf, 100, "raw,%d", LENGTH(CAR(s)));
+		break;
+
+	    case ALTSXP:
+		/* this printer reports the type and length for every
+		   element, so an opaque one needs no rendering */
+		snprintf(pbuf, 100, "%s,%d", R_typeToChar(CAR(s)),
+			 LENGTH(CAR(s)));
 		break;
 
 	    case LISTSXP:
@@ -906,6 +935,59 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
     case VECSXP:
 	PrintGenericVector(s, data); /* handles attributes/slots */
 	goto done;
+    case ALTSXP: {
+        R_xlen_t n = XLENGTH(s);
+        PROTECT(t = getAttrib(s, R_DimSymbol));
+        Rboolean shaped = TYPEOF(t) == INTSXP && LENGTH(t) > 1;
+        R_xlen_t n_pr = n <= (R_xlen_t) R_print.max + 1 ? n : R_print.max;
+        /* A shaped object is formatted by the matrix/array printer, which
+           knows the displayed rows and columns.  An empty request checks
+           whether the class offers formatting without materializing it. */
+        SEXP fmt = ALTSXP_FORMAT(s, 0, shaped ? 0 : n_pr);
+        PROTECT_INDEX fpi;
+        PROTECT_WITH_INDEX(fmt == NULL ? R_NilValue : fmt, &fpi);
+        SEXP et = ALTSXP_ELT_TYPE(s);
+        Rprintf("<%s[%lld]>\n",
+                et == R_NilValue ? "altrep" : CHAR(PRINTNAME(et)),
+                (long long) n);
+        if (fmt != NULL) {
+            if (shaped) {
+                if (LENGTH(t) == 2) {
+                    SEXP rl, cl;
+                    const char *rn, *cn;
+                    GetMatrixDimnames(s, &rl, &cl, &rn, &cn);
+                    printMatrix(s, 0, t, 0, 1, rl, cl, rn, cn);
+                } else {
+                    SEXP dn = PROTECT(GetArrayDimnames(s));
+                    printArray(s, t, 0, 1, dn);
+                    UNPROTECT(1);
+                }
+            } else {
+                REPROTECT(fmt = R_altsxp_format_common(fmt, FALSE, 0), fpi);
+                if (TYPEOF(t) == INTSXP && LENGTH(t) == 1) {
+                    const void *vmax = vmaxget();
+                    SEXP dn = PROTECT(getAttrib(s, R_DimNamesSymbol));
+                    if (dn != R_NilValue && VECTOR_ELT(dn, 0) != R_NilValue) {
+                        SEXP nn = getAttrib(dn, R_NamesSymbol);
+                        const char *title = isNull(nn) ? NULL
+                            : translateChar(STRING_ELT(nn, 0));
+                        printNamedVector(fmt, VECTOR_ELT(dn, 0), 0, title);
+                    } else if (n_pr > 0) printVector(fmt, 1, 0);
+                    UNPROTECT(1);
+                    vmaxset(vmax);
+                } else if (n_pr > 0) {
+                    SEXP nms = getAttrib(s, R_NamesSymbol);
+                    if (nms != R_NilValue) printNamedVector(fmt, nms, 0, NULL);
+                    else printVector(fmt, 1, 0);
+                }
+                if (n_pr < n)
+                    Rprintf(" [ reached 'max' / getOption(\"max.print\") -- omitted %lld entries ]\n",
+                            (long long) (n - n_pr));
+            }
+        }
+        UNPROTECT(2); /* fmt, t */
+        break;
+    }
     case LISTSXP:
 	printList(s, data);
 	break;
