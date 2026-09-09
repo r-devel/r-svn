@@ -63,6 +63,7 @@ function(x, strict = TRUE, regexp, classes = NULL)
     }
     names(y) <- nms
     class(y) <- unique(c(classes, "numeric_version"))
+    attr(y, "source") <- x
     y
 }
 
@@ -358,6 +359,10 @@ function(x, incomparables = FALSE, ...)
 format.numeric_version <-
 function(x, ...)
 {
+    attr <- attr(x, "source")
+    if (!is.null(attr)) {
+        return(attr)
+    }
     x <- unclass(x)
     y <- rep.int(NA_character_, length(x))
     names(y) <- names(x)
