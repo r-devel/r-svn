@@ -466,6 +466,12 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
     if ((RDEBUG(op) && R_current_debug_state()) || RSTEP(op) || RDEBUG(rho))
 	SET_RSTEP(sxp, 1);
 
+    /* For primitives, RSTEP is not cleared by applyClosure (since the
+       primitive itself is never processed there). Clear it here to
+       honor debugonce() semantics. */
+    if (RSTEP(op) && (TYPEOF(op) == BUILTINSXP || TYPEOF(op) == SPECIALSXP))
+	SET_RSTEP(op, 0);
+
     SEXP newcall =  PROTECT(shallow_duplicate(cptr->call));
     SETCAR(newcall, method);
     R_GlobalContext->callflag = CTXT_GENERIC;
