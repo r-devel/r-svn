@@ -600,7 +600,7 @@ old.packages <- function(lib.loc = NULL, repos = getOption("repos"),
         ((package_version(repo["Version"]) > package_version(inst["Version"])) ||
          ## otherwise it depends - on equal versions we still need to install if published/built is higher
          (package_version(repo["Version"]) == package_version(inst["Version"]) &&
-          (isTRUE(.builtDate(repo["Built"]) > .builtDate(inst["Built"])) || ## new re-built binary
+          ((checkBuilt && isTRUE(.builtDate(repo["Built"]) > .builtDate(inst["Built"]))) || ## new re-built binary
            isTRUE(.ts(repo["Published"]) > .ts(inst["Published"]))          ## new "invalidated" due to dependency
           )
          ))
