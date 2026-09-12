@@ -992,6 +992,15 @@ contrib.url <- function(repos, type = getOption("pkgType"))
     type <- resolvePkgType(type)
     if(is.null(repos)) return(NULL)
     if(!length(repos)) return(character())
+    ## an optional ".bin"/".binary" or ".src"/".source" postfix on the
+    ## names of 'repos' declares that a repository only provides binary
+    ## resp. source packages: drop repositories not providing 'type'
+    if(!is.null(nm <- names(repos))) {
+        drop <- if(type == "source") grepl("[.](bin|binary)$", nm)
+                else grepl("[.](src|source)$", nm)
+        repos <- repos[!drop]
+        if(!length(repos)) return(character())
+    }
     if("@CRAN@" %in% repos && interactive()) {
         cat(gettext("--- Please select a CRAN mirror for use in this session ---"),
             "\n", sep = "")
