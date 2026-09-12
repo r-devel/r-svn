@@ -5259,13 +5259,14 @@ rawFixedString(Rbyte *bytes, int len, int nbytes, int *np, int useBytes)
 	*p = '\0';
 	res = mkCharLenCE(buf, clen, CE_NATIVE);
     } else {
-	/* no terminator */
-	buf = R_chk_calloc(len + 1, 1);
+	/* no terminator; R_alloc, not R_chk_calloc: mkCharLenCE signals on an
+	   embedded nul (see the note above), which would leak the buffer.
+	   vmax is already bracketed above. */
+	buf = R_alloc((R_SIZE_T)len + 1, sizeof(char));
 	if (len)
 	    memcpy(buf, bytes + (*np), len);
 	*np += len;
 	res = mkCharLenCE(buf, len, CE_NATIVE);
-	R_Free(buf);
     }
     vmaxset(vmax);
     return res;
