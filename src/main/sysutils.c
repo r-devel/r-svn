@@ -2165,7 +2165,9 @@ next_char:
     if(ttype == NT_FROM_NATIVE) Riconv_close(obj);
     if (mustWork && failed) {
 	const void *vmax = vmaxget();
-	const char *native_buf = reEnc3(cbuff->data, TO_WCHAR, "", 2);
+	const char *native_buf = reEnc4(cbuff->data,
+				       (size_t) (outbuf - cbuff->data),
+				       TO_WCHAR, "", 2);
 
 	/* copy to truncate (and mark as truncated) */
 	char err_buff[256];
