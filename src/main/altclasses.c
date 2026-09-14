@@ -86,6 +86,15 @@ static SEXP new_compact_realseq(R_xlen_t, double, double);
 
 static SEXP compact_intseq_Unserialize(SEXP class, SEXP state)
 {
+    /* state is the serialized info vector (see compact_intseq_Serialized_state):
+       a numeric vector of length 3.  A crafted serialized stream can supply
+       any object here, so reject a malformed state with a clean error rather
+       than reading REAL0/INTEGER0 off the end of a short or wrong-typed
+       (or non-vector) object. */
+    if ((TYPEOF(state) != REALSXP && TYPEOF(state) != INTSXP) ||
+	XLENGTH(state) < 3)
+	error("invalid compact_intseq serialized state");
+
     R_xlen_t n = COMPACT_INTSEQ_SERIALIZED_STATE_LENGTH(state);
     int n1 = COMPACT_INTSEQ_SERIALIZED_STATE_FIRST(state);
     int inc = COMPACT_INTSEQ_SERIALIZED_STATE_INCR(state);
@@ -363,6 +372,12 @@ static SEXP compact_realseq_Serialized_state(SEXP x)
 
 static SEXP compact_realseq_Unserialize(SEXP class, SEXP state)
 {
+    /* as for compact_intseq_Unserialize: the info vector read below is a
+       length-3 REALSXP, but a crafted stream can supply anything, so reject
+       a malformed state rather than reading REAL0 off the end. */
+    if (TYPEOF(state) != REALSXP || XLENGTH(state) < 3)
+	error("invalid compact_realseq serialized state");
+
     double inc = COMPACT_REALSEQ_INFO_INCR(state);
     R_xlen_t len = COMPACT_REALSEQ_INFO_LENGTH(state);
     double n1 = COMPACT_REALSEQ_INFO_FIRST(state);
