@@ -56,6 +56,8 @@ struct SrcRefState {
     int xxbyteno;		/* Byte number on line */
     int xxparseno;              /* Line number ignoring #line directives */
 
+    void *yystack;		/* Grown bison stack to free if an error unwinds */
+
     SrcRefState* prevState;
 };
 
