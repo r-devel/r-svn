@@ -245,8 +245,8 @@ List of 3
 +     "\n\t starting with 'is.' :\t  ",
 +     sum(grepl("^is\\.", ls.base[base.is.f])), "\n", sep = "")
 
-Number of all base objects:	1414
-Number of functions from these:	1370
+Number of all base objects:	1415
+Number of functions from these:	1371
 	 starting with 'is.' :	  53
 
 > ## R ver.| #{is*()}
