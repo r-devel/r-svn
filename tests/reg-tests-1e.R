@@ -3728,3 +3728,6 @@ stopifnot(exprs = {
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
+
+## package_version can be converted back to its own original representation
+stopifnot(as.character(package_version("1.2-1")) == "1.2-1")
