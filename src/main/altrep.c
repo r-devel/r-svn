@@ -276,6 +276,41 @@ ALTREP_SERIALIZED_CLASS(SEXP x)
 static SEXP find_namespace(void *data) { return R_FindNamespace((SEXP) data); }
 static SEXP handle_namespace_error(SEXP cond, void *data) { return R_NilValue; }
 
+static Rboolean valid_altrep_serialized_type(int type)
+{
+    switch(type) {
+    case LGLSXP:
+    case INTSXP:
+    case REALSXP:
+    case CPLXSXP:
+    case STRSXP:
+    case RAWSXP:
+    case VECSXP:
+    case EXPRSXP:
+	return TRUE;
+    default:
+	return FALSE;
+    }
+}
+
+static Rboolean valid_altrep_serialized_class(SEXP info)
+{
+    if (TYPEOF(info) != LISTSXP)
+	return FALSE;
+    SEXP rest = CDR(info);
+    if (TYPEOF(rest) != LISTSXP)
+	return FALSE;
+    rest = CDR(rest);
+    if (TYPEOF(rest) != LISTSXP || CDR(rest) != R_NilValue)
+	return FALSE;
+
+    SEXP stype = CAR(rest);
+    return TYPEOF(CAR(info)) == SYMSXP &&
+	TYPEOF(CADR(info)) == SYMSXP &&
+	TYPEOF(stype) == INTSXP && XLENGTH(stype) == 1 &&
+	valid_altrep_serialized_type(INTEGER0(stype)[0]);
+}
+
 static SEXP ALTREP_UNSERIALIZE_CLASS(SEXP info)
 {
     if (TYPEOF(info) == LISTSXP) {
@@ -298,6 +333,9 @@ static SEXP ALTREP_UNSERIALIZE_CLASS(SEXP info)
 attribute_hidden SEXP
 ALTREP_UNSERIALIZE_EX(SEXP info, SEXP state, SEXP attr, int objf, int levs)
 {
+    if (! valid_altrep_serialized_class(info))
+	error("invalid ALTREP serialized class");
+
     SEXP csym = ALTREP_SERIALIZED_CLASS_CLSSYM(info);
     SEXP psym = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
     int type = ALTREP_SERIALIZED_CLASS_TYPE(info);
@@ -1187,4 +1225,3 @@ attribute_hidden SEXP do_altrep_class(SEXP call, SEXP op, SEXP args, SEXP env)
     else
 	return R_NilValue;
 }
-
