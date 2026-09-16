@@ -96,6 +96,6 @@ extractAIC(fit, scale, k = 2, \dots)
 }
 \examples{\donttest{
 utils::example(glm)
-extractAIC(glm.D93)  #>>  5  15.129
+extractAIC(glm.D93)  #>>  5  56.76132
 }}
 \keyword{models}
