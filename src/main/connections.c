@@ -4168,6 +4168,7 @@ static int con_close1(Rconnection con)
 	Rgzconn priv = con->private;
 	con_close1(priv->con);
 	R_ReleaseObject(priv->con->ex_ptr);
+	free(priv->con);
     }
     /* close inconv and outconv if open */
     if(con->inconv) Riconv_close(con->inconv);
@@ -6715,7 +6716,7 @@ SEXP R_decompress1(SEXP in, Rboolean *err)
     Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
     int res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
     if(res != Z_OK) {
-	warning("internal error %d in R_decompress1", res);
+	warning("internal error %d in R_decompress2", res);
 	*err = TRUE;
 	return R_NilValue;
     }

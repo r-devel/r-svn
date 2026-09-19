@@ -997,6 +997,44 @@ if(grepl("^system", print(sessionInfo()$tzcode))) # tzcode "internal" still givi
 stopifnot(d_sec == 365*24*3600)
 ## the negative value stemming from C level integer addition overflow
 
+## Error message deconfusion: PR#19117#c1 _comment 1_ only
+curLCtime <- Sys.getlocale("LC_TIME")
+curLCCtyp <- Sys.getlocale("LC_CTYPE")
+set.T.C <- \(c1, c2) c(tim = Sys.setlocale("LC_TIME", c1),
+                       ctp = Sys.setlocale("LC_CTYPE",c2))
+val <- set.T.C("zh_CN", "zh_CN.utf8")
+if(all(nzchar(val))) {
+    (chD <- strftime(as.Date('2000-11-01'), fmt <- '%Y %d %b')) #  "2000 01 11\xd4\xc2"
+    stopifnot(grepl('multibyte', print(tryCmsg(strptime(chD, fmt))), fixed=TRUE))
+    ## was   "input string is too long"
+}
+set.T.C(curLCtime, curLCCtyp) # reset (and show)
+
+
+## Invalid %OS -> NA -- PR#19122
+stopifnot(identical(
+    strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%S") -> tt,
+    strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%OS")
+  ), is.na(tt))
+
+
+## strptime(., "...%OS<n>...") disregards <n> for symmetry with strftime() -- PR#17209
+chd <- "17_35_14.1234.mp3"
+fff <- paste0("%H_%M_%OS", c("",0:6), ".mp3")
+cD <- format(Sys.Date())
+str(td <- unique(lapply(fff, \(fmt) strptime(chd, fmt))))
+stopifnot(length(td) == 1, identical(format(td[[1]]), paste(cD, "17:35:14")))
+## gave NAs  but for the first in R <= 4.6.z
+
+
+## strptime() no longer fails to parse %w  = '0'  in C locale -- PR#19124
+## (relying on LC_* = C !)
+ch <- paste("2026", c("0", "01"), "0"); fmt <- "%Y %U %w";
+(lt <- strptime(ch, fmt))
+stopifnot(!is.na(lt), lt[1] == lt[2],
+          identical(ch[2], strftime(lt[2], fmt)))
+## lt[1] was NA in   R <= 4.6.1
+
 
 
 ## keep at end

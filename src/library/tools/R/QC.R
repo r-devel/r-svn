@@ -5882,16 +5882,18 @@ function(dir)
     predicate <- function(e) {
         if(length(e) <= 1L) return(FALSE)
         if(as.character(e[[1L]])[1L] %in% "unlockBinding") {
+            e <- match.call(unlockBinding, e)
             e3 <- as.character(e[[3L]])
-            if (e3[[1L]] == "asNamespace") e3 <- as.character(e[[3L]][[2L]])
+            if (e3[[1L]] %in% c("asNamespace", "getNamespace")) e3 <- as.character(e[[3L]][[2L]])
             ## maybe this should use any()
             return(e3 != pkgname)
         }
         if((as.character(e[[1L]])[1L] %in% ".Internal") &&
            as.character(e[[2L]][[1L]]) == "unlockBinding") return(TRUE)
         if(as.character(e[[1L]])[1L] %in% "assignInNamespace") {
+            e <- match.call(utils::assignInNamespace, e)
             e3 <- as.character(e[[4L]])
-            if (e3[[1L]] == "asNamespace") e3 <- as.character(e[[4L]][[2L]])
+            if (e3[[1L]] %in% c("asNamespace", "getNamespace")) e3 <- as.character(e[[4L]][[2L]])
             ## maybe this should use any()
             return(e3 != pkgname)
         }
@@ -7311,11 +7313,6 @@ function(dir, silent = FALSE, def_enc = FALSE, minlevel = -1)
     if(is.na(enc)) enc <- "ASCII"
     else def_enc <- TRUE
     macros <- loadPkgRdMacros(dir)
-    ## UGLY! FIXME: add (something like) 'dir' as argument to checkRd() below!
-    oenv <- Sys.getenv("_R_RD_MACROS_PACKAGE_DIR_", unset = NA)
-    on.exit(if (!is.na(oenv)) Sys.setenv("_R_RD_MACROS_PACKAGE_DIR_" = oenv)
-            else Sys.unsetenv("_R_RD_MACROS_PACKAGE_DIR_"))
-    Sys.setenv("_R_RD_MACROS_PACKAGE_DIR_" = normalizePath(dir))
 
     pg <- list_files_with_type(file.path(dir, "man"), "docs", full.names = TRUE,
                                OS_subdirs = c("unix", "windows"))

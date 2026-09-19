@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.15.1\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-03 23:24\n"
 "PO-Revision-Date: 2012-11-27 01:11+0330\n"
 "Last-Translator: Seyed Mahmood Taghavi Shahri <taghavi_m@razi.tums.ac.ir>\n"
 "Language-Team: Persian\n"
@@ -65,6 +65,9 @@ msgid "'%s' is not a valid abbreviation of an RNG"
 msgstr ""
 
 msgid "'%s' must be a character string"
+msgstr ""
+
+msgid "'%s' is not valid for '%s'"
 msgstr ""
 
 msgid "'%s' is not a valid choice"
@@ -344,9 +347,6 @@ msgid "invalid 'max' / getOption(\"max.print\"):"
 msgstr ""
 
 msgid "non-numeric-alike variable(s) in data frame:"
-msgstr ""
-
-msgid ","
 msgstr ""
 
 msgid "%s only defined for equally-sized data frames"
@@ -681,6 +681,9 @@ msgstr ""
 msgid "'subset' must be logical"
 msgstr ""
 
+msgid "No functions specified"
+msgstr ""
+
 msgid "value for %s not found"
 msgstr ""
 
@@ -938,10 +941,7 @@ msgstr ""
 msgid "must specify names of formal arguments for 'vectorize'"
 msgstr ""
 
-msgid "FUN"
-msgstr ""
-
-msgid "may not have argument(s) named"
+msgid "%s may not have argument(s) %s"
 msgstr ""
 
 msgid "'arg' must be NULL or a character vector"
@@ -1072,13 +1072,10 @@ msgstr ""
 msgid "package %s has a license that you need to accept after viewing"
 msgstr ""
 
-msgid "package %s has a license that you need to accept:"
-msgstr ""
-
-msgid "according to the DESCRIPTION file it is"
-msgstr ""
-
-msgid "%s"
+msgid ""
+"package %s has a license that you need to accept:\n"
+"  according to the DESCRIPTION file it is\n"
+"  %s"
 msgstr ""
 
 msgid "license for package %s not accepted"

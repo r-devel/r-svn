@@ -211,18 +211,21 @@ wget -r -l1 --no-parent -A\*.gz -nd -P src/library/Recommended \
 @R{} will configure and build under most common Unix and Unix-alike
 platforms including @samp{@var{cpu}-*-linux-gnu} for the
 @cputype{alpha}, @cputype{arm64} (also known as @cputype{aarch64}),
-@cputype{ix86}, @cputype{mips}, @cputype{mipsel}#, @cputype{ppc64},
+@cputype{ix86},
+@c@cputype{mips}, @cputype{mipsel}, @cputype{ppc64},
 @cputype{riscv64}, @cputype{s390x}, @cputype{sparc64}, and
-@cputype{x86_64} @acronym{CPU}s,
+@cputype{x86_64} (also known as @cputype{amd64}) @acronym{CPU}s,
 @c (see e.g.@:  @uref{https://buildd.debian.org/build.php?&pkg=r-base}),
 @c Actually, see https://packages.debian.org/unstable/math/r-base-core as
 @c the build daemon is not used for all platforms; note also that Debian
 @c has x86_64 <=> amd64, ix86 <=> i386.
 @samp{aarch64-@/apple-@/darwin}@footnote{aka `Apple Silicon', known to
 some as @samp{arm64-@/apple-@/darwin}.} and
-@samp{x86_64-@/apple-@/darwin}  as well as perhaps (it is
-tested less frequently on these platforms) @samp{x86_64-@/*-@/freebsd},
-@samp{x86_64-@/*-@/openbsd} and @samp{powerpc-@/ibm-@/aix6*}.
+@samp{x86_64-@/apple-@/darwin}@footnote{with obsolete versions of macOS:
+Apple discontinued support after macOS 26 in 2026.} as well as perhaps
+(it is tested less frequently on these platforms)
+@samp{x86_64-@/*-@/freebsd} and @samp{x86_64-@/*-@/openbsd}
+@c and @samp{powerpc-@/ibm-@/aix6*}.
 
 Only 64-bit platforms are tested regularly, and @command{configure}
 will warn if it encounters a 32-bit one.
@@ -872,10 +875,10 @@ to @R{} or intended for specialist uses by the @R{} developers.
 
 @command{configure} will select a C23 compiler if it finds one: to
 circumvent this use option @option{--without-C23}.  This will only have
-an effect if the compiler in use does not default to C23: GCC 15 does
-and might be selected as @command{gcc} if macro @code{CC} is not
-specified in @file{config.site}.  (A compiler is considered to be a `C23
-compiler' if it supports C23 by default or if such support can be
+an effect if the compiler in use does not default to C23: GCC 15 and
+later do and might be selected as @command{gcc} if macro @code{CC} is
+not specified in @file{config.site}.  (A compiler is considered to be a
+`C23 compiler' if it supports C23 by default or if such support can be
 selected by a flag such as @option{-std=gnu23} or @option{-std=gnu2x}
 and it supports the new C23 keywords such as @code{bool}, @code{false}
 and @code{true}.)
@@ -3504,16 +3507,15 @@ Configure variable @env{JAVA_HOME} can be set to point to a specific
 Principal amongst these settings are some paths to the Java
 libraries and JVM, which are stored in environment variable
 @enindex R_JAVA_LD_LIBRARY_PATH
-@env{R_JAVA_LD_LIBRARY_PATH} in file @file{@var{R_HOME}/etc/ldpaths} (or
-a sub-architecture-specific version).  A typical setting for
-@cputype{x86_64} Linux is
+@env{R_JAVA_LD_LIBRARY_PATH} in file @file{@var{R_HOME}/etc/ldpaths}.  A
+typical setting for @cputype{x86_64} Linux is
 
 @example
-JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.322.b06-6.fc34.x86_64/jre
-R_JAVA_LD_LIBRARY_PATH=$@{JAVA_HOME@}/lib/amd64/server
+JAVA_HOME=/usr/lib/jvm/java-25-openjdk
+R_JAVA_LD_LIBRARY_PATH=$@{JAVA_HOME@}/lib//server
 @end example
 
-Unfortunately this depends on the exact version of the @abbr{JRE}/@abbr{JDK}
+Unfortunately this depends on the version of the @abbr{JRE}/@abbr{JDK}
 installed, and so may need updating if the Java installation is updated.
 This can be done by running @code{R CMD javareconf} which updates
 settings in both @file{@var{R_HOME}/etc/Makeconf} and
@@ -3528,7 +3530,7 @@ Another way of overriding those settings is to set the environment variable
 Java-using packages.  For example
 
 @example
-R_JAVA_LD_LIBRARY_PATH=/usr/lib/jvm/java-1.8.0/jre/lib/amd64/server
+R_JAVA_LD_LIBRARY_PATH=/usr/lib/jvm/java-25-openjdk/lib/server
 @end example
 
 It may be possible to avoid this by specifying an invariant link as the
@@ -3536,31 +3538,28 @@ path when configuring. For example, on that system any of
 
 @example
 JAVA_HOME=/usr/lib/jvm/java
-JAVA_HOME=/usr/lib/jvm/java-1.8.0
-JAVA_HOME=/usr/lib/jvm/java-1.8.0/jre
-JAVA_HOME=/usr/lib/jvm/jre-1.8.0
+JAVA_HOME=/usr/lib/jvm/java-25
+JAVA_HOME=/usr/lib/jvm/jre
 @end example
 
 @noindent
-worked (since the `auto' setting of @command{/etc/alternatives} chose
-Java 8 aka 1.8.0).
+worked.
 
 `Non-server' Oracle distributions of Java as from version 11 are of a
 full @abbr{JDK}.  However, Linux distributions can be confusing: for example
-Fedora 38 had
+Fedora 44 had
 @example
-java-1.8.0-openjdk
-java-1.8.0-openjdk-devel
-java-11-openjdk
-java-11-openjdk-devel
-java-17-openjdk
-java-17-openjdk-devel
+java-25-openjdk
+java-25-openjdk-devel
 java-latest-openjdk
 java-latest-openjdk-devel
 @end example
 @noindent
-where the @code{-devel} @abbr{RPM}s are needed to complete the @abbr{JDK}. Debian/Ubuntu use
-@samp{-jre} and @samp{-jdk}, e.g.
+where the @code{-devel} @abbr{RPM}s are needed to complete the
+@abbr{JDK}. Note that @code{-latest-} may be a non-LTS version such as
+27 and so not recommended.
+
+Debian/Ubuntu use @samp{-jre} and @samp{-jdk}, e.g.
 @example
 sudo apt install default-jdk
 @end example
@@ -3713,7 +3712,8 @@ in use: Build @R{} with @option{--with-blas} to select the OS version of
 the reference BLAS, and then use @command{update-alternatives} to switch
 between the available BLAS libraries.  See
 @uref{https://wiki.debian.org/DebianScience/LinearAlgebraLibraries}.
-(ATLAS, @I{MKL} and @I{OpenBLAS} alternatives are currently available.)
+(ATLAS, @I{BLIS}, @I{MKL} and @I{OpenBLAS} alternatives are currently
+available.)
 
 Fedora 33 and later offer `@I{FlexiBLAS}', a similar mechanism for
 switching the BLAS in use
@@ -3840,11 +3840,11 @@ Note that building @R{} on Linux against distributed libraries may need
 @samp{-devel} or @samp{-dev} packages installed.
 
 @c https://wiki.debian.org/DebianScience/LinearAlgebraLibraries
-For @cputype{ix86} and @cputype{x86_64} CPUs most distributed libraries
-contain several alternatives for different CPU microarchitectures with
-the choice being made at run time.
+For @cputype{x86_64} CPUs most distributed libraries contain several
+alternatives for different CPU microarchitectures with the choice being
+made at run time.
 
-@I{OpenBLAS} provides @code{dgemmtr} as from version 0.3.29.
+@I{OpenBLAS} provides @code{dgemmtr} and @code{zgemmtr} as from version 0.3.29.
 
 Another descendant project is @I{BLIS}
 (@uref{https://github.com/flame/blis}).  This has (in Fedora) shared
@@ -3855,12 +3855,12 @@ libblisp.so
 libbliso.so
 @end example
 @noindent
-(@code{p} for `threads', @code{o} for @abbr{OpenMP} as for @I{OpenBLAS}) which can
-also be used as a shared BLAS.  The Fedora builds do not include LAPACK
-in the @I{BLIS} libraries and so cannot currently be used with internal
-LAPACK as they do not provide @code{dgemmtr}.
+(@code{p} for `threads', @code{o} for @abbr{OpenMP} as for @I{OpenBLAS})
+which can also be used as a shared BLAS.  The Fedora builds do not
+include LAPACK in the @I{BLIS} libraries: recent versions
+(e.g. @code{2.0}) do provide @code{dgemmtr} and @code{zgemmtr}.
 
-AMD maintain a branch of @I{BLIS} optimized for their CPUS called
+AMD distribute a branch of @I{BLIS} optimized for their CPUs called
 @I{AOCL}.
 @c https://www.amd.com/en/developer/aocl.html
 @c https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms calls
@@ -3880,13 +3880,13 @@ see
 (which at the time of writing selected the Intel library for linking with
 GCC).
 
-There are also versions of @I{MKL} for macOS@footnote{The issue for macOS
+There are also versions of @I{MKL} for Intel macOS@footnote{The issue for macOS
 has been the use of double-complex routines.} and Windows, but when
 these have been tried they did not work with the default compilers used
 for @R{} on those platforms.
 
 The following examples have been used with @I{MKL} versions 10.3 to
-2023.2.0, for GCC compilers on @cputype{x86_64} CPUs.  (See also
+2026.1.0, for GCC compilers on @cputype{x86_64} CPUs.  (See also
 @ref{Intel compilers}.)
 
 To use a sequential version of @I{MKL} we used
@@ -3935,7 +3935,7 @@ but @code{configure} includes tests which may discover some errors such as a
 failure to set the correct @abbr{OpenMP} and @I{MKL} interface layer.
 
 Note that the Debian/Ubuntu distribution can be quite old (for example
-@code{2020.4} in mid-2023 when @code{2023.1} was current): this can be
+@code{2020.4} in mid-2026 when @code{2026.1} was current): this can be
 important for the LAPACK version included.
 
 @noindent
@@ -4073,9 +4073,9 @@ routines so are not used by a default @command{configure} run.
 Provision is made for specifying an external LAPACK library with option
 @option{--with-lapack}, principally to cope with @acronym{BLAS}
 libraries which contain a copy of LAPACK (such as @code{Accelerate} on
-macOS and some builds of ATLAS, @I{FlexiBLAS}, @I{MKL} and @I{OpenBLAS} on
-@cputype{ix86}/@cputype{x86_64} Linux).  At least LAPACK version 3.2 is
-required.  This can only be done if @option{--with-blas} has been used.
+macOS and some builds of ATLAS, @I{FlexiBLAS}, @I{MKL} and @I{OpenBLAS}
+on @cputype{x86_64} Linux).  At least LAPACK version 3.2 is required.
+This can only be done if @option{--with-blas} has been used.
 
 However, the likely performance gains are thought to be small (and may
 be negative).  The default is not to search for a suitable LAPACK
@@ -4107,9 +4107,10 @@ with an `enhanced' BLAS such as ATLAS, @I{MKL} or @I{OpenBLAS} which
 contains a full LAPACK (to avoid possible conflicts), or
 
 @item
-When using an `enhanced' BLAS such as @I{BLIS} that does @strong{not}
-contain a full LAPACK and does not contain the LAPACK 3.12.1 additions
-to BLAS: then an external LAPACK version 3.12.0 or earlier is required.
+When using an `enhanced' BLAS (such as earlier versions of @I{BLIS})
+that does @strong{not} contain a full LAPACK and does not contain the
+LAPACK 3.12.1 additions to BLAS: then an external LAPACK version 3.12.0
+or earlier is required.
 
 @item
 on Debian/Ubuntu systems to select the system @code{liblapack} which can
@@ -4896,21 +4897,21 @@ Use of @code{_GLIBCXX_ASSERTIONS} will link @code{abort} and
 @node Clang
 @subsection Clang
 
-@R{} has been built with Linux @cputype{ix86} and @cputype{x86_64} C and
-C++ compilers (@uref{https://clang.llvm.org}) based on the Clang
-front-ends, invoked by @code{CC=clang CXX=clang++}, together with
-@command{gfortran}.  These take very similar options to the
-corresponding GCC compilers.
+@R{} has been built with Linux @cputype{x86_64} C and C++ compilers
+(@uref{https://clang.llvm.org}) based on the Clang front-ends, invoked
+by @code{CC=clang CXX=clang++}, together with @command{gfortran}.  These
+take very similar options to the corresponding GCC compilers.
 
 This has to be used in conjunction with a Fortran compiler: the
 @command{configure} code will remove @option{-lgcc} from @env{FLIBS},
 which is needed for some versions of @command{gfortran}.
 
 The current out-of-the-box default for @command{clang++} is to use the
-C++ runtime from the installed @command{g++}.  Using the runtime from
-the @url{https://libcxx.llvm.org/, @code{libc++}} project (Fedora @acronym{RPM}
-@code{libcxx-devel}) @emph{via} @option{-stdlib=libc++} has also been
-tested.
+C++ runtime @code{libstdc++} associatesd with the installed
+@command{g++}.  Using the runtime from the
+@url{https://libcxx.llvm.org/, @code{libc++}} project (Fedora
+@acronym{RPM} @code{libcxx-devel}) @emph{via} @option{-stdlib=libc++}
+has also been tested.
 
 Recent versions have (optional when built) @abbr{OpenMP} support.@footnote{This
 also needs the @abbr{OpenMP} runtime which has sometimes been distributed
@@ -4938,7 +4939,7 @@ version 20.
 The version in @I{LLVM} 16 and later was able to build @R{} on @cputype{x86_64} Linux
 with
 @example
-FC=/path/to/flang
+FC=/path/to/flang (or flang-new)
 @end example
 @noindent
 with the matching @command{clang} used as the C compiler, and the build
@@ -4946,13 +4947,6 @@ passed @command{make check-all}.  There is also support for
 @cputype{aarch64} and @cputype{ppc64le} Linux, but these have not been
 tested with @R{}.
 
-
-@c It is recommended to use C flag @option{-Wno-strict-prototypes}
-@c (disabling a C23 feature) if using @code{-pedantic} in @command{clang}
-@c 15.0.0 and later, as @R{} is not yet optimized for C23.  For more detail
-@c see the release notes at
-@c @uref{https://releases.llvm.org/15.0.0/tools/clang/docs/ReleaseNotes.html#id9},
-@c under `improvements to diagnostics'..
 
 @c This was about 'Classic Flang'.  The newer version is not
 @c yet able to compile Fortran.
@@ -6000,7 +5994,7 @@ signalling behaviour; @I{Sun/Sparc}, @I{SGI/IRIX} and @cputype{ix86}
 Linux required no special action, FreeBSD requires a call to (the macro)
 @code{fpsetmask(0)} and @I{OSF1} required that computation be done with
 a @option{-ieee_with_inexact} flag etc. With Intel compilers on Intel
-machines, one has to explicitly disable flush-to-zero and
+machines, one had to explicitly disable flush-to-zero and
 @I{denormals-are-zero} modes.  Some ARM processors (including Apple
 Silicon) by default use @I{runfast} mode, which includes flush-to-zero
 and @I{default-nan} and hence has to be disabled.  With @I{default-nan}
@@ -6012,10 +6006,27 @@ top level directory.
 
 Beware of using high levels of optimization, at least initially.  On
 many compilers these reduce the degree of compliance to the
-@acronym{IEEE} model.  For example, using @option{-fast} on the Oracle
+@acronym{IEC} model.  For example, using @option{-fast} on the Oracle
 compilers has caused @R{}'s @code{NaN} to be set incorrectly, and
 @command{gcc}'s @option{-ffast-math} and @command{clang}'s
 @option{-Ofast} have given incorrect results.
+
+@strong{Long doubles}: @R{} (and many packages) makes use of the C
+@code{long double} type to accumulate intermediate results.  On some
+platforms this uses the @cputype{ix86}/@cputype{x86_64} `extended
+precision' model which is (almost always) implemented in hardware in the
+floatng-point unit.  Originally (in the 8087 FPU) all double-precision
+arithmetic was done in extended-precision and converted when stored, so
+using long doubles had negligble cost in computational time.  No other
+commonly-used platform uses extended-precision arithmetic: they either
+provide @code{long double} as the same as @code{double} or as a 128-bit
+type by (almost always) software emulation.  For ARM, compiler vendors
+are divided: GCC uses software emulation of the 128-bit IEEE 754-2008
+type, whereas LLVM (and hence Apple) use @code{double}.
+
+All use of C @code{long double} in @R{} can be suppressed by
+@command{--disable-long-double}: this can be desirable on platforms with
+software emulation of long doubles.
 
 @strong{Shared Objects}: There seems to be very little agreement
 across platforms on what needs to be done to build shared objects.
@@ -6051,7 +6062,8 @@ have had a fair amount of practice at porting @R{} to new platforms
 One thing you might want to add for a new platform is the mapping of
 C/C++/Fortran calls to entry point names used for @command{R CMD check}.
 See @uref{https://svn.r-project.org/R-dev-web/trunk/sotools.txt} for how
-to do so.
+to do so.  This is likely to be needed for a new compiler (especially for
+Fortran) and has been needed for compiler name changes and updates
 
 
 @node Function and variable index

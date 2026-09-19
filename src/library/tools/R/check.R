@@ -6262,7 +6262,9 @@ add_dummies <- function(dir, Log)
                              "\\[-Warray-parameter\\]",
                              "\\[-Wuse-after-free\\]",
                              ## rustc
-                             "^warning: use of deprecated"
+                             "^warning: use of deprecated",
+                             ## GCC only at 2026-08
+                             ": warning: .* \\[-Wdeprecated-openmp\\]"
                              )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -6372,7 +6374,12 @@ add_dummies <- function(dir, Log)
                              ## see slso -Wincompatible-pointer-types-discards-qualifiers above
                              "\\[-Wdiscarded-qualifiers\\]",
                              ## LLVM >= 23
-                             "\\[-Wunused-but-set-global\\]"
+                             "\\[-Wunused-but-set-global\\]",
+                             ## GCC warnings with
+                             ## -Werror=implicit-function-declaration
+                             ## and -Wstrict-prototypes
+                             "warning:.* is not valid for C\\+\\+",
+                             "warning:.* valid for C/ObjC but not for C\\+\\+"
                             )
                 ## macOS ld warnings
                 warn_re <- c(warn_re,
