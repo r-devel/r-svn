@@ -85,11 +85,14 @@ rWishart(SEXP ns, SEXP nuP, SEXP scal)
     if (!isMatrix(scal) || !isReal(scal) || dims[0] != dims[1])
 	error(_("'scal' must be a square, real matrix"));
     if (n <= 0) n = 1;
-    // allocate early to avoid memory leaks in R_Callocs below.
     PROTECT(ans = alloc3DArray(REALSXP, dims[0], dims[0], n));
     psqr = dims[0] * dims[0];
-    tmp = R_Calloc(psqr, double);
-    scCp = R_Calloc(psqr, double);
+    /* R_alloc, not R_Calloc: the positive-definiteness check below signals
+       an error, which would leak R_Calloc'd buffers; R_alloc lives on the
+       R heap and is reclaimed when the call returns or an error unwinds */
+    const void *vmax = vmaxget();
+    tmp = (double *) R_alloc(psqr, sizeof(double));
+    scCp = (double *) R_alloc(psqr, sizeof(double));
 
     Memcpy(scCp, REAL(scal), psqr);
     if (psqr)
@@ -115,7 +118,7 @@ rWishart(SEXP ns, SEXP nuP, SEXP scal)
     }
 
     PutRNGstate();
-    R_Free(scCp); R_Free(tmp);
+    vmaxset(vmax);
     UNPROTECT(1);
     return ans;
 }
