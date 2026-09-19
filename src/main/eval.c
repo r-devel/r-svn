@@ -28,6 +28,7 @@
 #include <Internal.h>
 #include <Rinterface.h>
 #include <Fileio.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP region API, for for() loops */
 #include <R_ext/Print.h>
 #include <errno.h>
 #include <math.h>
@@ -1109,6 +1110,7 @@ SEXP eval(SEXP e, SEXP rho)
     case CPLXSXP:
     case RAWSXP:
     case OBJSXP:
+    case ALTSXP:
     case SPECIALSXP:
     case BUILTINSXP:
     case ENVSXP:
@@ -2693,13 +2695,16 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call)
    (when v == R_NilValue) and when the value may have been assigned to
    another variable. This should be safe and avoid allocation in many
    cases. */
-#define ALLOC_LOOP_VAR(v, val_type, vpi) do {			\
+#define ALLOC_LOOP_VAR_LIKE(v, alloc, vpi) do {			\
 	if (v == R_NilValue || MAYBE_SHARED(v) ||		\
 	    ATTRIB(v) != R_NilValue || (v) != CAR(cell)) {	\
-	    REPROTECT(v = allocVector(val_type, 1), vpi);	\
+	    REPROTECT(v = (alloc), vpi);			\
 	    INCREMENT_NAMED(v);					\
 	}							\
     } while(0)
+
+#define ALLOC_LOOP_VAR(v, val_type, vpi)			\
+    ALLOC_LOOP_VAR_LIKE(v, allocVector(val_type, 1), vpi)
 
 attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
@@ -2868,6 +2873,12 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    case RAWSXP:
 		ALLOC_LOOP_VAR(v, val_type, vpi);
 		SET_SCALAR_BVAL(v, RAW(val)[i]);
+		break;
+	    case ALTSXP:
+		/* an opaque vector cannot be allocated from its SEXPTYPE
+		   alone, and only the class can move an element */
+		ALLOC_LOOP_VAR_LIKE(v, R_allocVectorLike(val, 1, FALSE), vpi);
+		R_altsxp_copy_region(v, 0, val, i, 1);
 		break;
 	    default:
 		errorcall(call, _("invalid for() loop sequence"));
@@ -6877,16 +6888,19 @@ typedef struct {
 	R_BCNodeStackTop++;						\
     } while (0)
 
-#define GET_VEC_LOOP_VALUE(var) do {			\
+#define GET_VEC_LOOP_VALUE_LIKE(var, alloc) do {	\
 	(var) = GETSTACK_SXPVAL(-1);			\
 	if (BNDCELL_TAG(cell) ||			\
 	    (var) != CAR(cell) || MAYBE_SHARED(var) ||	\
 	    ATTRIB(var) != R_NilValue) {		\
-	    (var) = allocVector(TYPEOF(seq), 1);	\
+	    (var) = (alloc);				\
 	    SETSTACK_NLNK(-1, var);			\
 	    INCREMENT_NAMED(var);			\
 	}						\
     } while (0)
+
+#define GET_VEC_LOOP_VALUE(var)				\
+    GET_VEC_LOOP_VALUE_LIKE(var, allocVector(TYPEOF(seq), 1))
 
 /* This uses use loopinfo->symbol in case cell is R_NilValue, e.g. for
    an active binding. */
@@ -7715,6 +7729,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	    INCREMENT_NAMED(value);
 	    BCNPUSH_NLNK(value);
 	    break;
+	case ALTSXP:
+	    value = R_allocVectorLike(seq, 1, FALSE);
+	    INCREMENT_NAMED(value);
+	    BCNPUSH_NLNK(value);
+	    break;
 	default: BCNPUSH(R_NilValue);
 	}
 	/* the seq, binding cell, and value on the stack are now boxed */
@@ -7812,6 +7831,12 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  case RAWSXP:
 	    GET_VEC_LOOP_VALUE(value);
 	    SET_SCALAR_BVAL(value, RAW(seq)[i]);
+	    break;
+	  case ALTSXP:
+	    /* as in do_for(): only the class can make the box and move the
+	       element into it */
+	    GET_VEC_LOOP_VALUE_LIKE(value, R_allocVectorLike(seq, 1, FALSE));
+	    R_altsxp_copy_region(value, 0, seq, i, 1);
 	    break;
 	  case EXPRSXP:
 	  case VECSXP:

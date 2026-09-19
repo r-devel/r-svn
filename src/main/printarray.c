@@ -322,6 +322,29 @@ static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		   EncodeRaw(x[i + j * (R_xlen_t) r], "")) );
 }
 
+/* Stage only the displayed rows of each displayed column.  The source
+   stride remains r even though the temporary character matrix is compact. */
+static void printAltsxpMatrix(SEXP x, int offset, int r_pr, int r, int c,
+                             SEXP rl, SEXP cl, const char *rn, const char *cn,
+                             bool print_ij)
+{
+    int rows = print_ij ? r_pr : 0;
+    SEXP fmt = PROTECT(allocVector(STRSXP, (R_xlen_t) rows * c));
+    for (int j = 0; j < c && rows > 0; j++) {
+        SEXP col = ALTSXP_FORMAT(x, offset + (R_xlen_t) j * r, rows);
+        if (col == NULL) UNIMPLEMENTED_TYPE("printMatrix", x);
+        PROTECT_INDEX cpi;
+        PROTECT_WITH_INDEX(col, &cpi);
+        REPROTECT(col = R_altsxp_format_common(col, TRUE, 0), cpi);
+        for (int i = 0; i < rows; i++)
+            SET_STRING_ELT(fmt, i + (R_xlen_t) j * rows, STRING_ELT(col, i));
+        UNPROTECT(1);
+    }
+    printStringMatrix(fmt, 0, r_pr, print_ij ? rows : r, c,
+                      0, 1, rl, cl, rn, cn, print_ij);
+    UNPROTECT(1);
+}
+
 /* rm and cn are found by GetMatrixDimnames so in native encoding */
 attribute_hidden
 void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
@@ -374,6 +397,9 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
     case RAWSXP:
 	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
 	break;
+    case ALTSXP:
+        printAltsxpMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, true);
+        break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
@@ -499,6 +525,10 @@ void printArray(SEXP x, SEXP dim, int quote, int right, SEXP dimnames)
 		printStringMatrix (x, i * b, use_nr, nr, use_nc,
 				   quote, right, dn0, dn1, rn, cn, do_ij);
 		break;
+            case ALTSXP:
+                printAltsxpMatrix(x, i * b, use_nr, nr, use_nc,
+                                 dn0, dn1, rn, cn, do_ij);
+                break;
 	    case RAWSXP:
 		printRawMatrix    (x, i * b, use_nr, nr, use_nc, dn0, dn1, rn, cn, do_ij);
 		break;

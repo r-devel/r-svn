@@ -258,6 +258,21 @@ static SEXP lunary(SEXP call, SEXP op, SEXP arg)
 	    }
 	}
 	break;
+    case ALTSXP:
+	{
+	    /* An opaque element has no C type this switch could read, so the
+	       class renders the vector as a logical first -- the same step
+	       lbinary() takes for `&` and `|`, and asLogical2() for `&&`. */
+	    SEXP lgl = PROTECT(coerceVector(arg, LGLSXP));
+	    int *px = LOGICAL(x);
+	    const int *parg = LOGICAL_RO(lgl);
+	    for (i = 0; i < len; i++) {
+		int v = parg[i];
+		px[i] = (v == NA_LOGICAL) ? NA_LOGICAL : v == 0;
+	    }
+	    UNPROTECT(1); /* lgl */
+	}
+	break;
     default:
 	UNIMPLEMENTED_TYPE("lunary", arg);
     }

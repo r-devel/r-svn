@@ -56,6 +56,17 @@ is.vector(x, mode = "any")
   \code{"numeric"} (synonym \code{"double"}), \code{"complex"},
   \code{"character"} and \code{"raw"}.
 
+  For \code{vector} and \code{as.vector}, \code{mode} may also name an
+  opaque atomic type such as \code{"\link{int64}"}, in which case the class
+  implementing that type builds the vector: \code{vector} gives elements
+  that type's own zero, and \code{as.vector} converts into it, reporting an
+  error if the class has no conversion from \code{typeof(x)}.  Such a name
+  is resolved only when it is none of the modes above, so it cannot change
+  what any of those means.  \code{as.vector(x, typeof(x))} does not go
+  through the class at all: as for every other type it merely drops the
+  attributes, which is what preserves properties of \code{x} that its type
+  name does not determine.
+
   If \code{mode = "any"}, \code{is.vector} may return \code{TRUE} for
   the atomic modes, \code{\link{list}} and \code{\link{expression}}.
   For any \code{mode}, it will return \code{FALSE} if \code{x} has any
@@ -81,7 +92,9 @@ is.vector(x, mode = "any")
   vector elements are initialized to \code{FALSE}, numeric vector
   elements to \code{0}, character vector elements to \code{""}, raw
   vector elements to \code{nul} bytes and list/expression elements to
-  \code{NULL}.
+  \code{NULL}.  An opaque type's elements are initialized to whatever its
+  implementing class calls its zero, and a class with no meaningful zero
+  reports an error instead.
 
   For \code{as.vector}, a vector (atomic or of type list or expression).
   All attributes are removed from the result if it is of an atomic mode,

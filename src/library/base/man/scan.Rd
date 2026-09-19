@@ -59,7 +59,12 @@ scan(file = "", what = double(), nmax = -1, n = -1, sep = "",
     assumed that the lines of the data file are records each containing
     \code{length(what)} items (\sQuote{fields}) and the list components
     should have elements which are one of the first six (\link{atomic})
-    types listed or \code{NULL}, see section \sQuote{Details} below.}
+    types listed or \code{NULL}, see section \sQuote{Details} below.
+
+    An \code{\link{int64}} or \code{uint64} vector is also accepted,
+    whole or as a list component: the field text is read as usual and the
+    type parses it, so a value outside the range of a \code{double}
+    survives.}
 
   \item{nmax}{the maximum number of data values to be read, or if
     \code{what} is a list, the maximum number of records to be read.  If

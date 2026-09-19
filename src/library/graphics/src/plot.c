@@ -514,6 +514,17 @@ SEXP C_plot_window(SEXP args)
 	xmin = INTEGER(xlim)[0];
 	xmax = INTEGER(xlim)[1];
     }
+    else if (TYPEOF(xlim) == ALTSXP) {
+	/* isNumeric() is TRUE for an opaque vector whose class says so, but
+	   its elements have no C type to read here: let the class render
+	   them, as every other limit on this path is read as a double. */
+	SEXP d = PROTECT(coerceVector(xlim, REALSXP));
+	if (!R_FINITE(REAL(d)[0]) || !R_FINITE(REAL(d)[1]))
+	    error(_("need finite 'xlim' values"));
+	xmin = REAL(d)[0];
+	xmax = REAL(d)[1];
+	UNPROTECT(1);
+    }
     else {
 	if (!R_FINITE(REAL(xlim)[0]) || !R_FINITE(REAL(xlim)[1]))
 	    error(_("need finite 'xlim' values"));
@@ -525,6 +536,14 @@ SEXP C_plot_window(SEXP args)
 	    error(_("NAs not allowed in 'ylim'"));
 	ymin = INTEGER(ylim)[0];
 	ymax = INTEGER(ylim)[1];
+    }
+    else if (TYPEOF(ylim) == ALTSXP) {
+	SEXP d = PROTECT(coerceVector(ylim, REALSXP));
+	if (!R_FINITE(REAL(d)[0]) || !R_FINITE(REAL(d)[1]))
+	    error(_("need finite 'ylim' values"));
+	ymin = REAL(d)[0];
+	ymax = REAL(d)[1];
+	UNPROTECT(1);
     }
     else {
 	if (!R_FINITE(REAL(ylim)[0]) || !R_FINITE(REAL(ylim)[1]))

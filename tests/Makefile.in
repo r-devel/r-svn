@@ -32,7 +32,7 @@ DISTFILES = Makefile.in Makefile.win Makefile.install Makefile.install.win Makef
 	testit.tex.save testit-Ex.R.save \
 	ver20.Rd ver20.txt.save ver20.html.save ver20.tex.save ver20-Ex.R.save \
 	R-intro.Rout.save \
-	test-system.R test-system.Rout.save test-system2.c \
+	test-system.R test-system.Rout.save test-system2.c altsxp_test.c \
 	reg-large.R utf8.R
 
 SUBDIRS = Embedding Examples
@@ -57,6 +57,14 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 
 test-system2: $(srcdir)/test-system2.c
 	@$(MAIN_LD) -o $@ $(srcdir)/test-system2.c
+
+altsxp_test_build.c: $(srcdir)/altsxp_test.c
+	@cp $< $@
+
+altsxp_test$(SHLIB_EXT): altsxp_test_build.c
+	@$(top_builddir)/bin/R CMD SHLIB -o $@ $<
+
+altsxp.Rout: altsxp_test$(SHLIB_EXT)
 
 ## Not run by any other target
 test-System: test-system2
@@ -99,6 +107,8 @@ clean:
 	-@rm -Rf anRpackage myTst* myLib myLib_2
 	-@rm -f *.tar.gz
 	-@rm -f keepsource.tex test-system2 test-system.Rout
+	-@rm -f altsxp_test.o altsxp_test_build.c altsxp_test_build.o \
+	  altsxp_test$(SHLIB_EXT)
 	-@rm -f *.log *.tsin *.trin
 	-@rm -f df0.Rd l0.Rd m0.Rd 'integer(0)-package.Rd' .Rd .RData
 	-@rm -f p-r-random-tests_seed Rprof.out*
