@@ -1055,7 +1055,10 @@ attribute_hidden SEXP do_makenames(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		wcstombs(tmp, wstr, strlen(tmp)+1);
 		R_Free(wstr);
-	    } else error(_("invalid multibyte string %lld"), (long long)i+1);
+	    } else {
+		R_Free(tmp);
+		error(_("invalid multibyte string %lld"), (long long)i+1);
+	    }
 	} else {
 	    for (p = tmp; *p; p++) {
 		if (*p == '.' || (allow_ && *p == '_')) /* leave alone */;
