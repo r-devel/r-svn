@@ -50,7 +50,7 @@ tapply <- function (X, INDEX, FUN = NULL, ..., default = NA, simplify = TRUE)
     ans <- lapply(X = ans[index], FUN = FUN, ...)
     ansmat <- array(
 	if (simplify && all(lengths(ans) == 1L)) {
-	    ans <- unlist(ans, recursive = FALSE, use.names = FALSE)
+	    ans <- do.call(c, ans)
 	    if(is.na(default) && is.atomic(ans))
 		vector(typeof(ans))
 	    else default
