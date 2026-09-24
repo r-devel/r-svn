@@ -51,12 +51,12 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
     \code{help} can be assumed to be character strings.}
   \item{logical.return}{logical.  If it is \code{TRUE},  \code{FALSE} or
     \code{TRUE} is returned to indicate success.}
-  \item{warn.conflicts}{logical.  If \code{TRUE}, warnings are
+  \item{warn.conflicts}{logical.  If \code{TRUE},
+    \code{\link{packageStartupMessage}}s are
     printed about \code{\link{conflicts}} from attaching the new
-    package.  A conflict is a function masking a function,
-    or a non-function masking a non-function. The default is \code{TRUE}
-    unless specified as \code{FALSE} in the \code{conflicts.policy} option.
-  }
+    package, unless overruled by the \code{conflicts.policy}
+    \code{\link{option}}, see \sQuote{Conflicts}. The default is \code{TRUE}
+    unless specified as \code{FALSE} in the \code{conflicts.policy} option.}
   \item{verbose}{a logical.  If \code{TRUE}, additional diagnostics are
     printed.}
   \item{quietly}{a logical.  If \code{TRUE}, no message confirming
@@ -120,30 +120,36 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
 }
 
 \section{Conflicts}{
-  Handling of conflicts depends on the setting of the
-  \code{conflicts.policy} option. If this option is not set, then
-  conflicts result in warning messages if the argument
-  \code{warn.conflicts} is \code{TRUE}. If the option is set to the
-  character string \code{"strict"}, then all unresolved conflicts signal
-  errors.  Conflicts can be resolved using the \code{mask.ok},
-  \code{exclude}, and \code{include.only} arguments to \code{library} and
-  \code{require}. Defaults for \code{mask.ok} and \code{exclude} can be
-  specified using \code{conflictRules}.
+  A conflict is a function masking a function, or a non-function masking a
+  non-function. Handling of conflicts depends on the value of argument
+  \code{warn.conflicts} of \code{library} and \code{require} and on the setting
+  of the \code{conflicts.policy} \code{\link{option}}.
 
-  If the \code{conflicts.policy} option is set to the string
-  \code{"depends.ok"} then conflicts resulting from attaching declared
-  dependencies will not produce errors, but other conflicts will.
-  This is likely to be the best setting for most users wanting some
-  additional protection against unexpected conflicts.
+  If option \code{conflicts.policy} is not set (the default),
+  \code{\link{packageStartupMessage}}s are printed about \code{\link{conflicts}}
+  from attaching the new package if argument \code{warn.conflicts} is
+  \code{TRUE}.
 
-  The policy can be tuned further by specifying the
-  \code{conflicts.policy} option as a named list with the following
-  fields:
+  If option \code{conflicts.policy} is set to the character string
+  \code{"strict"}, argument \code{warn.conflicts} is ignored and all unresolved
+  conflicts signal errors of class \code{"packageConflictError"}.
+
+  If option \code{conflicts.policy} is set to the character string
+  \code{"depends.ok"}, argument \code{warn.conflicts} is ignored and conflicts
+  resulting from attaching declared dependencies (i.e., calling
+  \code{library(pkgB)} if package \code{pkgB} has a conflict with its dependency
+  \code{pkgA}) will not produce errors but other conflicts will. This is likely
+  to be the best setting for most users wanting some additional protection
+  against unexpected conflicts.
+
+  Option \code{conflicts.policy} can be tuned further by specifying it as a
+  named list with the following fields:
   \describe{
     \item{\code{error}:}{logical; if \code{TRUE} treat unresolved
-      conflicts as errors.}
-    \item{\code{warn}:}{logical; unless \code{FALSE} issue a warning
-      message when conflicts are found.}
+      conflicts as errors, ignoring argument \code{warn.conflicts}.}
+    \item{\code{warn}:}{logical; if \code{TRUE} print a message when conflicts
+      are found. Overruled by option \code{conflicts.policy$error = TRUE} (then
+      conflicts generate an error) and by argument \code{warn.conflicts}.}
     \item{\code{generics.ok}:}{logical; if \code{TRUE} ignore conflicts
       created by defining S4 generics for functions on the search path.}
     \item{\code{depends.ok}:}{logical; if \code{TRUE} do not treat
@@ -152,6 +158,11 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
       are allowed to be masked. These would typically be base packages
       attached by default.}
   }
+
+  Conflicts can be resolved using the \code{mask.ok},
+  \code{exclude}, and \code{include.only} arguments to \code{library} and
+  \code{require}. Defaults for \code{mask.ok} and \code{exclude} can be
+  specified using \code{conflictRules}.
 }
 
 \section{Licenses}{
@@ -219,6 +230,10 @@ conflictRules(pkg, mask.ok = NULL, exclude = NULL)
   \code{\link{installed.packages}};
   \code{\link{INSTALL}}, \code{\link{REMOVE}}.
 
+  \href{https://blog.r-project.org/2019/03/19/managing-search-path-conflicts/}{R
+  Blog on managing search path conflicts} demonstrating the behaviour of
+  \code{conflicts.policy} and \code{conflictRules()}.
+
   The initial set of packages attached is set by
   \code{\link{options}(defaultPackages=)}: see also \code{\link{Startup}}.
 }
@@ -246,5 +261,32 @@ require(nonexistent)        # FALSE
 \dontrun{
 ## if you want to mask as little as possible, use
 library(mypkg, pos = "package:base")
+
+## Behaviour of argument 'warn.conflicts'
+## preparations
+library(mgcv)
+old_conflicts.policy <- options("conflicts.policy" = NULL)
+
+## unset option "conflicts.policy"
+library(nnet) # message about conflicts
+unloadNamespace("nnet")
+library(nnet, warn.conflicts = FALSE) # no message
+unloadNamespace("nnet")
+
+## set a strict conflicts policy
+options(conflicts.policy = "strict")
+# 'warn.conflicts' is ignored because a strict conflicts policy is set
+try(library(nnet, warn.conflicts = FALSE)) # error!
+
+## specify objects that can be masked without error
+library(nnet, warn.conflicts = TRUE, mask.ok = "multinom")
+unloadNamespace("nnet") # message, not an error
+conflictRules("nnet", mask.ok = "multinom", exclude = NULL)
+library(nnet, warn.conflicts = TRUE) # same as previous
+
+## Cleaning up
+unloadNamespace("nnet")
+unloadNamespace("mgcv")
+options(old_conflicts.policy) # restore initial option
 }}
 \keyword{data}
