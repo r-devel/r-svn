@@ -268,11 +268,21 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
         on.exit(close(con))
     }
     swap <- endian != .Platform$endian
-    if(!is.character(what) || is.na(what) ||
-       length(what) != 1L || ## hence length(what) == 1:
-       !any(what == c("numeric", "double", "integer", "int", "logical",
-	    "complex", "character", "raw")))
-	what <- typeof(what)
+    types <- c("numeric", "double", "integer", "int", "logical",
+               "complex", "character", "raw")
+    if(is.character(what) && length(what) == 1L && !is.na(what) &&
+       any(what == c("int64", "uint64")))
+        ## a type that cannot be allocated from its name alone is named by
+        ## a prototype of it instead
+        what <- if(what == "int64") int64() else uint64()
+    else if(!is.character(what) || is.na(what) ||
+            length(what) != 1L || ## hence length(what) == 1:
+            !any(what == types)) {
+        ty <- typeof(what)
+        ## an opaque vector cannot be rebuilt from its type name, so the
+        ## prototype goes to the internal unchanged
+        if(any(ty == types)) what <- ty
+    }
     .Internal(readBin(con, what, n, size, signed, swap))
 }
 

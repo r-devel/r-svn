@@ -34,6 +34,7 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+#include <R_ext/Altrep.h>
 #include <float.h>  /* for DBL_DIG */
 #include <Fileio.h>
 #include <Rconnections.h>
@@ -996,6 +997,13 @@ static bool isna(SEXP x, R_xlen_t indx)
 	rc = COMPLEX(x)[indx];
 	return ISNAN(rc.r) || ISNAN(rc.i);
 	break;
+    case ALTSXP:
+    {
+	/* only the class knows which values it treats as missing */
+	int na = 0;
+	R_altsxp_is_na_region(x, indx, 1, &na);
+	return na != 0;
+    }
     default:
 	break;
     }
@@ -1143,6 +1151,10 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 
 	for(int i = 0; i < nr; i++) {
+	    /* an opaque column has no C type EncodeElement0() can read, so
+	       the class renders each element into R_alloc memory; released
+	       per row, it would otherwise grow with the whole file */
+	    const void *vmax = vmaxget();
 	    if(i % 1000 == 999) {
 		R_CheckUserInterrupt();
 		R_print.digits = DBL_DIG; /* MAX precision, see PR#18384 */
@@ -1179,6 +1191,7 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 		Rconn_printf(con, "%s", tmp);
 	    }
 	    Rconn_printf(con, "%s", ceol);
+	    vmaxset(vmax);
 	}
 
     } else { /* A matrix */
@@ -1190,6 +1203,7 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("corrupt matrix -- dims do not match length"));
 
 	for(int i = 0; i < nr; i++) {
+	    const void *vmax = vmaxget();	/* as for the data frame above */
 	    if(i % 1000 == 999) {
 		R_CheckUserInterrupt();
 		R_print.digits = DBL_DIG; /* MAX precision, see PR#18384 */
@@ -1209,6 +1223,7 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 		Rconn_printf(con, "%s", tmp);
 	    }
 	    Rconn_printf(con, "%s", ceol);
+	    vmaxset(vmax);
 	}
 
     }

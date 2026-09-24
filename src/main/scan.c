@@ -35,6 +35,7 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+#include <R_ext/Altrep.h>	/* the ALTSXP consumer API */
 #include <float.h>  /* for DBL_DIG */
 #include <Fileio.h>
 #include <Rconnections.h>
@@ -484,7 +485,8 @@ static R_INLINE int isNAstring(const char *buf, int mode, LocalData *d)
     return 0;
 }
 
-NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
+NORET static R_INLINE void expected(const char *what, const char *got,
+				    LocalData *d)
 {
     int c;
     if (d->ttyflag) { /* This is safe in a MBCS */
@@ -494,7 +496,39 @@ NORET static R_INLINE void expected(char *what, char *got, LocalData *d)
     error(_("scan() expected '%s', got '%s'"), what, got);
 }
 
-static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
+/* An opaque column is read as text and handed to the class in one piece, so
+   scan()'s own field-by-field type check never runs: a field the class cannot
+   parse comes back as NA with nothing but a coercion warning, where every
+   other 'what' stops.  Silent NA substitution is the wrong answer for an
+   exact 64-bit key column, so the first unparseable field is reported the
+   way scanVector() would have reported it. */
+static void checkScanned(SEXP val, SEXP str, SEXP what, LocalData *d)
+{
+    if (TYPEOF(val) != ALTSXP)
+	return;
+
+    R_xlen_t n = XLENGTH(str);
+    /* the loop reads position i of val for every field of str, so a class
+       that answered Coerce_from with a shorter vector would be indexed out
+       of range */
+    if (XLENGTH(val) != n)
+	error(_("'%s' method returned %lld elements, not the %lld it was given"),
+	      "Coerce_from", (long long) XLENGTH(val), (long long) n);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	SEXP e = STRING_ELT(str, i);
+	if (e == NA_STRING || isNAstring(CHAR(e), 0, d))
+	    continue;
+
+	int na = 0;
+	R_altsxp_is_na_region(val, i, 1, &na);
+	if (na)
+	    expected(R_typeToChar(what), CHAR(e), d);
+    }
+}
+
+static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d,
+                        bool opaque_numeric)
 {
     char *endp;
     switch(TYPEOF(ans)) {
@@ -537,10 +571,18 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 	}
 	break;
     case STRSXP:
-	if (isNAstring(buffer, 1, d))
+	if (isNAstring(buffer, opaque_numeric ? 0 : 1, d))
 	    SET_STRING_ELT(ans, i, NA_STRING);
-	else
+	else {
+            /* Coerce_from receives a locale-independent numeric spelling.
+               Recognize NA tokens first, since they may contain decchar. */
+            if (opaque_numeric && d->decchar != '.' && strchr(buffer, '.'))
+                expected("a real", buffer, d);
+            if (opaque_numeric && d->decchar != '.')
+                for (char *p = buffer; *p; p++)
+                    if (*p == d->decchar) *p = '.';
 	    SET_STRING_ELT(ans, i, insertString(buffer, d));
+        }
 	break;
     case RAWSXP:
 	if (isNAstring(buffer, 0, d))
@@ -557,7 +599,8 @@ static void extractItem(char *buffer, SEXP ans, R_xlen_t i, LocalData *d)
 }
 
 static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
-		       int flush, SEXP stripwhite, int blskip, LocalData *d)
+		       int flush, SEXP stripwhite, int blskip, LocalData *d,
+                               bool opaque_numeric)
 {
     SEXP ans, bns;
     int c, strip, bch, ic;
@@ -607,14 +650,14 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 	    PROTECT(ans);
 	    copyVector(ans, bns);
 	}
-	buffer = fillBuffer(type, strip, &bch, d, &strBuf);
+	buffer = fillBuffer(opaque_numeric ? REALSXP : type, strip, &bch, d, &strBuf);
 	if (nprev == n && strlen(buffer)==0 &&
 	    ((blskip && bch =='\n') || bch == R_EOF)) {
 	    if (d->ttyflag || bch == R_EOF)
 		break;
 	}
 	else {
-	    extractItem(buffer, ans, n, d);
+	    extractItem(buffer, ans, n, d, opaque_numeric);
 	    ic--;
 	    if (++n == maxitems) {
 		if (d->ttyflag && bch != '\n') { /* MBCS-safe */
@@ -676,6 +719,14 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
 }
 
 
+/* Numeric opaque fields use numeric lexical rules while their values are
+   staged as strings for the class to parse without double conversion. */
+static bool opaqueNumericField(SEXP what, R_xlen_t i)
+{
+    SEXP x = VECTOR_ELT(what, i);
+    return TYPEOF(x) == ALTSXP && isNumeric(x);
+}
+
 static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
                       int flush, int fill, SEXP stripwhite, int blskip,
                       int multiline, LocalData *d)
@@ -704,7 +755,13 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    if (!isVector(w)) {
 		error(_("invalid '%s' argument"), "what");
 	    }
-	    SET_VECTOR_ELT(ans, i, allocVector(TYPEOF(w), blksize));
+	    /* An opaque element type has no scanner of its own, so the field
+	       text is collected and the class parses the whole column at the
+	       end.  That also keeps the inner loop free of per-item
+	       allocation. */
+	    SET_VECTOR_ELT(ans, i,
+			   allocVector(TYPEOF(w) == ALTSXP ? STRSXP : TYPEOF(w),
+				       blksize));
 	}
     }
     setAttrib(ans, R_NamesSymbol, getAttrib(what, R_NamesSymbol));
@@ -740,7 +797,8 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 		if (fill) {
 		    buffer[0] = '\0';
 		    for (ii = colsread; ii < nc; ii++) {
-			extractItem(buffer, VECTOR_ELT(ans, ii), n, d);
+			extractItem(buffer, VECTOR_ELT(ans, ii), n, d,
+                        opaqueNumericField(what, ii));
 		    }
 		    n++;
 		    ii = 0;
@@ -773,7 +831,8 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	}
 
 	if (vec_strip) strip = lstrip[colsread];
-	buffer = fillBuffer(TYPEOF(VECTOR_ELT(ans, ii)), strip, &bch, d, &buf);
+	buffer = fillBuffer(opaqueNumericField(what, ii) ? REALSXP
+                            : TYPEOF(VECTOR_ELT(ans, ii)), strip, &bch, d, &buf);
 	if (colsread == 0 &&
 	    strlen(buffer) == 0 &&
 	    ((blskip && bch =='\n') || bch == R_EOF)) {
@@ -781,7 +840,8 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 		break;
 	}
 	else {
-	    extractItem(buffer, VECTOR_ELT(ans, ii), n, d);
+	    extractItem(buffer, VECTOR_ELT(ans, ii), n, d,
+                        opaqueNumericField(what, ii));
 	    ii++;
 	    colsread++;
 	    /* increment n and reset i after filling a row */
@@ -803,7 +863,8 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    warning(_("number of items read is not a multiple of the number of columns"));
 	buffer[0] = '\0';	/* this is an NA */
 	for (ii = colsread; ii < nc; ii++) {
-	    extractItem(buffer, VECTOR_ELT(ans, ii), n, d);
+	    extractItem(buffer, VECTOR_ELT(ans, ii), n, d,
+                        opaqueNumericField(what, ii));
 	}
 	n++;
     }
@@ -840,6 +901,17 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
 	    break;
 	default:
 	    UNIMPLEMENTED_TYPE("scanFrame", old);
+	}
+	if (TYPEOF(VECTOR_ELT(what, i)) == ALTSXP) {
+	    PROTECT(new);
+	    SEXP conv = R_altsxp_coerce_from(VECTOR_ELT(what, i), new);
+	    if (conv == NULL)
+		error(_("scan() cannot read into a vector of type '%s'"),
+		      R_typeToChar(VECTOR_ELT(what, i)));
+	    PROTECT(conv);
+	    checkScanned(conv, new, VECTOR_ELT(what, i), d);
+	    new = conv;
+	    UNPROTECT(2); /* conv, new */
 	}
 	SET_VECTOR_ELT(ans, i, new);
     }
@@ -999,8 +1071,23 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     case STRSXP:
     case RAWSXP:
 	ans = scanVector(TYPEOF(what), nmax, nlines, flush, stripwhite,
-			 blskip, &data);
+			 blskip, &data, false);
 	break;
+
+    case ALTSXP: {
+	/* as in scanFrame(): read the field text, then let the class parse
+	   the whole vector at once */
+	SEXP str = PROTECT(scanVector(STRSXP, nmax, nlines, flush, stripwhite,
+				      blskip, &data, isNumeric(what)));
+	ans = R_altsxp_coerce_from(what, str);
+	if (ans == NULL)
+	    error(_("scan() cannot read into a vector of type '%s'"),
+		  R_typeToChar(what));
+	PROTECT(ans);
+	checkScanned(ans, str, what, &data);
+	UNPROTECT(2);
+	break;
+    }
 
     case VECSXP:
 	ans = scanFrame(what, nmax, nlines, flush, fill, stripwhite,
