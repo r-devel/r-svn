@@ -32,3 +32,17 @@ writeBin(d, src)
 download.file(url, dst, method = "wininet", mode = "wb")
 dstbin <- readBin(dst, "raw")
 stopifnot(identical(d, dstbin))
+
+
+## file.copy(copy.date = TRUE) opened the files for exclusive access when
+## copying the file time, so the time was not copied if the source file was
+## open elsewhere (and concurrent attempts to open the source file could fail)
+src <- tempfile("source")
+dst <- tempfile("target")
+writeLines("hello", src)
+Sys.setFileTime(src, as.POSIXct("2020-01-01 12:00:00", tz = "UTC"))
+con <- file(src, "rb")
+ok <- file.copy(src, dst, copy.date = TRUE)
+close(con)
+stopifnot(ok, file.mtime(src) == file.mtime(dst))
+## the file time was not copied in R <= 4.6.1
