@@ -2808,15 +2808,20 @@ static void copyFileTime(const wchar_t *from, const wchar_t * to)
     HANDLE hFrom, hTo;
     FILETIME modft;
 
-    hFrom = CreateFileW(from, GENERIC_READ, 0, NULL, OPEN_EXISTING,
-			FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    /* Ask only for attribute access, and allow sharing: opening the files
+       for exclusive access would fail if they are open elsewhere, and
+       would cause concurrent attempts to open them to fail. */
+    hFrom = CreateFileW(from, FILE_READ_ATTRIBUTES,
+			FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
     if (hFrom == INVALID_HANDLE_VALUE) return;
     int res  = GetFileTime(hFrom, NULL, NULL, &modft);
     CloseHandle(hFrom);
     if(!res) return;
 
-    hTo = CreateFileW(to, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
-		      FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    hTo = CreateFileW(to, FILE_WRITE_ATTRIBUTES,
+		      FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+		      NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
     if (hTo == INVALID_HANDLE_VALUE) return;
     SetFileTime(hTo, NULL, NULL, &modft);
     CloseHandle(hTo);
