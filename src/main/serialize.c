@@ -2144,7 +2144,12 @@ static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
 {
     switch (type) {
     case BCREPREF:
-	return VECTOR_ELT(reps, InInteger(stream));
+	{
+	    int pos = InInteger(stream);
+	    if (pos < 0 || pos >= LENGTH(reps))
+		error(_("bytecode reference index out of range"));
+	    return VECTOR_ELT(reps, pos);
+	}
     case BCREPDEF:
     case LANGSXP:
     case LISTSXP:
@@ -2156,12 +2161,18 @@ static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
 	    int hasattr = false;
 	    if (type == BCREPDEF) {
 		pos = InInteger(stream);
+		if (pos < 0 || pos >= LENGTH(reps))
+		    error(_("bytecode reference index out of range"));
 		type = InInteger(stream);
 	    }
 	    switch (type) {
 	    case ATTRLANGSXP: type = LANGSXP; hasattr = TRUE; break;
 	    case ATTRLISTSXP: type = LISTSXP; hasattr = TRUE; break;
 	    }
+	    /* the BCREPDEF type comes from the stream; allocSExp would
+	       happily build a cons cell labelled as any other type */
+	    if (type != LANGSXP && type != LISTSXP)
+		error(_("ReadBCLang: invalid type %i"), type);
 	    PROTECT(ans = allocSExp(type));
 	    if (pos >= 0)
 		SET_VECTOR_ELT(reps, pos, ans);
