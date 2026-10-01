@@ -3801,6 +3801,31 @@ stopifnot(identical(e[[1]][[2]], ex))
 ## gave garbage (or a crash) for the LHS of '+' in R <= 4.6.x
 
 
+## read.dcf() makes room for new fields geometrically, not one at a time
+local({
+    n <- 70L # crosses the 16, 32 and 64 field and the 20 and 40 record steps
+    ## record i has fields fi, ..., f1, and f1 has a continuation line
+    i <- rep(seq_len(n), seq_len(n))
+    j <- sequence(seq_len(n), from = seq_len(n), by = -1L)
+    lines <- sprintf("f%d: %d.%d", j, i, j)
+    lines[j == 1L] <- paste0(lines[j == 1L], "\n  more\n")
+    x <- paste(lines, collapse = "\n")
+    e <- matrix(NA_character_, n, n,
+                dimnames = list(NULL, paste0("f", seq_len(n))))
+    e[cbind(i, j)] <- paste0(i, ".", j)
+    e[, 1L] <- paste0(e[, 1L], "\nmore")
+    con <- textConnection(x)
+    d <- read.dcf(con)
+    close(con)
+    con <- textConnection(x)
+    d2 <- read.dcf(con, fields = c("f70", "f1"))
+    close(con)
+    stopifnot(identical(d, e),
+              identical(d2, e[, c("f70", "f1")]))
+})
+## each new field copied the whole result so far, so many fields were slow
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

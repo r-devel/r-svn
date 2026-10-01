@@ -89,7 +89,7 @@ static char *Rconn_getline2(Rconnection con, char *buf, int bufsize)
 
 attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    int nwhat, nret, nc, nr, m, k, lastm, need, i, n_eblanklines = 0;
+    int nwhat, wcap, nret, nc, nr, m, k, lastm, need, i, n_eblanklines = 0;
     bool blank_skip, field_skip = false;
     int whatlen, dynwhat, buflen = 8096; // was 100, but that re-alloced often
     char *line, *buf;
@@ -132,8 +132,12 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     buf = (char *) malloc(buflen);
     if(!buf) error(_("could not allocate memory for 'read.dcf'"));
     nret = 20;
-    /* it is easier if we first have a record per column */
-    PROTECT(retval = allocMatrixNA(STRSXP, LENGTH(what), nret));
+    /* it is easier if we first have a record per column.  There is room
+       for wcap fields (the length of 'what'), of which nwhat are in use;
+       like the records, they grow geometrically, since copying the matrix
+       for every new field would take time quadratic in their number. */
+    wcap = nwhat;
+    PROTECT(retval = allocMatrixNA(STRSXP, wcap, nret));
 
     /* These used to use [:blank:] and [:space:] but those are locale-dependent
        and :blank: can match \xa0 as part of a UTF-8 character
@@ -158,7 +162,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		k++;
 		if(k > nret - 1){
 		    nret *= 2;
-		    PROTECT(retval2 = allocMatrixNA(STRSXP, LENGTH(what), nret));
+		    PROTECT(retval2 = allocMatrixNA(STRSXP, wcap, nret));
 		    transferVector(retval2, retval);
 		    retval = retval2;
 		    UNPROTECT(2); /* retval, retval2 */
@@ -184,7 +188,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		if(lastm >= 0) {
 		    need = (int) strlen(CHAR(STRING_ELT(retval,
-							lastm + nwhat * k))) + 2;
+							lastm + wcap * k))) + 2;
 		    if(tre_regexecb(&eblankline, line, 0, NULL, 0) == 0) {
 			is_eblankline = true;
 			if(field_fold) {
@@ -212,7 +216,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			} else buf = tmp;
 			buflen = need;
 		    }
-		    strcpy(buf, CHAR(STRING_ELT(retval, lastm + nwhat * k)));
+		    strcpy(buf, CHAR(STRING_ELT(retval, lastm + wcap * k)));
 		    if(strlen(buf) || !field_fold)
 			strcat(buf, "\n");
 		    if(!is_eblankline) {
@@ -224,7 +228,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			}
 			strcat(buf, line + offset);
 		    }
-		    SET_STRING_ELT(retval, lastm + nwhat * k, mkCharUTF8sub(buf));
+		    SET_STRING_ELT(retval, lastm + wcap * k, mkCharUTF8sub(buf));
 		}
 	    } else {
 		if(tre_regexecb(&regline, line, 1, regmatch, 0) == 0) {
@@ -250,7 +254,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 						 regmatch, 0) == 0))
 				    line[regmatch[0].rm_so] = '\0';
 			    }
-			    SET_STRING_ELT(retval, m + nwhat * k,
+			    SET_STRING_ELT(retval, m + wcap * k,
 					   mkCharUTF8sub(line + offset));
 			    break;
 			} else {
@@ -263,26 +267,24 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			/* A previously unseen field and we are
 			 * recording all fields */
 			field_skip = false;
-			PROTECT(what2 = allocVector(STRSXP, nwhat+1));
-			PROTECT(retval2 = allocMatrixNA(STRSXP,
-							nrows(retval)+1,
-							ncols(retval)));
-			if(nwhat > 0) {
-			    copyVector(what2, what);
-			    for(nr = 0; nr < nrows(retval); nr++){
-				for(nc = 0; nc < ncols(retval); nc++){
-				    SET_STRING_ELT(retval2, nr+nc*nrows(retval2),
-						   STRING_ELT(retval,
-							      nr+nc*nrows(retval)));
-				}
-			    }
+			if(nwhat == wcap) {
+			    int wcap2 = wcap > 0 ? 2 * wcap : 16;
+			    PROTECT(what2 = allocVector(STRSXP, wcap2));
+			    PROTECT(retval2 = allocMatrixNA(STRSXP, wcap2, nret));
+			    for(nr = 0; nr < nwhat; nr++)
+				SET_STRING_ELT(what2, nr, STRING_ELT(what, nr));
+			    for(nc = 0; nc < nret; nc++)
+				for(nr = 0; nr < nwhat; nr++)
+				    SET_STRING_ELT(retval2, nr + nc * wcap2,
+						   STRING_ELT(retval, nr + nc * wcap));
+			    retval = retval2;
+			    what = what2;
+			    wcap = wcap2;
+			    UNPROTECT(5); /* what, fold_excludes, retval, what2, retval2 */
+			    PROTECT(what);
+			    PROTECT(fold_excludes);
+			    PROTECT(retval);
 			}
-			retval = retval2;
-			what = what2;
-			UNPROTECT(5); /* what, fold_excludes, retval, what2, retval2 */
-			PROTECT(what);
-			PROTECT(fold_excludes);
-			PROTECT(retval);
 			/* Make sure enough space was used */
 			need = (int) (Rf_strchr(line, ':') - line + 1);
 			if(buflen < need){
@@ -312,7 +314,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 					     regmatch, 0) == 0))
 				line[regmatch[0].rm_so] = '\0';
 			}
-			SET_STRING_ELT(retval, lastm + nwhat * k,
+			SET_STRING_ELT(retval, lastm + wcap * k,
 				       mkCharUTF8sub(line + offset));
 		    }
 		} else {
@@ -334,18 +336,22 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if(!blank_skip) k++;
 
-    /* and now transpose the whole matrix */
-    PROTECT(retval2 = allocMatrixNA(STRSXP, k, LENGTH(what)));
-    copyMatrix(retval2, retval, 1);
+    /* and now transpose the fields and records in use */
+    PROTECT(what = lengthgets(what, nwhat));
+    PROTECT(retval2 = allocMatrix(STRSXP, k, nwhat));
+    for(nr = 0; nr < nwhat; nr++)
+	for(nc = 0; nc < k; nc++)
+	    SET_STRING_ELT(retval2, nc + nr * k,
+			   STRING_ELT(retval, nr + nc * wcap));
 
     PROTECT(dimnames = allocVector(VECSXP, 2));
     PROTECT(dims = allocVector(INTSXP, 2));
     INTEGER(dims)[0] = k;
-    INTEGER(dims)[1] = LENGTH(what);
+    INTEGER(dims)[1] = nwhat;
     SET_VECTOR_ELT(dimnames, 1, what);
     setAttrib(retval2, R_DimSymbol, dims);
     setAttrib(retval2, R_DimNamesSymbol, dimnames);
-    UNPROTECT(6); /* what, fold_excludes, retval, retval2, dimnames, dims */
+    UNPROTECT(7); /* what (twice), fold_excludes, retval, retval2, dimnames, dims */
     return(retval2);
 }
 
