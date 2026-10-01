@@ -90,7 +90,7 @@ static int R_Profiling = 0;
 #ifdef Win32
 # define WIN32_LEAN_AND_MEAN 1
 # include <windows.h>		/* for CreateEvent, SetEvent */
-# include <process.h>		/* for _beginthread, _endthread */
+# include <process.h>		/* for _beginthreadex */
 #else
 # ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
@@ -138,6 +138,8 @@ static rpe_type R_Profiling_Event;
 #ifdef Win32
 HANDLE MainThread;
 HANDLE ProfileEvent;
+static HANDLE ProfileThreadHandle = NULL;
+static int ProfileWait;
 #else
 # ifdef HAVE_PTHREAD
 typedef struct {
@@ -593,14 +595,15 @@ static void doprof(int sig)  /* sig is ignored in Windows */
 
 #ifdef Win32
 /* Profiling thread main function */
-static void __cdecl ProfileThread(void *pwait)
+static unsigned __stdcall ProfileThread(void *pwait)
 {
     int wait = *((int *)pwait); /* milliseconds */
 
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-    while(WaitForSingleObject(ProfileEvent, wait) != WAIT_OBJECT_0) {
+    while(WaitForSingleObject(ProfileEvent, wait) == WAIT_TIMEOUT) {
 	doprof(0);
     }
+    return 0;
 }
 #else /* not Win32 */
 /* Profiling thread main function */
@@ -642,8 +645,19 @@ static void doprof_null(int sig)
 static void R_EndProfiling(void)
 {
 #ifdef Win32
-    SetEvent(ProfileEvent);
-    CloseHandle(MainThread);
+    if (ProfileThreadHandle) {
+	/* The sampling thread resumes the main thread before writing its
+	   output, so it may still be using the profiling state here. */
+	if (!SetEvent(ProfileEvent) ||
+	    WaitForSingleObject(ProfileThreadHandle, INFINITE) != WAIT_OBJECT_0)
+	    R_Suicide("unable to stop profiling thread");
+	CloseHandle(ProfileThreadHandle);
+	ProfileThreadHandle = NULL;
+	CloseHandle(ProfileEvent);
+	ProfileEvent = NULL;
+	CloseHandle(MainThread);
+	MainThread = NULL;
+    }
     if(R_ProfileOutfile) fclose(R_ProfileOutfile);
     R_ProfileOutfile = NULL;
 #else /* not Win32 */
@@ -709,7 +723,6 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     }
     vmaxset(vmax);
 #else
-    int wait;
     HANDLE Proc = GetCurrentProcess();
 
     if(R_ProfileOutfile != NULL) R_EndProfiling();
@@ -755,14 +768,23 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     R_Profiling_Event = event;
 
 #ifdef Win32
-    /* need to duplicate to make a real handle */
-    DuplicateHandle(Proc, GetCurrentThread(), Proc, &MainThread,
-		    0, FALSE, DUPLICATE_SAME_ACCESS);
-    wait = interval/1000;
-    if(!(ProfileEvent = CreateEvent(NULL, FALSE, FALSE, NULL)) ||
-       (_beginthread(ProfileThread, 0, &wait) == -1))
+    /* Keep the interval valid until the sampling thread has exited.
+       Sleeping after starting it would not guarantee it had read an
+       interval stored on this function's stack. */
+    ProfileWait = interval/1000;
+    if (!DuplicateHandle(Proc, GetCurrentThread(), Proc, &MainThread,
+			 0, FALSE, DUPLICATE_SAME_ACCESS) ||
+	!(ProfileEvent = CreateEvent(NULL, FALSE, FALSE, NULL)))
 	R_Suicide("unable to create profiling thread");
-    Sleep(wait/2); /* suspend this thread to ensure that the other one starts */
+    ProfileThreadHandle = (HANDLE) _beginthreadex(
+	NULL,
+	0,
+	ProfileThread,
+	&ProfileWait,
+	0,
+	NULL);
+    if (!ProfileThreadHandle)
+	R_Suicide("unable to create profiling thread");
 #else /* not Win32 */
 
 # ifdef HAVE_PTHREAD
