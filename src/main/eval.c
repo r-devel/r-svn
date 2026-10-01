@@ -648,9 +648,14 @@ static void R_EndProfiling(void)
     if (ProfileThreadHandle) {
 	/* The sampling thread resumes the main thread before writing its
 	   output, so it may still be using the profiling state here. */
-	if (!SetEvent(ProfileEvent) ||
-	    WaitForSingleObject(ProfileThreadHandle, INFINITE) != WAIT_OBJECT_0)
+	BOOL signaled = SetEvent(ProfileEvent);
+	if (!signaled)
 	    R_Suicide("unable to stop profiling thread");
+
+	DWORD status = WaitForSingleObject(ProfileThreadHandle, INFINITE);
+	if (status != WAIT_OBJECT_0)
+	    R_Suicide("unable to stop profiling thread");
+
 	CloseHandle(ProfileThreadHandle);
 	ProfileThreadHandle = NULL;
 	CloseHandle(ProfileEvent);
@@ -771,11 +776,23 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     /* Keep the interval valid until the sampling thread has exited.
        Sleeping after starting it would not guarantee it had read an
        interval stored on this function's stack. */
-    ProfileWait = interval/1000;
-    if (!DuplicateHandle(Proc, GetCurrentThread(), Proc, &MainThread,
-			 0, FALSE, DUPLICATE_SAME_ACCESS) ||
-	!(ProfileEvent = CreateEvent(NULL, FALSE, FALSE, NULL)))
+    ProfileWait = interval / 1000;
+
+    BOOL duplicated = DuplicateHandle(
+	Proc,
+	GetCurrentThread(),
+	Proc,
+	&MainThread,
+	0,
+	FALSE,
+	DUPLICATE_SAME_ACCESS);
+    if (!duplicated)
 	R_Suicide("unable to create profiling thread");
+
+    ProfileEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (!ProfileEvent)
+	R_Suicide("unable to create profiling thread");
+
     ProfileThreadHandle = (HANDLE) _beginthreadex(
 	NULL,
 	0,

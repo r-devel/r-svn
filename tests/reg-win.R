@@ -54,14 +54,20 @@ stopifnot(ok, file.mtime(src) == print(file.mtime(dst)))
 ## Starting a new profile must finish the previous sampling thread.
 if (capabilities("Rprof")) local({
     files <- c(tempfile("Rprof-old"), tempfile("Rprof-new"))
-    on.exit({ Rprof(NULL); unlink(files) })
+    on.exit({
+        Rprof(NULL)
+        unlink(files)
+    })
     Rprof(NULL)
+
     for (i in 1:5) {
         Rprof(files[1L], memory.profiling = TRUE)
         out <- lapply(1:10000, rnorm, n = 512)
+
         Rprof(files[2L], memory.profiling = TRUE)
         old <- readLines(files[1L])
         out <- lapply(1:10000, rnorm, n = 512)
+
         Rprof(NULL)
         Rprof(NULL) # stopping an inactive profiler must be harmless
         stopifnot(identical(old, readLines(files[1L])))
