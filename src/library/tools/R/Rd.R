@@ -405,7 +405,14 @@ function(dir = NULL, files = NULL,
 
     if(length(files)) {
         ## message("building database of parsed Rd files")
-        db1 <- lapply(files, .fetch_Rd_object, stages)
+        ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                      getOption("mc.cores", 1L) else 1L
+        db1 <- if (ncores > 1L) {
+            parallel::mclapply(files, .fetch_Rd_object, stages,
+                               mc.cores = ncores)
+        } else {
+            lapply(files, .fetch_Rd_object, stages)
+        }
         names(db1) <- names(files)
         db <- c(db, db1)
     }
