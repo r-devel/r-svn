@@ -3859,6 +3859,20 @@ for (frac in c(1/2, 1/4)) { # nul position where the translation is as long
 ## gave "'Rf_getCharCE' must be called on a CHARSXP" (or a crash) in R <= 4.6.x
 
 
+## memDecompress(type = "gzip") on a truncated gzip or zlib stream looped
+## forever, allocating a fresh output buffer on every pass, when R was built
+## without libdeflate (found by fuzzing)
+x <- as.raw(rep(0L, 1000))
+z <- memCompress(x, "gzip")                     # a zlib stream
+assertErrV(memDecompress(z[-length(z)], "gzip"))
+tf <- tempfile(fileext = ".gz")
+con <- gzfile(tf, "wb"); writeBin(x, con); close(con)
+g <- readBin(tf, "raw", file.size(tf)); unlink(tf) # a gzip member
+assertErrV(memDecompress(g[seq_len(length(g) - 8L)], "gzip")) # no trailer
+assertErrV(memDecompress(as.raw(c(0x78, 0x9c, 0x0a, 0x20)), "gzip"))
+## hung or exhausted memory in R <= 4.6.x
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
