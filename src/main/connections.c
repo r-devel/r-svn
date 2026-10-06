@@ -7291,16 +7291,26 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
         enum libdeflate_result res;
 	Bytef *buf, *p = (Bytef *)RAW(from);
 
-	if (p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
-	    while(1) {
-		outlen = get_unaligned_le32(&p[inlen - 4]);
-		if (outlen == 0) outlen = 1;
+	/* a gzip member is at least a 10-byte header plus the 8-byte
+	   trailer; anything shorter is left to libdeflate to reject */
+	if (inlen >= 18 && p[0] == 0x1f && p[1] == 0x8b) { // in-memory gzip file
+	    /* The trailer's ISIZE is the uncompressed length mod 2^32, but
+	       it is part of the input and cannot be trusted: a 1 KB
+	       stream can claim 4 GB and that is allocated before a byte
+	       is decoded.  DEFLATE expands by at most 1032:1, so a size
+	       beyond that bound is a lie (or a stream of 4 GB or more,
+	       which the doubling below still reaches). */
+	    size_t maxlen = 1032 * inlen + 64;
+	    outlen = get_unaligned_le32(&p[inlen - 4]);
+	    if (outlen == 0) outlen = 1;
+	    else if (outlen > maxlen) outlen = maxlen;
 
+	    while(1) {
 		buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
 		res = libdeflate_gzip_decompress(d, RAW(from), inlen,
 						 buf, outlen, &actual_out);
 		if(res == LIBDEFLATE_INSUFFICIENT_SPACE) {
-		    // should not happen but recorded length might be wrong.
+		    // recorded length wrong, capped above, or output >= 4 GB
 		    if(outlen < ULONG_MAX/2) {
 			outlen *= 2; continue;
 		    } else break;
