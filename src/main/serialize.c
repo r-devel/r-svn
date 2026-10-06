@@ -2137,14 +2137,41 @@ static R_INLINE SEXP ReadItem (SEXP ref_table, R_inpstream_t stream)
     return ReadItem_Recursive(flags, ref_table, stream);
 }
 
-static SEXP ReadBC1(SEXP ref_table, SEXP reps, R_inpstream_t stream);
+/* Slots for the repeated language objects of one bytecode stream.  The
+   count written ahead of them is only a hint: it comes from the stream,
+   and a malformed one can claim billions, so the vector starts small
+   and grows as definitions are read. */
+typedef struct {
+    SEXP slots;		/* VECSXP, reprotected when it grows */
+    PROTECT_INDEX ipx;
+    int ndefs;		/* definitions read so far */
+} BCReps;
 
-static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
+#define BC_REPS_INIT 1024
+
+static void GrowBCReps(BCReps *reps)
+{
+    R_xlen_t n = XLENGTH(reps->slots), newn = n < 16 ? 16 : 2 * n;
+    SEXP s = allocVector(VECSXP, newn);
+    for (R_xlen_t i = 0; i < n; i++)
+	SET_VECTOR_ELT(s, i, VECTOR_ELT(reps->slots, i));
+    reps->slots = s;
+    REPROTECT(s, reps->ipx);
+}
+
+static SEXP ReadBC1(SEXP ref_table, BCReps *reps, R_inpstream_t stream);
+
+static SEXP ReadBCLang(int type, SEXP ref_table, BCReps *reps,
 		       R_inpstream_t stream)
 {
     switch (type) {
     case BCREPREF:
-	return VECTOR_ELT(reps, InInteger(stream));
+	{
+	    int pos = InInteger(stream);
+	    if (pos < 0 || pos >= reps->ndefs)
+		error(_("bytecode reference index out of range"));
+	    return VECTOR_ELT(reps->slots, pos);
+	}
     case BCREPDEF:
     case LANGSXP:
     case LISTSXP:
@@ -2156,15 +2183,28 @@ static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
 	    int hasattr = false;
 	    if (type == BCREPDEF) {
 		pos = InInteger(stream);
+		/* definitions are numbered in writing order, so a
+		   well-formed stream never skips ahead */
+		if (pos < 0 || pos > reps->ndefs)
+		    error(_("bytecode reference index out of range"));
 		type = InInteger(stream);
 	    }
 	    switch (type) {
 	    case ATTRLANGSXP: type = LANGSXP; hasattr = TRUE; break;
 	    case ATTRLISTSXP: type = LISTSXP; hasattr = TRUE; break;
 	    }
+	    /* the BCREPDEF type comes from the stream; allocSExp would
+	       happily build a cons cell labelled as any other type */
+	    if (type != LANGSXP && type != LISTSXP)
+		error(_("ReadBCLang: invalid type %i"), type);
 	    PROTECT(ans = allocSExp(type));
-	    if (pos >= 0)
-		SET_VECTOR_ELT(reps, pos, ans);
+	    if (pos >= 0) {
+		if (pos >= XLENGTH(reps->slots))
+		    GrowBCReps(reps);
+		SET_VECTOR_ELT(reps->slots, pos, ans);
+		if (pos == reps->ndefs)
+		    reps->ndefs++;
+	    }
 	    R_ReadItemDepth++;
 	    if (hasattr)
 		SET_ATTRIB(ans, ReadItem(ref_table, stream));
@@ -2187,7 +2227,7 @@ static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
     }
 }
 
-static SEXP ReadBCConsts(SEXP ref_table, SEXP reps, R_inpstream_t stream)
+static SEXP ReadBCConsts(SEXP ref_table, BCReps *reps, R_inpstream_t stream)
 {
     SEXP ans, c;
     int i, n;
@@ -2219,7 +2259,7 @@ static SEXP ReadBCConsts(SEXP ref_table, SEXP reps, R_inpstream_t stream)
     return ans;
 }
 
-static SEXP ReadBC1(SEXP ref_table, SEXP reps, R_inpstream_t stream)
+static SEXP ReadBC1(SEXP ref_table, BCReps *reps, R_inpstream_t stream)
 {
     SEXP s;
     PROTECT(s = allocSExp(BCODESXP));
@@ -2237,9 +2277,17 @@ static SEXP ReadBC1(SEXP ref_table, SEXP reps, R_inpstream_t stream)
 
 static SEXP ReadBC(SEXP ref_table, R_inpstream_t stream)
 {
-    SEXP reps, ans;
-    PROTECT(reps = allocVector(VECSXP, InInteger(stream)));
-    ans = ReadBC1(ref_table, reps, stream);
+    BCReps reps;
+    SEXP ans;
+    int n = InInteger(stream);
+
+    if (n < 0)
+	error(_("bytecode reference index out of range"));
+    reps.ndefs = 0;
+    PROTECT_WITH_INDEX(reps.slots = allocVector(VECSXP, n < BC_REPS_INIT ?
+						n : BC_REPS_INIT),
+		       &reps.ipx);
+    ans = ReadBC1(ref_table, &reps, stream);
     UNPROTECT(1);
     return ans;
 }
