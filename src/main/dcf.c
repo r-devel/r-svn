@@ -27,29 +27,57 @@
 #include <Rconnections.h>
 
 #include <tre/tre.h>
+#include "valid_utf8.h"
 
 static SEXP allocMatrixNA(SEXPTYPE, int, int);
 static void transferVector(SEXP s, SEXP t);
 
 /* Build a CHARSXP marked as UTF-8 from the NUL-terminated string 's'.
    DCF files are required to be UTF-8, so 's' is interpreted as UTF-8
-   regardless of its actual encoding; any invalid byte sequences are
-   repaired by escaping them as "<xx>", exactly as
-   iconv(from = "UTF-8", to = "UTF-8", sub = "byte") does (which the R
-   code paths in read.dcf()/write.dcf() also use).  The common case of
-   already-valid input is handled without conversion. */
+   regardless of its actual encoding; any invalid bytes are repaired by
+   escaping them as "<xx>", as iconv(from = "UTF-8", to = "UTF-8",
+   sub = "byte") does (which the R code paths in read.dcf()/write.dcf()
+   also use).  The common case of already-valid input is handled without
+   copying.
+
+   The escaping is done with utf8Valid()'s own rules rather than via
+   iconv(): both glibc and libiconv pass 4-byte sequences for code points
+   above U+10FFFF (lead bytes F4 90.. to F7) through unchanged, whereas
+   utf8Valid() rejects them (RFC 3629).  An iconv() round trip could thus
+   leave the result invalid, and the continuation-line loop in
+   do_readDCF() would then re-encode the entire accumulated field value
+   for every further line of that field. */
 static SEXP mkCharUTF8sub(const char *s)
 {
     if (utf8Valid(s))
 	return mkCharCE(s, CE_UTF8);
 
-    /* reEnc3() performs the iconv() repair via Riconv(); subst = 1 selects
-       the "<xx>" hexadecimal substitution for invalid bytes.  It returns a
-       string allocated with R_alloc() (and freed at the vmaxset() in
-       do_readDCF()), or 's' itself if iconv is unavailable.  Either way
-       mkCharCE() copies the bytes into the CHARSXP below. */
-    const char *repaired = reEnc3(s, "UTF-8", "UTF-8", 1);
-    return mkCharCE(repaired, CE_UTF8);
+    const void *vmax = vmaxget();
+    size_t n = strlen(s);
+    /* worst case: every byte escaped to 4 characters */
+    char *out = R_alloc(4 * n + 1, sizeof(char));
+    char *q = out;
+
+    for (const char *p = s; *p; ) {
+	size_t left = n - (size_t) (p - s);
+	int len = utf8clen(*p);
+	if (len == 1 && (unsigned char) *p < 0x80) {
+	    *q++ = *p++;
+	} else if (len > 1 && (size_t) len <= left && valid_utf8(p, len) == 0) {
+	    memcpy(q, p, len);
+	    q += len;
+	    p += len;
+	} else {
+	    snprintf(q, 5, "<%02x>", (unsigned char) *p);
+	    q += 4;
+	    p++;
+	}
+    }
+    *q = '\0';
+
+    SEXP ans = mkCharCE(out, CE_UTF8);
+    vmaxset(vmax);
+    return ans;
 }
 
 static void con_cleanup(void *data)
