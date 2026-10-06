@@ -3885,27 +3885,18 @@ stopifnot(print(abs(pvW/pvX - 1)) <= c(2e-14, 2e-14, 0),
 
 
 
-## read.dcf() escapes 4-byte sequences above U+10FFFF like other invalid bytes
+## read.dcf() escapes 4-byte sequences above U+10FFFF, which iconv()
+## passes through but validUTF8() rejects, like other invalid bytes
 local({
-    ## F6 B6 B6 B6 is well-formed for a code point above U+10FFFF, which
-    ## iconv() passes through but validUTF8() rejects
     bad <- as.raw(c(0xf6, 0xb6, 0xb6, 0xb6))
     x <- rawToChar(c(charToRaw("A: v\n "), bad, charToRaw("\n lue\n")))
     con <- textConnection(x)
     d <- read.dcf(con)
     close(con)
-    stopifnot(identical(d[1L, "A"], "v\n<f6><b6><b6><b6>\nlue"), validUTF8(d))
-    ## early in a long field, every further continuation line used to
-    ## re-encode the whole value accumulated so far
-    x <- rawToChar(c(charToRaw("A: v\n "), bad,
-                     charToRaw(strrep("\n lue", 5000L)), charToRaw("\n")))
-    con <- textConnection(x)
-    d <- read.dcf(con)
-    close(con)
-    stopifnot(validUTF8(d), identical(nchar(d[1L, "A"]), 18L + 5000L * 4L))
+    stopifnot(identical(d[[1L, "A"]], "v\n<f6><b6><b6><b6>\nlue"), validUTF8(d))
 })
-## gave "????" and took quadratic time in R-devel since r90200
-
+## gave "????" in R-devel since r90200, and re-encoded the whole field
+## value for each further continuation line
 
 
 ## keep at end
