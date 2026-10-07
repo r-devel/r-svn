@@ -305,11 +305,11 @@ function(..., na.rm)
             y
     }
     else
+        # Subscripting with 1L ensures the result is NA with length 0 input.
         switch(.Generic,
-               max = x[which(v == max(v))[1L]],
-               min = x[which(v == min(v))[1L]],
-               range = x[c(which(v == min(v))[1L],
-                           which(v == max(v))[1L])])
+               max = x[which.max(v)[1L]],
+               min = x[which.min(v)[1L]],
+               range = x[c(which.min(v)[1L], which.max(v)[1L])])
 }
 
 as.character.numeric_version <-
