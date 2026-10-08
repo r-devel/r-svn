@@ -1076,6 +1076,94 @@ static void handle_eval_depth_overflow(void)
     R_signalErrorCondition(cond, R_NilValue);
 }
 
+/* Evaluate the call 'e' with 'args' in place of CDR(e).  The two are
+   the same except in complex assignments, where 'args' can hold
+   promises shared by a getter and the matching replacement call
+   while 'e', the call recorded in the context and seen by sys.call()
+   and friends, stays as written. */
+static R_INLINE SEXP evalCallArgs(SEXP e, SEXP args, SEXP rho)
+{
+    SEXP op, tmp;
+
+    if (TYPEOF(CAR(e)) == SYMSXP) {
+	/* This will throw an error if the function is not found */
+	SEXP ecall = e;
+
+	/* This picks the correct/better error expression for
+	   replacement calls running in the AST interpreter. */
+	if (R_GlobalContext != NULL &&
+		(R_GlobalContext->callflag == CTXT_CCODE))
+	    ecall = R_GlobalContext->call;
+	PROTECT(op = findFun3(CAR(e), rho, ecall));
+    } else
+	PROTECT(op = eval(CAR(e), rho));
+
+    if(RTRACE(op) && R_current_trace_state()) {
+	Rprintf("trace: ");
+	PrintValue(e);
+    }
+    if (TYPEOF(op) == SPECIALSXP) {
+	int save = R_PPStackTop, flag = PRIMPRINT(op);
+	const void *vmax = vmaxget();
+	PROTECT(e);
+	R_Visible = flag != 1;
+	tmp = PRIMFUN(op) (e, op, args, rho);
+#ifdef CHECK_VISIBILITY
+	if(flag < 2 && R_Visible == flag) {
+	    char *nm = PRIMNAME(op);
+	    if(strcmp(nm, "for")
+	       && strcmp(nm, "repeat") && strcmp(nm, "while")
+	       && strcmp(nm, "[[<-") && strcmp(nm, "on.exit"))
+		printf("vis: special %s\n", nm);
+	}
+#endif
+	if (flag < 2) R_Visible = flag != 1;
+	UNPROTECT(1);
+	check_stack_balance(op, save);
+	vmaxset(vmax);
+    }
+    else if (TYPEOF(op) == BUILTINSXP) {
+	int save = R_PPStackTop, flag = PRIMPRINT(op);
+	const void *vmax = vmaxget();
+	RCNTXT cntxt;
+	PROTECT(tmp = evalList(args, rho, e, 0));
+	if (flag < 2) R_Visible = flag != 1;
+	/* We used to insert a context only if profiling,
+	   but helps for tracebacks on .C etc. */
+	if (R_Profiling || (PPINFO(op).kind == PP_FOREIGN)) {
+	    SEXP oldref = R_Srcref;
+	    begincontext(&cntxt, CTXT_BUILTIN, e,
+			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
+	    R_Srcref = NULL;
+	    tmp = PRIMFUN(op) (e, op, tmp, rho);
+	    R_Srcref = oldref;
+	    endcontext(&cntxt);
+	} else {
+	    tmp = PRIMFUN(op) (e, op, tmp, rho);
+	}
+#ifdef CHECK_VISIBILITY
+	if(flag < 2 && R_Visible == flag) {
+	    char *nm = PRIMNAME(op);
+	    printf("vis: builtin %s\n", nm);
+	}
+#endif
+	if (flag < 2) R_Visible = flag != 1;
+	UNPROTECT(1);
+	check_stack_balance(op, save);
+	vmaxset(vmax);
+    }
+    else if (TYPEOF(op) == CLOSXP) {
+	SEXP pargs = promiseArgs(args, rho);
+	PROTECT(pargs);
+	tmp = applyClosure(e, op, pargs, rho, R_NilValue, TRUE);
+	UNPROTECT(1);
+    }
+    else
+	error(_("attempt to apply non-function"));
+    UNPROTECT(1);
+    return tmp;
+}
+
 /* Return value of "e" evaluated in "rho". */
 
 /* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
@@ -1205,82 +1293,7 @@ SEXP eval(SEXP e, SEXP rho)
 	   end up getting duplicated if NAMED > 1.) LT */
 	break;
     case LANGSXP:
-	if (TYPEOF(CAR(e)) == SYMSXP) {
-	    /* This will throw an error if the function is not found */
-	    SEXP ecall = e;
-
-	    /* This picks the correct/better error expression for
-	       replacement calls running in the AST interpreter. */
-	    if (R_GlobalContext != NULL &&
-		    (R_GlobalContext->callflag == CTXT_CCODE))
-		ecall = R_GlobalContext->call;
-	    PROTECT(op = findFun3(CAR(e), rho, ecall));
-	} else
-	    PROTECT(op = eval(CAR(e), rho));
-
-	if(RTRACE(op) && R_current_trace_state()) {
-	    Rprintf("trace: ");
-	    PrintValue(e);
-	}
-	if (TYPEOF(op) == SPECIALSXP) {
-	    int save = R_PPStackTop, flag = PRIMPRINT(op);
-	    const void *vmax = vmaxget();
-	    PROTECT(e);
-	    R_Visible = flag != 1;
-	    tmp = PRIMFUN(op) (e, op, CDR(e), rho);
-#ifdef CHECK_VISIBILITY
-	    if(flag < 2 && R_Visible == flag) {
-		char *nm = PRIMNAME(op);
-		if(strcmp(nm, "for")
-		   && strcmp(nm, "repeat") && strcmp(nm, "while")
-		   && strcmp(nm, "[[<-") && strcmp(nm, "on.exit"))
-		    printf("vis: special %s\n", nm);
-	    }
-#endif
-	    if (flag < 2) R_Visible = flag != 1;
-	    UNPROTECT(1);
-	    check_stack_balance(op, save);
-	    vmaxset(vmax);
-	}
-	else if (TYPEOF(op) == BUILTINSXP) {
-	    int save = R_PPStackTop, flag = PRIMPRINT(op);
-	    const void *vmax = vmaxget();
-	    RCNTXT cntxt;
-	    PROTECT(tmp = evalList(CDR(e), rho, e, 0));
-	    if (flag < 2) R_Visible = flag != 1;
-	    /* We used to insert a context only if profiling,
-	       but helps for tracebacks on .C etc. */
-	    if (R_Profiling || (PPINFO(op).kind == PP_FOREIGN)) {
-		SEXP oldref = R_Srcref;
-		begincontext(&cntxt, CTXT_BUILTIN, e,
-			     R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-		R_Srcref = NULL;
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
-		R_Srcref = oldref;
-		endcontext(&cntxt);
-	    } else {
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
-	    }
-#ifdef CHECK_VISIBILITY
-	    if(flag < 2 && R_Visible == flag) {
-		char *nm = PRIMNAME(op);
-		printf("vis: builtin %s\n", nm);
-	    }
-#endif
-	    if (flag < 2) R_Visible = flag != 1;
-	    UNPROTECT(1);
-	    check_stack_balance(op, save);
-	    vmaxset(vmax);
-	}
-	else if (TYPEOF(op) == CLOSXP) {
-	    SEXP pargs = promiseArgs(CDR(e), rho);
-	    PROTECT(pargs);
-	    tmp = applyClosure(e, op, pargs, rho, R_NilValue, TRUE);
-	    UNPROTECT(1);
-	}
-	else
-	    error(_("attempt to apply non-function"));
-	UNPROTECT(1);
+	tmp = evalCallArgs(e, CDR(e), rho);
 	break;
     case DOTSXP:
 	error(_("'...' used in an incorrect context"));
@@ -3170,17 +3183,20 @@ attribute_hidden SEXP do_function(SEXP call, SEXP op, SEXP args, SEXP rho)
   nonlocal.
 */
 
-/* Rewrite the inner calls of a complex assignment target so that each
-   argument is a single promise shared by the getter call built in
-   evalseq() and the replacement call built in applydefine().  Without
-   this the argument expressions are evaluated twice, once per call,
-   which is visible when they have side effects, e.g.
+/* Build a copy of the inner calls of a complex assignment target in
+   which each argument is a single promise, shared by the getter call
+   made in evalseq() and the replacement call made in applydefine().
+   Without this the argument expressions are evaluated twice, once per
+   call, which is visible when they have side effects, e.g.
    x[sample(n, 1), ]$y <- v.  Promises rather than values are used so
    that getters and setters using substitute() still see the original
-   expressions.  The outermost call is left alone: only its replacement
-   function is ever called, so its arguments are evaluated once already.
-   `$` and `@` take an unevaluated name, so their argument is also left
-   alone. */
+   expressions.  The copy only supplies the argument lists of the
+   calls; the calls themselves are built from the original expression,
+   so sys.call() and error messages are unchanged.  Left alone are the
+   outermost call (only its replacement function is ever called, so
+   its arguments are evaluated once already), the name argument of `$`
+   and `@`, and symbols for missing arguments (a promise would hide
+   the missingness from evalListKeepMissing()). */
 static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 {
     if (! isLanguage(expr))
@@ -3195,7 +3211,8 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 	    SEXP a = CAR(el);
 	    bool wrap = (TYPEOF(a) == LANGSXP) ||
 		(TYPEOF(a) == SYMSXP &&
-		 a != R_MissingArg && a != R_DotsSymbol);
+		 a != R_MissingArg && a != R_DotsSymbol &&
+		 ! R_isMissing(a, rho));
 	    if (wrap)
 		SETCAR(el, mkPROMISE(a, rho));
 	}
@@ -3206,10 +3223,11 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
     return ans;
 }
 
-static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
-		    R_varloc_t *ploc)
+/* 'pexpr' is the copy of 'expr' made by promiseAssignArgs() */
+static SEXP evalseq(SEXP expr, SEXP pexpr, SEXP rho, int forcelocal,
+		    R_varloc_t tmploc, R_varloc_t *ploc)
 {
-    SEXP val, nval, nexpr;
+    SEXP val, nval, nexpr, nargs;
     if (isNull(expr))
 	error(_("invalid (NULL) left side of assignment"));
     if (isSymbol(expr)) { /* now we are down to the target symbol */
@@ -3234,11 +3252,13 @@ static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
     }
     else if (isLanguage(expr)) {
 	PROTECT(expr);
-	PROTECT(val = evalseq(CADR(expr), rho, forcelocal, tmploc, ploc));
+	PROTECT(val = evalseq(CADR(expr), CADR(pexpr), rho, forcelocal,
+			      tmploc, ploc));
 	R_SetVarLocValue(tmploc, CAR(val));
 	PROTECT(nexpr = LCONS(R_GetVarLocSymbol(tmploc), CDDR(expr)));
 	PROTECT(nexpr = LCONS(CAR(expr), nexpr));
-	nval = eval(nexpr, rho);
+	PROTECT(nargs = CONS(R_GetVarLocSymbol(tmploc), CDDR(pexpr)));
+	nval = evalCallArgs(nexpr, nargs, rho);
 	/* duplicate nval if it might be shared _or_ if the container,
 	   CAR(val), has become possibly shared by going through a
 	   closure.  This is taken to indicate that the corresponding
@@ -3249,7 +3269,7 @@ static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
 	if (MAYBE_REFERENCED(nval) &&
 	    (MAYBE_SHARED(nval) || MAYBE_SHARED(CAR(val))))
 	    nval = shallow_duplicate(nval);
-	UNPROTECT(4);
+	UNPROTECT(5);
 	return CONS_NR(nval, val);
     }
     else error(_("target of assignment expands to non-language object"));
@@ -3406,7 +3426,7 @@ try_assign_unwrap(SEXP value, SEXP sym, SEXP rho, SEXP cell)
 
 static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP expr, lhs, rhs, saverhs, tmp, afun, rhsprom;
+    SEXP expr, pexpr, pcall, lhs, rhs, saverhs, tmp, afun, rhsprom;
     R_varloc_t tmploc;
     RCNTXT cntxt;
     int nprot;
@@ -3444,7 +3464,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	environment by user code or an assignment within the
 	assignment arguments */
 
-    /*  There are two issues with the approach here:
+    /*  There is an issue with the approach here:
 
 	    A complex assignment within a complex assignment, like
 	    f(x, y[] <- 1) <- 3, can cause the value temporary
@@ -3455,16 +3475,16 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    replacement function call in error messages might then need
 	    to be adjusted.
 
-	    With assignments of the form f(g(x, z), y) <- w the value
-	    of 'z' will be computed twice, once for a call to g(x, z)
-	    and once for the call to the replacement function g<-.  It
-	    might be possible to address this by using promises.
-	    Using more temporaries would not work as it would mess up
-	    replacement functions that use substitute and/or
-	    nonstandard evaluation (and there are packages that do
-	    that -- igraph is one).
+	    LT
 
-	    LT */
+	A second issue, that with assignments of the form f(g(x, z), y)
+	<- w the value of 'z' was computed twice, once for the call to
+	g(x, z) and once for the call to the replacement function g<-,
+	is handled by promiseAssignArgs() below: both calls get the
+	same promise for 'z'.  Using more temporaries would not work
+	as it would mess up replacement functions that use substitute
+	and/or nonstandard evaluation (and there are packages that do
+	that -- igraph is one). */
 
     FIXUP_RHS_NAMED(rhs);
 
@@ -3499,16 +3519,17 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     cntxt.cend = &tmp_cleanup;
     cntxt.cenddata = rho;
 
-    /*  Share one promise per argument between the getter and the
-	replacement calls of the inner LHS calls. */
+    /*  A copy of the LHS with one promise per argument of the inner
+	calls, shared by the getter and the replacement call; it only
+	supplies the argument lists, the calls are built from 'expr'. */
     PROTECT(tmp = promiseAssignArgs(CADR(expr), rho));
-    PROTECT(expr = LCONS(CAR(expr), CONS(tmp, CDDR(expr))));
+    PROTECT(pexpr = LCONS(CAR(expr), CONS(tmp, CDDR(expr))));
     UNPROTECT(2);
-    PROTECT(expr);
+    PROTECT(pexpr);
 
     /*  Do a partial evaluation down through the LHS. */
     R_varloc_t lhsloc;
-    lhs = evalseq(CADR(expr), rho,
+    lhs = evalseq(CADR(expr), CADR(pexpr), rho,
 		  PRIMVAL(op)==1 || PRIMVAL(op)==3, tmploc, &lhsloc);
     if (lhsloc.cell == NULL)
 	lhsloc.cell = R_NilValue;
@@ -3518,7 +3539,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(rhsprom = mkRHSPROMISE(CADR(args), rhs));
 
     while (isLanguage(CADR(expr))) {
-	nprot = 1; /* the PROTECT of rhs below from this iteration */
+	nprot = 2; /* the PROTECTs of rhs and pcall below from this iteration */
 	if (TYPEOF(CAR(expr)) == SYMSXP)
 	    tmp = getAssignFcnSymbol(CAR(expr));
 	else {
@@ -3538,14 +3559,16 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
 	PROTECT(rhs = replaceCall(tmp, R_TmpvalSymbol, CDDR(expr), rhsprom));
-	rhs = eval(rhs, rho);
+	PROTECT(pcall = replaceCall(tmp, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
+	rhs = evalCallArgs(rhs, CDR(pcall), rho);
 	SET_PRVALUE(rhsprom, rhs);
 	SET_PRCODE(rhsprom, rhs); /* not good but is what we have been doing */
 	UNPROTECT(nprot);
 	lhs = CDR(lhs);
 	expr = CADR(expr);
+	pexpr = CADR(pexpr);
     }
-    nprot = 7; /* the common case */
+    nprot = 8; /* the common case */
     if (oldTmpval != NULL) nprot++;
 
     if (TYPEOF(CAR(expr)) == SYMSXP)
@@ -3568,8 +3591,9 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
     SEXP lhsSym = CDR(lhs);
 
+    PROTECT(pcall = replaceCall(afun, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
     PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
-    SEXP value = eval(expr, rho);
+    SEXP value = evalCallArgs(expr, CDR(pcall), rho);
 
     SET_ASSIGNMENT_PENDING(lhsloc.cell, FALSE);
     if (PRIMVAL(op) == 2)                       /* <<- */
@@ -6158,7 +6182,10 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
     else {
 	SEXP value = PROTECT(GETSTACK_PTR(slot));
 	DECLNK_STACK_PTR(slot);
-	p = R_mkEVPROMISE(code, value);
+	/* a missing argument stored by a `[` or `[[` default path
+	   needs a plain promise for missing() to work in a closure */
+	p = value == R_MissingArg ?
+	    mkPROMISE(code, rho) : R_mkEVPROMISE(code, value);
 	UNPROTECT(1);
     }
     SETSTACK_PTR(slot, p);
@@ -6166,17 +6193,36 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
     return p;
 }
 
-/* push the value of a slot, evaluating 'code' if it is still empty */
-static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho)
+/* Push the value of a slot, evaluating 'code' if it is still empty.
+   A symbol is looked up as the GETVAR instructions do, so that with
+   'missingOK' a missing argument gives R_MissingArg, as it does for
+   the indices of the `[` and `[[` default paths, instead of an
+   error. */
+static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
+			       int missingOK)
 {
     if (savedSlotHasPromise(slot)) {
 	SEXP p = slot->u.sxpval;
+	if (missingOK && ! PROMISE_IS_EVALUATED(p) &&
+	    TYPEOF(PRCODE(p)) == SYMSXP) {
+	    /* the promise was made for a dispatch attempt; leave it
+	       unforced if the argument is missing */
+	    SEXP sym = PRCODE(p);
+	    SEXP value = getvar(sym, PRENV(p), DDVAL(sym), TRUE, NULL, 0);
+	    if (value == R_MissingArg) {
+		BCNPUSH(R_MissingArg);
+		return;
+	    }
+	}
 	forcePromise(p);
 	BCNPUSH(PRVALUE(p));
     }
     else if (savedSlotEmpty(slot)) {
-	SEXP value = TYPEOF(code) == BCODESXP ?
-	    bcEval(code, rho) : eval(code, rho);
+	SEXP value;
+	if (TYPEOF(code) == SYMSXP)
+	    value = getvar(code, rho, DDVAL(code), missingOK, NULL, 0);
+	else
+	    value = eval(code, rho);
 	SETSTACK_PTR(slot, value);
 	INCLNK_STACK_PTR(slot);
 	BCNPUSH(value);
@@ -6187,7 +6233,7 @@ static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho)
 
 static R_INLINE SEXP savedSlotValue(R_bcstack_t *slot, SEXP code, SEXP rho)
 {
-    savedSlotPushValue(slot, code, rho);
+    savedSlotPushValue(slot, code, rho, FALSE);
     return BCNPOP();
 }
 
@@ -6197,11 +6243,15 @@ static R_INLINE void savedSlotClear(R_bcstack_t *slot)
 	DECLNK_STACK_PTR(slot);
 }
 
-/* A map has one element per argument of a call: NULL, or a list of
-   the slot number and the argument's code. */
+/* A map has one element per argument of the getter call: NULL, or a
+   list of the slot number and the argument's code.  The setter call
+   has the value argument after those, which has no element. */
 static R_INLINE R_bcstack_t *savedMapSlot(SEXP map, int i, R_bcstack_t *base,
 					 SEXP *pcode)
 {
+    if (i >= LENGTH(map))
+	return NULL;
+
     SEXP m = VECTOR_ELT(map, i);
     if (m == R_NilValue)
 	return NULL;
@@ -6341,13 +6391,6 @@ static int tryAssignDispatchSaved(char *generic, SEXP call, SEXP lhs,
     result = tryDispatchSaved(generic, ncall, lhs, rho, pv, sbase, smap);
     UNPROTECT(1);
     return result;
-}
-
-static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
-			     SEXP rho, SEXP *pv)
-{
-    return tryAssignDispatchSaved(generic, call, lhs, rhs, rho, pv,
-				  NULL, NULL);
 }
 
 /* take and clear the shared arguments registered for the next
@@ -9028,7 +9071,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
       {
 	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
 	  SEXP code = GETCONST(constants, GETOP());
-	  savedSlotPushValue(slot, code, rho);
+	  savedSlotPushValue(slot, code, rho, TRUE);
 	  NEXT();
       }
     /* BRSAVED and STORESAVED bracket the inline code of an argument's
@@ -9040,7 +9083,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
 	  int label = GETOP();
 	  if (! savedSlotEmpty(slot)) {
-	      savedSlotPushValue(slot, R_NilValue, rho);
+	      savedSlotPushValue(slot, R_NilValue, rho, TRUE);
 	      pc = codebase + label;
 	  }
 	  NEXT();
@@ -9054,6 +9097,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
       }
     OP(SETSAVEDARGS, 2):
       {
+	  /* the instruction that follows must take the arguments */
+	  if (savedArgsBase != NULL)
+	      error("SETSAVEDARGS: shared arguments were not consumed");
 	  savedArgsBase = R_BCNodeStackTop - GETOP();
 	  savedArgsMap = GETCONST(constants, GETOP());
 	  NEXT();

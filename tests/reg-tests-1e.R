@@ -3944,6 +3944,13 @@ local({
         y[[1L]] <- value
         structure(y, class = "tstNSE")
     }
+    `[<-.tstMiss` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        if (missing(i)) y[] <- value else y[i] <- value
+        structure(y, miss = missing(i), class = "tstMiss")
+    }
+    missArg <- function(x, i) { x[i][[1L]] <- 0L; x }
+    missExp <- function(x, miss) structure(x, miss = miss, class = "tstMiss")
     body <- quote({
         df <- data.frame(a = 1:3, b = 0)
         df[idx(), ]$b <- 99               # data frame, missing argument
@@ -3957,9 +3964,25 @@ local({
     })
     expected <- list(c(99, 0, 0), 2, c("a", NA, NA), list(10, 99, 30))
     stopifnot(identical(eval(body), expected), n == 3)
+    ## a subscript that is a missing argument stays missing
+    stopifnot(identical(missArg(1:3), c(0L, 2L, 3L)),
+              identical(missArg(structure(1:3, class = "noMethod")),
+                        structure(c(0L, 2L, 3L), class = "noMethod")),
+              identical(missArg(structure(1:3, class = "tstMiss")),
+                        missExp(c(0L, 2L, 3L), TRUE)),
+              identical(missArg(structure(1:3, class = "tstMiss"), 2L),
+                        missExp(c(1L, 0L, 3L), FALSE)))
     n <- 0
     f <- compiler::cmpfun(eval(call("function", NULL, body)))
     stopifnot(identical(f(), expected), n == 3)
+    missArg <- compiler::cmpfun(missArg)
+    stopifnot(identical(missArg(1:3), c(0L, 2L, 3L)),
+              identical(missArg(structure(1:3, class = "noMethod")),
+                        structure(c(0L, 2L, 3L), class = "noMethod")),
+              identical(missArg(structure(1:3, class = "tstMiss")),
+                        missExp(c(0L, 2L, 3L), TRUE)),
+              identical(missArg(structure(1:3, class = "tstMiss"), 2L),
+                        missExp(c(1L, 0L, 3L), FALSE)))
 })
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function
