@@ -1964,46 +1964,70 @@ attribute_hidden void R_SaveToFile(SEXP obj, FILE *fp, int ascii)
 
     /* different handling of errors */
 
-#define return_and_free(X) {r = X; R_FreeStringBuffer(&data.buffer); return r;}
+/* Every reader below works into data.buffer, and most of them signal R
+   errors on malformed input: free the buffer from a cleanup context so
+   an error unwind releases it too, not only the normal return. */
+static void loadfromfile_cleanup(void *data)
+{
+    SaveLoadData *d = (SaveLoadData *) data;
+    R_FreeStringBuffer(&d->buffer);
+}
+
 attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 {
     struct R_inpstream_st in;
     int magic;
     SaveLoadData data = {{NULL, 0, MAXELTSIZE}};
-    SEXP r;
+    SEXP r = R_NilValue;
+    RCNTXT cntxt;
+
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &loadfromfile_cleanup;
+    cntxt.cenddata = &data;
 
     magic = R_ReadMagic(fp);
     switch(magic) {
     case R_MAGIC_XDR:
-	return_and_free(XdrLoad(fp, startup, &data));
+	r = XdrLoad(fp, startup, &data);
+	break;
     case R_MAGIC_BINARY:
-	return_and_free(BinaryLoad(fp, startup, &data));
+	r = BinaryLoad(fp, startup, &data);
+	break;
     case R_MAGIC_ASCII:
-	return_and_free(AsciiLoad(fp, startup, &data));
+	r = AsciiLoad(fp, startup, &data);
+	break;
     case R_MAGIC_BINARY_VERSION16:
-	return_and_free(BinaryLoadOld(fp, 16, startup, &data));
+	r = BinaryLoadOld(fp, 16, startup, &data);
+	break;
     case R_MAGIC_ASCII_VERSION16:
-	return_and_free(AsciiLoadOld(fp, 16, startup, &data));
+	r = AsciiLoadOld(fp, 16, startup, &data);
+	break;
     case R_MAGIC_ASCII_V1:
-	return_and_free(NewAsciiLoad(fp, &data));
+	r = NewAsciiLoad(fp, &data);
+	break;
     case R_MAGIC_BINARY_V1:
-	return_and_free(NewBinaryLoad(fp, &data));
+	r = NewBinaryLoad(fp, &data);
+	break;
     case R_MAGIC_XDR_V1:
-	return_and_free(NewXdrLoad(fp, &data));
+	r = NewXdrLoad(fp, &data);
+	break;
     case R_MAGIC_ASCII_V2:
     case R_MAGIC_ASCII_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_ascii_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     case R_MAGIC_BINARY_V2:
     case R_MAGIC_BINARY_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_binary_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     case R_MAGIC_XDR_V2:
     case R_MAGIC_XDR_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_xdr_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     default:
-	R_FreeStringBuffer(&data.buffer);
 	switch (magic) {
 	case R_MAGIC_EMPTY:
 	    error(_("restore file may be empty -- no data loaded"));
@@ -2012,8 +2036,11 @@ attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 	default:
 	    error(_("bad restore file magic number (file may be corrupted) -- no data loaded"));
 	}
-	return(R_NilValue);/* for -Wall */
     }
+
+    endcontext(&cntxt);
+    R_FreeStringBuffer(&data.buffer);
+    return r;
 }
 
 attribute_hidden SEXP do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
