@@ -1014,10 +1014,12 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	    deparse2buff(PREXPR(s), d);
 	    d->opts = d_opts_in;
 	    print2buff(">", d);
+	} else if (PRVALUE(s) == R_UnboundValue) {
+	    /* never force a promise while deparsing (complex assignment
+	       calls carry unforced promises): show its code instead */
+	    deparse2buff(PREXPR(s), d);
 	} else {
-	    PROTECT(s = eval(s, R_EmptyEnv)); /* eval uses env of promise */
-	    deparse2buff(s, d);
-	    UNPROTECT(1);
+	    deparse2buff(PRVALUE(s), d);
 	}
 	break;
     case CLOSXP:

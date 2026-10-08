@@ -8,6 +8,15 @@
 \section{\Rlogo Changes in R-devel}{
   \subsection{Significant User-Visible Changes}{
     \itemize{
+      \item The arguments of the inner calls of a complex assignment
+      such as \code{x[i]$y <- v} are now evaluated once: the extraction
+      call and the replacement call share one promise per argument.
+      Previously \code{i} was evaluated twice, so that
+      \code{x[sample(n, 1), ]$y <- v} extracted one row and replaced
+      another.  This applies to both the interpreter and the byte-code
+      compiler; replacement functions using \code{substitute()} are
+      unaffected.
+
       \item \code{read.dcf()} and \code{write.dcf()} now treat \abbr{DCF}
       files (such as package \file{DESCRIPTION} and repository
       \file{PACKAGES} files) as \abbr{UTF-8}, as required by the Debian

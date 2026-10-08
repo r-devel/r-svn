@@ -3926,6 +3926,45 @@ local({
 ## value for each further continuation line
 
 
+## The subscripts of the inner calls of a complex assignment are
+## evaluated once, by the interpreter and by the byte code compiler
+local({
+    n <- 0
+    idx <- function() { n <<- n + 1; 1L }
+    `[.tstNSE` <- function(x, i, ...)
+        structure(unclass(x)[eval(substitute(i), list(zz = 2L))],
+                  class = "tstNSE")
+    `[<-.tstNSE` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        y[eval(substitute(i), list(zz = 2L))] <- unclass(value)
+        structure(y, class = "tstNSE")
+    }
+    `$<-.tstNSE` <- function(x, name, value) {
+        y <- unclass(x)
+        y[[1L]] <- value
+        structure(y, class = "tstNSE")
+    }
+    body <- quote({
+        df <- data.frame(a = 1:3, b = 0)
+        df[idx(), ]$b <- 99               # data frame, missing argument
+        l <- list(list(a = 1))
+        l[[idx()]]$a <- 2                 # inlined `[[`
+        x <- list(1:3)
+        names(x[[idx()]])[1L] <- "a"      # builtin getter and setter
+        obj <- structure(list(10, 20, 30), class = "tstNSE")
+        obj[zz + 0L]$foo <- 99            # substitute() in the methods
+        list(df$b, l[[1L]]$a, names(x[[1L]]), unclass(obj))
+    })
+    expected <- list(c(99, 0, 0), 2, c("a", NA, NA), list(10, 99, 30))
+    stopifnot(identical(eval(body), expected), n == 3)
+    n <- 0
+    f <- compiler::cmpfun(eval(call("function", NULL, body)))
+    stopifnot(identical(f(), expected), n == 3)
+})
+## the subscripts were evaluated twice in R < 4.7.0, once by the
+## getter and once by the replacement function
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

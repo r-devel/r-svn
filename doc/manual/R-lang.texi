@@ -1788,7 +1788,16 @@ x <- "names<-"(`*tmp*`, value="[<-"(names(`*tmp*`), 3, value="Three"))
 rm(`*tmp*`)
 @end example
 
-
+The arguments of the inner calls appear twice in this expansion, once
+in the extraction call and once in the replacement call, but each is
+evaluated at most once: both calls receive the same promise for the
+argument.  So in
+@example
+x[sample(n, 1)]$y <- v
+@end example
+the row is drawn once, and the replacement happens at the row that was
+extracted.  Replacement functions that use @code{substitute} on their
+arguments still see the argument expressions.
 
 Complex assignments in the enclosing environment (using @code{<<-}) are
 also permitted:
