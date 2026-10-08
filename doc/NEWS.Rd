@@ -135,7 +135,10 @@
 
   \subsection{C-Level Facilities}{
     \itemize{
-      \item .
+      \item New function \code{R_realloc()} resizes a block of memory
+      obtained from \code{R_alloc()} in place on the \code{R_alloc()}
+      stack, so the old block can be reclaimed before the stack is
+      unwound.
     }
   }
 

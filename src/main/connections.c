@@ -4492,10 +4492,8 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	nbuf = 0;
 	while((c = Rconn_fgetc(con)) != R_EOF) {
 	    if(nbuf == buf_size-1) {  /* need space for the terminator */
-		char *tmp = R_alloc(2 * buf_size, sizeof(char));
-		memcpy(tmp, buf, nbuf);
-		buf = tmp;
 		buf_size *= 2;
+		buf = R_realloc(buf, buf_size, sizeof(char));
 	    }
 	    if(skipNul && c == '\0') continue;
 	    if(c != '\n')
