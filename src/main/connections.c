@@ -4469,9 +4469,12 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     else if(streql(encoding, "latin1")) oenc = CE_LATIN1;
     else if(streql(encoding, "bytes")) oenc = CE_BYTES;
 
-    buf = (char *) malloc(buf_size);
-    if(!buf)
-	error(_("cannot allocate buffer in readLines"));
+    /* R_alloc rather than malloc: an error raised while reading (a
+       conversion failure or read error in Rconn_fgetc, "too many
+       items", an allocation failure) unwinds past the frees below, and
+       memory from R_alloc is reclaimed by the unwind. */
+    const void *vmax = vmaxget();
+    buf = R_alloc(buf_size, sizeof(char));
     nn = (n < 0) ? 1000 : n; /* initially allocate space for 1000 lines */
     nnn = (n < 0) ? R_XLEN_T_MAX : n;
     PROTECT(ans = allocVector(STRSXP, nn));
@@ -4489,12 +4492,10 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	nbuf = 0;
 	while((c = Rconn_fgetc(con)) != R_EOF) {
 	    if(nbuf == buf_size-1) {  /* need space for the terminator */
+		char *tmp = R_alloc(2 * buf_size, sizeof(char));
+		memcpy(tmp, buf, nbuf);
+		buf = tmp;
 		buf_size *= 2;
-		char *tmp = (char *) realloc(buf, buf_size);
-		if(!tmp) {
-		    free(buf);
-		    error(_("cannot allocate buffer in readLines"));
-		} else buf = tmp;
 	    }
 	    if(skipNul && c == '\0') continue;
 	    if(c != '\n')
@@ -4517,7 +4518,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
     UNPROTECT(1);
-    free(buf);
+    vmaxset(vmax);
     return ans;
 no_more_lines:
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
@@ -4534,7 +4535,7 @@ no_more_lines:
 			con->description);
 	}
     }
-    free(buf);
+    vmaxset(vmax);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
     PROTECT(ans2 = allocVector(STRSXP, nread));
