@@ -2313,8 +2313,38 @@ void *vmaxget(void)
     return (void *) R_VStack;
 }
 
+#ifdef PROTECTCHECK
+/* A mark from vmaxget() is only valid while its node is on the stack.
+   One popped by an earlier vmaxset(), or replaced by R_realloc(), is
+   stale: installing it would truncate the stack at a dead node and
+   leave the collector following it.  The unwind for the error passes
+   the target context's own mark back through here; if that one is
+   stale too the state cannot be repaired, so give up instead of
+   recursing. */
+static void check_vmax_mark(SEXP mark)
+{
+    static Rboolean reporting = FALSE;
+
+    SEXP s = R_VStack;
+    while (s != NULL && s != R_NilValue && s != mark)
+	s = ATTRIB(s);
+    if (s == mark || mark == NULL || mark == R_NilValue) {
+	reporting = FALSE;
+	return;
+    }
+
+    if (reporting)
+	R_Suicide("vmaxset: stale R_alloc stack mark in error unwind");
+    reporting = TRUE;
+    error("vmaxset: mark is not on the R_alloc stack");
+}
+#endif
+
 void vmaxset(const void *ovmax)
 {
+#ifdef PROTECTCHECK
+    check_vmax_mark((SEXP) ovmax);
+#endif
     R_VStack = (SEXP) ovmax;
 }
 

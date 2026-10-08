@@ -15408,7 +15408,10 @@ allocated (see below), whereas the old block can be reclaimed by the
 garbage collector right away.  As with @code{realloc}, @var{p} must
 not be used after the call, and a position recorded by
 @code{vmaxget} while @var{p} was the most recent allocation is no
-longer valid.
+longer valid: record the position before allocating @var{p}, typically
+at the start of the function.  (An @R{} configured with
+@option{--enable-strict-barrier} checks the position passed to
+@code{vmaxset} and signals an error if it is stale.)
 
 There is a similar call, @code{S_alloc} (named for compatibility with older
 versions of @Sl{}) which zeroes the memory allocated,
