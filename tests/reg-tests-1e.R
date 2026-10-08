@@ -3983,6 +3983,33 @@ local({
                         missExp(c(0L, 2L, 3L), TRUE)),
               identical(missArg(structure(1:3, class = "tstMiss"), 2L),
                         missExp(c(1L, 0L, 3L), FALSE)))
+    ## a method modifying its argument must not change the shared value
+    `[.tstMut` <- function(x, i) { i[1L] <- 1L; unclass(x)[i] }
+    `[<-.tstMut` <- function(x, i, value) {
+        y <- unclass(x); y[i] <- value; structure(y, class = "tstMut")
+    }
+    mut <- function() {
+        x <- structure(1:5, class = "tstMut")
+        x[c(3L, 4L)][1L] <- 99L
+        unclass(x)
+    }
+    ## an active binding is read once; break and next in the value
+    ## leave the loop cleanly
+    once <- function() {
+        n <- 0L
+        makeActiveBinding("i", function() { n <<- n + 1L; 1L }, environment())
+        x <- structure(list(list(a = 1)), class = "noMethod")
+        x[i][[1L]]$a <- 2
+        x <- list(list(a = 0), list(a = 0), list(a = 0))
+        for (k in 1:3) x[[idx() + k - 1L]]$a <- if (k == 2) next else k
+        for (k in 1:3) x[[idx() + k - 1L]]$a <- if (k == 3) break else -k
+        list(n, unlist(x))
+    }
+    expected <- list(1L, c(a = -1L, a = -2L, a = 3L))
+    stopifnot(identical(mut(), c(1L, 2L, 99L, 4L, 5L)),
+              identical(once(), expected),
+              identical(compiler::cmpfun(mut)(), c(1L, 2L, 99L, 4L, 5L)),
+              identical(compiler::cmpfun(once)(), expected))
 })
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function

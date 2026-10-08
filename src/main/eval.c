@@ -1164,16 +1164,10 @@ static R_INLINE SEXP evalCallArgs(SEXP e, SEXP args, SEXP rho)
     return tmp;
 }
 
-/* Return value of "e" evaluated in "rho". */
+static int evalcount = 0;
 
-/* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
-SEXP eval(SEXP e, SEXP rho)
+static R_INLINE void checkEvalCount(void)
 {
-    SEXP op, tmp;
-    static int evalcount = 0;
-
-    R_Visible = TRUE;
-
     /* this is needed even for self-evaluating objects or something like
        'while (TRUE) NULL' will not be interruptable */
     if (++evalcount > 1000) { /* was 100 before 2.8.0 */
@@ -1185,6 +1179,39 @@ SEXP eval(SEXP e, SEXP rho)
 #endif
 	evalcount = 0 ;
     }
+}
+
+/* eval() of the call 'e' with 'args' in place of CDR(e): the
+   bookkeeping eval() does around the LANGSXP case of its switch. */
+static SEXP evalAssignCall(SEXP e, SEXP args, SEXP rho)
+{
+    R_Visible = TRUE;
+    checkEvalCount();
+
+    int bcintactivesave = R_BCIntActive;
+    R_BCIntActive = 0;
+    SEXP srcrefsave = R_Srcref;
+    int depthsave = R_EvalDepth;
+    INCREMENT_EVAL_DEPTH();
+    R_CheckStack();
+
+    SEXP tmp = evalCallArgs(e, args, rho);
+
+    R_EvalDepth = depthsave;
+    R_Srcref = srcrefsave;
+    R_BCIntActive = bcintactivesave;
+    return tmp;
+}
+
+/* Return value of "e" evaluated in "rho". */
+
+/* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
+SEXP eval(SEXP e, SEXP rho)
+{
+    SEXP tmp;
+
+    R_Visible = TRUE;
+    checkEvalCount();
 
     /* handle self-evaluating objects with minimal overhead */
     switch (TYPEOF(e)) {
@@ -3258,7 +3285,7 @@ static SEXP evalseq(SEXP expr, SEXP pexpr, SEXP rho, int forcelocal,
 	PROTECT(nexpr = LCONS(R_GetVarLocSymbol(tmploc), CDDR(expr)));
 	PROTECT(nexpr = LCONS(CAR(expr), nexpr));
 	PROTECT(nargs = CONS(R_GetVarLocSymbol(tmploc), CDDR(pexpr)));
-	nval = evalCallArgs(nexpr, nargs, rho);
+	nval = evalAssignCall(nexpr, nargs, rho);
 	/* duplicate nval if it might be shared _or_ if the container,
 	   CAR(val), has become possibly shared by going through a
 	   closure.  This is taken to indicate that the corresponding
@@ -3560,7 +3587,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
 	PROTECT(rhs = replaceCall(tmp, R_TmpvalSymbol, CDDR(expr), rhsprom));
 	PROTECT(pcall = replaceCall(tmp, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
-	rhs = evalCallArgs(rhs, CDR(pcall), rho);
+	rhs = evalAssignCall(rhs, CDR(pcall), rho);
 	SET_PRVALUE(rhsprom, rhs);
 	SET_PRCODE(rhsprom, rhs); /* not good but is what we have been doing */
 	UNPROTECT(nprot);
@@ -3593,7 +3620,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     PROTECT(pcall = replaceCall(afun, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
     PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
-    SEXP value = evalCallArgs(expr, CDR(pcall), rho);
+    SEXP value = evalAssignCall(expr, CDR(pcall), rho);
 
     SET_ASSIGNMENT_PENDING(lhsloc.cell, FALSE);
     if (PRIMVAL(op) == 2)                       /* <<- */
@@ -6193,6 +6220,16 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
     return p;
 }
 
+/* A closure gets a fresh promise for the shared one, as promiseArgs()
+   makes for a promise in a call: the two then share the value, so a
+   closure that modifies its argument in place cannot change the value
+   a later use of the slot sees. */
+static R_INLINE SEXP savedSlotClosurePromise(R_bcstack_t *slot, SEXP code,
+					     SEXP rho)
+{
+    return mkPROMISE(savedSlotPromise(slot, code, rho), rho);
+}
+
 /* Push the value of a slot, evaluating 'code' if it is still empty.
    A symbol is looked up as the GETVAR instructions do, so that with
    'missingOK' a missing argument gives R_MissingArg, as it does for
@@ -6206,13 +6243,19 @@ static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
 	if (missingOK && ! PROMISE_IS_EVALUATED(p) &&
 	    TYPEOF(PRCODE(p)) == SYMSXP) {
 	    /* the promise was made for a dispatch attempt; leave it
-	       unforced if the argument is missing */
+	       unforced if the argument is missing, otherwise the
+	       variable's value becomes its value (looking the variable
+	       up again by forcing it would run an active binding
+	       twice) */
 	    SEXP sym = PRCODE(p);
 	    SEXP value = getvar(sym, PRENV(p), DDVAL(sym), TRUE, NULL, 0);
 	    if (value == R_MissingArg) {
 		BCNPUSH(R_MissingArg);
 		return;
 	    }
+	    SET_PRVALUE(p, value);
+	    ENSURE_NAMEDMAX(value);
+	    SET_PRENV(p, R_NilValue);
 	}
 	forcePromise(p);
 	BCNPUSH(PRVALUE(p));
@@ -6276,9 +6319,9 @@ static SEXP savedCallArgs(SEXP call, R_bcstack_t *base, SEXP map, SEXP rho)
     return args;
 }
 
-/* promiseArgs(CDR(call), rho) with the shared promises used directly
-   in the mapped positions; arguments that are already promises (the
-   RHS promise of a replacement call) are used as they are */
+/* promiseArgs(CDR(call), rho) with the shared promises in the mapped
+   positions; arguments that are already promises (the RHS promise of
+   a replacement call) are used as they are */
 static SEXP savedDispatchArgs(SEXP call, R_bcstack_t *base, SEXP map, SEXP rho)
 {
     for (SEXP a = CDR(call); a != R_NilValue; a = CDR(a))
@@ -6297,7 +6340,7 @@ static SEXP savedDispatchArgs(SEXP call, R_bcstack_t *base, SEXP map, SEXP rho)
 	SEXP arg = CAR(a), val, code;
 	R_bcstack_t *slot = savedMapSlot(map, i, base, &code);
 	if (slot != NULL)
-	    val = savedSlotPromise(slot, code, rho);
+	    val = savedSlotClosurePromise(slot, code, rho);
 	else if (arg == R_MissingArg || TYPEOF(arg) == PROMSXP)
 	    val = arg;
 	else
@@ -9058,7 +9101,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  SEXP code = GETCONST(constants, GETOP());
 	  switch (CALL_FRAME_FTYPE()) {
 	  case CLOSXP:
-	      PUSHCALLARG_RC(savedSlotPromise(slot, code, rho));
+	      PUSHCALLARG_RC(savedSlotClosurePromise(slot, code, rho));
 	      break;
 	  case BUILTINSXP:
 	      PUSHCALLARG(savedSlotValue(slot, code, rho));
