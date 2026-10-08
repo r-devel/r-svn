@@ -4043,6 +4043,13 @@ local({
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function
 
+## A complex assignment whose innermost target is a call without
+## arguments is still an error (reported here in tests/no-segfault.R)
+i <- 1L
+tools::assertError(`<-`(list(), list()))
+tools::assertError(list()[i] <- 1)
+## recursed until the C stack overflowed in an r-devel branch
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

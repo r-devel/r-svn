@@ -3231,10 +3231,13 @@ static R_INLINE bool shareAssignArg(SEXP a, SEXP rho)
 	 a != R_MissingArg && a != R_DotsSymbol && ! R_isMissing(a, rho));
 }
 
-/* returns 'expr' itself when there is nothing to share */
+/* returns 'expr' itself when there is nothing to share.  Test the
+   type directly: isLanguage() is true for NULL, the target of a call
+   without arguments as in list() <- v, and the CADR() walk would
+   never end; evalseq() reports that error. */
 static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 {
-    if (! isLanguage(expr))
+    if (TYPEOF(expr) != LANGSXP)
 	return expr;
 
     SEXP fun = CAR(expr);
@@ -3272,7 +3275,7 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
    left alone. */
 static void clearAssignPromises(SEXP pexpr)
 {
-    for (SEXP e = pexpr; isLanguage(e); e = CADR(e))
+    for (SEXP e = pexpr; TYPEOF(e) == LANGSXP; e = CADR(e))
 	for (SEXP a = CDDR(e); a != R_NilValue; a = CDR(a)) {
 	    SEXP p = CAR(a);
 	    if (TYPEOF(p) == PROMSXP && REFCNT(p) == 1 &&
