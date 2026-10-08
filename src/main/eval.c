@@ -3224,6 +3224,14 @@ attribute_hidden SEXP do_function(SEXP call, SEXP op, SEXP args, SEXP rho)
    its arguments are evaluated once already), the name argument of `$`
    and `@`, and symbols for missing arguments (a promise would hide
    the missingness from evalListKeepMissing()). */
+static R_INLINE bool shareAssignArg(SEXP a, SEXP rho)
+{
+    return (TYPEOF(a) == LANGSXP) ||
+	(TYPEOF(a) == SYMSXP &&
+	 a != R_MissingArg && a != R_DotsSymbol && ! R_isMissing(a, rho));
+}
+
+/* returns 'expr' itself when there is nothing to share */
 static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 {
     if (! isLanguage(expr))
@@ -3231,23 +3239,58 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 
     SEXP fun = CAR(expr);
     SEXP target = PROTECT(promiseAssignArgs(CADR(expr), rho));
-    SEXP args = PROTECT(shallow_duplicate(CDDR(expr)));
+    SEXP args = CDDR(expr);
 
     if (fun != R_DollarSymbol && fun != R_AtsignSymbol) {
-	for (SEXP el = args; el != R_NilValue; el = CDR(el)) {
-	    SEXP a = CAR(el);
-	    bool wrap = (TYPEOF(a) == LANGSXP) ||
-		(TYPEOF(a) == SYMSXP &&
-		 a != R_MissingArg && a != R_DotsSymbol &&
-		 ! R_isMissing(a, rho));
-	    if (wrap)
-		SETCAR(el, mkPROMISE(a, rho));
+	bool share = false;
+	for (SEXP el = args; el != R_NilValue && ! share; el = CDR(el))
+	    share = shareAssignArg(CAR(el), rho);
+	if (share) {
+	    args = shallow_duplicate(args);
+	    for (SEXP el = args; el != R_NilValue; el = CDR(el))
+		if (shareAssignArg(CAR(el), rho))
+		    SETCAR(el, mkPROMISE(CAR(el), rho));
 	}
     }
 
+    if (target == CADR(expr) && args == CDDR(expr)) {
+	UNPROTECT(1);
+	return expr;
+    }
+
+    PROTECT(args);
     SEXP ans = LCONS(fun, CONS(target, args));
     UNPROTECT(2);
     return ans;
+}
+
+#ifdef ADJUST_ENVIR_REFCNTS
+/* Drop the values of the shared promises once the assignment is done
+   or has failed, so that the argument values are not left with an
+   extra reference that would force a copy on their next modification.
+   A promise still referenced elsewhere (captured by a closure) is
+   left alone. */
+static void clearAssignPromises(SEXP pexpr)
+{
+    for (SEXP e = pexpr; isLanguage(e); e = CADR(e))
+	for (SEXP a = CDDR(e); a != R_NilValue; a = CDR(a)) {
+	    SEXP p = CAR(a);
+	    if (TYPEOF(p) == PROMSXP && REFCNT(p) == 1 &&
+		PROMISE_IS_EVALUATED(p))
+		clearPromise(p);
+	}
+}
+#else
+static void clearAssignPromises(SEXP pexpr) { }
+#endif
+
+/* The replacement call built from the promise copy references the
+   shared promises too; drop those references once it has been
+   evaluated so that clearAssignPromises() sees the true count. */
+static R_INLINE void dropCallArgs(SEXP call)
+{
+    for (SEXP a = CDR(call); a != R_NilValue; a = CDR(a))
+	SETCAR(a, R_NilValue);
 }
 
 /* 'pexpr' is the copy of 'expr' made by promiseAssignArgs() */
@@ -3284,8 +3327,14 @@ static SEXP evalseq(SEXP expr, SEXP pexpr, SEXP rho, int forcelocal,
 	R_SetVarLocValue(tmploc, CAR(val));
 	PROTECT(nexpr = LCONS(R_GetVarLocSymbol(tmploc), CDDR(expr)));
 	PROTECT(nexpr = LCONS(CAR(expr), nexpr));
-	PROTECT(nargs = CONS(R_GetVarLocSymbol(tmploc), CDDR(pexpr)));
-	nval = evalAssignCall(nexpr, nargs, rho);
+	if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	    PROTECT(nargs = R_NilValue);
+	    nval = eval(nexpr, rho);
+	}
+	else {
+	    PROTECT(nargs = CONS(R_GetVarLocSymbol(tmploc), CDDR(pexpr)));
+	    nval = evalAssignCall(nexpr, nargs, rho);
+	}
 	/* duplicate nval if it might be shared _or_ if the container,
 	   CAR(val), has become possibly shared by going through a
 	   closure.  This is taken to indicate that the corresponding
@@ -3350,9 +3399,17 @@ static void enterAssignFcnSymbol(SEXP fun, SEXP val)
     defineVar(fun, val, R_ReplaceFunsTable);
 }
 
+typedef struct {
+    SEXP rho;
+    SEXP pexpr; /* the promise copy of the LHS, once made */
+} tmp_cleanup_data;
+
 static void tmp_cleanup(void *data)
 {
-    unbindVar(R_TmpvalSymbol, (SEXP) data);
+    tmp_cleanup_data *d = data;
+    unbindVar(R_TmpvalSymbol, d->rho);
+    if (d->pexpr != NULL)
+	clearAssignPromises(d->pexpr);
 }
 
 /* This macro stores the current assignment target in the saved
@@ -3541,18 +3598,25 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Now set up a context to remove it when we are done, even in the
      * case of an error.  This all helps error() provide a better call.
      */
+    tmp_cleanup_data cdata = { rho, NULL };
     begincontext(&cntxt, CTXT_CCODE, call, R_BaseEnv, R_BaseEnv,
 		 R_NilValue, R_NilValue);
     cntxt.cend = &tmp_cleanup;
-    cntxt.cenddata = rho;
+    cntxt.cenddata = &cdata;
 
     /*  A copy of the LHS with one promise per argument of the inner
 	calls, shared by the getter and the replacement call; it only
-	supplies the argument lists, the calls are built from 'expr'. */
+	supplies the argument lists, the calls are built from 'expr'.
+	When there is nothing to share it is 'expr' itself. */
     PROTECT(tmp = promiseAssignArgs(CADR(expr), rho));
-    PROTECT(pexpr = LCONS(CAR(expr), CONS(tmp, CDDR(expr))));
-    UNPROTECT(2);
+    if (tmp == CADR(expr))
+	pexpr = expr;
+    else
+	pexpr = LCONS(CAR(expr), CONS(tmp, CDDR(expr)));
+    UNPROTECT(1);
     PROTECT(pexpr);
+    if (pexpr != expr)
+	cdata.pexpr = pexpr;
 
     /*  Do a partial evaluation down through the LHS. */
     R_varloc_t lhsloc;
@@ -3586,8 +3650,16 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
 	PROTECT(rhs = replaceCall(tmp, R_TmpvalSymbol, CDDR(expr), rhsprom));
-	PROTECT(pcall = replaceCall(tmp, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
-	rhs = evalAssignCall(rhs, CDR(pcall), rho);
+	if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	    PROTECT(pcall = R_NilValue);
+	    rhs = eval(rhs, rho);
+	}
+	else {
+	    PROTECT(pcall = replaceCall(tmp, R_TmpvalSymbol, CDDR(pexpr),
+					rhsprom));
+	    rhs = evalAssignCall(rhs, CDR(pcall), rho);
+	    dropCallArgs(pcall);
+	}
 	SET_PRVALUE(rhsprom, rhs);
 	SET_PRCODE(rhsprom, rhs); /* not good but is what we have been doing */
 	UNPROTECT(nprot);
@@ -3618,9 +3690,21 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
     SEXP lhsSym = CDR(lhs);
 
-    PROTECT(pcall = replaceCall(afun, R_TmpvalSymbol, CDDR(pexpr), rhsprom));
-    PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
-    SEXP value = evalAssignCall(expr, CDR(pcall), rho);
+    SEXP value;
+    if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	PROTECT(pcall = R_NilValue);
+	PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
+	value = eval(expr, rho);
+    }
+    else {
+	PROTECT(pcall = replaceCall(afun, R_TmpvalSymbol, CDDR(pexpr),
+				    rhsprom));
+	PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
+	value = evalAssignCall(expr, CDR(pcall), rho);
+	dropCallArgs(pcall);
+    }
+    if (cdata.pexpr != NULL)
+	clearAssignPromises(cdata.pexpr);
 
     SET_ASSIGNMENT_PENDING(lhsloc.cell, FALSE);
     if (PRIMVAL(op) == 2)                       /* <<- */
@@ -6181,8 +6265,13 @@ static R_INLINE SEXP CLOSURE_CALL_FRAME_ARGS(void)
    promise after a use that needed a promise (a closure call or a
    method dispatch); a value is upgraded to an evaluated promise if a
    later use needs one.  The getter and the setter both use the entry,
-   so the argument is evaluated once.  Saved values are link-counted so
-   that they count as shared until the assignment is done. */
+   so the argument is evaluated once.  The entries are in the
+   link-protected part of the stack (MAKESAVED raises R_BCProtTop above
+   them, DROPSAVED restores it), so their contents count as shared
+   until the assignment is done and the links are dropped by
+   DECLNK_stack() both then and when an error unwinds the stack; an
+   entry that is overwritten loses the link of its old contents and
+   gains one for the new. */
 
 /* a slot holds R_UnboundValue, a promise, or a (possibly unboxed) value */
 static R_INLINE int savedSlotEmpty(R_bcstack_t *slot)
@@ -6195,9 +6284,27 @@ static R_INLINE int savedSlotHasPromise(R_bcstack_t *slot)
     return slot->tag == 0 && TYPEOF(slot->u.sxpval) == PROMSXP;
 }
 
-/* Filled slots are link-counted so that the values count as shared
-   and the promises are not cleared by a dispatch that does not use
-   them (see unpromiseArgs). */
+/* A slot is below R_BCProtTop by design, so it is written directly
+   rather than with SETSTACK_PTR, whose strict-barrier check rejects
+   that; the links are adjusted here instead. */
+static R_INLINE void savedSlotWrite(R_bcstack_t *slot, SEXP value)
+{
+    slot->tag = 0;
+    slot->u.sxpval = value;
+    INCLNK_STACK_PTR(slot);
+}
+
+/* store 'value' in a slot, adjusting the links; an unboxed scalar has
+   no link to drop */
+static R_INLINE void savedSlotSet(R_bcstack_t *slot, SEXP value)
+{
+    if (slot->tag == 0)
+	DECLNK_STACK_PTR(slot);
+    savedSlotWrite(slot, value);
+}
+
+/* The link on a slot promise also keeps it from being cleared by a
+   dispatch that does not use it (see unpromiseArgs). */
 static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
 {
     if (savedSlotHasPromise(slot))
@@ -6207,16 +6314,19 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
     if (savedSlotEmpty(slot))
 	p = mkPROMISE(code, rho);
     else {
-	SEXP value = PROTECT(GETSTACK_PTR(slot));
-	DECLNK_STACK_PTR(slot);
+	int boxed = slot->tag == 0;
+	SEXP value = PROTECT(GETSTACK_PTR(slot)); /* boxes in place */
+	if (boxed)
+	    DECLNK_STACK_PTR(slot);
 	/* a missing argument stored by a `[` or `[[` default path
 	   needs a plain promise for missing() to work in a closure */
 	p = value == R_MissingArg ?
 	    mkPROMISE(code, rho) : R_mkEVPROMISE(code, value);
 	UNPROTECT(1);
+	savedSlotWrite(slot, p);
+	return p;
     }
-    SETSTACK_PTR(slot, p);
-    INCLNK_STACK_PTR(slot);
+    savedSlotSet(slot, p);
     return p;
 }
 
@@ -6266,8 +6376,7 @@ static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
 	    value = getvar(code, rho, DDVAL(code), missingOK, NULL, 0);
 	else
 	    value = eval(code, rho);
-	SETSTACK_PTR(slot, value);
-	INCLNK_STACK_PTR(slot);
+	savedSlotSet(slot, value);
 	BCNPUSH(value);
     }
     else
@@ -6278,12 +6387,6 @@ static R_INLINE SEXP savedSlotValue(R_bcstack_t *slot, SEXP code, SEXP rho)
 {
     savedSlotPushValue(slot, code, rho, FALSE);
     return BCNPOP();
-}
-
-static R_INLINE void savedSlotClear(R_bcstack_t *slot)
-{
-    if (! savedSlotEmpty(slot))
-	DECLNK_STACK_PTR(slot);
 }
 
 /* A map has one element per argument of the getter call: NULL, or a
@@ -9084,15 +9187,20 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  NEXT();
       }
 
-    /* Shared arguments of complex assignments.  MAKESAVED reserves the
-       slots, which stay on the stack until DROPSAVED; the first
-       operand of the instructions that use a slot is its distance
-       from the top of the stack, known to the compiler. */
+    /* Shared arguments of complex assignments.  MAKESAVED pushes the
+       R_BCProtTop offset to restore and reserves the slots, which stay
+       on the stack until DROPSAVED; the first operand of the
+       instructions that use a slot is its distance from the top of the
+       stack, known to the compiler.  The slots are link-protected as
+       by INCLNKSTK: the links are committed by STARTASSIGN before any
+       slot is filled and dropped by DROPSAVED or an error unwind. */
     OP(MAKESAVED, 1):
       {
 	  int n = GETOP();
+	  BCNPUSH_INTEGER((int)(R_BCProtTop - R_BCNodeStackBase));
 	  for (int i = 0; i < n; i++)
 	      BCNPUSH(R_UnboundValue);
+	  INCLNK_stack(R_BCNodeStackTop);
 	  NEXT();
       }
     OP(PROMSAVED, 2):
@@ -9134,6 +9242,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(STORESAVED, 1):
       {
 	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
+	  DECLNK_STACK_PTR(slot); /* the slot is empty, this balances the commit */
 	  *slot = R_BCNodeStackTop[-1];
 	  INCLNK_STACK_PTR(slot);
 	  NEXT();
@@ -9149,13 +9258,13 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
       }
     OP(DROPSAVED, 1):
       {
-	  /* the slots are just below the value on top of the stack */
+	  /* the stack holds the R_BCProtTop offset, the slots, and the
+	     value of the assignment on top */
 	  int n = GETOP();
-	  R_bcstack_t *base = R_BCNodeStackTop - n - 1;
-	  for (int i = 0; i < n; i++)
-	      savedSlotClear(base + i);
+	  R_bcstack_t *base = R_BCNodeStackTop - n - 2;
+	  DECLNK_stack(R_BCNodeStackBase + GETSTACK_IVAL_PTR(base));
 	  base[0] = R_BCNodeStackTop[-1];
-	  R_BCNodeStackTop -= n;
+	  R_BCNodeStackTop -= n + 1;
 	  NEXT();
       }
     LASTOP;

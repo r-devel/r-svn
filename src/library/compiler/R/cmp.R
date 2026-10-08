@@ -1894,7 +1894,6 @@ cmpComplexAssign <- function(symbol, lhs, value, superAssign, cb, cntxt) {
     if (saved$n > 0 && ! is.null(ncntxt$loop))
         ncntxt$loop$gotoOK <- FALSE
     cmp(value, cb, ncntxt)
-    saved$depth <- 1L
     csi <- cb$putconst(symbol)
     cb$putcode(startOP, csi)
     saved$depth <- 4L

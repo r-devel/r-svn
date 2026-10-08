@@ -4010,6 +4010,35 @@ local({
               identical(once(), expected),
               identical(compiler::cmpfun(mut)(), c(1L, 2L, 99L, 4L, 5L)),
               identical(compiler::cmpfun(once)(), expected))
+    ## <<-, a pkg::fun getter and an S4 slot; the subscript variable is
+    ## not left referenced by the assignment, successful or not
+    setClass("tstP", representation(v = "integer"))
+    more <- function() {
+        l <- list(list(a = 1))
+        g <- function() l[[idx()]]$a <<- 5
+        g()
+        x <- list(1:3)
+        base::names(x[[idx()]])[1L] <- "q"
+        p <- new("tstP", v = 1:3)
+        p@v[idx()] <- 10L
+        i <- c(1L, 2L)
+        y <- 1:5
+        y[i][1L] <- 0L
+        j <- 1L
+        z <- list(list(a = 1))
+        z[[j]]$a <- 2
+        r0 <- .Internal(refcnt(j))
+        z <- list(function() 1)
+        r <- tryCatch({ z[[j]]$a <- 2; "no error" }, error = function(e) "error")
+        list(l[[1L]]$a, names(x[[1L]])[1L], p@v, y,
+             .Internal(refcnt(i)), .Internal(refcnt(j)) - r0, r)
+    }
+    expected <- list(5, "q", c(10L, 2L, 3L), c(0L, 2L, 3L, 4L, 5L),
+                     1L, 0L, "error")
+    n <- 0
+    stopifnot(identical(more(), expected), n == 3)
+    n <- 0
+    stopifnot(identical(compiler::cmpfun(more)(), expected), n == 3)
 })
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function
