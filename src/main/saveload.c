@@ -34,6 +34,9 @@
 #include <R_ext/RS.h>
 #include <errno.h>
 #include <ctype.h>		/* for isspace */
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>		/* for fstat, bounding string lengths */
+#endif
 
 /* From time to time changes in R, such as the addition of a new SXP,
  * may require changes in the save file format.  Here are some
@@ -458,15 +461,15 @@ static SEXP OffsetToNode(int offset, NodeInfo *node)
 
     l = 0;
     r = node->NTotal - 1;
-    do {
+    while (l <= r) {
 	m = (l + r) / 2;
+	if (offset == node->OldOffset[m])
+	    return VECTOR_ELT(node->NewAddress, m);
 	if (offset < node->OldOffset[m])
 	    r = m - 1;
 	else
 	    l = m + 1;
     }
-    while (offset != node->OldOffset[m] && l <= r);
-    if (offset == node->OldOffset[m]) return VECTOR_ELT(node->NewAddress, m);
 
     /* Not supposed to happen: */
     warning(_("unresolved node during restore"));
@@ -537,6 +540,8 @@ static void RemakeNextSEXP(FILE *fp, NodeInfo *node, int version, InputRoutines 
 	break;
     case CHARSXP:
 	len = m->InInteger(fp, d);
+	if (len < 0)
+	    error(_("corrupt data file: negative string length"));
 	s = allocCharsxp(len); /* This is not longer correct */
 	R_AllocStringBuffer(len, &(d->buffer));
 	/* skip over the string */
@@ -618,7 +623,14 @@ static void RestoreSEXP(SEXP s, FILE *fp, InputRoutines *m, NodeInfo *node, int 
 	len = m->InInteger(fp, d);
 	R_AllocStringBuffer(len, &(d->buffer));
 	/* Better to use a fresh copy in the cache */
-	strcpy(CHAR_RW(s), m->InString(fp, d));
+	{
+	    /* the CHARSXP was sized from len in RemakeNextSEXP, but the
+	       string carries its own length field and need not agree */
+	    const char *str = m->InString(fp, d);
+	    if (strlen(str) > (size_t) len)
+		error(_("corrupt data file: string longer than its declared length"));
+	    strcpy(CHAR_RW(s), str);
+	}
 	break;
     case REALSXP:
 	len = m->InInteger(fp, d);
@@ -675,6 +687,11 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
     node.NSymbol = m->InInteger(fp, d);
     node.NSave = m->InInteger(fp, d);
     node.NVSize = m->InInteger(fp, d);
+    /* the counts come straight from the file: a negative one, or a sum
+       that overflows, would size the tables below wrongly */
+    if (node.NSymbol < 0 || node.NSave < 0 || node.NVSize < 0 ||
+	node.NSymbol > INT_MAX - node.NSave)
+	error(_("corrupt data file: invalid table sizes"));
     node.NTotal = node.NSymbol + node.NSave;
 
     /* allocate the forwarding-address tables */
@@ -695,6 +712,8 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 
     for (i = 0 ; i < node.NSymbol ; i++) {
 	j = m->InInteger(fp, d);
+	if (j < 0 || j >= node.NTotal)
+	    error(_("corrupt data file: node index out of range"));
 	node.OldOffset[j] = m->InInteger(fp, d);
 	R_AllocStringBuffer(MAXELTSIZE - 1, &(d->buffer));
 	SET_VECTOR_ELT(node.NewAddress, j, install(m->InString(fp, d)));
@@ -704,6 +723,8 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 
     for (i = 0 ; i < node.NSave ; i++) {
 	j = m->InInteger(fp, d);
+	if (j < 0 || j >= node.NTotal)
+	    error(_("corrupt data file: node index out of range"));
 	node.OldOffset[j] = m->InInteger(fp, d);
     }
 
@@ -734,11 +755,6 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 	RestoreSEXP(VECTOR_ELT(node.NewAddress, m->InInteger(fp, d)), fp, m, &node, version, d);
     }
 
-    /* restore the heap */
-
-    vmaxset(vmaxsave);
-    UNPROTECT(1);
-
     /* clean the string buffer */
     R_FreeStringBufferL(&(d->buffer));
 
@@ -748,7 +764,15 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
     i = m->InInteger(fp, d);
     m->InTerm(fp, d);
 
-    return OffsetToNode(i, &node);
+    /* resolve it before the tables it lives in are released */
+    SEXP ans = OffsetToNode(i, &node);
+
+    /* restore the heap */
+
+    vmaxset(vmaxsave);
+    UNPROTECT(1);
+
+    return ans;
 }
 
 
@@ -1386,6 +1410,24 @@ static void OutIntegerAscii(FILE *fp, int x, SaveLoadData *unused)
     else fprintf(fp, "%d", x);
 }
 
+/* The pre-1.4 string readers take the byte count straight from the
+   file.  Reject a negative count, one too large to add 1 to, and one
+   larger than what is left of the file: the last check is what stops a
+   4-byte length field from asking malloc() for gigabytes. */
+static void CheckStringLength(FILE *fp, long nbytes, const char *format)
+{
+    if (nbytes < 0 || nbytes >= INT_MAX)
+	error(_("invalid string length %ld in %s data file"), nbytes, format);
+#ifdef HAVE_SYS_STAT_H
+    struct stat sb;
+    long pos = ftell(fp);
+    if (pos >= 0 && fstat(fileno(fp), &sb) == 0 && S_ISREG(sb.st_mode) &&
+	(sb.st_size < (off_t) pos || nbytes > (long) (sb.st_size - (off_t) pos)))
+	error(_("string length %ld exceeds the remaining %s data file"),
+	      nbytes, format);
+#endif
+}
+
 static int InIntegerAscii(FILE *fp, SaveLoadData *unused)
 {
     char buf[128];
@@ -1441,6 +1483,7 @@ static char *InStringAscii(FILE *fp, SaveLoadData *unused)
     int nbytes, res;
     res = fscanf(fp, "%d", &nbytes);
     if(res != 1) error(_("read error"));
+    CheckStringLength(fp, nbytes, "ascii");
     /* FIXME : Ultimately we need to replace */
     /* this with a real string allocation. */
     /* All buffers must die! */
@@ -1584,6 +1627,7 @@ static char *InStringBinary(FILE *fp, SaveLoadData *unused)
     static char *buf = NULL;
     static int buflen = 0;
     int nbytes = InIntegerBinary(fp, unused);
+    CheckStringLength(fp, nbytes, "binary");
     if (nbytes >= buflen) {
 	char *newbuf;
 	/* Protect against broken realloc */
@@ -1685,6 +1729,7 @@ static char *InStringXdr(FILE *fp, SaveLoadData *d)
     static char *buf = NULL;
     static int buflen = 0;
     unsigned int nbytes = InIntegerXdr(fp, d);
+    CheckStringLength(fp, (long) nbytes, "xdr");
     if (nbytes >= buflen) {
 	char *newbuf;
 	/* Protect against broken realloc */
