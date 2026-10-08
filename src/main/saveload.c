@@ -265,11 +265,16 @@ static Rcomplex AsciiInComplex(FILE *fp, SaveLoadData *d)
 }
 
 
+/* The pre-version-1 string readers write into d->buffer, which the
+   caller sized; bound them by it, and fail at end of file rather than
+   spinning or writing R_EOF bytes past the end. */
 static char *AsciiInString(FILE *fp, SaveLoadData *d)
 {
     int c;
     char *bufp = d->buffer.data;
-    while ((c = R_fgetc(fp)) != '"');
+    char *end = d->buffer.data + d->buffer.bufsize - 1;
+    while ((c = R_fgetc(fp)) != '"')
+	if (c == R_EOF) error(_("a read error occurred"));
     while ((c = R_fgetc(fp)) != R_EOF && c != '"') {
 	if (c == '\\') {
 	    if ((c = R_fgetc(fp)) == R_EOF) break;
@@ -288,6 +293,7 @@ static char *AsciiInString(FILE *fp, SaveLoadData *d)
 	    default:  break;
 	    }
 	}
+	if (bufp >= end) error(_("string too long in data file"));
 	*bufp++ = (char) c;
     }
     *bufp = '\0';
@@ -414,9 +420,13 @@ static Rcomplex BinaryInComplex(FILE * fp, SaveLoadData *unused)
 
 static char *BinaryInString(FILE *fp, SaveLoadData *d)
 {
+    int c;
     char *bufp = d->buffer.data;
+    char *end = d->buffer.data + d->buffer.bufsize;
     do {
-	*bufp = (char) R_fgetc(fp);
+	if ((c = R_fgetc(fp)) == R_EOF) error(_("a read error occurred"));
+	if (bufp >= end) error(_("string too long in data file"));
+	*bufp = (char) c;
     }
     while (*bufp++);
     return d->buffer.data;
