@@ -2320,6 +2320,25 @@ void *vmaxget(void)
 
 void vmaxset(const void *ovmax)
 {
+#ifdef PROTECTCHECK
+    /* Everything above the restored position is released.  Check that
+       the position is on the stack, and empty the released R_realloc
+       nodes so that resizing a released block fails at once instead of
+       at the next collection.  NULL and R_NilValue both end the stack. */
+    SEXP s = R_VStack;
+    while (s != ovmax && s != NULL && s != R_NilValue) {
+	if (TYPEOF(s) == LISTSXP) {
+	    SETCAR(s, R_NilValue);
+	    s = CDR(s);
+	}
+	else {
+	    s = ATTRIB(s);
+	}
+    }
+    if (s != ovmax && ovmax != NULL && ovmax != R_NilValue)
+	error(_("'%s' called with a position that is not on the allocation stack"),
+	      "vmaxset");
+#endif
     R_VStack = (SEXP) ovmax;
 }
 
@@ -2356,22 +2375,39 @@ char *R_alloc(size_t nelem, int eltsize)
     return (char *) STDVEC_DATAPTR(s);
 }
 
-/* The node holding the resizable block at p, or NULL if there is none.
-   The block's header precedes p and its ATTRIB points at the node, so
-   the two are checked against each other rather than by scanning the
-   stack.  As with realloc(), a pointer from elsewhere is a programming
-   error: it is rejected when the memory before it does not look like a
-   resizable block, but not every such pointer can be told apart safely. */
+/* The node holding the resizable block at p; an error for any other
+   pointer.  The block's header precedes p and its ATTRIB points at the
+   node, so the two are checked against each other rather than by
+   scanning the stack.  As with realloc(), a pointer from elsewhere is a
+   programming error: it is rejected when the memory before it does not
+   look like a resizable block, but not every such pointer can be told
+   apart safely.  The two likely mistakes, a pointer superseded by a
+   resize and a block released by vmaxset, get their own messages. */
 static SEXP findRAllocNode(void *p)
 {
     SEXP buf = (SEXP) ((SEXPREC_ALIGN *) p - 1);
-    if (TYPEOF(buf) != RAWSXP)
-	return NULL;
-
-    SEXP node = ATTRIB(buf);
-    if (node == NULL || TYPEOF(node) != LISTSXP || CAR(node) != buf)
-	return NULL;
-    return node;
+#ifdef PROTECTCHECK
+    if (TYPEOF(buf) == FREESXP && OLDTYPE(buf) == RAWSXP)
+	error(_("'%s' called on a pointer to a block that has been released"),
+	      "R_realloc");
+#endif
+    if (TYPEOF(buf) == RAWSXP) {
+	SEXP node = ATTRIB(buf);
+	if (node != NULL && TYPEOF(node) == LISTSXP) {
+	    SEXP held = CAR(node);
+	    if (held == buf)
+		return node;
+	    /* vmaxset empties a released node under PROTECTCHECK. */
+	    if (held == R_NilValue)
+		error(_("'%s' called on a pointer to a block that has been released"),
+		      "R_realloc");
+	    if (held != NULL && TYPEOF(held) == RAWSXP && ATTRIB(held) == node)
+		error(_("'%s' called on a pointer to a block it has already resized"),
+		      "R_realloc");
+	}
+    }
+    error(_("'%s' called on a pointer not allocated by '%s'"),
+	  "R_realloc", "R_realloc");
 }
 
 char *R_realloc(void *p, size_t nelem, int eltsize)
@@ -2393,9 +2429,6 @@ char *R_realloc(void *p, size_t nelem, int eltsize)
     }
 
     SEXP node = findRAllocNode(p);
-    if (node == NULL)
-	error(_("'%s' called on a pointer not allocated by '%s'"),
-	      "R_realloc", "R_realloc");
 
     /* A zero size shrinks to a minimal block rather than releasing it,
        so the block keeps its stack position and can grow again. */
@@ -2410,6 +2443,10 @@ char *R_realloc(void *p, size_t nelem, int eltsize)
     SEXP buf = allocVector(RAWSXP, size + 1);
     char *q = (char *) STDVEC_DATAPTR(buf);
     memcpy(q, p, oldsize < size ? oldsize : size);
+#if VALGRIND_LEVEL > 1
+    /* The replaced block is garbage from here on. */
+    VALGRIND_MAKE_MEM_NOACCESS(p, oldsize);
+#endif
     ATTRIB(buf) = node;
     SETCAR(node, buf);
     return q;

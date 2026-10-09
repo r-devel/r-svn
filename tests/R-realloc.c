@@ -189,9 +189,12 @@ static SEXP test_errors(SEXP too_big)
     char *p = R_realloc(NULL, 16, 1);
     memset(p, 42, 16);
     const void *mark = vmaxget();
-    /* Foreign pointers: zeroed memory, a plain R vector, an R_alloc block. */
+    /* Foreign pointers: zeroed memory, a plain R vector, an R_alloc block,
+       and a pointer superseded by a resize. */
     char invalid[128] = {0};
     SEXP raw = PROTECT(allocVector(RAWSXP, 16));
+    char *stale = R_realloc(NULL, 16, 1);
+    R_realloc(stale, 4096, 1);
     request_data requests[] = {
 	{p, (size_t) -1, 2},
 	{p, 1, -1},
@@ -200,10 +203,11 @@ static SEXP test_errors(SEXP too_big)
 	{invalid + 64, 16, 1},
 	{RAW(raw), 32, 1},
 	{R_alloc(16, 1), 32, 1},
+	{stale, 32, 1},
 	{p, (size_t) asReal(too_big), 1}
     };
     const void *top = vmaxget();
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
 	if (R_ToplevelExec(request, &requests[i]))
 	    error("invalid reallocation succeeded");
 	R_gc();
@@ -217,6 +221,16 @@ static SEXP test_errors(SEXP too_big)
     vmaxset(base);
     UNPROTECT(1);
     return R_NilValue;
+}
+
+/* Resizing through a superseded pointer: the error message is checked
+   by the caller, so this runs outside R_ToplevelExec. */
+static SEXP test_stale(void)
+{
+    char *p = R_realloc(NULL, 16, 1);
+    R_realloc(p, 4096, 1);
+    R_realloc(p, 32, 1);
+    error("resizing through a stale pointer succeeded");
 }
 
 /* Vcells in use after each step of a grow, shrink, regrow sequence. */
@@ -244,6 +258,7 @@ static const R_CallMethodDef callMethods[] = {
     {"test_basic", (DL_FUNC) &test_basic, 0},
     {"test_contexts", (DL_FUNC) &test_contexts, 0},
     {"test_errors", (DL_FUNC) &test_errors, 1},
+    {"test_stale", (DL_FUNC) &test_stale, 0},
     {"test_reclaim", (DL_FUNC) &test_reclaim, 1},
     {NULL, NULL, 0}
 };

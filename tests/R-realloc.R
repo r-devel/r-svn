@@ -53,6 +53,10 @@ local({
     .Call("test_basic", PACKAGE = "realloc")
     callQuietly("test_contexts")
     callQuietly("test_errors", 2 * limit * 1024^2)
+    msg <- tryCatch(.Call("test_stale", PACKAGE = "realloc"),
+                    error = conditionMessage)
+    stopifnot(identical(msg,
+        "'R_realloc' called on a pointer to a block it has already resized"))
 
     gctorture(TRUE)
     on.exit(gctorture(FALSE), add = TRUE)
