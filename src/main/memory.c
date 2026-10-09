@@ -2304,9 +2304,15 @@ attribute_hidden void InitMemory(void)
     MARK_NOT_MUTABLE(R_LogicalNAValue);
 }
 
-/* R_alloc buffers are held in the CARs of a pairlist traced by the
-   collector.  Keeping the pairlist nodes stable allows R_realloc to
-   replace a buffer without invalidating saved vmaxget marks. */
+/* Since memory allocated from the heap is non-moving, R_alloc just
+   allocates off the heap as RAWSXP and maintains the stack of
+   allocations through the ATTRIB pointer.  The stack pointer R_VStack
+   is traced by the collector.
+
+   A block that R_realloc may resize is instead held in the CAR of a
+   pairlist node on the stack.  The node keeps its position, so saved
+   vmaxget marks stay valid while the buffer in its CAR is replaced;
+   the buffer's ATTRIB points back at its node. */
 void *vmaxget(void)
 {
     return (void *) R_VStack;
@@ -2317,66 +2323,115 @@ void vmaxset(const void *ovmax)
     R_VStack = (SEXP) ovmax;
 }
 
-static SEXP allocRAllocBuffer(size_t nelem, int eltsize)
+/* Byte count for an R_alloc request, or 0 if the request is not positive. */
+static R_size_t RAllocSize(size_t nelem, int eltsize)
 {
-    R_size_t size = nelem * eltsize;
     /* doubles are a precaution against integer overflow on 32-bit */
     double dsize = (double) nelem * eltsize;
-    if (dsize > 0) {
-	SEXP s;
+    if (dsize <= 0)
+	return 0;
 #ifdef LONG_VECTOR_SUPPORT
-	/* 64-bit platform: previous version used REALSXPs */
-	if(dsize > R_XLEN_T_MAX)  /* currently 4096 TB */
-	    error(_("cannot allocate memory block of size %0.f %s"),
-		  dsize/R_pow_di(1024.0, 4), "Tb");
-	s = allocVector(RAWSXP, size + 1);
+    /* 64-bit platform: previous version used REALSXPs */
+    if (dsize > R_XLEN_T_MAX)  /* currently 4096 TB */
+	error(_("cannot allocate memory block of size %0.f %s"),
+	      dsize/R_pow_di(1024.0, 4), "Tb");
 #else
-	if(dsize > R_LEN_T_MAX) /* must be in the Gb range */
-	    error(_("cannot allocate memory block of size %0.1f %s"),
-		  dsize/R_pow_di(1024.0, 3), "Gb");
-	s = allocVector(RAWSXP, size + 1);
+    if (dsize > R_LEN_T_MAX) /* must be in the Gb range */
+	error(_("cannot allocate memory block of size %0.1f %s"),
+	      dsize/R_pow_di(1024.0, 3), "Gb");
 #endif
-	return s;
-    }
-    else return R_NilValue;
+    return nelem * eltsize;
 }
 
 char *R_alloc(size_t nelem, int eltsize)
 {
-    SEXP s = allocRAllocBuffer(nelem, eltsize);
+    R_size_t size = RAllocSize(nelem, eltsize);
     /* One programmer has relied on this, but it is undocumented! */
-    if (s == R_NilValue) return NULL;
-    /* CONS_NR protects its arguments if it needs to collect. */
-    R_VStack = CONS_NR(s, R_VStack);
+    if (size == 0)
+	return NULL;
+
+    SEXP s = allocVector(RAWSXP, size + 1);
+    ATTRIB(s) = R_VStack;
+    R_VStack = s;
     return (char *) STDVEC_DATAPTR(s);
+}
+
+/* The stack entry holding the buffer at p: the vector itself for an
+   R_alloc block, or the node for a resizable one.  NULL if not found. */
+static SEXP findRAllocEntry(void *p)
+{
+    SEXP s = R_VStack;
+    while (s != NULL && s != R_NilValue) {
+	if (TYPEOF(s) == LISTSXP) {
+	    if (CAR(s) != R_NilValue && STDVEC_DATAPTR(CAR(s)) == p)
+		return s;
+	    s = CDR(s);
+	} else {
+	    if (STDVEC_DATAPTR(s) == p)
+		return s;
+	    s = ATTRIB(s);
+	}
+    }
+    return NULL;
 }
 
 char *R_realloc(void *p, size_t nelem, int eltsize)
 {
+    if (p == NULL) {
+	R_size_t size = RAllocSize(nelem, eltsize);
+	if (size == 0)
+	    return NULL;
+
+	SEXP node = PROTECT(CONS_NR(R_NilValue, R_VStack));
+	SEXP buf = allocVector(RAWSXP, size + 1);
+	ATTRIB(buf) = node;
+	SETCAR(node, buf);
+	R_VStack = node;
+	UNPROTECT(1);
+	return (char *) STDVEC_DATAPTR(buf);
+    }
+
     if (eltsize < 0)
 	error(_("invalid '%s' value"), "eltsize");
-    if (p == NULL) return R_alloc(nelem, eltsize);
-
-    SEXP s;
-    for (s = R_VStack; s != NULL && s != R_NilValue; s = CDR(s))
-	if (CAR(s) != R_NilValue && STDVEC_DATAPTR(CAR(s)) == p)
-	    break;
-    if (s == NULL || s == R_NilValue)
+    SEXP s = findRAllocEntry(p);
+    if (s == NULL)
 	error(_("'%s' called on a pointer not allocated by '%s'"),
 	      "R_realloc", "R_alloc");
 
-    /* Allocate before changing s, so an allocation error leaves p valid. */
-    SEXP buf = allocRAllocBuffer(nelem, eltsize);
-    char *q = NULL;
-    if (buf != R_NilValue) {
-	R_xlen_t oldsize = XLENGTH(CAR(s)) - 1;
-	R_xlen_t newsize = XLENGTH(buf) - 1;
-	q = (char *) STDVEC_DATAPTR(buf);
-	memcpy(q, p, oldsize < newsize ? oldsize : newsize);
+    R_size_t size = RAllocSize(nelem, eltsize);
+    SEXP old = (TYPEOF(s) == LISTSXP) ? CAR(s) : s;
+    R_size_t oldsize = XLENGTH(old) - 1;
+    if (size > 0 && size == oldsize)
+	return p;
+
+    SEXP node = s;
+    if (TYPEOF(s) != LISTSXP) {
+	/* An R_alloc block may itself be a saved mark, so it stays on
+	   the stack and its replacements live in a node inserted below
+	   it.  The block is only released when the stack unwinds. */
+	node = PROTECT(CONS_NR(R_NilValue, ATTRIB(s)));
     }
-    /* Keep the node even when freeing its buffer: it may be a saved mark.
-       SETCAR supplies the write barrier if s has survived a collection. */
-    SETCAR(s, buf);
+
+    /* Allocate before linking anything, so an allocation error leaves
+       p valid. */
+    SEXP buf = R_NilValue;
+    char *q = NULL;
+    if (size > 0) {
+	buf = allocVector(RAWSXP, size + 1);
+	q = (char *) STDVEC_DATAPTR(buf);
+	memcpy(q, p, oldsize < size ? oldsize : size);
+	ATTRIB(buf) = node;
+    }
+
+    /* The node is kept when releasing its buffer: it may be a saved
+       mark.  Nodes that have survived a collection need the write
+       barrier. */
+    SETCAR(node, buf);
+    if (node != s) {
+	CHECK_OLD_TO_NEW(s, node);
+	ATTRIB(s) = node;
+	UNPROTECT(1);
+    }
     return q;
 }
 

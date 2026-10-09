@@ -135,9 +135,10 @@
 
   \subsection{C-Level Facilities}{
     \itemize{
-      \item New function \code{R_realloc()} resizes memory obtained from
-      \code{R_alloc()}, allowing the old buffer to be reclaimed while
-      preserving saved allocation-stack positions.
+      \item New function \code{R_realloc()} resizes transient memory
+      obtained from \code{R_alloc()} or from \code{R_realloc()} itself,
+      releasing the superseded buffer for garbage collection while
+      preserving saved \code{vmaxget()} positions.
     }
   }
 

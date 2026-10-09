@@ -15406,12 +15406,20 @@ block.  If @var{n} or @var{size} is zero, the block is released and
 successful call, use only the returned pointer.  An allocation error
 leaves the original block unchanged.
 
-Resizing preserves the block's position on the allocation stack and all
-saved @code{vmaxget} marks (see below).  Restoring a mark taken before the
-original allocation releases the resized block; restoring a later mark
-keeps it.  The old buffer becomes available for garbage collection as
-soon as it is replaced.  Even when the buffer is released by a zero-size
-request, its small stack node remains until the stack is unwound.
+Resizing preserves the block's position on the allocation stack, so all
+saved @code{vmaxget} marks (see below) remain valid: restoring a mark
+taken before the block was allocated releases it, and restoring a later
+mark keeps it.  A block allocated by @code{R_realloc} (with a
+@code{NULL} @var{p}) becomes available for garbage collection as soon as
+it is replaced or released, so code that grows a buffer should allocate
+it that way.  A block allocated by @code{R_alloc} can also be resized,
+but it is only released when the allocation stack is unwound (because it
+may itself be a saved mark); its replacements are released promptly.
+Blocks from @code{R_allocLD} cannot be resized.
+
+@code{R_realloc} is unrelated to the @code{malloc}-based @code{R_Realloc}
+macro (@pxref{User-controlled memory}): memory from one must not be
+passed to the other.
 
 There is a similar call, @code{S_alloc} (named for compatibility with older
 versions of @Sl{}) which zeroes the memory allocated,
@@ -15494,6 +15502,9 @@ providing analogues of @code{calloc}, @code{realloc} and @code{free}.
 If there is an error during allocation it is handled by @R{}, so if
 these return the memory has been successfully allocated or freed.
 @code{R_Free} will set the pointer @var{p} to @code{NULL}.
+(@code{R_Realloc} is unrelated to @code{R_realloc}, which resizes
+transient memory from @code{R_alloc}: @pxref{Transient storage
+allocation}.)
 @c (Some but not all versions of @Sl{} did so.)
 
 Users should arrange to @code{R_Free} this memory when no longer needed,
