@@ -1,4 +1,5 @@
-## Standalone C API tests; run with make R-realloc.Rout or make test-Misc-dev.
+## Tests of the R_realloc() C API; run with make test-Realloc.
+## Needs a C compiler: an installation without one skips the tests.
 local({
     src <- normalizePath(file.path(Sys.getenv("SRCDIR", "."), "R-realloc.c"))
     tmp <- tempfile("R-realloc-")
@@ -7,13 +8,30 @@ local({
     on.exit({setwd(oldwd); unlink(tmp, recursive = TRUE)})
     stopifnot(file.copy(src, "realloc.c"))
     r <- file.path(R.home("bin"), "R")
+
     status <- system2(
         r,
         c("CMD", "SHLIB", "realloc.c"),
         stdout = "build.log",
         stderr = "build.log"
     )
-    if (status != 0L) stop(paste(readLines("build.log"), collapse = "\n"))
+    if (status != 0L) {
+        ## Distinguish a missing toolchain from a genuine build failure.
+        cc <- tryCatch(
+            system2(r, c("CMD", "config", "CC"), stdout = TRUE, stderr = FALSE),
+            warning = function(w) character(),
+            error = function(e) character()
+        )
+        cc <- if (length(cc)) strsplit(cc[1L], " ", fixed = TRUE)[[1L]][1L] else ""
+        works <- nzchar(cc) && suppressWarnings(
+            system2(cc, "--version", stdout = FALSE, stderr = FALSE) == 0L
+        )
+        if (!works) {
+            message("no working C compiler found: skipping R_realloc() tests")
+            return(invisible())
+        }
+        stop(paste(readLines("build.log"), collapse = "\n"))
+    }
     dll <- dyn.load(paste0("realloc", .Platform$dynlib.ext))
     on.exit(dyn.unload(dll[["path"]]), add = TRUE, after = FALSE)
 
@@ -33,8 +51,16 @@ local({
     gctorture(TRUE)
     tryCatch(run(), finally = gctorture(FALSE))
 
-    ## gc() reports Vcells in units of eight bytes. Allow for R's own allocations.
-    used <- .Call("test_reclaim", function() gc()[2L, 1L], PACKAGE = "realloc")
-    expected <- c(0, 1, 2, 0, 0) * 1024^2
-    stopifnot(all(abs((used - used[1L]) - expected) < 4096))
+    ## gc() reports Vcells in units of eight bytes. Allow for R's own
+    ## allocations. A block from R_realloc(NULL) is released as soon as it
+    ## is replaced; one from R_alloc() stays until the stack unwinds.
+    reclaim <- function(resizable) {
+        used <- .Call("test_reclaim", function() gc()[2L, 1L], resizable,
+                      PACKAGE = "realloc")
+        (used - used[1L]) / 1024^2
+    }
+    stopifnot(
+        all(abs(reclaim(TRUE) - c(0, 1, 2, 0, 0)) < 4096 / 1024^2),
+        all(abs(reclaim(FALSE) - c(0, 1, 3, 1, 0)) < 4096 / 1024^2)
+    )
 })

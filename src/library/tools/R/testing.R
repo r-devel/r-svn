@@ -843,6 +843,7 @@ testInstalledBasic <- function(scope = c("basic", "devel", "both", "internet", "
         runone("p-r-random-tests", TRUE)
         message("running miscellaneous strict devel checks", domain = NA)
         if (runone("misc-devel")) return(invisible(1L))
+        message("running tests of R_realloc() (skipped without a C compiler)", domain = NA)
         if (runone("R-realloc")) return(invisible(1L))
         message("running tests demos from base and stats", domain = NA)
         if (runone("demos")) return(invisible(1L))
