@@ -190,18 +190,21 @@ static SEXP test_errors(SEXP too_big)
     char *p = R_realloc(NULL, 16, 1);
     memset(p, 42, 16);
     const void *mark = vmaxget();
-    char invalid;
+    /* Foreign pointers: zeroed memory, a plain R vector, an R_alloc block. */
+    char invalid[128] = {0};
+    SEXP raw = PROTECT(allocVector(RAWSXP, 16));
     request_data requests[] = {
 	{p, (size_t) -1, 2},
 	{p, 1, -1},
 	{NULL, 1, -1},
 	{NULL, (size_t) -1, 2},
-	{&invalid, 16, 1},
+	{invalid + 64, 16, 1},
+	{RAW(raw), 32, 1},
 	{R_alloc(16, 1), 32, 1},
 	{p, (size_t) asReal(too_big), 1}
     };
     const void *top = vmaxget();
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
 	if (R_ToplevelExec(request, &requests[i]))
 	    error("invalid reallocation succeeded");
 	R_gc();
@@ -213,6 +216,7 @@ static SEXP test_errors(SEXP too_big)
     p = R_realloc(p, 32, 1);
     check_bytes(p, 16, 42);
     vmaxset(base);
+    UNPROTECT(1);
     return R_NilValue;
 }
 

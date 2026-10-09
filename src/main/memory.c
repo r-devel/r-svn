@@ -2357,20 +2357,21 @@ char *R_alloc(size_t nelem, int eltsize)
 }
 
 /* The node holding the resizable block at p, or NULL if there is none.
-   Plain R_alloc vectors on the stack are passed over. */
+   The block's header precedes p and its ATTRIB points at the node, so
+   the two are checked against each other rather than by scanning the
+   stack.  As with realloc(), a pointer from elsewhere is a programming
+   error: it is rejected when the memory before it does not look like a
+   resizable block, but not every such pointer can be told apart safely. */
 static SEXP findRAllocNode(void *p)
 {
-    SEXP s = R_VStack;
-    while (s != NULL && s != R_NilValue) {
-	if (TYPEOF(s) == LISTSXP) {
-	    if (CAR(s) != R_NilValue && STDVEC_DATAPTR(CAR(s)) == p)
-		return s;
-	    s = CDR(s);
-	} else {
-	    s = ATTRIB(s);
-	}
-    }
-    return NULL;
+    SEXP buf = (SEXP) ((SEXPREC_ALIGN *) p - 1);
+    if (TYPEOF(buf) != RAWSXP)
+	return NULL;
+
+    SEXP node = ATTRIB(buf);
+    if (node == NULL || TYPEOF(node) != LISTSXP || CAR(node) != buf)
+	return NULL;
+    return node;
 }
 
 char *R_realloc(void *p, size_t nelem, int eltsize)
