@@ -17,16 +17,14 @@ local({
     )
     if (status != 0L) {
         ## Distinguish a missing toolchain from a genuine build failure.
-        cc <- tryCatch(
-            system2(r, c("CMD", "config", "CC"), stdout = TRUE, stderr = FALSE),
-            warning = function(w) character(),
-            error = function(e) character()
+        writeLines("void realloc_probe(void) {}", "probe.c")
+        probe <- system2(
+            r,
+            c("CMD", "SHLIB", "probe.c"),
+            stdout = FALSE,
+            stderr = FALSE
         )
-        cc <- if (length(cc)) strsplit(cc[1L], " ", fixed = TRUE)[[1L]][1L] else ""
-        works <- nzchar(cc) && suppressWarnings(
-            system2(cc, "--version", stdout = FALSE, stderr = FALSE) == 0L
-        )
-        if (!works) {
+        if (probe != 0L) {
             message("no working C compiler found: skipping R_realloc() tests")
             return(invisible())
         }
@@ -50,6 +48,8 @@ local({
     run()
     gctorture(TRUE)
     tryCatch(run(), finally = gctorture(FALSE))
+    ## The reclaim measurements hold up to 24 Mb of buffers at once.
+    mem.maxVSize(oldlimit)
 
     ## gc() reports Vcells in units of eight bytes. Allow for R's own
     ## allocations. A block from R_realloc(NULL) is released as soon as it
