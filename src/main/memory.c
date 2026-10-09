@@ -2397,23 +2397,20 @@ char *R_realloc(void *p, size_t nelem, int eltsize)
 	error(_("'%s' called on a pointer not allocated by '%s'"),
 	      "R_realloc", "R_realloc");
 
+    /* A zero size shrinks to a minimal block rather than releasing it,
+       so the block keeps its stack position and can grow again. */
     R_size_t size = RAllocSize(nelem, eltsize);
     R_size_t oldsize = XLENGTH(CAR(node)) - 1;
-    if (size > 0 && size == oldsize)
+    if (size == oldsize)
 	return p;
 
     /* Allocate before touching the node, so an allocation error leaves
-       p valid.  The node is kept when releasing its buffer: it may be a
-       saved mark.  SETCAR supplies the write barrier if the node has
+       p valid.  SETCAR supplies the write barrier if the node has
        survived a collection. */
-    SEXP buf = R_NilValue;
-    char *q = NULL;
-    if (size > 0) {
-	buf = allocVector(RAWSXP, size + 1);
-	q = (char *) STDVEC_DATAPTR(buf);
-	memcpy(q, p, oldsize < size ? oldsize : size);
-	ATTRIB(buf) = node;
-    }
+    SEXP buf = allocVector(RAWSXP, size + 1);
+    char *q = (char *) STDVEC_DATAPTR(buf);
+    memcpy(q, p, oldsize < size ? oldsize : size);
+    ATTRIB(buf) = node;
     SETCAR(node, buf);
     return q;
 }

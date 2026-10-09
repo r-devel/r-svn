@@ -1683,8 +1683,7 @@ allocated by @code{R_realloc} is instead held in the @code{CAR} of a
 pairlist node on the chain (whose @code{CDR} continues it), and its
 @code{ATTRIB} points back to that node.  @code{R_realloc} replaces the
 vector in the node, leaving the node in place so that saved stack
-positions remain valid; a zero-size request clears the @code{CAR} but
-retains the node.
+positions remain valid.
 Function @code{vmaxset} resets the location @code{R_VStack}, and should be to a
 value that has previously been obtained @emph{via} @code{vmaxget}:
 allocations after the value was obtained will no longer be protected and

@@ -51,17 +51,21 @@ static SEXP test_basic(void)
     if (vmaxget() != mark)
 	error("growing the newest buffer moved its mark");
 
-    /* Releasing must retain the mark, including across a later allocation. */
-    if (R_realloc(p, 1, 0) != NULL)
-	error("zero size did not return NULL");
+    /* A zero size keeps the block, its mark, and the ability to regrow. */
+    p = R_realloc(p, 1, 0);
+    if (p == NULL || R_realloc(p, 0, 1) != p)
+	error("zero size did not shrink in place");
     R_alloc(10000, 1);
     vmaxset(mark);
     R_gc();
     if (vmaxget() != mark)
-	error("releasing a buffer invalidated its mark");
-    p = R_realloc(NULL, 16, 1);
-    if (R_realloc(p, 0, 1) != NULL)
-	error("zero count did not return NULL");
+	error("shrinking a buffer invalidated its mark");
+    p = R_realloc(p, 16, 1);
+    memset(p, 42, 16);
+    R_gc();
+    check_bytes(p, 16, 42);
+    if (vmaxget() != mark)
+	error("regrowing a shrunk buffer moved its mark");
 
     /* S_realloc still preserves its old block and zeroes the extension. */
     p = S_alloc(16, 1);
@@ -88,10 +92,9 @@ typedef struct {
 static void check_resize(resize_data *d)
 {
     R_gc();
-    if (d->size)
-	check_bytes(d->p, d->size, 42);
-    else if (d->p != NULL)
-	error("free did not return NULL");
+    if (d->p == NULL)
+	error("resize returned NULL");
+    check_bytes(d->p, d->size, 42);
     check_bytes(d->other, 32, 17);
     if (vmaxget() != d->mark)
 	error("saved context mark changed");
@@ -101,10 +104,8 @@ static void resize(void *data)
 {
     resize_data *d = data;
     d->p = R_realloc(d->p, d->size, 1);
-    if (d->size) {
-	check_bytes(d->p, d->size < 16 ? d->size : 16, 42);
-	memset(d->p, 42, d->size);
-    }
+    check_bytes(d->p, d->size < 16 ? d->size : 16, 42);
+    memset(d->p, 42, d->size);
     check_resize(d);
     /* Error unwinding must discard this allocation, but retain d->p. */
     R_alloc(128, 1);
@@ -126,8 +127,7 @@ static void cleanup(void *data, Rboolean jump)
 	error("unexpected cleanup jump status");
     check_resize(d);
     /* Also verify stack membership after the context has been restored. */
-    if (d->size)
-	d->p = R_realloc(d->p, d->size, 1);
+    d->p = R_realloc(d->p, d->size, 1);
     d->cleaned++;
 }
 
@@ -156,8 +156,7 @@ static void test_context(size_t size, int older, int fail, int use_unwind)
     if (ok == fail || d.cleaned != use_unwind)
 	error("unexpected context result");
     check_resize(&d);
-    if (d.size)
-	d.p = R_realloc(d.p, d.size, 1);
+    d.p = R_realloc(d.p, d.size, 1);
     vmaxset(base);
 }
 
@@ -220,7 +219,7 @@ static SEXP test_errors(SEXP too_big)
     return R_NilValue;
 }
 
-/* Vcells in use after each step of a grow, release, regrow sequence. */
+/* Vcells in use after each step of a grow, shrink, regrow sequence. */
 static SEXP test_reclaim(SEXP gc)
 {
     SEXP call = PROTECT(lang1(gc));

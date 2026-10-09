@@ -1,5 +1,16 @@
 ## Tests of the R_realloc() C API; run with make test-Realloc.
 ## Needs a C compiler: an installation without one skips the tests.
+
+## Some tests provoke errors that R_ToplevelExec() catches in C, whose
+## messages would clutter the output. A genuine failure is re-raised.
+callQuietly <- function(name, ...) {
+    old <- options(show.error.messages = FALSE)
+    res <- tryCatch(.Call(name, ..., PACKAGE = "realloc"), error = identity)
+    options(old)
+    if (inherits(res, "error"))
+        stop(res)
+}
+
 local({
     src <- normalizePath(file.path(Sys.getenv("SRCDIR", "."), "R-realloc.c"))
     tmp <- tempfile("R-realloc-")
@@ -33,21 +44,23 @@ local({
     dll <- dyn.load(paste0("realloc", .Platform$dynlib.ext))
     on.exit(dyn.unload(dll[["path"]]), add = TRUE, after = FALSE)
 
-    old <- options(show.error.messages = FALSE)
-    on.exit(options(old), add = TRUE)
     ## Force a genuine allocation failure without exhausting system memory.
     oldlimit <- mem.maxVSize()
     limit <- ceiling(gc()[2L, 3L] * 8 / 1024^2) + 16
     mem.maxVSize(limit)
     on.exit(mem.maxVSize(oldlimit), add = TRUE)
-    run <- function() {
-        .Call("test_basic", PACKAGE = "realloc")
-        .Call("test_contexts", PACKAGE = "realloc")
-        .Call("test_errors", 2 * limit * 1024^2, PACKAGE = "realloc")
-    }
-    run()
+
+    .Call("test_basic", PACKAGE = "realloc")
+    callQuietly("test_contexts")
+    callQuietly("test_errors", 2 * limit * 1024^2)
+
     gctorture(TRUE)
-    tryCatch(run(), finally = gctorture(FALSE))
+    on.exit(gctorture(FALSE), add = TRUE)
+    .Call("test_basic", PACKAGE = "realloc")
+    callQuietly("test_contexts")
+    callQuietly("test_errors", 2 * limit * 1024^2)
+    gctorture(FALSE)
+
     ## The reclaim measurements hold up to 24 Mb of buffers at once.
     mem.maxVSize(oldlimit)
 

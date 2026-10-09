@@ -15400,20 +15400,23 @@ char *R_realloc(void *@var{p}, size_t @var{n}, int @var{size})
 
 @noindent
 A @code{NULL} @var{p} allocates a new block, which is otherwise used in
-the same way as one from @code{R_alloc}.  Passing that block back resizes
-it: the contents are preserved up to the smaller of the old and new
-sizes, and additional bytes are uninitialized.  If @var{n} or @var{size}
-is zero, the block is released and @code{NULL} is returned.  @var{size}
-must not be negative.  After a successful call, use only the returned
-pointer.  An allocation error leaves the original block unchanged.  Only
-blocks allocated by @code{R_realloc} can be resized: passing one from
-@code{R_alloc} or @code{R_allocLD} is an error.
+the same way as one from @code{R_alloc} (and like @code{R_alloc},
+@code{NULL} is returned if @var{n} or @var{size} is zero).  Passing that
+block back resizes it: the contents are preserved up to the smaller of
+the old and new sizes, and additional bytes are uninitialized.  A zero
+@var{n} or @var{size} shrinks the block to a minimal size, so the
+result is never @code{NULL} and can be grown again.  @var{size} must
+not be negative.  After a successful call, use only the returned
+pointer.  An allocation error leaves the original block unchanged.
+Only blocks allocated by @code{R_realloc} can be resized: passing any
+other pointer, including one from @code{R_alloc} or @code{R_allocLD},
+is a programming error which is detected only when possible.
 
 Resizing preserves the block's position on the allocation stack, so all
 saved @code{vmaxget} marks (see below) remain valid: restoring a mark
 taken before the block was allocated releases it, and restoring a later
-mark keeps it.  A replaced or released block becomes available for
-garbage collection at once.
+mark keeps it.  A replaced block becomes available for garbage
+collection at once.
 
 @code{R_realloc} is unrelated to the @code{malloc}-based @code{R_Realloc}
 macro (@pxref{User-controlled memory}): memory from one must not be
@@ -15500,9 +15503,8 @@ providing analogues of @code{calloc}, @code{realloc} and @code{free}.
 If there is an error during allocation it is handled by @R{}, so if
 these return the memory has been successfully allocated or freed.
 @code{R_Free} will set the pointer @var{p} to @code{NULL}.
-(@code{R_Realloc} is unrelated to @code{R_realloc}, which resizes
-transient memory from @code{R_alloc}: @pxref{Transient storage
-allocation}.)
+(@code{R_Realloc} is unrelated to @code{R_realloc}, which allocates
+and resizes transient memory: @pxref{Transient storage allocation}.)
 @c (Some but not all versions of @Sl{} did so.)
 
 Users should arrange to @code{R_Free} this memory when no longer needed,
