@@ -52,15 +52,8 @@ local({
     mem.maxVSize(oldlimit)
 
     ## gc() reports Vcells in units of eight bytes. Allow for R's own
-    ## allocations. A block from R_realloc(NULL) is released as soon as it
-    ## is replaced; one from R_alloc() stays until the stack unwinds.
-    reclaim <- function(resizable) {
-        used <- .Call("test_reclaim", function() gc()[2L, 1L], resizable,
-                      PACKAGE = "realloc")
-        (used - used[1L]) / 1024^2
-    }
-    stopifnot(
-        all(abs(reclaim(TRUE) - c(0, 1, 2, 0, 0)) < 4096 / 1024^2),
-        all(abs(reclaim(FALSE) - c(0, 1, 3, 1, 0)) < 4096 / 1024^2)
-    )
+    ## allocations. A replaced or released block is reclaimed at once.
+    used <- .Call("test_reclaim", function() gc()[2L, 1L], PACKAGE = "realloc")
+    used <- (used - used[1L]) / 1024^2
+    stopifnot(all(abs(used - c(0, 1, 2, 0, 0)) < 4096 / 1024^2))
 })

@@ -15392,30 +15392,28 @@ x = (int *) R_alloc(nrows(merge)+2, sizeof(int));
 (@code{size_t} is defined in @file{stddef.h} which the header defining
 @code{R_alloc} includes.)
 
-A block obtained from @code{R_alloc} or @code{R_realloc} can be resized with
+A resizable block is obtained from, and resized with,
 
 @example
 char *R_realloc(void *@var{p}, size_t @var{n}, int @var{size})
 @end example
 
 @noindent
-The contents are preserved up to the smaller of the old and new sizes;
-additional bytes are uninitialized.  A @code{NULL} @var{p} allocates a new
-block.  If @var{n} or @var{size} is zero, the block is released and
-@code{NULL} is returned.  @var{size} must not be negative.  After a
-successful call, use only the returned pointer.  An allocation error
-leaves the original block unchanged.
+A @code{NULL} @var{p} allocates a new block, which is otherwise used in
+the same way as one from @code{R_alloc}.  Passing that block back resizes
+it: the contents are preserved up to the smaller of the old and new
+sizes, and additional bytes are uninitialized.  If @var{n} or @var{size}
+is zero, the block is released and @code{NULL} is returned.  @var{size}
+must not be negative.  After a successful call, use only the returned
+pointer.  An allocation error leaves the original block unchanged.  Only
+blocks allocated by @code{R_realloc} can be resized: passing one from
+@code{R_alloc} or @code{R_allocLD} is an error.
 
 Resizing preserves the block's position on the allocation stack, so all
 saved @code{vmaxget} marks (see below) remain valid: restoring a mark
 taken before the block was allocated releases it, and restoring a later
-mark keeps it.  A block allocated by @code{R_realloc} (with a
-@code{NULL} @var{p}) becomes available for garbage collection as soon as
-it is replaced or released, so code that grows a buffer should allocate
-it that way.  A block allocated by @code{R_alloc} can also be resized,
-but it is only released when the allocation stack is unwound (because it
-may itself be a saved mark); its replacements are released promptly.
-Blocks from @code{R_allocLD} cannot be resized.
+mark keeps it.  A replaced or released block becomes available for
+garbage collection at once.
 
 @code{R_realloc} is unrelated to the @code{malloc}-based @code{R_Realloc}
 macro (@pxref{User-controlled memory}): memory from one must not be

@@ -12,17 +12,13 @@ static void check_bytes(const char *p, size_t n, int value)
     }
 }
 
-/* Every test runs on both kinds of block R_realloc accepts: one it
-   allocated itself (resizable) and one from R_alloc. */
-static char *alloc_block(size_t n, int resizable)
-{
-    return resizable ? R_realloc(NULL, n, 1) : R_alloc(n, 1);
-}
-
-static void test_basic_block(int resizable)
+static SEXP test_basic(void)
 {
     const void *base = vmaxget();
-    char *p = alloc_block(16 * sizeof(double), resizable);
+    if (R_realloc(NULL, 0, 1) != NULL || vmaxget() != base)
+	error("zero-size allocation changed the stack");
+
+    char *p = R_realloc(NULL, 16 * sizeof(double), 1);
     memset(p, 42, 16 * sizeof(double));
     const void *mark = vmaxget();
     char *q = R_alloc(32, 1);
@@ -63,25 +59,15 @@ static void test_basic_block(int resizable)
     R_gc();
     if (vmaxget() != mark)
 	error("releasing a buffer invalidated its mark");
-    p = alloc_block(16, resizable);
+    p = R_realloc(NULL, 16, 1);
     if (R_realloc(p, 0, 1) != NULL)
 	error("zero count did not return NULL");
-    vmaxset(base);
-}
-
-static SEXP test_basic(void)
-{
-    const void *base = vmaxget();
-    if (R_realloc(NULL, 0, 1) != NULL || vmaxget() != base)
-	error("zero-size allocation changed the stack");
-    test_basic_block(TRUE);
-    test_basic_block(FALSE);
 
     /* S_realloc still preserves its old block and zeroes the extension. */
-    char *p = S_alloc(16, 1);
+    p = S_alloc(16, 1);
     check_bytes(p, 16, 0);
     memset(p, 42, 16);
-    char *q = S_realloc(p, 32, 16, 1);
+    q = S_realloc(p, 32, 16, 1);
     R_gc();
     check_bytes(p, 16, 42);
     check_bytes(q, 16, 42);
@@ -150,14 +136,13 @@ static void unwind(void *data)
     R_UnwindProtect(resize_unwind, data, cleanup, data, NULL);
 }
 
-static void test_context(size_t size, int older, int fail, int use_unwind,
-			 int resizable)
+static void test_context(size_t size, int older, int fail, int use_unwind)
 {
     const void *base = vmaxget();
     resize_data d = {0};
     if (!older)
 	d.other = R_alloc(32, 1);
-    d.p = alloc_block(16, resizable);
+    d.p = R_realloc(NULL, 16, 1);
     if (older)
 	d.other = R_alloc(32, 1);
     memset(d.p, 42, 16);
@@ -179,13 +164,11 @@ static void test_context(size_t size, int older, int fail, int use_unwind,
 static SEXP test_contexts(void)
 {
     const size_t sizes[] = {10000, 8, 0};
-    for (int resizable = 0; resizable < 2; resizable++)
-	for (int older = 0; older < 2; older++)
-	    for (int fail = 0; fail < 2; fail++)
-		for (int use_unwind = 0; use_unwind < 2; use_unwind++)
-		    for (int i = 0; i < 3; i++)
-			test_context(sizes[i], older, fail, use_unwind,
-				     resizable);
+    for (int older = 0; older < 2; older++)
+	for (int fail = 0; fail < 2; fail++)
+	    for (int use_unwind = 0; use_unwind < 2; use_unwind++)
+		for (int i = 0; i < 3; i++)
+		    test_context(sizes[i], older, fail, use_unwind);
     return R_NilValue;
 }
 
@@ -201,10 +184,10 @@ static void request(void *data)
     R_realloc(d->p, d->count, d->size);
 }
 
-static void test_errors_block(size_t too_big, int resizable)
+static SEXP test_errors(SEXP too_big)
 {
     const void *base = vmaxget();
-    char *p = alloc_block(16, resizable);
+    char *p = R_realloc(NULL, 16, 1);
     memset(p, 42, 16);
     const void *mark = vmaxget();
     char invalid;
@@ -214,43 +197,39 @@ static void test_errors_block(size_t too_big, int resizable)
 	{NULL, 1, -1},
 	{NULL, (size_t) -1, 2},
 	{&invalid, 16, 1},
-	{p, too_big, 1}
+	{R_alloc(16, 1), 32, 1},
+	{p, (size_t) asReal(too_big), 1}
     };
-    for (int i = 0; i < 6; i++) {
+    const void *top = vmaxget();
+    for (int i = 0; i < 7; i++) {
 	if (R_ToplevelExec(request, &requests[i]))
 	    error("invalid reallocation succeeded");
 	R_gc();
 	check_bytes(p, 16, 42);
-	if (vmaxget() != mark)
+	if (vmaxget() != top)
 	    error("failed reallocation changed the stack");
     }
+    vmaxset(mark);
     p = R_realloc(p, 32, 1);
     check_bytes(p, 16, 42);
     vmaxset(base);
-}
-
-static SEXP test_errors(SEXP too_big)
-{
-    test_errors_block((size_t) asReal(too_big), TRUE);
-    test_errors_block((size_t) asReal(too_big), FALSE);
     return R_NilValue;
 }
 
 /* Vcells in use after each step of a grow, release, regrow sequence. */
-static SEXP test_reclaim(SEXP gc, SEXP resizable)
+static SEXP test_reclaim(SEXP gc)
 {
     SEXP call = PROTECT(lang1(gc));
     SEXP ans = PROTECT(allocVector(REALSXP, 5));
-    int rs = asLogical(resizable);
     const void *base = vmaxget();
     REAL(ans)[0] = asReal(eval(call, R_GlobalEnv));
-    char *p = alloc_block(8 * 1024 * 1024, rs);
+    char *p = R_realloc(NULL, 8 * 1024 * 1024, 1);
     REAL(ans)[1] = asReal(eval(call, R_GlobalEnv));
     p = R_realloc(p, 16 * 1024 * 1024, 1);
     REAL(ans)[2] = asReal(eval(call, R_GlobalEnv));
     p = R_realloc(p, 0, 1);
     REAL(ans)[3] = asReal(eval(call, R_GlobalEnv));
-    p = alloc_block(8 * 1024 * 1024, rs);
+    p = R_realloc(NULL, 8 * 1024 * 1024, 1);
     p = R_realloc(p, 16 * 1024 * 1024, 1);
     vmaxset(base);
     REAL(ans)[4] = asReal(eval(call, R_GlobalEnv));
@@ -262,7 +241,7 @@ static const R_CallMethodDef callMethods[] = {
     {"test_basic", (DL_FUNC) &test_basic, 0},
     {"test_contexts", (DL_FUNC) &test_contexts, 0},
     {"test_errors", (DL_FUNC) &test_errors, 1},
-    {"test_reclaim", (DL_FUNC) &test_reclaim, 2},
+    {"test_reclaim", (DL_FUNC) &test_reclaim, 1},
     {NULL, NULL, 0}
 };
 
