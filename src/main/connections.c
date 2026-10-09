@@ -4409,8 +4409,7 @@ static void con_cleanup(void *data)
 }
 
 typedef struct {
-    /* Address of the line buffer pointer, so cleanup follows reallocations. */
-    char **buf;
+    char **buf; /* address of the buffer pointer, to track reallocations */
     Rconnection con; /* NULL unless the connection still needs closing */
 } readLines_data;
 
