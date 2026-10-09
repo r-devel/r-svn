@@ -211,11 +211,12 @@ static void test_errors_block(size_t too_big, int resizable)
     request_data requests[] = {
 	{p, (size_t) -1, 2},
 	{p, 1, -1},
+	{NULL, 1, -1},
 	{NULL, (size_t) -1, 2},
 	{&invalid, 16, 1},
 	{p, too_big, 1}
     };
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
 	if (R_ToplevelExec(request, &requests[i]))
 	    error("invalid reallocation succeeded");
 	R_gc();

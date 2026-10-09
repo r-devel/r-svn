@@ -136,9 +136,11 @@
   \subsection{C-Level Facilities}{
     \itemize{
       \item New function \code{R_realloc()} resizes transient memory
-      obtained from \code{R_alloc()} or from \code{R_realloc()} itself,
-      releasing the superseded buffer for garbage collection while
-      preserving saved \code{vmaxget()} positions.
+      while preserving saved \code{vmaxget()} positions.  A block it
+      allocated itself (with a \code{NULL} pointer) is released for
+      garbage collection as soon as it is replaced; a block from
+      \code{R_alloc()} can also be resized, but is only released when
+      the allocation stack is unwound.
     }
   }
 

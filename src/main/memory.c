@@ -2377,6 +2377,8 @@ static SEXP findRAllocEntry(void *p)
 
 char *R_realloc(void *p, size_t nelem, int eltsize)
 {
+    if (eltsize < 0)
+	error(_("invalid '%s' value"), "eltsize");
     if (p == NULL) {
 	R_size_t size = RAllocSize(nelem, eltsize);
 	if (size == 0)
@@ -2391,8 +2393,6 @@ char *R_realloc(void *p, size_t nelem, int eltsize)
 	return (char *) STDVEC_DATAPTR(buf);
     }
 
-    if (eltsize < 0)
-	error(_("invalid '%s' value"), "eltsize");
     SEXP s = findRAllocEntry(p);
     if (s == NULL)
 	error(_("'%s' called on a pointer not allocated by '%s'"),
@@ -2403,6 +2403,10 @@ char *R_realloc(void *p, size_t nelem, int eltsize)
     R_size_t oldsize = XLENGTH(old) - 1;
     if (size > 0 && size == oldsize)
 	return p;
+    /* An R_alloc block cannot be released early, so there is nothing
+       to record. */
+    if (size == 0 && TYPEOF(s) != LISTSXP)
+	return NULL;
 
     SEXP node = s;
     if (TYPEOF(s) != LISTSXP) {
