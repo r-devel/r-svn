@@ -2313,38 +2313,8 @@ void *vmaxget(void)
     return (void *) R_VStack;
 }
 
-#ifdef PROTECTCHECK
-/* A mark from vmaxget() is only valid while its node is on the stack.
-   One popped by an earlier vmaxset(), or replaced by R_realloc(), is
-   stale: installing it would truncate the stack at a dead node and
-   leave the collector following it.  The unwind for the error passes
-   the target context's own mark back through here; if that one is
-   stale too the state cannot be repaired, so give up instead of
-   recursing. */
-static void check_vmax_mark(SEXP mark)
-{
-    static Rboolean reporting = FALSE;
-
-    SEXP s = R_VStack;
-    while (s != NULL && s != R_NilValue && s != mark)
-	s = ATTRIB(s);
-    if (s == mark || mark == NULL || mark == R_NilValue) {
-	reporting = FALSE;
-	return;
-    }
-
-    if (reporting)
-	R_Suicide("vmaxset: stale R_alloc stack mark in error unwind");
-    reporting = TRUE;
-    error("vmaxset: mark is not on the R_alloc stack");
-}
-#endif
-
 void vmaxset(const void *ovmax)
 {
-#ifdef PROTECTCHECK
-    check_vmax_mark((SEXP) ovmax);
-#endif
     R_VStack = (SEXP) ovmax;
 }
 
@@ -2373,55 +2343,6 @@ char *R_alloc(size_t nelem, int eltsize)
     }
     /* One programmer has relied on this, but it is undocumented! */
     else return NULL;
-}
-
-/* Resize a block obtained from R_alloc.  The new block takes the old
-   one's place on the R_alloc stack, so a vmaxset() to a mark taken
-   before the original allocation still releases it, while the old
-   block becomes garbage at once rather than living on until the
-   stack is unwound.  As with realloc(), p == NULL allocates, a zero
-   size releases the block and returns NULL, and the contents are
-   kept up to the smaller of the old and new sizes. */
-char *R_realloc(void *p, size_t nelem, int eltsize)
-{
-    if (p == NULL)
-	return R_alloc(nelem, eltsize);
-
-    /* find the block; it is usually at or near the top of the stack */
-    SEXP prev = NULL, s = R_VStack;
-    while (s != NULL && s != R_NilValue && STDVEC_DATAPTR(s) != p) {
-	prev = s;
-	s = ATTRIB(s);
-    }
-    if (s == NULL || s == R_NilValue)
-	error(_("'%s' called on a pointer not allocated by '%s'"),
-	      "R_realloc", "R_alloc");
-
-    double osize = (double) (XLENGTH(s) - 1);
-    double nsize = (double) nelem * eltsize;
-    if (nsize == osize)
-	return p;
-
-    /* R_alloc may run the collector: s is still linked in, so the old
-       contents survive.  Nothing below allocates until the new block
-       is linked in place of s. */
-    char *q = R_alloc(nelem, eltsize);
-    SEXP repl = ATTRIB(s);
-    if (q != NULL) {
-	repl = R_VStack;
-	R_VStack = ATTRIB(repl);
-	memcpy(q, p, (size_t) (nsize < osize ? nsize : osize));
-	ATTRIB(repl) = ATTRIB(s);
-    }
-    if (prev == NULL) {
-	R_VStack = repl;
-    } else {
-	CHECK_OLD_TO_NEW(prev, repl);
-	ATTRIB(prev) = repl;
-    }
-    ATTRIB(s) = R_NilValue;
-
-    return q;
 }
 
 #ifdef HAVE_STDALIGN_H

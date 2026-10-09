@@ -15363,7 +15363,6 @@ included by @file{R.h}.
 @node Transient storage allocation
 @subsection Transient storage allocation
 @apifun R_alloc
-@apifun R_realloc
 @apifun R_allocLD
 @apifun S_alloc
 @apifun S_realloc
@@ -15391,27 +15390,6 @@ x = (int *) R_alloc(nrows(merge)+2, sizeof(int));
 @noindent
 (@code{size_t} is defined in @file{stddef.h} which the header defining
 @code{R_alloc} includes.)
-
-A block obtained from @code{R_alloc} can be resized with
-
-@example
-char *R_realloc(void *@var{p}, size_t @var{n}, int @var{size})
-@end example
-
-@noindent
-which behaves like @code{realloc}: the contents are kept up to the
-smaller of the old and new sizes, a @code{NULL} @var{p} allocates a
-new block and a zero size releases @var{p} and returns @code{NULL}.
-The new block takes the place of the old one, so it is still released
-by a @code{vmaxset} to a position recorded before @var{p} was
-allocated (see below), whereas the old block can be reclaimed by the
-garbage collector right away.  As with @code{realloc}, @var{p} must
-not be used after the call, and a position recorded by
-@code{vmaxget} while @var{p} was the most recent allocation is no
-longer valid: record the position before allocating @var{p}, typically
-at the start of the function.  (An @R{} configured with
-@option{--enable-strict-barrier} checks the position passed to
-@code{vmaxset} and signals an error if it is stale.)
 
 There is a similar call, @code{S_alloc} (named for compatibility with older
 versions of @Sl{}) which zeroes the memory allocated,

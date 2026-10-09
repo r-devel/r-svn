@@ -4408,6 +4408,11 @@ static void con_cleanup(void *data)
     checkClose(con);
 }
 
+static void readLines_cleanup(void *data)
+{
+    free(*(char **) data);
+}
+
 /* readLines(con = stdin(), n = 1, ok = TRUE, warn = TRUE) */
 #define BUF_SIZE 1000
 attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -4418,9 +4423,9 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     int oenc = CE_NATIVE;
     Rconnection con = NULL;
     Rboolean wasopen;
-    char *buf;
+    char *buf = NULL;
     const char *encoding;
-    RCNTXT cntxt;
+    RCNTXT cntxt, bufcntxt;
     R_xlen_t i, n, nn, nnn, nread;
 
     checkArity(op, args);
@@ -4442,6 +4447,13 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     skipNul = asLogical(CAR(args));
     if(skipNul == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "skipNul");
+
+    /* Keep this outside the connection context so errors after closing
+       the connection also free the buffer, including after realloc. */
+    begincontext(&bufcntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    bufcntxt.cend = &readLines_cleanup;
+    bufcntxt.cenddata = &buf;
 
     wasopen = con->isopen;
     if(!wasopen) {
@@ -4469,12 +4481,9 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     else if(streql(encoding, "latin1")) oenc = CE_LATIN1;
     else if(streql(encoding, "bytes")) oenc = CE_BYTES;
 
-    /* R_alloc rather than malloc: an error raised while reading (a
-       conversion failure or read error in Rconn_fgetc, "too many
-       items", an allocation failure) unwinds past the frees below, and
-       memory from R_alloc is reclaimed by the unwind. */
-    const void *vmax = vmaxget();
-    buf = R_alloc(buf_size, sizeof(char));
+    buf = (char *) malloc(buf_size);
+    if(!buf)
+	error(_("cannot allocate buffer in readLines"));
     nn = (n < 0) ? 1000 : n; /* initially allocate space for 1000 lines */
     nnn = (n < 0) ? R_XLEN_T_MAX : n;
     PROTECT(ans = allocVector(STRSXP, nn));
@@ -4493,7 +4502,10 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	while((c = Rconn_fgetc(con)) != R_EOF) {
 	    if(nbuf == buf_size-1) {  /* need space for the terminator */
 		buf_size *= 2;
-		buf = R_realloc(buf, buf_size, sizeof(char));
+		char *tmp = (char *) realloc(buf, buf_size);
+		if(!tmp)
+		    error(_("cannot allocate buffer in readLines"));
+		buf = tmp;
 	    }
 	    if(skipNul && c == '\0') continue;
 	    if(c != '\n')
@@ -4515,8 +4527,9 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(c == R_EOF) goto no_more_lines;
     }
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    endcontext(&bufcntxt);
     UNPROTECT(1);
-    vmaxset(vmax);
+    free(buf);
     return ans;
 no_more_lines:
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
@@ -4533,7 +4546,8 @@ no_more_lines:
 			con->description);
 	}
     }
-    vmaxset(vmax);
+    endcontext(&bufcntxt);
+    free(buf);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
     PROTECT(ans2 = allocVector(STRSXP, nread));
