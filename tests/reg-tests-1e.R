@@ -4043,6 +4043,43 @@ local({
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function
 
+## Missing subscripts are looked up again after the getter, including
+## when an intervening replacement binds the previously missing symbol
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    f <- function(x, i) {
+        x[i][{ i <- 3:1; 1L }] <- 0L
+        x
+    }
+    g <- function(x, i) {
+        x[i, ][{ i <- 3:1; 1L }] <- 0L
+        x
+    }
+    for (fun in list(f, compiler::cmpfun(f))) {
+        stopifnot(identical(fun(1:3), c(3L, 2L, 0L)),
+                  identical(fun(structure(1:3, class = "noMethod")),
+                            structure(c(3L, 2L, 0L), class = "noMethod")))
+    }
+    for (fun in list(g, compiler::cmpfun(g)))
+        stopifnot(identical(fun(matrix(1:3)), matrix(c(3L, 2L, 0L))))
+    ## An expression returning the missing-argument object is still
+    ## evaluated only once, unlike a lookup of a missing symbol.
+    once <- function(closure = FALSE) {
+        n <- 0L
+        idx <- function() { n <<- n + 1L; quote(expr = ) }
+        if (closure)
+            `[<-` <- function(x, i, value) .Primitive("[<-")(x, i, value = value)
+        x <- 1:3
+        x[idx()][1L] <- 0L
+        list(n, x)
+    }
+    for (fun in list(once, compiler::cmpfun(once)))
+        for (closure in c(FALSE, TRUE))
+            stopifnot(identical(fun(closure), list(1L, c(0L, 2L, 3L))))
+})
+## the compiled default getter cached R_MissingArg and ignored the binding
+
 ## Shared argument lists remain protected while their promises are made
 local({
     oldJIT <- compiler::enableJIT(0L)

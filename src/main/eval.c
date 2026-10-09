@@ -4753,7 +4753,9 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 
 /* start of bytecode section */
 static int R_bcVersion = 13;
-static int R_bcMinVersion = 9;
+/* Older code evaluates complex assignment arguments twice.  Evaluate
+   its source expression instead until it is recompiled. */
+static int R_bcMinVersion = 13;
 
 static SEXP R_AddSym = NULL;
 static SEXP R_SubSym = NULL;
@@ -6355,9 +6357,10 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
 	SEXP value = PROTECT(GETSTACK_PTR(slot)); /* boxes in place */
 	if (boxed)
 	    DECLNK_STACK_PTR(slot);
-	/* a missing argument stored by a `[` or `[[` default path
-	   needs a plain promise for missing() to work in a closure */
-	p = value == R_MissingArg ?
+	/* A missing symbol stored by a `[` or `[[` default path needs
+	   a plain promise so missing() and later bindings still work.
+	   Calls returning R_MissingArg retain their evaluated value. */
+	p = value == R_MissingArg && TYPEOF(code) == SYMSXP ?
 	    mkPROMISE(code, rho) : R_mkEVPROMISE(code, value);
 	UNPROTECT(1);
 	savedSlotWrite(slot, p);
@@ -6407,7 +6410,13 @@ static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
 	forcePromise(p);
 	BCNPUSH(PRVALUE(p));
     }
-    else if (savedSlotEmpty(slot)) {
+    /* The AST interpreter leaves missing symbols unwrapped.  A
+       cached R_MissingArg for a symbol must therefore be looked up
+       again, in case an intervening replacement bound it.  A call
+       returning R_MissingArg still shares its evaluated value. */
+    else if (savedSlotEmpty(slot) ||
+	     (slot->tag == 0 && slot->u.sxpval == R_MissingArg &&
+	      TYPEOF(code) == SYMSXP)) {
 	SEXP value;
 	if (TYPEOF(code) == SYMSXP)
 	    value = getvar(code, rho, DDVAL(code), missingOK, NULL, 0);
