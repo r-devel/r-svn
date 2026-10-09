@@ -51,7 +51,7 @@ test-src-regexp = utf8-regex.R PCRE.R
 test-src-segfault = no-segfault.R
 test-src-tz = timezone.R
 test-src-cond = conditions.R
-test-src-misc-dev = misc-devel.R
+test-src-misc-dev = misc-devel.R R-realloc.R
 
 test-src-reg-1 = array-subset.R \
   classes-methods.R \
@@ -550,6 +550,7 @@ $(test-out): FORCE
 FORCE:
 
 INSTFILES = README \
+	R-realloc.c \
 	$(test-src-strict-1) $(test-src-strict-1:.R=.Rout.save) \
 	$(test-src-sloppy-1) $(test-src-sloppy-1:.R=.Rout.save) \
 	$(test-src-auto:.R=.Rin) isas-tests.Rout.save \

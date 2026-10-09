@@ -15363,6 +15363,7 @@ included by @file{R.h}.
 @node Transient storage allocation
 @subsection Transient storage allocation
 @apifun R_alloc
+@apifun R_realloc
 @apifun R_allocLD
 @apifun S_alloc
 @apifun S_realloc
@@ -15390,6 +15391,27 @@ x = (int *) R_alloc(nrows(merge)+2, sizeof(int));
 @noindent
 (@code{size_t} is defined in @file{stddef.h} which the header defining
 @code{R_alloc} includes.)
+
+A block obtained from @code{R_alloc} or @code{R_realloc} can be resized with
+
+@example
+char *R_realloc(void *@var{p}, size_t @var{n}, int @var{size})
+@end example
+
+@noindent
+The contents are preserved up to the smaller of the old and new sizes;
+additional bytes are uninitialized.  A @code{NULL} @var{p} allocates a new
+block.  If @var{n} or @var{size} is zero, the block is released and
+@code{NULL} is returned.  @var{size} must not be negative.  After a
+successful call, use only the returned pointer.  An allocation error
+leaves the original block unchanged.
+
+Resizing preserves the block's position on the allocation stack and all
+saved @code{vmaxget} marks (see below).  Restoring a mark taken before the
+original allocation releases the resized block; restoring a later mark
+keeps it.  The old buffer becomes available for garbage collection as
+soon as it is replaced.  Even when the buffer is released by a zero-size
+request, its small stack node remains until the stack is unwound.
 
 There is a similar call, @code{S_alloc} (named for compatibility with older
 versions of @Sl{}) which zeroes the memory allocated,

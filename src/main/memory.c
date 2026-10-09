@@ -2304,10 +2304,9 @@ attribute_hidden void InitMemory(void)
     MARK_NOT_MUTABLE(R_LogicalNAValue);
 }
 
-/* Since memory allocated from the heap is non-moving, R_alloc just
-   allocates off the heap as RAWSXP/REALSXP and maintains the stack of
-   allocations through the ATTRIB pointer.  The stack pointer R_VStack
-   is traced by the collector. */
+/* R_alloc buffers are held in the CARs of a pairlist traced by the
+   collector.  Keeping the pairlist nodes stable allows R_realloc to
+   replace a buffer without invalidating saved vmaxget marks. */
 void *vmaxget(void)
 {
     return (void *) R_VStack;
@@ -2318,7 +2317,7 @@ void vmaxset(const void *ovmax)
     R_VStack = (SEXP) ovmax;
 }
 
-char *R_alloc(size_t nelem, int eltsize)
+static SEXP allocRAllocBuffer(size_t nelem, int eltsize)
 {
     R_size_t size = nelem * eltsize;
     /* doubles are a precaution against integer overflow on 32-bit */
@@ -2337,12 +2336,48 @@ char *R_alloc(size_t nelem, int eltsize)
 		  dsize/R_pow_di(1024.0, 3), "Gb");
 	s = allocVector(RAWSXP, size + 1);
 #endif
-	ATTRIB(s) = R_VStack;
-	R_VStack = s;
-	return (char *) STDVEC_DATAPTR(s);
+	return s;
     }
+    else return R_NilValue;
+}
+
+char *R_alloc(size_t nelem, int eltsize)
+{
+    SEXP s = allocRAllocBuffer(nelem, eltsize);
     /* One programmer has relied on this, but it is undocumented! */
-    else return NULL;
+    if (s == R_NilValue) return NULL;
+    /* CONS_NR protects its arguments if it needs to collect. */
+    R_VStack = CONS_NR(s, R_VStack);
+    return (char *) STDVEC_DATAPTR(s);
+}
+
+char *R_realloc(void *p, size_t nelem, int eltsize)
+{
+    if (eltsize < 0)
+	error(_("invalid '%s' value"), "eltsize");
+    if (p == NULL) return R_alloc(nelem, eltsize);
+
+    SEXP s;
+    for (s = R_VStack; s != NULL && s != R_NilValue; s = CDR(s))
+	if (CAR(s) != R_NilValue && STDVEC_DATAPTR(CAR(s)) == p)
+	    break;
+    if (s == NULL || s == R_NilValue)
+	error(_("'%s' called on a pointer not allocated by '%s'"),
+	      "R_realloc", "R_alloc");
+
+    /* Allocate before changing s, so an allocation error leaves p valid. */
+    SEXP buf = allocRAllocBuffer(nelem, eltsize);
+    char *q = NULL;
+    if (buf != R_NilValue) {
+	R_xlen_t oldsize = XLENGTH(CAR(s)) - 1;
+	R_xlen_t newsize = XLENGTH(buf) - 1;
+	q = (char *) STDVEC_DATAPTR(buf);
+	memcpy(q, p, oldsize < newsize ? oldsize : newsize);
+    }
+    /* Keep the node even when freeing its buffer: it may be a saved mark.
+       SETCAR supplies the write barrier if s has survived a collection. */
+    SETCAR(s, buf);
+    return q;
 }
 
 #ifdef HAVE_STDALIGN_H
