@@ -6312,10 +6312,18 @@ static R_INLINE SEXP CLOSURE_CALL_FRAME_ARGS(void)
    entry that is overwritten loses the link of its old contents and
    gains one for the new. */
 
-/* a slot holds R_UnboundValue, a promise, or a (possibly unboxed) value */
+/* A slot holds R_UnboundValue, a promise, or a (possibly unboxed) value.
+   An initially missing symbol instead has an UNSHAREDARG_TAG slot:
+   every use looks it up anew, even if a getter binds it before its
+   first use.  The symbol is interned and needs no GC protection. */
 static R_INLINE int savedSlotEmpty(R_bcstack_t *slot)
 {
     return slot->tag == 0 && slot->u.sxpval == R_UnboundValue;
+}
+
+static R_INLINE int savedSlotUnshared(R_bcstack_t *slot)
+{
+    return slot->tag == UNSHAREDARG_TAG;
 }
 
 static R_INLINE int savedSlotHasPromise(R_bcstack_t *slot)
@@ -6357,11 +6365,7 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
 	SEXP value = PROTECT(GETSTACK_PTR(slot)); /* boxes in place */
 	if (boxed)
 	    DECLNK_STACK_PTR(slot);
-	/* A missing symbol stored by a `[` or `[[` default path needs
-	   a plain promise so missing() and later bindings still work.
-	   Calls returning R_MissingArg retain their evaluated value. */
-	p = value == R_MissingArg && TYPEOF(code) == SYMSXP ?
-	    mkPROMISE(code, rho) : R_mkEVPROMISE(code, value);
+	p = R_mkEVPROMISE(code, value);
 	UNPROTECT(1);
 	savedSlotWrite(slot, p);
 	return p;
@@ -6377,51 +6381,29 @@ static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
 static R_INLINE SEXP savedSlotClosurePromise(R_bcstack_t *slot, SEXP code,
 					     SEXP rho)
 {
+    if (savedSlotUnshared(slot))
+	return mkPROMISE(code, rho);
     return mkPROMISE(savedSlotPromise(slot, code, rho), rho);
 }
 
 /* Push the value of a slot, evaluating 'code' if it is still empty.
-   A symbol is looked up as the GETVAR instructions do, so that with
-   'missingOK' a missing argument gives R_MissingArg, as it does for
-   the indices of the `[` and `[[` default paths, instead of an
-   error. */
+   Initially missing symbols remain unshared and are looked up as
+   the GETVAR instructions do, allowing R_MissingArg for indices of
+   the `[` and `[[` default paths. */
 static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
 			       int missingOK)
 {
-    if (savedSlotHasPromise(slot)) {
+    if (savedSlotUnshared(slot)) {
+	SEXP sym = slot->u.sxpval;
+	BCNPUSH(getvar(sym, rho, DDVAL(sym), missingOK, NULL, 0));
+    }
+    else if (savedSlotHasPromise(slot)) {
 	SEXP p = slot->u.sxpval;
-	if (missingOK && ! PROMISE_IS_EVALUATED(p) &&
-	    TYPEOF(PRCODE(p)) == SYMSXP) {
-	    /* the promise was made for a dispatch attempt; leave it
-	       unforced if the argument is missing, otherwise the
-	       variable's value becomes its value (looking the variable
-	       up again by forcing it would run an active binding
-	       twice) */
-	    SEXP sym = PRCODE(p);
-	    SEXP value = getvar(sym, PRENV(p), DDVAL(sym), TRUE, NULL, 0);
-	    if (value == R_MissingArg) {
-		BCNPUSH(R_MissingArg);
-		return;
-	    }
-	    SET_PRVALUE(p, value);
-	    ENSURE_NAMEDMAX(value);
-	    SET_PRENV(p, R_NilValue);
-	}
 	forcePromise(p);
 	BCNPUSH(PRVALUE(p));
     }
-    /* The AST interpreter leaves missing symbols unwrapped.  A
-       cached R_MissingArg for a symbol must therefore be looked up
-       again, in case an intervening replacement bound it.  A call
-       returning R_MissingArg still shares its evaluated value. */
-    else if (savedSlotEmpty(slot) ||
-	     (slot->tag == 0 && slot->u.sxpval == R_MissingArg &&
-	      TYPEOF(code) == SYMSXP)) {
-	SEXP value;
-	if (TYPEOF(code) == SYMSXP)
-	    value = getvar(code, rho, DDVAL(code), missingOK, NULL, 0);
-	else
-	    value = eval(code, rho);
+    else if (savedSlotEmpty(slot)) {
+	SEXP value = eval(code, rho);
 	savedSlotSet(slot, value);
 	BCNPUSH(value);
     }
@@ -6449,7 +6431,8 @@ static R_INLINE R_bcstack_t *savedMapSlot(SEXP map, int i, R_bcstack_t *base,
 	return NULL;
 
     *pcode = VECTOR_ELT(m, 1);
-    return base + INTEGER(VECTOR_ELT(m, 0))[0];
+    R_bcstack_t *slot = base + INTEGER(VECTOR_ELT(m, 0))[0];
+    return savedSlotUnshared(slot) ? NULL : slot;
 }
 
 /* duplicate(CDR(call)) with the shared promises in the mapped
@@ -9237,22 +9220,39 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  NEXT();
       }
 
-    /* Shared arguments of complex assignments.  MAKESAVED pushes the
-       R_BCProtTop offset to restore and reserves the slots, which stay
-       on the stack until DROPSAVED; the first operand of the
-       instructions that use a slot is its distance from the top of the
-       stack, known to the compiler.  The slots are link-protected as
+    /* Shared arguments of complex assignments.  MAKESAVED inserts the
+       R_BCProtTop offset to restore and the slots below the RHS, which
+       has already been evaluated.  Its operand is the constant index
+       of the argument codes.  Initially missing symbols are marked as
+       unshared before any LHS evaluation, as in promiseAssignArgs().
+       The slots stay on the stack until DROPSAVED; the first operand
+       of the instructions that use a slot is its distance from the top
+       of the stack, known to the compiler.  The slots are link-protected as
        by INCLNKSTK: the links are committed by STARTASSIGN before any
        slot is filled and dropped by DROPSAVED or an error unwind. */
     OP(MAKESAVED, 1):
       {
-	  int n = GETOP();
-	  BCNPUSH_INTEGER((int)(R_BCProtTop - R_BCNodeStackBase));
-	  R_BCNodeStackTop[-1].tag = SAVEDARGS_TAG;
-	  R_BCNodeStackTop[-1].flags = n;
-	  for (int i = 0; i < n; i++)
-	      BCNPUSH(R_UnboundValue);
-	  INCLNK_stack(R_BCNodeStackTop);
+	  SEXP codes = GETCONST(constants, GETOP());
+	  int n = LENGTH(codes);
+	  BCNSTACKCHECK(n + 1);
+	  R_bcstack_t *base = R_BCNodeStackTop - 1;
+	  base[n + 1] = base[0]; /* keep the RHS on top */
+	  base[0].tag = SAVEDARGS_TAG;
+	  base[0].flags = n;
+	  base[0].u.ival = (int)(R_BCProtTop - R_BCNodeStackBase);
+	  for (int i = 0; i < n; i++) {
+	      base[i + 1].tag = 0;
+	      base[i + 1].u.sxpval = R_UnboundValue;
+	  }
+	  R_BCNodeStackTop += n + 1;
+	  for (int i = 0; i < n; i++) {
+	      SEXP code = VECTOR_ELT(codes, i);
+	      if (TYPEOF(code) == SYMSXP && R_isMissing(code, rho)) {
+		  base[i + 1].tag = UNSHAREDARG_TAG;
+		  base[i + 1].u.sxpval = code;
+	      }
+	  }
+	  INCLNK_stack(R_BCNodeStackTop - 1);
 	  NEXT();
       }
     OP(PROMSAVED, 2):
@@ -9280,7 +9280,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     /* BRSAVED and STORESAVED bracket the inline code of an argument's
        first use: if the slot was already filled (by a method dispatch
        attempt) its value is used and the inline code skipped,
-       otherwise the inline code runs and its value is stored */
+       otherwise the inline code runs and its value is stored.
+       Unshared symbols are looked up afresh and skip the inline code
+       so they can remain missing and their values are never cached. */
     OP(BRSAVED, 2):
       {
 	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();

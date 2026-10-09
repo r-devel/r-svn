@@ -1678,7 +1678,9 @@ flattenPlace <- function(place, cntxt, loc = NULL) {
 ## slot instead of compiling the expression twice.  The number of
 ## stack entries above the slots is tracked in saved$depth; the
 ## instructions get the distance from the top of the stack to the
-## slot they use as their first operand.
+## slot they use as their first operand.  After evaluating the RHS,
+## MAKESAVED marks initially missing symbols as unshared, matching
+## promiseAssignArgs() even if a getter later binds one of them.
 ##
 
 ## The promise code of a shared call argument is compiled, as for
@@ -1727,8 +1729,6 @@ planSavedArgs <- function(flatPlace, idxs, cb, cntxt) {
     saved$maps <- maps
     saved$argMaps <- argMaps
     saved$depth <- 0L
-    if (saved$n > 0)
-        cb$putcode(MAKESAVED.OP, saved$n)
     saved
 }
 
@@ -1784,7 +1784,7 @@ cmpSharedValue <- function(a, shared, i, cb, cntxt, extra = 0L) {
         label <- cb$makelabel()
         cb$putcode(BRSAVED.OP, off, label)
         if (is.symbol(a))
-            cmpSym(a, cb, cntxt, TRUE)
+            cmpSym(a, cb, cntxt)
         else
             cmp(a, cb, cntxt)
         cb$putcode(STORESAVED.OP, off + 1L)
@@ -1889,11 +1889,9 @@ cmpComplexAssign <- function(symbol, lhs, value, superAssign, cb, cntxt) {
     saved <- planSavedArgs(flatPlace, flatPlaceIdxs, cb, cntxt)
 
     ncntxt <- make.nonTailCallContext(cntxt)
-    ## a break or next in the value must unwind through the loop
-    ## context rather than jump over the slots
-    if (saved$n > 0 && ! is.null(ncntxt$loop))
-        ncntxt$loop$gotoOK <- FALSE
     cmp(value, cb, ncntxt)
+    if (saved$n > 0)
+        cb$putcode(MAKESAVED.OP, cb$putconst(saved$codes))
     csi <- cb$putconst(symbol)
     cb$putcode(startOP, csi)
     saved$depth <- 4L

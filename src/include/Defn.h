@@ -1401,6 +1401,7 @@ typedef struct {
 # define RAWMEM_TAG 254
 # define CACHESZ_TAG 253
 # define SAVEDARGS_TAG 252 /* flags: slot count, u.ival: protection offset */
+# define UNSHAREDARG_TAG 251 /* u.sxpval: initially missing argument symbol */
 
 /* saved bcEval() state for implementing recursion using goto */
 typedef struct R_bcFrame R_bcFrame_type;

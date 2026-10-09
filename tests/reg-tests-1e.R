@@ -4080,6 +4080,97 @@ local({
 })
 ## the compiled default getter cached R_MissingArg and ignored the binding
 
+## Missing symbols stay unshared in every getter and setter path
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    dots <- function(x, i, ...) { x[i, ...][1L] <- 0L; x }
+    qualified <- function(x, i) { base::`[`(x, i)[1L] <- 0L; x }
+    aliased <- function(x, i) {
+        get <- .Primitive("[")
+        `get<-` <- .Primitive("[<-")
+        get(x, i)[1L] <- 0L
+        x
+    }
+    `[.tstSavedMissing` <- function(x, i, ...) unclass(x)[i, ...]
+    `[<-.tstSavedMissing` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        y[i, ...] <- value
+        structure(y, class = "tstSavedMissing")
+    }
+    for (f in list(dots, qualified, aliased))
+        for (fun in list(f, compiler::cmpfun(f))) {
+            stopifnot(identical(fun(1:3), c(0L, 2L, 3L)),
+                      identical(fun(1:3, 2L), c(1L, 0L, 3L)))
+            for (cls in c("noMethod", "tstSavedMissing"))
+                stopifnot(identical(fun(structure(1:3, class = cls)),
+                                    structure(c(0L, 2L, 3L), class = cls)))
+        }
+    for (fun in list(dots, compiler::cmpfun(dots)))
+        stopifnot(identical(fun(matrix(1:6, 3L), , 2L),
+                            matrix(c(1:3, 0L, 5L, 6L), 3L)))
+
+    ## Missingness is checked before any getter can bind the symbol,
+    ## even when that happens before the first evaluation of its argument.
+    rebind <- function(i) {
+        get <- function(x, index) {
+            assign("i", 1L, parent.frame())
+            x[index]
+        }
+        `get<-` <- function(x, index, value) { x[index] <- value; x }
+        x <- 1:3
+        get(x, i)[{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    earlier <- function(i) {
+        get <- function(x) { assign("i", 1L, parent.frame()); x }
+        `get<-` <- function(x, value) value
+        x <- 1:3
+        get(x)[i][{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    target <- function(i) {
+        delayedAssign("x", { i <- 1L; 1:3 })
+        x[i][{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    for (f in list(rebind, earlier, target))
+        for (fun in list(f, compiler::cmpfun(f)))
+            stopifnot(identical(fun(), c(1L, 2L, 0L)))
+
+    ## The RHS is evaluated before deciding which symbols are missing.
+    boundRHS <- function(i) {
+        x <- 1:3
+        x[i][{ i <- 3L; 1L }] <- { i <- 1L; 0L }
+        x
+    }
+    missingRHS <- function(i) {
+        x <- 1:3
+        x[i][{ i <- 3:1; 1L }] <- { i <- quote(expr = ); 0L }
+        x
+    }
+    for (fun in list(boundRHS, compiler::cmpfun(boundRHS)))
+        stopifnot(identical(fun(), c(0L, 2L, 3L)))
+    for (fun in list(missingRHS, compiler::cmpfun(missingRHS)))
+        stopifnot(identical(fun(1L), c(3L, 2L, 0L)))
+    ## Conversely, a shared symbol made missing by an earlier getter
+    ## must report an error when its promise is forced.
+    becomesMissing <- function(i) {
+        get <- function(x) {
+            assign("i", quote(expr = ), parent.frame())
+            x
+        }
+        `get<-` <- function(x, value) value
+        x <- 1:3
+        get(x)[i][1L] <- 0L
+        x
+    }
+    for (fun in list(becomesMissing, compiler::cmpfun(becomesMissing)))
+        tools::assertError(fun(1L))
+})
+## compiled primitive calls hid missingness in a promise; other paths
+## cached values of initially missing symbols after a getter bound them
+
 ## Shared argument lists remain protected while their promises are made
 local({
     oldJIT <- compiler::enableJIT(0L)
