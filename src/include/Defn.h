@@ -1400,6 +1400,7 @@ typedef struct {
 # define IS_PARTIAL_SXP_TAG(x) ((x) & PARTIALSXP_MASK)
 # define RAWMEM_TAG 254
 # define CACHESZ_TAG 253
+# define SAVEDARGS_TAG 252 /* flags: slot count, u.ival: protection offset */
 
 /* saved bcEval() state for implementing recursion using goto */
 typedef struct R_bcFrame R_bcFrame_type;

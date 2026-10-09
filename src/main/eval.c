@@ -1004,6 +1004,25 @@ static void forcePromise(SEXP e)
 
 static R_bcstack_t *R_BCProtCommitted;
 
+static R_INLINE void clearPromise(SEXP);
+
+/* The marker precedes the saved argument slots.  Clear only promises
+   owned by a slot; promises captured by a closure must retain their
+   cached values.  DECLNK_stack() also runs on an error unwind. */
+static R_INLINE void clearSavedArgs(R_bcstack_t *marker)
+{
+#ifdef ADJUST_ENVIR_REFCNTS
+    for (int i = 1; i <= marker->flags; i++) {
+	R_bcstack_t *slot = marker + i;
+	if (slot->tag == 0) {
+	    SEXP p = slot->u.sxpval;
+	    if (TYPEOF(p) == PROMSXP && REFCNT(p) == 1)
+		clearPromise(p);
+	}
+    }
+#endif
+}
+
 static R_INLINE void INCLNK_stack(R_bcstack_t *top)
 {
     R_BCProtTop = top;
@@ -1031,6 +1050,8 @@ static R_INLINE void DECLNK_stack(R_bcstack_t *base)
 	for (R_bcstack_t *p = base; p < top; p++) {
 	    if (p->tag == RAWMEM_TAG || p->tag == CACHESZ_TAG)
 		p += p->u.ival;
+	    else if (p->tag == SAVEDARGS_TAG)
+		clearSavedArgs(p);
 	    else if (p->tag == 0)
 		DECREMENT_LINKS(p->u.sxpval);
 	}
@@ -1076,6 +1097,16 @@ static void handle_eval_depth_overflow(void)
     R_signalErrorCondition(cond, R_NilValue);
 }
 
+/* These primitives interpret their second argument as a literal name.
+   Recognize the resolved primitive, including namespace-qualified
+   calls and aliases, rather than just the spelling of the call. */
+static R_INLINE bool assignNamePrimitive(SEXP op)
+{
+    return PRIMFUN(op) == do_subset3 || PRIMFUN(op) == do_subassign3 ||
+	PRIMFUN(op) == do_AT ||
+	(PRIMFUN(op) == do_attrgets && PRIMVAL(op) == 1);
+}
+
 /* Evaluate the call 'e' with 'args' in place of CDR(e).  The two are
    the same except in complex assignments, where 'args' can hold
    promises shared by a getter and the matching replacement call
@@ -1103,6 +1134,8 @@ static R_INLINE SEXP evalCallArgs(SEXP e, SEXP args, SEXP rho)
 	PrintValue(e);
     }
     if (TYPEOF(op) == SPECIALSXP) {
+	if (args != CDR(e) && assignNamePrimitive(op))
+	    SETCADR(args, CADDR(e));
 	int save = R_PPStackTop, flag = PRIMPRINT(op);
 	const void *vmax = vmaxget();
 	PROTECT(e);
@@ -3242,14 +3275,16 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
 
     SEXP fun = CAR(expr);
     SEXP target = PROTECT(promiseAssignArgs(CADR(expr), rho));
-    SEXP args = CDDR(expr);
+    SEXP args;
+    PROTECT_INDEX aidx;
+    PROTECT_WITH_INDEX(args = CDDR(expr), &aidx);
 
     if (fun != R_DollarSymbol && fun != R_AtsignSymbol) {
 	bool share = false;
 	for (SEXP el = args; el != R_NilValue && ! share; el = CDR(el))
 	    share = shareAssignArg(CAR(el), rho);
 	if (share) {
-	    args = shallow_duplicate(args);
+	    REPROTECT(args = shallow_duplicate(args), aidx);
 	    for (SEXP el = args; el != R_NilValue; el = CDR(el))
 		if (shareAssignArg(CAR(el), rho))
 		    SETCAR(el, mkPROMISE(CAR(el), rho));
@@ -3257,11 +3292,10 @@ static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
     }
 
     if (target == CADR(expr) && args == CDDR(expr)) {
-	UNPROTECT(1);
+	UNPROTECT(2);
 	return expr;
     }
 
-    PROTECT(args);
     SEXP ans = LCONS(fun, CONS(target, args));
     UNPROTECT(2);
     return ans;
@@ -8963,6 +8997,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	      PROTECT(args = savedCallArgs(call, sbase, smap, rho));
 	  else
 	      PROTECT(args = duplicate(CDR(call)));
+	  if (sbase != NULL && assignNamePrimitive(fun))
+	      SETCADR(args, CADDR(call));
 	  /* insert evaluated promise for LHS as first argument */
 	  /* promise won't be captured so don't track references */
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
@@ -9023,6 +9059,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  else
 	      args = duplicate(CDR(call));
 	  SETSTACK(-2, args);
+	  if (sbase != NULL && assignNamePrimitive(fun))
+	      SETCADR(args, CADDR(call));
 	  /* insert evaluated promise for LHS as first argument */
 	  /* promise won't be captured so don't track references */
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
@@ -9201,6 +9239,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
       {
 	  int n = GETOP();
 	  BCNPUSH_INTEGER((int)(R_BCProtTop - R_BCNodeStackBase));
+	  R_BCNodeStackTop[-1].tag = SAVEDARGS_TAG;
+	  R_BCNodeStackTop[-1].flags = n;
 	  for (int i = 0; i < n; i++)
 	      BCNPUSH(R_UnboundValue);
 	  INCLNK_stack(R_BCNodeStackTop);
@@ -9265,7 +9305,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	     value of the assignment on top */
 	  int n = GETOP();
 	  R_bcstack_t *base = R_BCNodeStackTop - n - 2;
-	  DECLNK_stack(R_BCNodeStackBase + GETSTACK_IVAL_PTR(base));
+	  DECLNK_stack(R_BCNodeStackBase + base->u.ival);
 	  base[0] = R_BCNodeStackTop[-1];
 	  R_BCNodeStackTop -= n + 1;
 	  NEXT();

@@ -4043,6 +4043,107 @@ local({
 ## the subscripts were evaluated twice in R < 4.7.0, once by the
 ## getter and once by the replacement function
 
+## Shared argument lists remain protected while their promises are made
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    f <- function() {
+        i <- 1L
+        x <- list(list(a = 0L))
+        x[[i]]$a <- 1L
+        x[[1L + 0L]]$a <- 2L
+        x
+    }
+    cf <- compiler::cmpfun(f)
+    oldGC <- FALSE
+    on.exit(gctorture(oldGC), add = TRUE)
+    oldGC <- gctorture(TRUE)
+    a <- f()
+    b <- cf()
+    gctorture(oldGC)
+    stopifnot(identical(a, list(list(a = 2L))), identical(a, b))
+})
+## the copied argument list could be collected during mkPROMISE()
+
+## Qualified and aliased $ and @ primitives still take literal names
+local({
+    setClass("tstAssignSlots", representation(a = "integer", b = "integer"))
+    f <- function() {
+        a <- "b"
+        x <- list(a = 1:3, b = 4:6)
+        get <- .Primitive("$")
+        `get<-` <- .Primitive("$<-")
+        base::`$`(x, a)[1L] <- 9L
+        get(x, a)[2L] <- 8L
+        base:::`$`(x, a)[3L] <- 7L
+        y <- new("tstAssignSlots", a = 1:3, b = 4:6)
+        slot <- .Primitive("@")
+        `slot<-` <- .Primitive("@<-")
+        base::`@`(y, a)[1L] <- 9L
+        slot(y, a)[2L] <- 8L
+        base:::`@`(y, a)[3L] <- 7L
+        list(x, y@a, y@b)
+    }
+    expected <- list(list(a = c(9L, 8L, 7L), b = 4:6), c(9L, 8L, 7L), 4:6)
+    stopifnot(identical(f(), expected),
+              identical(compiler::cmpfun(f)(), expected))
+    removeClass("tstAssignSlots")
+})
+## these forms evaluated the name or rejected the promise as a slot name
+
+## Saved promises release their values, but retain captured arguments
+local({
+    `[.tstAssignRefs` <- function(x, i) unclass(x)[i]
+    `[<-.tstAssignRefs` <- function(x, i, value) {
+        y <- unclass(x); y[i] <- value
+        structure(y, class = "tstAssignRefs")
+    }
+    refs <- function(cls, fail = FALSE) {
+        i <- c(1L, 2L)
+        x <- structure(1:4, class = cls)
+        before <- .Internal(refcnt(i))
+        if (fail)
+            tryCatch(x[i][1L] <- integer(0), error = function(e) NULL)
+        else
+            x[i][1L] <- 9L
+        c(before, .Internal(refcnt(i)))
+    }
+    calls <- function() {
+        get <- function(x, i) x[i]
+        `get<-` <- function(x, i, value) { x[i] <- value; x }
+        i <- c(1L, 2L)
+        x <- 1:4
+        get(x, i)[1L] <- 9L
+        .Internal(refcnt(i))
+    }
+    captured <- function(fail = FALSE) {
+        saved <- NULL
+        get <- function(x, i) x[i]
+        `get<-` <- function(x, i, value) {
+            saved <<- function() i
+            if (fail) stop("replacement failed")
+            x[i] <- value
+            x
+        }
+        i <- c(1L, 2L)
+        x <- 1:4
+        tryCatch(get(x, i)[1L] <- 9L, error = function(e) NULL)
+        gc()
+        i[1L] <- 3L
+        saved()
+    }
+    for (f in list(refs, compiler::cmpfun(refs)))
+        for (cls in c("noMethod", "tstAssignRefs"))
+            for (fail in c(FALSE, TRUE))
+                stopifnot(identical(f(cls, fail), c(1L, 1L)))
+    stopifnot(identical(calls(), 1L),
+              identical(compiler::cmpfun(calls)(), 1L))
+    for (f in list(captured, compiler::cmpfun(captured)))
+        for (fail in c(FALSE, TRUE))
+            stopifnot(identical(f(fail), c(1L, 2L)))
+})
+## compiled slots kept the argument value referenced until GC
+
 ## A complex assignment whose innermost target is a call without
 ## arguments is still an error (reported here in tests/no-segfault.R)
 i <- 1L
