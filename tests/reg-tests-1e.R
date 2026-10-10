@@ -3967,6 +3967,23 @@ stopifnot(identical(iconv(x, "UTF-8", "ASCII", sub = "Unicode"), "a<c3>(<e2><82>
 
 
 
+## unserialize() checks C stack usage while reading nested objects
+local({
+    n <- 1000000L
+    hdr <- serialize(NULL, NULL)  # the stream header followed by a NULL item
+    hdr <- hdr[seq_len(length(hdr) - 4L)]
+    cell <- as.raw(c(0, 0, 0, 2))   # a LISTSXP item without attributes or tag
+    nil  <- as.raw(c(0, 0, 0, 254)) # NILVALUE_SXP
+    ## n pairlist cells, each the CAR of the one before: n levels of recursion
+    r <- c(hdr, rep(cell, n), nil, rep(nil, n))
+    res <- tryCatch(unserialize(r), error = conditionMessage)
+    ## which guard fires first depends on the C stack size
+    stopifnot(is.pairlist(res) ||
+              grepl("C stack usage|protection stack overflow", res))
+})
+## segfaulted from C stack overflow in R <= 4.6.1 (with an 8 MB C stack)
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
