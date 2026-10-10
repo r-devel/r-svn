@@ -1891,6 +1891,11 @@ SEXP installTrChar(SEXP x)
     // symbols with escapes, with a warning.
     translateToNative(CHAR(x), &cbuff, t, 2);
 
+    /* install() raises this itself, but then the buffer would leak. */
+    if (strlen(cbuff.data) > MAXIDSIZE) {
+	R_FreeStringBuffer(&cbuff);
+	error(_("variable names are limited to %d bytes"), MAXIDSIZE);
+    }
     SEXP Sans = install(cbuff.data);
     R_FreeStringBuffer(&cbuff);
     return Sans;
