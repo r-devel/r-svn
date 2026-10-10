@@ -1973,6 +1973,7 @@ typedef struct bzfileconn {
     FILE *fp;
     BZFILE *bfp;
     int compress;
+    bool failed; /* BZ2_bzRead() reported an error: see bzfile_read() */
 } *Rbzfileconn;
 
 static Rboolean bzfile_open(Rconnection con)
@@ -2023,6 +2024,7 @@ static Rboolean bzfile_open(Rconnection con)
     }
     bz->fp = fp;
     bz->bfp = bfp;
+    bz->failed = false;
     con->isopen = TRUE;
     con->text = strchr(con->mode, 'b') ? FALSE : TRUE;
     set_buffer(con);
@@ -2056,6 +2058,11 @@ static size_t bzfile_read(void *ptr, size_t size, size_t nitems,
 	error(_("too large a block specified"));
 
     nleft = (int)(size * nitems);
+    /* bzlib does not recover a stream once BZ2_bzRead() has failed on it,
+       and reading on is undefined: BZ2_decompress() resumes from the
+       partially decoded state and overruns its stack arrays on a corrupt
+       stream.  Report end-of-file instead. */
+    if (bz->failed) return 0;
     /* we try to fill the buffer, because fgetc can interact with the stream boundaries
        resulting in truncated text streams while binary streams work fine */
     while (nleft > 0) {
@@ -2093,6 +2100,7 @@ static size_t bzfile_read(void *ptr, size_t size, size_t nitems,
 		   "unused" bytes, and another read is attempted. */
 		warning(_("file '%s' appears not to be compressed by bzip2"),
 		    R_ExpandFileName(con->description));
+	    bz->failed = true;
 	    /* bzlib docs say in this case n is invalid - but historically
 	       we still used n in that case, so I keep it for now */
 	    nread += n;
