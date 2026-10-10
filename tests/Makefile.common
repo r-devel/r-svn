@@ -52,6 +52,7 @@ test-src-segfault = no-segfault.R
 test-src-tz = timezone.R
 test-src-cond = conditions.R
 test-src-misc-dev = misc-devel.R
+test-src-realloc = R-realloc.R
 
 test-src-reg-1 = array-subset.R \
   classes-methods.R \
@@ -94,6 +95,7 @@ test-out-segfault = $(test-src-segfault:.R=.Rout)
 test-out-tz = $(test-src-tz:.R=.Rout)
 test-out-cond = $(test-src-cond:.R=.Rout)
 test-out-misc-dev = $(test-src-misc-dev:.R=.Rout)
+test-out-realloc = $(test-src-realloc:.R=.Rout)
 
 ## This macro is used only for dependencies and for distclean
 test-out = $(test-out-strict) $(test-out-sloppy) $(test-out-demo) $(test-out-gct) \
@@ -103,6 +105,7 @@ test-out = $(test-out-strict) $(test-out-sloppy) $(test-out-demo) $(test-out-gct
 	$(test-out-internet2) $(test-out-internet-dev) \
 	$(test-out-CRANtools) $(test-out-large) $(test-out-primitive) $(test-out-dt) \
 	$(test-out-regexp) $(test-out-tz) $(test-out-cond) $(test-out-misc-dev) \
+	$(test-out-realloc) \
 	utf8.Rout reg-translation.Rout iconv.Rout
 
 .SUFFIXES:
@@ -207,7 +210,7 @@ test-all-basics:
 ## The definitions for Standalone are in Makefile.{in,win}.
 ##  'Packages' slow ==> last
 all-devel-tests = DateTime Docs IsAs Random Demo Primitive Regexp Translation \
-    Internet2 CRANtools Segfault Standalone Conditions Misc-dev Packages
+    Internet2 CRANtools Segfault Standalone Conditions Misc-dev Realloc Packages
 test-all-devel:
 	@for name in $(all-devel-tests); do \
 	  $(MK) test-$${name} || exit 1; \
@@ -360,6 +363,10 @@ test-Translation:
 test-Misc-dev:
 	@$(ECHO) "running other miscellaneous devel tests"
 	@$(MK) $(test-out-misc-dev) RVAL_IF_DIFF=1
+
+test-Realloc:
+	@$(ECHO) "running tests of R_realloc()"
+	@$(MK) $(test-out-realloc) RVAL_IF_DIFF=1
 
 
 ## Not run by any other target
@@ -566,5 +573,5 @@ INSTFILES = README \
 	  reg-examples3.Rout.save reg-plot-latin1.pdf.save \
 	  $(test-src-regexp) $(test-src-CRANtools) \
 	  $(test-src-tz) $(test-src-cond) reg-translation.R iconv.R \
-	  $(test-src-misc-dev) \
+	  $(test-src-misc-dev) $(test-src-realloc) R-realloc.c \
 	  nanbug.rda WinUnicode.dat arima.rda EmbeddedNuls.csv eval-fns.R

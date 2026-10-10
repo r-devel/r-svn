@@ -50,6 +50,7 @@ int	R_gc_running(void);
 #endif
 
 char*	R_alloc(R_SIZE_T, int);
+char*	R_realloc(void *, R_SIZE_T, int); // resizable R_alloc-like memory
 long double *R_allocLD(R_SIZE_T nelem);
 char*	S_alloc(long, int);
 char*	S_realloc(char *, long, long, int);

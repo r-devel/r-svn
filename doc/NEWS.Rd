@@ -135,7 +135,10 @@
 
   \subsection{C-Level Facilities}{
     \itemize{
-      \item .
+      \item New function \code{R_realloc()} allocates transient memory
+      like \code{R_alloc()} and resizes it, releasing the superseded
+      block for garbage collection while preserving saved
+      \code{vmaxget()} positions.
     }
   }
 

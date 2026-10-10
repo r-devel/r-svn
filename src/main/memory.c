@@ -2305,9 +2305,14 @@ attribute_hidden void InitMemory(void)
 }
 
 /* Since memory allocated from the heap is non-moving, R_alloc just
-   allocates off the heap as RAWSXP/REALSXP and maintains the stack of
+   allocates off the heap as RAWSXP and maintains the stack of
    allocations through the ATTRIB pointer.  The stack pointer R_VStack
-   is traced by the collector. */
+   is traced by the collector.
+
+   A block that R_realloc may resize is instead held in the CAR of a
+   pairlist node on the stack.  The node keeps its position, so saved
+   vmaxget marks stay valid while the buffer in its CAR is replaced;
+   the buffer's ATTRIB points back at its node. */
 void *vmaxget(void)
 {
     return (void *) R_VStack;
@@ -2315,34 +2320,136 @@ void *vmaxget(void)
 
 void vmaxset(const void *ovmax)
 {
+#ifdef PROTECTCHECK
+    /* Everything above the restored position is released.  Check that
+       the position is on the stack, and empty the released R_realloc
+       nodes so that resizing a released block fails at once instead of
+       at the next collection.  NULL and R_NilValue both end the stack. */
+    SEXP s = R_VStack;
+    while (s != ovmax && s != NULL && s != R_NilValue) {
+	if (TYPEOF(s) == LISTSXP) {
+	    SETCAR(s, R_NilValue);
+	    s = CDR(s);
+	}
+	else {
+	    s = ATTRIB(s);
+	}
+    }
+    if (s != ovmax && ovmax != NULL && ovmax != R_NilValue)
+	error(_("'%s' called with a position that is not on the allocation stack"),
+	      "vmaxset");
+#endif
     R_VStack = (SEXP) ovmax;
+}
+
+/* Byte count for an R_alloc request, or 0 if the request is not positive. */
+static R_size_t RAllocSize(size_t nelem, int eltsize)
+{
+    /* doubles are a precaution against integer overflow on 32-bit */
+    double dsize = (double) nelem * eltsize;
+    if (dsize <= 0)
+	return 0;
+#ifdef LONG_VECTOR_SUPPORT
+    /* 64-bit platform: previous version used REALSXPs */
+    if (dsize > R_XLEN_T_MAX)  /* currently 4096 TB */
+	error(_("cannot allocate memory block of size %0.f %s"),
+	      dsize/R_pow_di(1024.0, 4), "Tb");
+#else
+    if (dsize > R_LEN_T_MAX) /* must be in the Gb range */
+	error(_("cannot allocate memory block of size %0.1f %s"),
+	      dsize/R_pow_di(1024.0, 3), "Gb");
+#endif
+    return nelem * eltsize;
 }
 
 char *R_alloc(size_t nelem, int eltsize)
 {
-    R_size_t size = nelem * eltsize;
-    /* doubles are a precaution against integer overflow on 32-bit */
-    double dsize = (double) nelem * eltsize;
-    if (dsize > 0) {
-	SEXP s;
-#ifdef LONG_VECTOR_SUPPORT
-	/* 64-bit platform: previous version used REALSXPs */
-	if(dsize > R_XLEN_T_MAX)  /* currently 4096 TB */
-	    error(_("cannot allocate memory block of size %0.f %s"),
-		  dsize/R_pow_di(1024.0, 4), "Tb");
-	s = allocVector(RAWSXP, size + 1);
-#else
-	if(dsize > R_LEN_T_MAX) /* must be in the Gb range */
-	    error(_("cannot allocate memory block of size %0.1f %s"),
-		  dsize/R_pow_di(1024.0, 3), "Gb");
-	s = allocVector(RAWSXP, size + 1);
-#endif
-	ATTRIB(s) = R_VStack;
-	R_VStack = s;
-	return (char *) STDVEC_DATAPTR(s);
-    }
+    R_size_t size = RAllocSize(nelem, eltsize);
     /* One programmer has relied on this, but it is undocumented! */
-    else return NULL;
+    if (size == 0)
+	return NULL;
+
+    SEXP s = allocVector(RAWSXP, size + 1);
+    ATTRIB(s) = R_VStack;
+    R_VStack = s;
+    return (char *) STDVEC_DATAPTR(s);
+}
+
+/* The node holding the resizable block at p; an error for any other
+   pointer.  The block's header precedes p and its ATTRIB points at the
+   node, so the two are checked against each other rather than by
+   scanning the stack.  As with realloc(), a pointer from elsewhere is a
+   programming error: it is rejected when the memory before it does not
+   look like a resizable block, but not every such pointer can be told
+   apart safely.  The two likely mistakes, a pointer superseded by a
+   resize and a block released by vmaxset, get their own messages. */
+static SEXP findRAllocNode(void *p)
+{
+    SEXP buf = (SEXP) ((SEXPREC_ALIGN *) p - 1);
+#ifdef PROTECTCHECK
+    if (TYPEOF(buf) == FREESXP && OLDTYPE(buf) == RAWSXP)
+	error(_("'%s' called on a pointer to a block that has been released"),
+	      "R_realloc");
+#endif
+    if (TYPEOF(buf) == RAWSXP) {
+	SEXP node = ATTRIB(buf);
+	if (node != NULL && TYPEOF(node) == LISTSXP) {
+	    SEXP held = CAR(node);
+	    if (held == buf)
+		return node;
+	    /* vmaxset empties a released node under PROTECTCHECK. */
+	    if (held == R_NilValue)
+		error(_("'%s' called on a pointer to a block that has been released"),
+		      "R_realloc");
+	    if (held != NULL && TYPEOF(held) == RAWSXP && ATTRIB(held) == node)
+		error(_("'%s' called on a pointer to a block it has already resized"),
+		      "R_realloc");
+	}
+    }
+    error(_("'%s' called on a pointer not allocated by '%s'"),
+	  "R_realloc", "R_realloc");
+}
+
+char *R_realloc(void *p, size_t nelem, int eltsize)
+{
+    if (eltsize < 0)
+	error(_("invalid '%s' value"), "eltsize");
+    if (p == NULL) {
+	R_size_t size = RAllocSize(nelem, eltsize);
+	if (size == 0)
+	    return NULL;
+
+	SEXP node = PROTECT(CONS_NR(R_NilValue, R_VStack));
+	SEXP buf = allocVector(RAWSXP, size + 1);
+	ATTRIB(buf) = node;
+	SETCAR(node, buf);
+	R_VStack = node;
+	UNPROTECT(1);
+	return (char *) STDVEC_DATAPTR(buf);
+    }
+
+    SEXP node = findRAllocNode(p);
+
+    /* A zero size shrinks to a minimal block rather than releasing it,
+       so the block keeps its stack position and can grow again. */
+    R_size_t size = RAllocSize(nelem, eltsize);
+    R_size_t oldsize = XLENGTH(CAR(node)) - 1;
+    if (size == oldsize)
+	return p;
+
+    /* Allocate before touching the node, so an allocation error leaves
+       p valid.  SETCAR supplies the write barrier if the node has
+       survived a collection. */
+    SEXP buf = allocVector(RAWSXP, size + 1);
+    char *q = (char *) STDVEC_DATAPTR(buf);
+    memcpy(q, p, oldsize < size ? oldsize : size);
+#if VALGRIND_LEVEL > 1
+    /* The replaced block is garbage from here on. */
+    VALGRIND_MAKE_MEM_NOACCESS(p, oldsize);
+#endif
+    ATTRIB(buf) = node;
+    SETCAR(node, buf);
+    return q;
 }
 
 #ifdef HAVE_STDALIGN_H
