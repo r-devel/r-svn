@@ -1235,7 +1235,7 @@ wtr_build_spec(const wchar_t *s, struct wtr_spec *trs) {
 
     This = trs;
     for (i = 0; i < len - 2; ) {
-	_new = R_Calloc(1, struct wtr_spec);
+	_new = (struct wtr_spec *) R_alloc(1, sizeof(struct wtr_spec));
 	_new->next = NULL;
 	if (s[i + 1] == L'-') {
 	    _new->type = WTR_RANGE;
@@ -1253,22 +1253,11 @@ wtr_build_spec(const wchar_t *s, struct wtr_spec *trs) {
 	This = This->next = _new;
     }
     for ( ; i < len; i++) {
-	_new = R_Calloc(1, struct wtr_spec);
+	_new = (struct wtr_spec *) R_alloc(1, sizeof(struct wtr_spec));
 	_new->next = NULL;
 	_new->type = WTR_CHAR;
 	_new->u.c = s[i];
 	This = This->next = _new;
-    }
-}
-
-static void
-wtr_free_spec(struct wtr_spec *trs) {
-    struct wtr_spec *This, *next;
-    This = trs;
-    while(This) {
-	next = This->next;
-	R_Free(This);
-	This = next;
     }
 }
 
@@ -1321,7 +1310,7 @@ tr_build_spec(const char *s, struct tr_spec *trs) {
 
     This = trs;
     for (i = 0; i < len - 2; ) {
-	_new = R_Calloc(1, struct tr_spec);
+	_new = (struct tr_spec *) R_alloc(1, sizeof(struct tr_spec));
 	_new->next = NULL;
 	if (s[i + 1] == '-') {
 	    _new->type = TR_RANGE;
@@ -1339,22 +1328,11 @@ tr_build_spec(const char *s, struct tr_spec *trs) {
 	This = This->next = _new;
     }
     for ( ; i < len; i++) {
-	_new = R_Calloc(1, struct tr_spec);
+	_new = (struct tr_spec *) R_alloc(1, sizeof(struct tr_spec));
 	_new->next = NULL;
 	_new->type = TR_CHAR;
 	_new->u.c = s[i];
 	This = This->next = _new;
-    }
-}
-
-static void
-tr_free_spec(struct tr_spec *trs) {
-    struct tr_spec *This, *next;
-    This = trs;
-    while(This) {
-	next = This->next;
-	R_Free(This);
-	This = next;
     }
 }
 
@@ -1505,11 +1483,13 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	struct wtr_spec *trs_old, **trs_old_ptr;
 	struct wtr_spec *trs_new, **trs_new_ptr;
 
-	/* Initialize the old and new wtr_spec lists. */
-	trs_old = R_Calloc(1, struct wtr_spec);
+	/* The spec lists come from R_alloc(), so the errors raised while
+	   they are built (a decreasing range, 'old' longer than 'new',
+	   an invalid string) do not leak them. */
+	trs_old = (struct wtr_spec *) R_alloc(1, sizeof(struct wtr_spec));
 	trs_old->type = WTR_INIT;
 	trs_old->next = NULL;
-	trs_new = R_Calloc(1, struct wtr_spec);
+	trs_new = (struct wtr_spec *) R_alloc(1, sizeof(struct wtr_spec));
 	trs_new->type = WTR_INIT;
 	trs_new->next = NULL;
 	/* Build the old and new wtr_spec lists. */
@@ -1533,7 +1513,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	    mbstowcs(wc, s, nc + 1);
 	}
 	wtr_build_spec(wc, trs_old);
-	trs_cnt = R_Calloc(1, struct wtr_spec);
+	trs_cnt = (struct wtr_spec *) R_alloc(1, sizeof(struct wtr_spec));
 	trs_cnt->type = WTR_INIT;
 	trs_cnt->next = NULL;
 	wtr_build_spec(wc, trs_cnt); /* use count only */
@@ -1563,17 +1543,15 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	   wtr_spec lists and retrieving the next chars from the lists.
 	*/
 
-	trs_cnt_ptr = R_Calloc(1, struct wtr_spec *);
+	trs_cnt_ptr = (struct wtr_spec **) R_alloc(1, sizeof(struct wtr_spec *));
 	*trs_cnt_ptr = trs_cnt->next;
 	for (xtable_cnt = 0 ; wtr_get_next_char_from_spec(trs_cnt_ptr);
 	      xtable_cnt++) ;
-	wtr_free_spec(trs_cnt);
-	R_Free(trs_cnt_ptr);
 	xtable = (xtable_t *) R_alloc(xtable_cnt+1, sizeof(xtable_t));
 
-	trs_old_ptr = R_Calloc(1, struct wtr_spec *);
+	trs_old_ptr = (struct wtr_spec **) R_alloc(1, sizeof(struct wtr_spec *));
 	*trs_old_ptr = trs_old->next;
-	trs_new_ptr = R_Calloc(1, struct wtr_spec *);
+	trs_new_ptr = (struct wtr_spec **) R_alloc(1, sizeof(struct wtr_spec *));
 	*trs_new_ptr = trs_new->next;
 	for (i = 0; ; i++) {
 	    c_old = wtr_get_next_char_from_spec(trs_old_ptr);
@@ -1587,11 +1565,6 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 		xtable[i].c_new = c_new;
 	    }
 	}
-
-	/* Free the memory occupied by the wtr_spec lists. */
-	wtr_free_spec(trs_old);
-	wtr_free_spec(trs_new);
-	R_Free(trs_old_ptr); R_Free(trs_new_ptr);
 
 	ISORT(xtable, xtable_cnt, xtable_t , xtable_comp);
 	COMPRESS(xtable, &xtable_cnt, xtable_t, xtable_comp);
@@ -1648,11 +1621,11 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	for (unsigned int ii = 0; ii <= UCHAR_MAX; ii++)
 	    xtable[ii] = (unsigned char) ii;
 
-	/* Initialize the old and new tr_spec lists. */
-	trs_old = R_Calloc(1, struct tr_spec);
+	/* R_alloc(), as above. */
+	trs_old = (struct tr_spec *) R_alloc(1, sizeof(struct tr_spec));
 	trs_old->type = TR_INIT;
 	trs_old->next = NULL;
-	trs_new = R_Calloc(1, struct tr_spec);
+	trs_new = (struct tr_spec *) R_alloc(1, sizeof(struct tr_spec));
 	trs_new->type = TR_INIT;
 	trs_new->next = NULL;
 	/* Build the old and new tr_spec lists. */
@@ -1661,9 +1634,9 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* Initialize the pointers for walking through the old and new
 	   tr_spec lists and retrieving the next chars from the lists.
 	*/
-	trs_old_ptr = R_Calloc(1, struct tr_spec *);
+	trs_old_ptr = (struct tr_spec **) R_alloc(1, sizeof(struct tr_spec *));
 	*trs_old_ptr = trs_old->next;
-	trs_new_ptr = R_Calloc(1, struct tr_spec *);
+	trs_new_ptr = (struct tr_spec **) R_alloc(1, sizeof(struct tr_spec *));
 	*trs_new_ptr = trs_new->next;
 	for (;;) {
 	    c_old = tr_get_next_char_from_spec(trs_old_ptr);
@@ -1675,11 +1648,6 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else
 		xtable[c_old] = c_new;
 	}
-	/* Free the memory occupied by the tr_spec lists. */
-	tr_free_spec(trs_old);
-	tr_free_spec(trs_new);
-	R_Free(trs_old_ptr); R_Free(trs_new_ptr);
-
 	n = LENGTH(x);
 	PROTECT(y = allocVector(STRSXP, n));
 	vmax = vmaxget();
