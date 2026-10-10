@@ -3967,6 +3967,31 @@ stopifnot(identical(iconv(x, "UTF-8", "ASCII", sub = "Unicode"), "a<c3>(<e2><82>
 
 
 
+## unz() stopped making progress on a truncated bzip2-compressed entry
+local({
+    le <- function(x, n) as.raw(x %/% 256^(seq_len(n) - 1L) %% 256)
+    data <- charToRaw("BZh91AY&SY") # a bzip2 stream cut off after the block magic
+    name <- charToRaw("a")
+    local <- c(as.raw(c(0x50, 0x4b, 0x03, 0x04)), le(46, 2), le(0, 2), le(12, 2),
+               le(0, 4), le(0, 4), le(length(data), 4), le(100, 4),
+               le(length(name), 2), le(0, 2), name)
+    central <- c(as.raw(c(0x50, 0x4b, 0x01, 0x02)), le(46, 2), le(46, 2), le(0, 2),
+                 le(12, 2), le(0, 4), le(0, 4), le(length(data), 4), le(100, 4),
+                 le(length(name), 2), le(0, 2), le(0, 2), le(0, 2), le(0, 2),
+                 le(0, 4), le(0, 4), name)
+    end <- c(as.raw(c(0x50, 0x4b, 0x05, 0x06)), le(0, 2), le(0, 2), le(1, 2), le(1, 2),
+             le(length(central), 4), le(length(local) + length(data), 4), le(0, 2))
+    zf <- tempfile(fileext = ".zip")
+    writeBin(c(local, data, central, end), zf)
+    con <- unz(zf, "a")
+    res <- readLines(con, warn = FALSE)
+    close(con)
+    unlink(zf)
+    stopifnot(identical(res, character(0)))
+})
+## looped forever in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

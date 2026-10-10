@@ -2099,6 +2099,17 @@ static int unzReadCurrentFile  (unzFile file, voidp buf, unsigned len)
 	      return (iRead == 0) ? UNZ_EOF : iRead;
 	    if (err != BZ_OK)
 	      break;
+	    /* BZ_OK with no output means the decoder wants more input.
+	       With the entry's compressed bytes all consumed there is
+	       none, so the stream is truncated and this loop would never
+	       end.  (inflate() reports Z_BUF_ERROR in that state.) */
+	    if (uOutThis == 0 &&
+		pfile_in_zip_read_info->stream.avail_in == 0 &&
+		pfile_in_zip_read_info->rest_read_compressed == 0)
+	    {
+		err = BZ_UNEXPECTED_EOF;
+		break;
+	    }
 #endif
 	} // end Z_BZIP2ED
 	else
