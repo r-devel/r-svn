@@ -3434,6 +3434,7 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else if(use_WC) {
 		wt = wtransChar2(STRING_ELT(text, i));
 		if (!wt) {
+		    free(pmatch);
 		    tre_regfree(&reg);
 		    error(_("input string %lld is invalid in this locale"),
 		          (long long)i + 1);
@@ -3443,6 +3444,7 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 	    } else {
 		t = translateCharFP2(STRING_ELT(text, i));
 		if (!t || (mbcslocale && !mbcsValid(t))) {
+		    free(pmatch);
 		    tre_regfree(&reg);
 		    error(_("input string %lld is invalid in this locale"),
 			  (long long)i + 1);
