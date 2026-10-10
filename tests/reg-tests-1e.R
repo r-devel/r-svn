@@ -3977,9 +3977,11 @@ local({
     ## n pairlist cells, each the CAR of the one before: n levels of recursion
     r <- c(hdr, rep(cell, n), nil, rep(nil, n))
     res <- tryCatch(unserialize(r), error = conditionMessage)
-    stopifnot(is.pairlist(res) || grepl("C stack usage", res, fixed = TRUE))
+    ## which guard fires first depends on the C stack size
+    stopifnot(is.pairlist(res) ||
+              grepl("C stack usage|protection stack overflow", res))
 })
-## segfaulted from C stack overflow in R <= 4.6.1
+## segfaulted from C stack overflow in R <= 4.6.1 (with an 8 MB C stack)
 
 
 ## keep at end
