@@ -488,6 +488,8 @@ FUNTAB R_FunTab[] =
 
 {"sample",	do_sample,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"sample2",	do_sample2,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"inclusion_probs",	do_inclusion_probs,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"up_brewer",	do_up_brewer,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 
 {"RNGkind",	do_RNGkind,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"set.seed",	do_setseed,	0,	111,	5,	{PP_FUNCALL, PREC_FN,	0}},
