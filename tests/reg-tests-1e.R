@@ -3967,6 +3967,360 @@ stopifnot(identical(iconv(x, "UTF-8", "ASCII", sub = "Unicode"), "a<c3>(<e2><82>
 
 
 
+## The subscripts of the inner calls of a complex assignment are
+## evaluated once, by the interpreter and by the byte code compiler
+local({
+    n <- 0
+    idx <- function() { n <<- n + 1; 1L }
+    `[.tstNSE` <- function(x, i, ...)
+        structure(unclass(x)[eval(substitute(i), list(zz = 2L))],
+                  class = "tstNSE")
+    `[<-.tstNSE` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        y[eval(substitute(i), list(zz = 2L))] <- unclass(value)
+        structure(y, class = "tstNSE")
+    }
+    `$<-.tstNSE` <- function(x, name, value) {
+        y <- unclass(x)
+        y[[1L]] <- value
+        structure(y, class = "tstNSE")
+    }
+    `[<-.tstMiss` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        if (missing(i)) y[] <- value else y[i] <- value
+        structure(y, miss = missing(i), class = "tstMiss")
+    }
+    missArg <- function(x, i) { x[i][[1L]] <- 0L; x }
+    missExp <- function(x, miss) structure(x, miss = miss, class = "tstMiss")
+    body <- quote({
+        df <- data.frame(a = 1:3, b = 0)
+        df[idx(), ]$b <- 99               # data frame, missing argument
+        l <- list(list(a = 1))
+        l[[idx()]]$a <- 2                 # inlined `[[`
+        x <- list(1:3)
+        names(x[[idx()]])[1L] <- "a"      # builtin getter and setter
+        obj <- structure(list(10, 20, 30), class = "tstNSE")
+        obj[zz + 0L]$foo <- 99            # substitute() in the methods
+        list(df$b, l[[1L]]$a, names(x[[1L]]), unclass(obj))
+    })
+    expected <- list(c(99, 0, 0), 2, c("a", NA, NA), list(10, 99, 30))
+    stopifnot(identical(eval(body), expected), n == 3)
+    ## a subscript that is a missing argument stays missing
+    stopifnot(identical(missArg(1:3), c(0L, 2L, 3L)),
+              identical(missArg(structure(1:3, class = "noMethod")),
+                        structure(c(0L, 2L, 3L), class = "noMethod")),
+              identical(missArg(structure(1:3, class = "tstMiss")),
+                        missExp(c(0L, 2L, 3L), TRUE)),
+              identical(missArg(structure(1:3, class = "tstMiss"), 2L),
+                        missExp(c(1L, 0L, 3L), FALSE)))
+    n <- 0
+    f <- compiler::cmpfun(eval(call("function", NULL, body)))
+    stopifnot(identical(f(), expected), n == 3)
+    missArg <- compiler::cmpfun(missArg)
+    stopifnot(identical(missArg(1:3), c(0L, 2L, 3L)),
+              identical(missArg(structure(1:3, class = "noMethod")),
+                        structure(c(0L, 2L, 3L), class = "noMethod")),
+              identical(missArg(structure(1:3, class = "tstMiss")),
+                        missExp(c(0L, 2L, 3L), TRUE)),
+              identical(missArg(structure(1:3, class = "tstMiss"), 2L),
+                        missExp(c(1L, 0L, 3L), FALSE)))
+    ## a method modifying its argument must not change the shared value
+    `[.tstMut` <- function(x, i) { i[1L] <- 1L; unclass(x)[i] }
+    `[<-.tstMut` <- function(x, i, value) {
+        y <- unclass(x); y[i] <- value; structure(y, class = "tstMut")
+    }
+    mut <- function() {
+        x <- structure(1:5, class = "tstMut")
+        x[c(3L, 4L)][1L] <- 99L
+        unclass(x)
+    }
+    ## an active binding is read once; break and next in the value
+    ## leave the loop cleanly
+    once <- function() {
+        n <- 0L
+        makeActiveBinding("i", function() { n <<- n + 1L; 1L }, environment())
+        x <- structure(list(list(a = 1)), class = "noMethod")
+        x[i][[1L]]$a <- 2
+        x <- list(list(a = 0), list(a = 0), list(a = 0))
+        for (k in 1:3) x[[idx() + k - 1L]]$a <- if (k == 2) next else k
+        for (k in 1:3) x[[idx() + k - 1L]]$a <- if (k == 3) break else -k
+        list(n, unlist(x))
+    }
+    expected <- list(1L, c(a = -1L, a = -2L, a = 3L))
+    stopifnot(identical(mut(), c(1L, 2L, 99L, 4L, 5L)),
+              identical(once(), expected),
+              identical(compiler::cmpfun(mut)(), c(1L, 2L, 99L, 4L, 5L)),
+              identical(compiler::cmpfun(once)(), expected))
+    ## <<-, a pkg::fun getter and an S4 slot; the subscript variable is
+    ## not left referenced by the assignment, successful or not
+    setClass("tstP", representation(v = "integer"))
+    more <- function() {
+        l <- list(list(a = 1))
+        g <- function() l[[idx()]]$a <<- 5
+        g()
+        x <- list(1:3)
+        base::names(x[[idx()]])[1L] <- "q"
+        p <- new("tstP", v = 1:3)
+        p@v[idx()] <- 10L
+        i <- c(1L, 2L)
+        y <- 1:5
+        y[i][1L] <- 0L
+        j <- 1L
+        z <- list(list(a = 1))
+        z[[j]]$a <- 2
+        r0 <- .Internal(refcnt(j))
+        z <- list(function() 1)
+        r <- tryCatch({ z[[j]]$a <- 2; "no error" }, error = function(e) "error")
+        list(l[[1L]]$a, names(x[[1L]])[1L], p@v, y,
+             .Internal(refcnt(i)), .Internal(refcnt(j)) - r0, r)
+    }
+    expected <- list(5, "q", c(10L, 2L, 3L), c(0L, 2L, 3L, 4L, 5L),
+                     1L, 0L, "error")
+    n <- 0
+    stopifnot(identical(more(), expected), n == 3)
+    n <- 0
+    stopifnot(identical(compiler::cmpfun(more)(), expected), n == 3)
+})
+## the subscripts were evaluated twice in R < 4.7.0, once by the
+## getter and once by the replacement function
+
+## Missing subscripts are looked up again after the getter, including
+## when an intervening replacement binds the previously missing symbol
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    f <- function(x, i) {
+        x[i][{ i <- 3:1; 1L }] <- 0L
+        x
+    }
+    g <- function(x, i) {
+        x[i, ][{ i <- 3:1; 1L }] <- 0L
+        x
+    }
+    for (fun in list(f, compiler::cmpfun(f))) {
+        stopifnot(identical(fun(1:3), c(3L, 2L, 0L)),
+                  identical(fun(structure(1:3, class = "noMethod")),
+                            structure(c(3L, 2L, 0L), class = "noMethod")))
+    }
+    for (fun in list(g, compiler::cmpfun(g)))
+        stopifnot(identical(fun(matrix(1:3)), matrix(c(3L, 2L, 0L))))
+    ## An expression returning the missing-argument object is still
+    ## evaluated only once, unlike a lookup of a missing symbol.
+    once <- function(closure = FALSE) {
+        n <- 0L
+        idx <- function() { n <<- n + 1L; quote(expr = ) }
+        if (closure)
+            `[<-` <- function(x, i, value) .Primitive("[<-")(x, i, value = value)
+        x <- 1:3
+        x[idx()][1L] <- 0L
+        list(n, x)
+    }
+    for (fun in list(once, compiler::cmpfun(once)))
+        for (closure in c(FALSE, TRUE))
+            stopifnot(identical(fun(closure), list(1L, c(0L, 2L, 3L))))
+})
+## the compiled default getter cached R_MissingArg and ignored the binding
+
+## Missing symbols stay unshared in every getter and setter path
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    dots <- function(x, i, ...) { x[i, ...][1L] <- 0L; x }
+    qualified <- function(x, i) { base::`[`(x, i)[1L] <- 0L; x }
+    aliased <- function(x, i) {
+        get <- .Primitive("[")
+        `get<-` <- .Primitive("[<-")
+        get(x, i)[1L] <- 0L
+        x
+    }
+    `[.tstSavedMissing` <- function(x, i, ...) unclass(x)[i, ...]
+    `[<-.tstSavedMissing` <- function(x, i, ..., value) {
+        y <- unclass(x)
+        y[i, ...] <- value
+        structure(y, class = "tstSavedMissing")
+    }
+    for (f in list(dots, qualified, aliased))
+        for (fun in list(f, compiler::cmpfun(f))) {
+            stopifnot(identical(fun(1:3), c(0L, 2L, 3L)),
+                      identical(fun(1:3, 2L), c(1L, 0L, 3L)))
+            for (cls in c("noMethod", "tstSavedMissing"))
+                stopifnot(identical(fun(structure(1:3, class = cls)),
+                                    structure(c(0L, 2L, 3L), class = cls)))
+        }
+    for (fun in list(dots, compiler::cmpfun(dots)))
+        stopifnot(identical(fun(matrix(1:6, 3L), , 2L),
+                            matrix(c(1:3, 0L, 5L, 6L), 3L)))
+
+    ## Missingness is checked before any getter can bind the symbol,
+    ## even when that happens before the first evaluation of its argument.
+    rebind <- function(i) {
+        get <- function(x, index) {
+            assign("i", 1L, parent.frame())
+            x[index]
+        }
+        `get<-` <- function(x, index, value) { x[index] <- value; x }
+        x <- 1:3
+        get(x, i)[{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    earlier <- function(i) {
+        get <- function(x) { assign("i", 1L, parent.frame()); x }
+        `get<-` <- function(x, value) value
+        x <- 1:3
+        get(x)[i][{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    target <- function(i) {
+        delayedAssign("x", { i <- 1L; 1:3 })
+        x[i][{ i <- 3L; 1L }] <- 0L
+        x
+    }
+    for (f in list(rebind, earlier, target))
+        for (fun in list(f, compiler::cmpfun(f)))
+            stopifnot(identical(fun(), c(1L, 2L, 0L)))
+
+    ## The RHS is evaluated before deciding which symbols are missing.
+    boundRHS <- function(i) {
+        x <- 1:3
+        x[i][{ i <- 3L; 1L }] <- { i <- 1L; 0L }
+        x
+    }
+    missingRHS <- function(i) {
+        x <- 1:3
+        x[i][{ i <- 3:1; 1L }] <- { i <- quote(expr = ); 0L }
+        x
+    }
+    for (fun in list(boundRHS, compiler::cmpfun(boundRHS)))
+        stopifnot(identical(fun(), c(0L, 2L, 3L)))
+    for (fun in list(missingRHS, compiler::cmpfun(missingRHS)))
+        stopifnot(identical(fun(1L), c(3L, 2L, 0L)))
+    ## Conversely, a shared symbol made missing by an earlier getter
+    ## must report an error when its promise is forced.
+    becomesMissing <- function(i) {
+        get <- function(x) {
+            assign("i", quote(expr = ), parent.frame())
+            x
+        }
+        `get<-` <- function(x, value) value
+        x <- 1:3
+        get(x)[i][1L] <- 0L
+        x
+    }
+    for (fun in list(becomesMissing, compiler::cmpfun(becomesMissing)))
+        tools::assertError(fun(1L))
+})
+## compiled primitive calls hid missingness in a promise; other paths
+## cached values of initially missing symbols after a getter bound them
+
+## Shared argument lists remain protected while their promises are made
+local({
+    oldJIT <- compiler::enableJIT(0L)
+    on.exit(compiler::enableJIT(oldJIT))
+    f <- function() {
+        i <- 1L
+        x <- list(list(a = 0L))
+        x[[i]]$a <- 1L
+        x[[1L + 0L]]$a <- 2L
+        x
+    }
+    cf <- compiler::cmpfun(f)
+    oldGC <- FALSE
+    on.exit(gctorture(oldGC), add = TRUE)
+    oldGC <- gctorture(TRUE)
+    a <- f()
+    b <- cf()
+    gctorture(oldGC)
+    stopifnot(identical(a, list(list(a = 2L))), identical(a, b))
+})
+## the copied argument list could be collected during mkPROMISE()
+
+## Qualified and aliased $ and @ primitives still take literal names
+local({
+    setClass("tstAssignSlots", representation(a = "integer", b = "integer"))
+    f <- function() {
+        a <- "b"
+        x <- list(a = 1:3, b = 4:6)
+        get <- .Primitive("$")
+        `get<-` <- .Primitive("$<-")
+        base::`$`(x, a)[1L] <- 9L
+        get(x, a)[2L] <- 8L
+        base:::`$`(x, a)[3L] <- 7L
+        y <- new("tstAssignSlots", a = 1:3, b = 4:6)
+        slot <- .Primitive("@")
+        `slot<-` <- .Primitive("@<-")
+        base::`@`(y, a)[1L] <- 9L
+        slot(y, a)[2L] <- 8L
+        base:::`@`(y, a)[3L] <- 7L
+        list(x, y@a, y@b)
+    }
+    expected <- list(list(a = c(9L, 8L, 7L), b = 4:6), c(9L, 8L, 7L), 4:6)
+    stopifnot(identical(f(), expected),
+              identical(compiler::cmpfun(f)(), expected))
+    removeClass("tstAssignSlots")
+})
+## these forms evaluated the name or rejected the promise as a slot name
+
+## Saved promises release their values, but retain captured arguments
+local({
+    `[.tstAssignRefs` <- function(x, i) unclass(x)[i]
+    `[<-.tstAssignRefs` <- function(x, i, value) {
+        y <- unclass(x); y[i] <- value
+        structure(y, class = "tstAssignRefs")
+    }
+    refs <- function(cls, fail = FALSE) {
+        i <- c(1L, 2L)
+        x <- structure(1:4, class = cls)
+        before <- .Internal(refcnt(i))
+        if (fail)
+            tryCatch(x[i][1L] <- integer(0), error = function(e) NULL)
+        else
+            x[i][1L] <- 9L
+        c(before, .Internal(refcnt(i)))
+    }
+    calls <- function() {
+        get <- function(x, i) x[i]
+        `get<-` <- function(x, i, value) { x[i] <- value; x }
+        i <- c(1L, 2L)
+        x <- 1:4
+        get(x, i)[1L] <- 9L
+        .Internal(refcnt(i))
+    }
+    captured <- function(fail = FALSE) {
+        saved <- NULL
+        get <- function(x, i) x[i]
+        `get<-` <- function(x, i, value) {
+            saved <<- function() i
+            if (fail) stop("replacement failed")
+            x[i] <- value
+            x
+        }
+        i <- c(1L, 2L)
+        x <- 1:4
+        tryCatch(get(x, i)[1L] <- 9L, error = function(e) NULL)
+        gc()
+        i[1L] <- 3L
+        saved()
+    }
+    for (f in list(refs, compiler::cmpfun(refs)))
+        for (cls in c("noMethod", "tstAssignRefs"))
+            for (fail in c(FALSE, TRUE))
+                stopifnot(identical(f(cls, fail), c(1L, 1L)))
+    stopifnot(identical(calls(), 1L),
+              identical(compiler::cmpfun(calls)(), 1L))
+    for (f in list(captured, compiler::cmpfun(captured)))
+        for (fail in c(FALSE, TRUE))
+            stopifnot(identical(f(fail), c(1L, 2L)))
+})
+## compiled slots kept the argument value referenced until GC
+
+## A complex assignment whose innermost target is a call without
+## arguments is still an error (reported here in tests/no-segfault.R)
+i <- 1L
+tools::assertError(`<-`(list(), list()))
+tools::assertError(list()[i] <- 1)
+## recursed until the C stack overflowed in an r-devel branch
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

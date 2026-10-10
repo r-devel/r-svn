@@ -1004,6 +1004,25 @@ static void forcePromise(SEXP e)
 
 static R_bcstack_t *R_BCProtCommitted;
 
+static R_INLINE void clearPromise(SEXP);
+
+/* The marker precedes the saved argument slots.  Clear only promises
+   owned by a slot; promises captured by a closure must retain their
+   cached values.  DECLNK_stack() also runs on an error unwind. */
+static R_INLINE void clearSavedArgs(R_bcstack_t *marker)
+{
+#ifdef ADJUST_ENVIR_REFCNTS
+    for (int i = 1; i <= marker->flags; i++) {
+	R_bcstack_t *slot = marker + i;
+	if (slot->tag == 0) {
+	    SEXP p = slot->u.sxpval;
+	    if (TYPEOF(p) == PROMSXP && REFCNT(p) == 1)
+		clearPromise(p);
+	}
+    }
+#endif
+}
+
 static R_INLINE void INCLNK_stack(R_bcstack_t *top)
 {
     R_BCProtTop = top;
@@ -1031,6 +1050,8 @@ static R_INLINE void DECLNK_stack(R_bcstack_t *base)
 	for (R_bcstack_t *p = base; p < top; p++) {
 	    if (p->tag == RAWMEM_TAG || p->tag == CACHESZ_TAG)
 		p += p->u.ival;
+	    else if (p->tag == SAVEDARGS_TAG)
+		clearSavedArgs(p);
 	    else if (p->tag == 0)
 		DECREMENT_LINKS(p->u.sxpval);
 	}
@@ -1076,16 +1097,110 @@ static void handle_eval_depth_overflow(void)
     R_signalErrorCondition(cond, R_NilValue);
 }
 
-/* Return value of "e" evaluated in "rho". */
+/* These primitives interpret their second argument as a literal name.
+   Recognize the resolved primitive, including namespace-qualified
+   calls and aliases, rather than just the spelling of the call. */
+static R_INLINE bool assignNamePrimitive(SEXP op)
+{
+    return PRIMFUN(op) == do_subset3 || PRIMFUN(op) == do_subassign3 ||
+	PRIMFUN(op) == do_AT ||
+	(PRIMFUN(op) == do_attrgets && PRIMVAL(op) == 1);
+}
 
-/* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
-SEXP eval(SEXP e, SEXP rho)
+/* Evaluate the call 'e' with 'args' in place of CDR(e).  The two are
+   the same except in complex assignments, where 'args' can hold
+   promises shared by a getter and the matching replacement call
+   while 'e', the call recorded in the context and seen by sys.call()
+   and friends, stays as written. */
+static R_INLINE SEXP evalCallArgs(SEXP e, SEXP args, SEXP rho)
 {
     SEXP op, tmp;
-    static int evalcount = 0;
 
-    R_Visible = TRUE;
+    if (TYPEOF(CAR(e)) == SYMSXP) {
+	/* This will throw an error if the function is not found */
+	SEXP ecall = e;
 
+	/* This picks the correct/better error expression for
+	   replacement calls running in the AST interpreter. */
+	if (R_GlobalContext != NULL &&
+		(R_GlobalContext->callflag == CTXT_CCODE))
+	    ecall = R_GlobalContext->call;
+	PROTECT(op = findFun3(CAR(e), rho, ecall));
+    } else
+	PROTECT(op = eval(CAR(e), rho));
+
+    if(RTRACE(op) && R_current_trace_state()) {
+	Rprintf("trace: ");
+	PrintValue(e);
+    }
+    if (TYPEOF(op) == SPECIALSXP) {
+	if (args != CDR(e) && assignNamePrimitive(op))
+	    SETCADR(args, CADDR(e));
+	int save = R_PPStackTop, flag = PRIMPRINT(op);
+	const void *vmax = vmaxget();
+	PROTECT(e);
+	R_Visible = flag != 1;
+	tmp = PRIMFUN(op) (e, op, args, rho);
+#ifdef CHECK_VISIBILITY
+	if(flag < 2 && R_Visible == flag) {
+	    char *nm = PRIMNAME(op);
+	    if(strcmp(nm, "for")
+	       && strcmp(nm, "repeat") && strcmp(nm, "while")
+	       && strcmp(nm, "[[<-") && strcmp(nm, "on.exit"))
+		printf("vis: special %s\n", nm);
+	}
+#endif
+	if (flag < 2) R_Visible = flag != 1;
+	UNPROTECT(1);
+	check_stack_balance(op, save);
+	vmaxset(vmax);
+    }
+    else if (TYPEOF(op) == BUILTINSXP) {
+	int save = R_PPStackTop, flag = PRIMPRINT(op);
+	const void *vmax = vmaxget();
+	RCNTXT cntxt;
+	PROTECT(tmp = evalList(args, rho, e, 0));
+	if (flag < 2) R_Visible = flag != 1;
+	/* We used to insert a context only if profiling,
+	   but helps for tracebacks on .C etc. */
+	if (R_Profiling || (PPINFO(op).kind == PP_FOREIGN)) {
+	    SEXP oldref = R_Srcref;
+	    begincontext(&cntxt, CTXT_BUILTIN, e,
+			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
+	    R_Srcref = NULL;
+	    tmp = PRIMFUN(op) (e, op, tmp, rho);
+	    R_Srcref = oldref;
+	    endcontext(&cntxt);
+	} else {
+	    tmp = PRIMFUN(op) (e, op, tmp, rho);
+	}
+#ifdef CHECK_VISIBILITY
+	if(flag < 2 && R_Visible == flag) {
+	    char *nm = PRIMNAME(op);
+	    printf("vis: builtin %s\n", nm);
+	}
+#endif
+	if (flag < 2) R_Visible = flag != 1;
+	UNPROTECT(1);
+	check_stack_balance(op, save);
+	vmaxset(vmax);
+    }
+    else if (TYPEOF(op) == CLOSXP) {
+	SEXP pargs = promiseArgs(args, rho);
+	PROTECT(pargs);
+	tmp = applyClosure(e, op, pargs, rho, R_NilValue, TRUE);
+	UNPROTECT(1);
+    }
+    else
+	error(_("attempt to apply non-function"));
+    UNPROTECT(1);
+    return tmp;
+}
+
+static int evalcount = 0;
+
+static R_INLINE void checkEvalCount(void)
+{
     /* this is needed even for self-evaluating objects or something like
        'while (TRUE) NULL' will not be interruptable */
     if (++evalcount > 1000) { /* was 100 before 2.8.0 */
@@ -1097,6 +1212,39 @@ SEXP eval(SEXP e, SEXP rho)
 #endif
 	evalcount = 0 ;
     }
+}
+
+/* eval() of the call 'e' with 'args' in place of CDR(e): the
+   bookkeeping eval() does around the LANGSXP case of its switch. */
+static SEXP evalAssignCall(SEXP e, SEXP args, SEXP rho)
+{
+    R_Visible = TRUE;
+    checkEvalCount();
+
+    int bcintactivesave = R_BCIntActive;
+    R_BCIntActive = 0;
+    SEXP srcrefsave = R_Srcref;
+    int depthsave = R_EvalDepth;
+    INCREMENT_EVAL_DEPTH();
+    R_CheckStack();
+
+    SEXP tmp = evalCallArgs(e, args, rho);
+
+    R_EvalDepth = depthsave;
+    R_Srcref = srcrefsave;
+    R_BCIntActive = bcintactivesave;
+    return tmp;
+}
+
+/* Return value of "e" evaluated in "rho". */
+
+/* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
+SEXP eval(SEXP e, SEXP rho)
+{
+    SEXP tmp;
+
+    R_Visible = TRUE;
+    checkEvalCount();
 
     /* handle self-evaluating objects with minimal overhead */
     switch (TYPEOF(e)) {
@@ -1205,82 +1353,7 @@ SEXP eval(SEXP e, SEXP rho)
 	   end up getting duplicated if NAMED > 1.) LT */
 	break;
     case LANGSXP:
-	if (TYPEOF(CAR(e)) == SYMSXP) {
-	    /* This will throw an error if the function is not found */
-	    SEXP ecall = e;
-
-	    /* This picks the correct/better error expression for
-	       replacement calls running in the AST interpreter. */
-	    if (R_GlobalContext != NULL &&
-		    (R_GlobalContext->callflag == CTXT_CCODE))
-		ecall = R_GlobalContext->call;
-	    PROTECT(op = findFun3(CAR(e), rho, ecall));
-	} else
-	    PROTECT(op = eval(CAR(e), rho));
-
-	if(RTRACE(op) && R_current_trace_state()) {
-	    Rprintf("trace: ");
-	    PrintValue(e);
-	}
-	if (TYPEOF(op) == SPECIALSXP) {
-	    int save = R_PPStackTop, flag = PRIMPRINT(op);
-	    const void *vmax = vmaxget();
-	    PROTECT(e);
-	    R_Visible = flag != 1;
-	    tmp = PRIMFUN(op) (e, op, CDR(e), rho);
-#ifdef CHECK_VISIBILITY
-	    if(flag < 2 && R_Visible == flag) {
-		char *nm = PRIMNAME(op);
-		if(strcmp(nm, "for")
-		   && strcmp(nm, "repeat") && strcmp(nm, "while")
-		   && strcmp(nm, "[[<-") && strcmp(nm, "on.exit"))
-		    printf("vis: special %s\n", nm);
-	    }
-#endif
-	    if (flag < 2) R_Visible = flag != 1;
-	    UNPROTECT(1);
-	    check_stack_balance(op, save);
-	    vmaxset(vmax);
-	}
-	else if (TYPEOF(op) == BUILTINSXP) {
-	    int save = R_PPStackTop, flag = PRIMPRINT(op);
-	    const void *vmax = vmaxget();
-	    RCNTXT cntxt;
-	    PROTECT(tmp = evalList(CDR(e), rho, e, 0));
-	    if (flag < 2) R_Visible = flag != 1;
-	    /* We used to insert a context only if profiling,
-	       but helps for tracebacks on .C etc. */
-	    if (R_Profiling || (PPINFO(op).kind == PP_FOREIGN)) {
-		SEXP oldref = R_Srcref;
-		begincontext(&cntxt, CTXT_BUILTIN, e,
-			     R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-		R_Srcref = NULL;
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
-		R_Srcref = oldref;
-		endcontext(&cntxt);
-	    } else {
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
-	    }
-#ifdef CHECK_VISIBILITY
-	    if(flag < 2 && R_Visible == flag) {
-		char *nm = PRIMNAME(op);
-		printf("vis: builtin %s\n", nm);
-	    }
-#endif
-	    if (flag < 2) R_Visible = flag != 1;
-	    UNPROTECT(1);
-	    check_stack_balance(op, save);
-	    vmaxset(vmax);
-	}
-	else if (TYPEOF(op) == CLOSXP) {
-	    SEXP pargs = promiseArgs(CDR(e), rho);
-	    PROTECT(pargs);
-	    tmp = applyClosure(e, op, pargs, rho, R_NilValue, TRUE);
-	    UNPROTECT(1);
-	}
-	else
-	    error(_("attempt to apply non-function"));
-	UNPROTECT(1);
+	tmp = evalCallArgs(e, CDR(e), rho);
 	break;
     case DOTSXP:
 	error(_("'...' used in an incorrect context"));
@@ -3170,10 +3243,98 @@ attribute_hidden SEXP do_function(SEXP call, SEXP op, SEXP args, SEXP rho)
   nonlocal.
 */
 
-static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
-		    R_varloc_t *ploc)
+/* Build a copy of the inner calls of a complex assignment target in
+   which each argument is a single promise, shared by the getter call
+   made in evalseq() and the replacement call made in applydefine().
+   Without this the argument expressions are evaluated twice, once per
+   call, which is visible when they have side effects, e.g.
+   x[sample(n, 1), ]$y <- v.  Promises rather than values are used so
+   that getters and setters using substitute() still see the original
+   expressions.  The copy only supplies the argument lists of the
+   calls; the calls themselves are built from the original expression,
+   so sys.call() and error messages are unchanged.  Left alone are the
+   outermost call (only its replacement function is ever called, so
+   its arguments are evaluated once already), the name argument of `$`
+   and `@`, and symbols for missing arguments (a promise would hide
+   the missingness from evalListKeepMissing()). */
+static R_INLINE bool shareAssignArg(SEXP a, SEXP rho)
 {
-    SEXP val, nval, nexpr;
+    return (TYPEOF(a) == LANGSXP) ||
+	(TYPEOF(a) == SYMSXP &&
+	 a != R_MissingArg && a != R_DotsSymbol && ! R_isMissing(a, rho));
+}
+
+/* returns 'expr' itself when there is nothing to share.  Test the
+   type directly: isLanguage() is true for NULL, the target of a call
+   without arguments as in list() <- v, and the CADR() walk would
+   never end; evalseq() reports that error. */
+static SEXP promiseAssignArgs(SEXP expr, SEXP rho)
+{
+    if (TYPEOF(expr) != LANGSXP)
+	return expr;
+
+    SEXP fun = CAR(expr);
+    SEXP target = PROTECT(promiseAssignArgs(CADR(expr), rho));
+    SEXP args;
+    PROTECT_INDEX aidx;
+    PROTECT_WITH_INDEX(args = CDDR(expr), &aidx);
+
+    if (fun != R_DollarSymbol && fun != R_AtsignSymbol) {
+	bool share = false;
+	for (SEXP el = args; el != R_NilValue && ! share; el = CDR(el))
+	    share = shareAssignArg(CAR(el), rho);
+	if (share) {
+	    REPROTECT(args = shallow_duplicate(args), aidx);
+	    for (SEXP el = args; el != R_NilValue; el = CDR(el))
+		if (shareAssignArg(CAR(el), rho))
+		    SETCAR(el, mkPROMISE(CAR(el), rho));
+	}
+    }
+
+    if (target == CADR(expr) && args == CDDR(expr)) {
+	UNPROTECT(2);
+	return expr;
+    }
+
+    SEXP ans = LCONS(fun, CONS(target, args));
+    UNPROTECT(2);
+    return ans;
+}
+
+#ifdef ADJUST_ENVIR_REFCNTS
+/* Drop the values of the shared promises once the assignment is done
+   or has failed, so that the argument values are not left with an
+   extra reference that would force a copy on their next modification.
+   A promise still referenced elsewhere (captured by a closure) is
+   left alone. */
+static void clearAssignPromises(SEXP pexpr)
+{
+    for (SEXP e = pexpr; TYPEOF(e) == LANGSXP; e = CADR(e))
+	for (SEXP a = CDDR(e); a != R_NilValue; a = CDR(a)) {
+	    SEXP p = CAR(a);
+	    if (TYPEOF(p) == PROMSXP && REFCNT(p) == 1 &&
+		PROMISE_IS_EVALUATED(p))
+		clearPromise(p);
+	}
+}
+#else
+static void clearAssignPromises(SEXP pexpr) { }
+#endif
+
+/* The replacement call built from the promise copy references the
+   shared promises too; drop those references once it has been
+   evaluated so that clearAssignPromises() sees the true count. */
+static R_INLINE void dropCallArgs(SEXP call)
+{
+    for (SEXP a = CDR(call); a != R_NilValue; a = CDR(a))
+	SETCAR(a, R_NilValue);
+}
+
+/* 'pexpr' is the copy of 'expr' made by promiseAssignArgs() */
+static SEXP evalseq(SEXP expr, SEXP pexpr, SEXP rho, int forcelocal,
+		    R_varloc_t tmploc, R_varloc_t *ploc)
+{
+    SEXP val, nval, nexpr, nargs;
     if (isNull(expr))
 	error(_("invalid (NULL) left side of assignment"));
     if (isSymbol(expr)) { /* now we are down to the target symbol */
@@ -3198,11 +3359,19 @@ static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
     }
     else if (isLanguage(expr)) {
 	PROTECT(expr);
-	PROTECT(val = evalseq(CADR(expr), rho, forcelocal, tmploc, ploc));
+	PROTECT(val = evalseq(CADR(expr), CADR(pexpr), rho, forcelocal,
+			      tmploc, ploc));
 	R_SetVarLocValue(tmploc, CAR(val));
 	PROTECT(nexpr = LCONS(R_GetVarLocSymbol(tmploc), CDDR(expr)));
 	PROTECT(nexpr = LCONS(CAR(expr), nexpr));
-	nval = eval(nexpr, rho);
+	if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	    PROTECT(nargs = R_NilValue);
+	    nval = eval(nexpr, rho);
+	}
+	else {
+	    PROTECT(nargs = CONS(R_GetVarLocSymbol(tmploc), CDDR(pexpr)));
+	    nval = evalAssignCall(nexpr, nargs, rho);
+	}
 	/* duplicate nval if it might be shared _or_ if the container,
 	   CAR(val), has become possibly shared by going through a
 	   closure.  This is taken to indicate that the corresponding
@@ -3213,7 +3382,7 @@ static SEXP evalseq(SEXP expr, SEXP rho, int forcelocal,  R_varloc_t tmploc,
 	if (MAYBE_REFERENCED(nval) &&
 	    (MAYBE_SHARED(nval) || MAYBE_SHARED(CAR(val))))
 	    nval = shallow_duplicate(nval);
-	UNPROTECT(4);
+	UNPROTECT(5);
 	return CONS_NR(nval, val);
     }
     else error(_("target of assignment expands to non-language object"));
@@ -3267,9 +3436,17 @@ static void enterAssignFcnSymbol(SEXP fun, SEXP val)
     defineVar(fun, val, R_ReplaceFunsTable);
 }
 
+typedef struct {
+    SEXP rho;
+    SEXP pexpr; /* the promise copy of the LHS, once made */
+} tmp_cleanup_data;
+
 static void tmp_cleanup(void *data)
 {
-    unbindVar(R_TmpvalSymbol, (SEXP) data);
+    tmp_cleanup_data *d = data;
+    unbindVar(R_TmpvalSymbol, d->rho);
+    if (d->pexpr != NULL)
+	clearAssignPromises(d->pexpr);
 }
 
 /* This macro stores the current assignment target in the saved
@@ -3370,7 +3547,7 @@ try_assign_unwrap(SEXP value, SEXP sym, SEXP rho, SEXP cell)
 
 static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP expr, lhs, rhs, saverhs, tmp, afun, rhsprom;
+    SEXP expr, pexpr, pcall, lhs, rhs, saverhs, tmp, afun, rhsprom;
     R_varloc_t tmploc;
     RCNTXT cntxt;
     int nprot;
@@ -3408,7 +3585,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	environment by user code or an assignment within the
 	assignment arguments */
 
-    /*  There are two issues with the approach here:
+    /*  There is an issue with the approach here:
 
 	    A complex assignment within a complex assignment, like
 	    f(x, y[] <- 1) <- 3, can cause the value temporary
@@ -3419,16 +3596,16 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    replacement function call in error messages might then need
 	    to be adjusted.
 
-	    With assignments of the form f(g(x, z), y) <- w the value
-	    of 'z' will be computed twice, once for a call to g(x, z)
-	    and once for the call to the replacement function g<-.  It
-	    might be possible to address this by using promises.
-	    Using more temporaries would not work as it would mess up
-	    replacement functions that use substitute and/or
-	    nonstandard evaluation (and there are packages that do
-	    that -- igraph is one).
+	    LT
 
-	    LT */
+	A second issue, that with assignments of the form f(g(x, z), y)
+	<- w the value of 'z' was computed twice, once for the call to
+	g(x, z) and once for the call to the replacement function g<-,
+	is handled by promiseAssignArgs() below: both calls get the
+	same promise for 'z'.  Using more temporaries would not work
+	as it would mess up replacement functions that use substitute
+	and/or nonstandard evaluation (and there are packages that do
+	that -- igraph is one). */
 
     FIXUP_RHS_NAMED(rhs);
 
@@ -3458,14 +3635,29 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Now set up a context to remove it when we are done, even in the
      * case of an error.  This all helps error() provide a better call.
      */
+    tmp_cleanup_data cdata = { rho, NULL };
     begincontext(&cntxt, CTXT_CCODE, call, R_BaseEnv, R_BaseEnv,
 		 R_NilValue, R_NilValue);
     cntxt.cend = &tmp_cleanup;
-    cntxt.cenddata = rho;
+    cntxt.cenddata = &cdata;
+
+    /*  A copy of the LHS with one promise per argument of the inner
+	calls, shared by the getter and the replacement call; it only
+	supplies the argument lists, the calls are built from 'expr'.
+	When there is nothing to share it is 'expr' itself. */
+    PROTECT(tmp = promiseAssignArgs(CADR(expr), rho));
+    if (tmp == CADR(expr))
+	pexpr = expr;
+    else
+	pexpr = LCONS(CAR(expr), CONS(tmp, CDDR(expr)));
+    UNPROTECT(1);
+    PROTECT(pexpr);
+    if (pexpr != expr)
+	cdata.pexpr = pexpr;
 
     /*  Do a partial evaluation down through the LHS. */
     R_varloc_t lhsloc;
-    lhs = evalseq(CADR(expr), rho,
+    lhs = evalseq(CADR(expr), CADR(pexpr), rho,
 		  PRIMVAL(op)==1 || PRIMVAL(op)==3, tmploc, &lhsloc);
     if (lhsloc.cell == NULL)
 	lhsloc.cell = R_NilValue;
@@ -3475,7 +3667,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     PROTECT(rhsprom = mkRHSPROMISE(CADR(args), rhs));
 
     while (isLanguage(CADR(expr))) {
-	nprot = 1; /* the PROTECT of rhs below from this iteration */
+	nprot = 2; /* the PROTECTs of rhs and pcall below from this iteration */
 	if (TYPEOF(CAR(expr)) == SYMSXP)
 	    tmp = getAssignFcnSymbol(CAR(expr));
 	else {
@@ -3495,14 +3687,24 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
 	PROTECT(rhs = replaceCall(tmp, R_TmpvalSymbol, CDDR(expr), rhsprom));
-	rhs = eval(rhs, rho);
+	if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	    PROTECT(pcall = R_NilValue);
+	    rhs = eval(rhs, rho);
+	}
+	else {
+	    PROTECT(pcall = replaceCall(tmp, R_TmpvalSymbol, CDDR(pexpr),
+					rhsprom));
+	    rhs = evalAssignCall(rhs, CDR(pcall), rho);
+	    dropCallArgs(pcall);
+	}
 	SET_PRVALUE(rhsprom, rhs);
 	SET_PRCODE(rhsprom, rhs); /* not good but is what we have been doing */
 	UNPROTECT(nprot);
 	lhs = CDR(lhs);
 	expr = CADR(expr);
+	pexpr = CADR(pexpr);
     }
-    nprot = 6; /* the commont case */
+    nprot = 8; /* the common case */
     if (oldTmpval != NULL) nprot++;
 
     if (TYPEOF(CAR(expr)) == SYMSXP)
@@ -3525,8 +3727,21 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TEMPVARLOC_FROM_CAR(tmploc, lhs);
     SEXP lhsSym = CDR(lhs);
 
-    PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
-    SEXP value = eval(expr, rho);
+    SEXP value;
+    if (CDDR(pexpr) == CDDR(expr)) { /* no shared arguments */
+	PROTECT(pcall = R_NilValue);
+	PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
+	value = eval(expr, rho);
+    }
+    else {
+	PROTECT(pcall = replaceCall(afun, R_TmpvalSymbol, CDDR(pexpr),
+				    rhsprom));
+	PROTECT(expr = replaceCall(afun, R_TmpvalSymbol, CDDR(expr), rhsprom));
+	value = evalAssignCall(expr, CDR(pcall), rho);
+	dropCallArgs(pcall);
+    }
+    if (cdata.pexpr != NULL)
+	clearAssignPromises(cdata.pexpr);
 
     SET_ASSIGNMENT_PENDING(lhsloc.cell, FALSE);
     if (PRIMVAL(op) == 2)                       /* <<- */
@@ -4537,8 +4752,10 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 }
 
 /* start of bytecode section */
-static int R_bcVersion = 12;
-static int R_bcMinVersion = 9;
+static int R_bcVersion = 13;
+/* Older code evaluates complex assignment arguments twice.  Evaluate
+   its source expression instead until it is recompiled. */
+static int R_bcMinVersion = 13;
 
 static SEXP R_AddSym = NULL;
 static SEXP R_SubSym = NULL;
@@ -4749,6 +4966,13 @@ enum {
   DECLNK_N_OP,
   INCLNKSTK_OP,
   DECLNKSTK_OP,
+  MAKESAVED_OP,
+  PROMSAVED_OP,
+  FORCESAVED_OP,
+  SETSAVEDARGS_OP,
+  DROPSAVED_OP,
+  BRSAVED_OP,
+  STORESAVED_OP,
   OPCOUNT
 };
 
@@ -6072,14 +6296,213 @@ static R_INLINE SEXP CLOSURE_CALL_FRAME_ARGS(void)
 	    SET_TAG(__cell__, t);			\
     } while (0)
 
-static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
+/* Shared argument promises for compiled complex assignments; the
+   interpreter's version is promiseAssignArgs().  The compiler reserves
+   one node stack entry per shared argument below the working values
+   of the assignment.  An entry starts out as R_UnboundValue and holds
+   the argument's value after a use that needed the value, or its
+   promise after a use that needed a promise (a closure call or a
+   method dispatch); a value is upgraded to an evaluated promise if a
+   later use needs one.  The getter and the setter both use the entry,
+   so the argument is evaluated once.  The entries are in the
+   link-protected part of the stack (MAKESAVED raises R_BCProtTop above
+   them, DROPSAVED restores it), so their contents count as shared
+   until the assignment is done and the links are dropped by
+   DECLNK_stack() both then and when an error unwinds the stack; an
+   entry that is overwritten loses the link of its old contents and
+   gains one for the new. */
+
+/* A slot holds R_UnboundValue, a promise, or a (possibly unboxed) value.
+   An initially missing symbol instead has an UNSHAREDARG_TAG slot:
+   every use looks it up anew, even if a getter binds it before its
+   first use.  The symbol is interned and needs no GC protection. */
+static R_INLINE int savedSlotEmpty(R_bcstack_t *slot)
+{
+    return slot->tag == 0 && slot->u.sxpval == R_UnboundValue;
+}
+
+static R_INLINE int savedSlotUnshared(R_bcstack_t *slot)
+{
+    return slot->tag == UNSHAREDARG_TAG;
+}
+
+static R_INLINE int savedSlotHasPromise(R_bcstack_t *slot)
+{
+    return slot->tag == 0 && TYPEOF(slot->u.sxpval) == PROMSXP;
+}
+
+/* A slot is below R_BCProtTop by design, so it is written directly
+   rather than with SETSTACK_PTR, whose strict-barrier check rejects
+   that; the links are adjusted here instead. */
+static R_INLINE void savedSlotWrite(R_bcstack_t *slot, SEXP value)
+{
+    slot->tag = 0;
+    slot->u.sxpval = value;
+    INCLNK_STACK_PTR(slot);
+}
+
+/* store 'value' in a slot, adjusting the links; an unboxed scalar has
+   no link to drop */
+static R_INLINE void savedSlotSet(R_bcstack_t *slot, SEXP value)
+{
+    if (slot->tag == 0)
+	DECLNK_STACK_PTR(slot);
+    savedSlotWrite(slot, value);
+}
+
+/* The link on a slot promise also keeps it from being cleared by a
+   dispatch that does not use it (see unpromiseArgs). */
+static R_INLINE SEXP savedSlotPromise(R_bcstack_t *slot, SEXP code, SEXP rho)
+{
+    if (savedSlotHasPromise(slot))
+	return slot->u.sxpval;
+
+    SEXP p;
+    if (savedSlotEmpty(slot))
+	p = mkPROMISE(code, rho);
+    else {
+	int boxed = slot->tag == 0;
+	SEXP value = PROTECT(GETSTACK_PTR(slot)); /* boxes in place */
+	if (boxed)
+	    DECLNK_STACK_PTR(slot);
+	p = R_mkEVPROMISE(code, value);
+	UNPROTECT(1);
+	savedSlotWrite(slot, p);
+	return p;
+    }
+    savedSlotSet(slot, p);
+    return p;
+}
+
+/* A closure gets a fresh promise for the shared one, as promiseArgs()
+   makes for a promise in a call: the two then share the value, so a
+   closure that modifies its argument in place cannot change the value
+   a later use of the slot sees. */
+static R_INLINE SEXP savedSlotClosurePromise(R_bcstack_t *slot, SEXP code,
+					     SEXP rho)
+{
+    if (savedSlotUnshared(slot))
+	return mkPROMISE(code, rho);
+    return mkPROMISE(savedSlotPromise(slot, code, rho), rho);
+}
+
+/* Push the value of a slot, evaluating 'code' if it is still empty.
+   Initially missing symbols remain unshared and are looked up as
+   the GETVAR instructions do, allowing R_MissingArg for indices of
+   the `[` and `[[` default paths. */
+static void savedSlotPushValue(R_bcstack_t *slot, SEXP code, SEXP rho,
+			       int missingOK)
+{
+    if (savedSlotUnshared(slot)) {
+	SEXP sym = slot->u.sxpval;
+	BCNPUSH(getvar(sym, rho, DDVAL(sym), missingOK, NULL, 0));
+    }
+    else if (savedSlotHasPromise(slot)) {
+	SEXP p = slot->u.sxpval;
+	forcePromise(p);
+	BCNPUSH(PRVALUE(p));
+    }
+    else if (savedSlotEmpty(slot)) {
+	SEXP value = eval(code, rho);
+	savedSlotSet(slot, value);
+	BCNPUSH(value);
+    }
+    else
+	BCNPUSH_STACKVAL(*slot);
+}
+
+static R_INLINE SEXP savedSlotValue(R_bcstack_t *slot, SEXP code, SEXP rho)
+{
+    savedSlotPushValue(slot, code, rho, FALSE);
+    return BCNPOP();
+}
+
+/* A map has one element per argument of the getter call: NULL, or a
+   list of the slot number and the argument's code.  The setter call
+   has the value argument after those, which has no element. */
+static R_INLINE R_bcstack_t *savedMapSlot(SEXP map, int i, R_bcstack_t *base,
+					 SEXP *pcode)
+{
+    if (i >= LENGTH(map))
+	return NULL;
+
+    SEXP m = VECTOR_ELT(map, i);
+    if (m == R_NilValue)
+	return NULL;
+
+    *pcode = VECTOR_ELT(m, 1);
+    R_bcstack_t *slot = base + INTEGER(VECTOR_ELT(m, 0))[0];
+    return savedSlotUnshared(slot) ? NULL : slot;
+}
+
+/* duplicate(CDR(call)) with the shared promises in the mapped
+   positions; used for calls to SPECIALSXP getters and setters */
+static SEXP savedCallArgs(SEXP call, R_bcstack_t *base, SEXP map, SEXP rho)
+{
+    SEXP args = PROTECT(duplicate(CDR(call)));
+    int i = 0;
+    for (SEXP a = args; a != R_NilValue; a = CDR(a), i++) {
+	SEXP code;
+	R_bcstack_t *slot = savedMapSlot(map, i, base, &code);
+	if (slot != NULL)
+	    SETCAR(a, savedSlotPromise(slot, code, rho));
+    }
+    UNPROTECT(1);
+    return args;
+}
+
+/* promiseArgs(CDR(call), rho) with the shared promises in the mapped
+   positions; arguments that are already promises (the RHS promise of
+   a replacement call) are used as they are */
+static SEXP savedDispatchArgs(SEXP call, R_bcstack_t *base, SEXP map, SEXP rho)
+{
+    for (SEXP a = CDR(call); a != R_NilValue; a = CDR(a))
+	if (CAR(a) == R_DotsSymbol) {
+	    SEXP args = PROTECT(savedCallArgs(call, base, map, rho));
+	    SEXP pargs = promiseArgs(args, rho);
+	    UNPROTECT(1);
+	    return pargs;
+	}
+
+    SEXP head = R_NilValue, tail = R_NilValue;
+    PROTECT_INDEX pidx;
+    PROTECT_WITH_INDEX(head, &pidx);
+    int i = 0;
+    for (SEXP a = CDR(call); a != R_NilValue; a = CDR(a), i++) {
+	SEXP arg = CAR(a), val, code;
+	R_bcstack_t *slot = savedMapSlot(map, i, base, &code);
+	if (slot != NULL)
+	    val = savedSlotClosurePromise(slot, code, rho);
+	else if (arg == R_MissingArg || TYPEOF(arg) == PROMSXP)
+	    val = arg;
+	else
+	    val = mkPROMISE(arg, rho);
+
+	SEXP cell = CONS(val, R_NilValue);
+	SET_TAG(cell, TAG(a));
+	if (head == R_NilValue) {
+	    head = cell;
+	    REPROTECT(head, pidx);
+	}
+	else
+	    SETCDR(tail, cell);
+	tail = cell;
+    }
+    UNPROTECT(1);
+    return head;
+}
+
+static int tryDispatchArgs(char *generic, SEXP call, SEXP x, SEXP rho,
+			   SEXP *pv, SEXP pargs)
 {
   RCNTXT cntxt;
-  SEXP pargs, rho1;
+  SEXP rho1;
   int dispatched = FALSE;
   SEXP op = SYMVALUE(install(generic)); /**** avoid this */
 
-  PROTECT(pargs = promiseArgs(CDR(call), rho));
+  if (pargs == NULL)
+      pargs = promiseArgs(CDR(call), rho);
+  PROTECT(pargs);
   IF_PROMSXP_SET_PRVALUE(CAR(pargs), x);
 
   /**** Minimal hack to try to handle the S4 case.  If we do the check
@@ -6111,8 +6534,25 @@ static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
   return dispatched;
 }
 
-static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
-			     SEXP rho, SEXP *pv)
+static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
+{
+    return tryDispatchArgs(generic, call, x, rho, pv, NULL);
+}
+
+/* sbase/smap are the shared argument slots and map set by a
+   SETSAVEDARGS instruction, or NULL */
+static int tryDispatchSaved(char *generic, SEXP call, SEXP x, SEXP rho,
+			    SEXP *pv, R_bcstack_t *sbase, SEXP smap)
+{
+    SEXP pargs = NULL;
+    if (sbase != NULL)
+	pargs = savedDispatchArgs(call, sbase, smap, rho);
+    return tryDispatchArgs(generic, call, x, rho, pv, pargs);
+}
+
+static int tryAssignDispatchSaved(char *generic, SEXP call, SEXP lhs,
+				  SEXP rhs, SEXP rho, SEXP *pv,
+				  R_bcstack_t *sbase, SEXP smap)
 {
     int result;
     SEXP ncall, last, prom;
@@ -6123,16 +6563,29 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 	last = CDR(last);
     prom = mkRHSPROMISE(CAR(last), rhs);
     SETCAR(last, prom);
-    result = tryDispatch(generic, ncall, lhs, rho, pv);
+    result = tryDispatchSaved(generic, ncall, lhs, rho, pv, sbase, smap);
     UNPROTECT(1);
     return result;
 }
+
+/* take and clear the shared arguments registered for the next
+   dispatch or getter/setter call instruction */
+#define TAKE_SAVED_ARGS(sbase, smap) do {	\
+	sbase = savedArgsBase;			\
+	smap = savedArgsMap;			\
+	savedArgsBase = NULL;			\
+	savedArgsMap = NULL;			\
+    } while (0)
 
 #define DO_STARTDISPATCH(generic) do { \
   SEXP call = GETCONST(constants, GETOP()); \
   int label = GETOP(); \
   SEXP value = GETSTACK(-1); \
-  if (isObject(value) && tryDispatch(generic, call, value, rho, &value)) {\
+  R_bcstack_t *sbase; \
+  SEXP smap; \
+  TAKE_SAVED_ARGS(sbase, smap); \
+  if (isObject(value) && \
+      tryDispatchSaved(generic, call, value, rho, &value, sbase, smap)) {\
     SETSTACK(-1, value);						\
     BC_CHECK_SIGINT(); \
     pc = codebase + label; \
@@ -6168,8 +6621,12 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     ENSURE_NAMED(lhs); \
   } \
   SEXP value = NULL; \
+  R_bcstack_t *sbase; \
+  SEXP smap; \
+  TAKE_SAVED_ARGS(sbase, smap); \
   if (isObject(lhs) && \
-      tryAssignDispatch(generic, call, lhs, rhs, rho, &value)) { \
+      tryAssignDispatchSaved(generic, call, lhs, rhs, rho, &value, \
+			     sbase, smap)) { \
     R_BCNodeStackTop--;	\
     SETSTACK(-1, value); \
     BC_CHECK_SIGINT(); \
@@ -6199,9 +6656,13 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 #define DO_STARTDISPATCH_N(generic) do { \
     int callidx = GETOP(); \
     SEXP value = GETSTACK(-1); \
+    R_bcstack_t *sbase; \
+    SEXP smap; \
+    TAKE_SAVED_ARGS(sbase, smap); \
     if (isObject(value)) { \
 	SEXP call = GETCONST(constants, callidx); \
-	if (tryDispatch(generic, call, value, rho, &value)) { \
+	if (tryDispatchSaved(generic, call, value, rho, &value, \
+			     sbase, smap)) { \
 	    SETSTACK(-1, value); \
 	    BC_CHECK_SIGINT(); \
 	    int label = GETOP(); \
@@ -6217,6 +6678,9 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     int callidx = GETOP(); \
     int label = GETOP(); \
     SEXP lhs = GETSTACK(-2); \
+    R_bcstack_t *sbase; \
+    SEXP smap; \
+    TAKE_SAVED_ARGS(sbase, smap); \
     if (isObject(lhs)) { \
 	SEXP call = GETCONST(constants, callidx); \
 	MARK_ASSIGNMENT_CALL(call); \
@@ -6227,7 +6691,8 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 	    ENSURE_NAMED(lhs); \
 	} \
 	SEXP value = NULL; \
-	if (tryAssignDispatch(generic, call, lhs, rhs, rho, &value)) { \
+	if (tryAssignDispatchSaved(generic, call, lhs, rhs, rho, &value, \
+				   sbase, smap)) { \
 	    R_BCNodeStackTop--; \
 	    SETSTACK(-1, value); \
 	    BC_CHECK_SIGINT(); \
@@ -7547,6 +8012,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
   R_binding_cache_t vcache;
   Rboolean smallcache;
 
+  /* shared arguments of a complex assignment, set by SETSAVEDARGS for
+     the dispatch or getter/setter call instruction that follows it */
+  R_bcstack_t *savedArgsBase = NULL;
+  SEXP savedArgsMap = NULL;
+
   RESTORE_BCEVAL_LOCALS(&locals);
 
   BCODE *currentpc = NULL;
@@ -8491,6 +8961,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SEXP call = GETCONST(constants, GETOP());
 	SEXP vexpr = GETCONST(constants, GETOP());
 	SEXP args, prom, last;
+	R_bcstack_t *sbase;
+	SEXP smap;
+	TAKE_SAVED_ARGS(sbase, smap);
 	MARK_ASSIGNMENT_CALL(call);
 	if (MAYBE_SHARED(lhs)) {
 	  lhs = shallow_duplicate(lhs);
@@ -8512,7 +8985,12 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  break;
 	case SPECIALSXP:
 	  /* duplicate arguments and protect */
-	  PROTECT(args = duplicate(CDR(call)));
+	  if (sbase != NULL)
+	      PROTECT(args = savedCallArgs(call, sbase, smap, rho));
+	  else
+	      PROTECT(args = duplicate(CDR(call)));
+	  if (sbase != NULL && assignNamePrimitive(fun))
+	      SETCADR(args, CADDR(call));
 	  /* insert evaluated promise for LHS as first argument */
 	  /* promise won't be captured so don't track references */
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
@@ -8554,6 +9032,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SEXP call = GETCONST(constants, GETOP());
 	SEXP value = NULL;
 	SEXP args, prom;
+	R_bcstack_t *sbase;
+	SEXP smap;
+	TAKE_SAVED_ARGS(sbase, smap);
 	switch (TYPEOF(fun)) {
 	case BUILTINSXP:
 	  /* replace first argument with LHS value */
@@ -8565,8 +9046,13 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  break;
 	case SPECIALSXP:
 	  /* duplicate arguments and put into stack for GC protection */
-	  args = duplicate(CDR(call));
+	  if (sbase != NULL)
+	      args = savedCallArgs(call, sbase, smap, rho);
+	  else
+	      args = duplicate(CDR(call));
 	  SETSTACK(-2, args);
+	  if (sbase != NULL && assignNamePrimitive(fun))
+	      SETCADR(args, CADDR(call));
 	  /* insert evaluated promise for LHS as first argument */
 	  /* promise won't be captured so don't track references */
 	  prom = R_mkEVPROMISE_NR(R_TmpvalSymbol, lhs);
@@ -8731,6 +9217,108 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  DECLNK_stack(ptop);
 	  R_BCNodeStackTop[-2] = R_BCNodeStackTop[-1];
 	  R_BCNodeStackTop--;
+	  NEXT();
+      }
+
+    /* Shared arguments of complex assignments.  MAKESAVED inserts the
+       R_BCProtTop offset to restore and the slots below the RHS, which
+       has already been evaluated.  Its operand is the constant index
+       of the argument codes.  Initially missing symbols are marked as
+       unshared before any LHS evaluation, as in promiseAssignArgs().
+       The slots stay on the stack until DROPSAVED; the first operand
+       of the instructions that use a slot is its distance from the top
+       of the stack, known to the compiler.  The slots are link-protected as
+       by INCLNKSTK: the links are committed by STARTASSIGN before any
+       slot is filled and dropped by DROPSAVED or an error unwind. */
+    OP(MAKESAVED, 1):
+      {
+	  SEXP codes = GETCONST(constants, GETOP());
+	  int n = LENGTH(codes);
+	  BCNSTACKCHECK(n + 1);
+	  R_bcstack_t *base = R_BCNodeStackTop - 1;
+	  base[n + 1] = base[0]; /* keep the RHS on top */
+	  base[0].tag = SAVEDARGS_TAG;
+	  base[0].flags = n;
+	  base[0].u.ival = (int)(R_BCProtTop - R_BCNodeStackBase);
+	  for (int i = 0; i < n; i++) {
+	      base[i + 1].tag = 0;
+	      base[i + 1].u.sxpval = R_UnboundValue;
+	  }
+	  R_BCNodeStackTop += n + 1;
+	  for (int i = 0; i < n; i++) {
+	      SEXP code = VECTOR_ELT(codes, i);
+	      if (TYPEOF(code) == SYMSXP && R_isMissing(code, rho)) {
+		  base[i + 1].tag = UNSHAREDARG_TAG;
+		  base[i + 1].u.sxpval = code;
+	      }
+	  }
+	  INCLNK_stack(R_BCNodeStackTop - 1);
+	  NEXT();
+      }
+    OP(PROMSAVED, 2):
+      {
+	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
+	  SEXP code = GETCONST(constants, GETOP());
+	  switch (CALL_FRAME_FTYPE()) {
+	  case CLOSXP:
+	      PUSHCALLARG_RC(savedSlotClosurePromise(slot, code, rho));
+	      break;
+	  case BUILTINSXP:
+	      PUSHCALLARG(savedSlotValue(slot, code, rho));
+	      break;
+	  case SPECIALSXP: break;
+	  }
+	  NEXT();
+      }
+    OP(FORCESAVED, 2):
+      {
+	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
+	  SEXP code = GETCONST(constants, GETOP());
+	  savedSlotPushValue(slot, code, rho, TRUE);
+	  NEXT();
+      }
+    /* BRSAVED and STORESAVED bracket the inline code of an argument's
+       first use: if the slot was already filled (by a method dispatch
+       attempt) its value is used and the inline code skipped,
+       otherwise the inline code runs and its value is stored.
+       Unshared symbols are looked up afresh and skip the inline code
+       so they can remain missing and their values are never cached. */
+    OP(BRSAVED, 2):
+      {
+	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
+	  int label = GETOP();
+	  if (! savedSlotEmpty(slot)) {
+	      savedSlotPushValue(slot, R_NilValue, rho, TRUE);
+	      pc = codebase + label;
+	  }
+	  NEXT();
+      }
+    OP(STORESAVED, 1):
+      {
+	  R_bcstack_t *slot = R_BCNodeStackTop - GETOP();
+	  DECLNK_STACK_PTR(slot); /* the slot is empty, this balances the commit */
+	  *slot = R_BCNodeStackTop[-1];
+	  INCLNK_STACK_PTR(slot);
+	  NEXT();
+      }
+    OP(SETSAVEDARGS, 2):
+      {
+	  /* the instruction that follows must take the arguments */
+	  if (savedArgsBase != NULL)
+	      error("SETSAVEDARGS: shared arguments were not consumed");
+	  savedArgsBase = R_BCNodeStackTop - GETOP();
+	  savedArgsMap = GETCONST(constants, GETOP());
+	  NEXT();
+      }
+    OP(DROPSAVED, 1):
+      {
+	  /* the stack holds the R_BCProtTop offset, the slots, and the
+	     value of the assignment on top */
+	  int n = GETOP();
+	  R_bcstack_t *base = R_BCNodeStackTop - n - 2;
+	  DECLNK_stack(R_BCNodeStackBase + base->u.ival);
+	  base[0] = R_BCNodeStackTop[-1];
+	  R_BCNodeStackTop -= n + 1;
 	  NEXT();
       }
     LASTOP;
