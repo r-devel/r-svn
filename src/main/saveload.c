@@ -34,6 +34,9 @@
 #include <R_ext/RS.h>
 #include <errno.h>
 #include <ctype.h>		/* for isspace */
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>		/* for fstat, bounding string lengths */
+#endif
 
 /* From time to time changes in R, such as the addition of a new SXP,
  * may require changes in the save file format.  Here are some
@@ -262,11 +265,16 @@ static Rcomplex AsciiInComplex(FILE *fp, SaveLoadData *d)
 }
 
 
+/* The pre-version-1 string readers write into d->buffer, which the
+   caller sized; bound them by it, and fail at end of file rather than
+   spinning or writing R_EOF bytes past the end. */
 static char *AsciiInString(FILE *fp, SaveLoadData *d)
 {
     int c;
     char *bufp = d->buffer.data;
-    while ((c = R_fgetc(fp)) != '"');
+    char *end = d->buffer.data + d->buffer.bufsize - 1;
+    while ((c = R_fgetc(fp)) != '"')
+	if (c == R_EOF) error(_("a read error occurred"));
     while ((c = R_fgetc(fp)) != R_EOF && c != '"') {
 	if (c == '\\') {
 	    if ((c = R_fgetc(fp)) == R_EOF) break;
@@ -285,6 +293,7 @@ static char *AsciiInString(FILE *fp, SaveLoadData *d)
 	    default:  break;
 	    }
 	}
+	if (bufp >= end) error(_("string too long in data file"));
 	*bufp++ = (char) c;
     }
     *bufp = '\0';
@@ -411,9 +420,13 @@ static Rcomplex BinaryInComplex(FILE * fp, SaveLoadData *unused)
 
 static char *BinaryInString(FILE *fp, SaveLoadData *d)
 {
+    int c;
     char *bufp = d->buffer.data;
+    char *end = d->buffer.data + d->buffer.bufsize;
     do {
-	*bufp = (char) R_fgetc(fp);
+	if ((c = R_fgetc(fp)) == R_EOF) error(_("a read error occurred"));
+	if (bufp >= end) error(_("string too long in data file"));
+	*bufp = (char) c;
     }
     while (*bufp++);
     return d->buffer.data;
@@ -458,15 +471,15 @@ static SEXP OffsetToNode(int offset, NodeInfo *node)
 
     l = 0;
     r = node->NTotal - 1;
-    do {
+    while (l <= r) {
 	m = (l + r) / 2;
+	if (offset == node->OldOffset[m])
+	    return VECTOR_ELT(node->NewAddress, m);
 	if (offset < node->OldOffset[m])
 	    r = m - 1;
 	else
 	    l = m + 1;
     }
-    while (offset != node->OldOffset[m] && l <= r);
-    if (offset == node->OldOffset[m]) return VECTOR_ELT(node->NewAddress, m);
 
     /* Not supposed to happen: */
     warning(_("unresolved node during restore"));
@@ -537,6 +550,8 @@ static void RemakeNextSEXP(FILE *fp, NodeInfo *node, int version, InputRoutines 
 	break;
     case CHARSXP:
 	len = m->InInteger(fp, d);
+	if (len < 0)
+	    error(_("corrupt data file: negative string length"));
 	s = allocCharsxp(len); /* This is not longer correct */
 	R_AllocStringBuffer(len, &(d->buffer));
 	/* skip over the string */
@@ -618,7 +633,14 @@ static void RestoreSEXP(SEXP s, FILE *fp, InputRoutines *m, NodeInfo *node, int 
 	len = m->InInteger(fp, d);
 	R_AllocStringBuffer(len, &(d->buffer));
 	/* Better to use a fresh copy in the cache */
-	strcpy(CHAR_RW(s), m->InString(fp, d));
+	{
+	    /* the CHARSXP was sized from len in RemakeNextSEXP, but the
+	       string carries its own length field and need not agree */
+	    const char *str = m->InString(fp, d);
+	    if (strlen(str) > (size_t) len)
+		error(_("corrupt data file: string longer than its declared length"));
+	    strcpy(CHAR_RW(s), str);
+	}
 	break;
     case REALSXP:
 	len = m->InInteger(fp, d);
@@ -675,6 +697,11 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
     node.NSymbol = m->InInteger(fp, d);
     node.NSave = m->InInteger(fp, d);
     node.NVSize = m->InInteger(fp, d);
+    /* the counts come straight from the file: a negative one, or a sum
+       that overflows, would size the tables below wrongly */
+    if (node.NSymbol < 0 || node.NSave < 0 || node.NVSize < 0 ||
+	node.NSymbol > INT_MAX - node.NSave)
+	error(_("corrupt data file: invalid table sizes"));
     node.NTotal = node.NSymbol + node.NSave;
 
     /* allocate the forwarding-address tables */
@@ -695,6 +722,8 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 
     for (i = 0 ; i < node.NSymbol ; i++) {
 	j = m->InInteger(fp, d);
+	if (j < 0 || j >= node.NTotal)
+	    error(_("corrupt data file: node index out of range"));
 	node.OldOffset[j] = m->InInteger(fp, d);
 	R_AllocStringBuffer(MAXELTSIZE - 1, &(d->buffer));
 	SET_VECTOR_ELT(node.NewAddress, j, install(m->InString(fp, d)));
@@ -704,6 +733,8 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 
     for (i = 0 ; i < node.NSave ; i++) {
 	j = m->InInteger(fp, d);
+	if (j < 0 || j >= node.NTotal)
+	    error(_("corrupt data file: node index out of range"));
 	node.OldOffset[j] = m->InInteger(fp, d);
     }
 
@@ -734,11 +765,6 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
 	RestoreSEXP(VECTOR_ELT(node.NewAddress, m->InInteger(fp, d)), fp, m, &node, version, d);
     }
 
-    /* restore the heap */
-
-    vmaxset(vmaxsave);
-    UNPROTECT(1);
-
     /* clean the string buffer */
     R_FreeStringBufferL(&(d->buffer));
 
@@ -748,7 +774,15 @@ static SEXP DataLoad(FILE *fp, int startup, InputRoutines *m,
     i = m->InInteger(fp, d);
     m->InTerm(fp, d);
 
-    return OffsetToNode(i, &node);
+    /* resolve it before the tables it lives in are released */
+    SEXP ans = OffsetToNode(i, &node);
+
+    /* restore the heap */
+
+    vmaxset(vmaxsave);
+    UNPROTECT(1);
+
+    return ans;
 }
 
 
@@ -1386,6 +1420,24 @@ static void OutIntegerAscii(FILE *fp, int x, SaveLoadData *unused)
     else fprintf(fp, "%d", x);
 }
 
+/* The pre-1.4 string readers take the byte count straight from the
+   file.  Reject a negative count, one too large to add 1 to, and one
+   larger than what is left of the file: the last check is what stops a
+   4-byte length field from asking malloc() for gigabytes. */
+static void CheckStringLength(FILE *fp, long nbytes, const char *format)
+{
+    if (nbytes < 0 || nbytes >= INT_MAX)
+	error(_("invalid string length %ld in %s data file"), nbytes, format);
+#ifdef HAVE_SYS_STAT_H
+    struct stat sb;
+    long pos = ftell(fp);
+    if (pos >= 0 && fstat(fileno(fp), &sb) == 0 && S_ISREG(sb.st_mode) &&
+	(sb.st_size < (off_t) pos || nbytes > (long) (sb.st_size - (off_t) pos)))
+	error(_("string length %ld exceeds the remaining %s data file"),
+	      nbytes, format);
+#endif
+}
+
 static int InIntegerAscii(FILE *fp, SaveLoadData *unused)
 {
     char buf[128];
@@ -1441,6 +1493,7 @@ static char *InStringAscii(FILE *fp, SaveLoadData *unused)
     int nbytes, res;
     res = fscanf(fp, "%d", &nbytes);
     if(res != 1) error(_("read error"));
+    CheckStringLength(fp, nbytes, "ascii");
     /* FIXME : Ultimately we need to replace */
     /* this with a real string allocation. */
     /* All buffers must die! */
@@ -1584,6 +1637,7 @@ static char *InStringBinary(FILE *fp, SaveLoadData *unused)
     static char *buf = NULL;
     static int buflen = 0;
     int nbytes = InIntegerBinary(fp, unused);
+    CheckStringLength(fp, nbytes, "binary");
     if (nbytes >= buflen) {
 	char *newbuf;
 	/* Protect against broken realloc */
@@ -1685,6 +1739,7 @@ static char *InStringXdr(FILE *fp, SaveLoadData *d)
     static char *buf = NULL;
     static int buflen = 0;
     unsigned int nbytes = InIntegerXdr(fp, d);
+    CheckStringLength(fp, (long) nbytes, "xdr");
     if (nbytes >= buflen) {
 	char *newbuf;
 	/* Protect against broken realloc */
@@ -1919,46 +1974,70 @@ attribute_hidden void R_SaveToFile(SEXP obj, FILE *fp, int ascii)
 
     /* different handling of errors */
 
-#define return_and_free(X) {r = X; R_FreeStringBuffer(&data.buffer); return r;}
+/* Every reader below works into data.buffer, and most of them signal R
+   errors on malformed input: free the buffer from a cleanup context so
+   an error unwind releases it too, not only the normal return. */
+static void loadfromfile_cleanup(void *data)
+{
+    SaveLoadData *d = (SaveLoadData *) data;
+    R_FreeStringBuffer(&d->buffer);
+}
+
 attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 {
     struct R_inpstream_st in;
     int magic;
     SaveLoadData data = {{NULL, 0, MAXELTSIZE}};
-    SEXP r;
+    SEXP r = R_NilValue;
+    RCNTXT cntxt;
+
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &loadfromfile_cleanup;
+    cntxt.cenddata = &data;
 
     magic = R_ReadMagic(fp);
     switch(magic) {
     case R_MAGIC_XDR:
-	return_and_free(XdrLoad(fp, startup, &data));
+	r = XdrLoad(fp, startup, &data);
+	break;
     case R_MAGIC_BINARY:
-	return_and_free(BinaryLoad(fp, startup, &data));
+	r = BinaryLoad(fp, startup, &data);
+	break;
     case R_MAGIC_ASCII:
-	return_and_free(AsciiLoad(fp, startup, &data));
+	r = AsciiLoad(fp, startup, &data);
+	break;
     case R_MAGIC_BINARY_VERSION16:
-	return_and_free(BinaryLoadOld(fp, 16, startup, &data));
+	r = BinaryLoadOld(fp, 16, startup, &data);
+	break;
     case R_MAGIC_ASCII_VERSION16:
-	return_and_free(AsciiLoadOld(fp, 16, startup, &data));
+	r = AsciiLoadOld(fp, 16, startup, &data);
+	break;
     case R_MAGIC_ASCII_V1:
-	return_and_free(NewAsciiLoad(fp, &data));
+	r = NewAsciiLoad(fp, &data);
+	break;
     case R_MAGIC_BINARY_V1:
-	return_and_free(NewBinaryLoad(fp, &data));
+	r = NewBinaryLoad(fp, &data);
+	break;
     case R_MAGIC_XDR_V1:
-	return_and_free(NewXdrLoad(fp, &data));
+	r = NewXdrLoad(fp, &data);
+	break;
     case R_MAGIC_ASCII_V2:
     case R_MAGIC_ASCII_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_ascii_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     case R_MAGIC_BINARY_V2:
     case R_MAGIC_BINARY_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_binary_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     case R_MAGIC_XDR_V2:
     case R_MAGIC_XDR_V3:
 	R_InitFileInPStream(&in, fp, R_pstream_xdr_format, NULL, NULL);
-	return_and_free(R_Unserialize(&in));
+	r = R_Unserialize(&in);
+	break;
     default:
-	R_FreeStringBuffer(&data.buffer);
 	switch (magic) {
 	case R_MAGIC_EMPTY:
 	    error(_("restore file may be empty -- no data loaded"));
@@ -1967,8 +2046,11 @@ attribute_hidden SEXP R_LoadFromFile(FILE *fp, int startup)
 	default:
 	    error(_("bad restore file magic number (file may be corrupted) -- no data loaded"));
 	}
-	return(R_NilValue);/* for -Wall */
     }
+
+    endcontext(&cntxt);
+    R_FreeStringBuffer(&data.buffer);
+    return r;
 }
 
 attribute_hidden SEXP do_loadfile(SEXP call, SEXP op, SEXP args, SEXP env)
