@@ -1,7 +1,7 @@
 #  File src/library/utils/R/aspell.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -312,7 +312,12 @@ function(ifile, encoding = "unknown",
      blank_out_ignores_in_lines(lines, ignore)
 }
 
-aspell_filter_db$Sweave <- tools::SweaveTeXFilter
+aspell_filter_db$Sweave <-
+function(ifile, encoding = "unknown", latex = FALSE, ...)
+{
+    lines <- tools::SweaveTeXFilter(ifile, encoding)
+    if(latex) aspell_filter_LaTeX_worker(lines, ...) else lines
+}
 
 aspell_find_program <-
 function(program = NULL)
@@ -650,9 +655,9 @@ aspell_control_R_vignettes <-
          c("--mode=tex",
            "--master=en_US",
            "--add-extra-dicts=en_GB",
-           "--add-tex-command='I p'",
            "--add-tex-command='abbr p'",
            "--add-tex-command='author p'",
+           "--add-tex-command='autoref p'",
            "--add-tex-command='bibliographystyle p'",
            "--add-tex-command='citep p'",
            "--add-tex-command='citet p'",           
@@ -660,7 +665,6 @@ aspell_control_R_vignettes <-
            "--add-tex-command='command p'",
            "--add-tex-command='definecolor ppp'",
            "--add-tex-command='file p'",
-           "--add-tex-command='lstset p'",
            "--add-tex-command='lstinputlisting p'",
            "--add-tex-command='pkg p'",
            "--add-tex-command='CRANpkg p'"
@@ -680,10 +684,14 @@ function(program = NULL, dir = NULL,
     program <- aspell_find_program(program)
 
     aspell(files,
-           filter = list("Sweave+LaTeX",
-                         cmds = c("Sexpr p",
+           filter = list("Sweave",
+                         latex = TRUE,
+                         ## Arguments of these are ignored altogether:
+                         cmds = c("I p",
+                                  "Sexpr p",
                                   "SweaveOpts p",
                                   "code p",
+                                  "lstset p",
                                   "hypersetup p")),
            control = aspell_control_R_vignettes[[names(program)]],
            program = program,
@@ -704,6 +712,12 @@ aspell_control_package_vignettes <-
            "--add-tex-command='proglang p'",
            "--add-tex-command='samp p'"
            ))
+
+## <FIXME>
+## The Sweave filter can now optionally do addional LaTeX processing,
+## but currently we cannot pass filter args when using
+## aspell_package_vignettes().
+## </FIXME>
 
 aspell_package_vignettes <-
 function(dir,
@@ -1264,7 +1278,8 @@ function(ifile, encoding = "unknown", ...)
     aspell_filter_LaTeX_worker(readLines(ifile, encoding = encoding),
                                ...)
 aspell_filter_LaTeX_worker <-
-function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
+function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex,
+         before = NULL, ...)
 {
     ranges <- list()
     chrran <- function(e) getSrcref(e)[c(1L, 5L, 3L, 6L)]
@@ -1317,6 +1332,8 @@ function(x, cmds = NULL, envs = NULL, parser = tools::parseLatex, ...)
         }
     }
 
+    if(is.function(before))
+        x <- before(x)
     recurse(parser(x, ...))
     blank_out_character_ranges(x, ranges)
 }
@@ -1351,16 +1368,6 @@ aspell_filter_LaTeX_commands <-
       "fontsize pp", "usefont pppp", "documentstyle op", "cite p",
       "nocite p", "psfig p", "selectlanguage p", "includegraphics op",
       "bibitem op", "geometry p")
-
-## <FIXME>
-## Try to merge into the Sweave filter.
-## Note that currently we cannot pass filter args when using
-## aspell_package_vignettes().
-aspell_filter_db$`Sweave+LaTeX` <-
-function(ifile, encoding = "unknown", ...)
-    aspell_filter_LaTeX_worker(tools::SweaveTeXFilter(ifile, encoding),
-                               ...)
-## </FIXME>
 
 ## For spell checking packages.
 
@@ -1480,7 +1487,8 @@ blank_out_character_ranges <- function(s, ranges) {
         if(l1 == l2) {
             substring(s[l1], c1, c2) <- strrep(" ", c2 - c1 + 1L)
         } else {
-            substring(s[l1], c1, nchar(s[l1])) <- ""
+            substring(s[l1], c1, nchar(s[l1])) <-
+                strrep(" ", nchar(s[l1]) - c1 + 1L)
             for(i in seq(l1 + 1L, length.out = l2 - l1 - 1L))
                 s[i] <- ""
             substring(s[l2], 1L, c2) <- strrep(" ", c2)

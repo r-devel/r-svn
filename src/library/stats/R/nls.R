@@ -403,6 +403,7 @@ nls.control <- function(maxiter = 50, tol = 0.00001, minFactor = 1/1024,
 
 nls_port_fit <- function(m, start, lower, upper, control, trace, give.v=FALSE)
 {
+    
     ## Establish the working vectors and check and set options
     p <- length(par <- as.double(unlist(start)))
     iv <- integer(4L*p + 82L)
@@ -614,6 +615,56 @@ nls <-
     }
     scOff  <- ctrl$scaleOffset
     nDcntr <- ctrl$nDcentral
+
+    ## Normalization of upper/lower goes here because upper is used in nlsModel
+    fixupLim <- function(x, start, default) {
+        w <- deparse(substitute(x)) # for error messages
+        
+        ## Start can be a list of vectors, so need to flatten it and x likewise
+        ## Names on the vector elements are deleted
+        if (is.list(x)) x <- unlist(lapply(x,unname))
+        if (is.list(start)) start <- unlist(lapply(start,unname))
+        
+        if (is.null(nx <- names(x)) || is.null(ns <- names(start))
+            || identical(nx, ns)) return(x)
+
+        ## At this point, both have names, but different
+        ## 
+        if (length(x) == length(start)){
+            if(!setequal(nx, ns)) {
+                ## we may want to make this an error condition eventually
+                warning(gettextf("different names for %s and %s: names ignored",
+                                 sQuote("start"), sQuote(w)), domain = NA)
+                    return(x)
+            }
+            else
+                return(x[ns])
+        }
+        else {
+            if (any(!is.element(nx, ns))){
+                w <- deparse(substitute(x))
+                stop(gettextf("mismatched names for %s and %s",
+                            sQuote("start"),
+                            sQuote(w)), domain = NA)
+            }
+
+            if (any(duplicated(nx))){
+                w <- deparse(substitute(x))
+                stop(gettextf("duplicated names in %s",
+                     sQuote(w)), domain = NA)
+            }
+
+            ## (or xx <- start; xx[] <- default, but likely too cryptic)
+            xx <- rep_len(default, length(start))
+            names(xx) <- ns
+            xx[nx] <- x
+            return(xx)
+        }
+    }
+
+    lower <- fixupLim(lower, start, -Inf)
+    upper <- fixupLim(upper, start, Inf)
+
     m <- switch(algorithm,
 		plinear = nlsModel.plinear(formula, mf, start, wts,        scaleOffset=scOff, nDcentral=nDcntr),
 		port    = nlsModel        (formula, mf, start, wts, upper, scaleOffset=scOff, nDcentral=nDcntr),
@@ -840,8 +891,9 @@ hatvalues.nls <- function (model, ...)
 {
     grad <- (mm <- model$m)$gradient()
     if (inherits(mm, "nlsModel.plinear")) {
-        stop("'%s' is not implemented yet", # <- same as in .NotYetImplemented()
-             "hatvalues() for nls(*, algorithm='plinear')")
+        stop(sprintf("%s is not implemented yet", # <- similar to .NotYetImplemented()
+                     "hatvalues() for nls(..., algorithm=\"plinear\")"),
+             domain = NA)
         ## https://stackoverflow.com/a/41759799/161921 --> you only need to update the grad
         ## (with the linear par.s), and then
         Q1 <- qr.Q(qr(grad))

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.0.4\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-02 17:54\n"
 "PO-Revision-Date: 2023-04-14 03:05+0000\n"
 "Last-Translator: Hugo Gruson <hugo.gruson@normalesup.org>\n"
 "Language-Team: French <R-core@r-project.org>\n"
@@ -927,11 +927,17 @@ msgstr "names(hybridPars) doit être NULL ou identiques aux valeurs par défaut"
 msgid "'hybrid' is ignored for a 2 x 2 table"
 msgstr "'hybrid' est ignoré pour une table 2 x 2"
 
+msgid "'pval.only' and 'conf.int' may not both be true"
+msgstr ""
+
 msgid "all groups must contain data"
 msgstr "tous les groupes doivent contenir des données"
 
 msgid "not enough observations"
 msgstr "pas assez d'observations"
+
+msgid "computing Newton updated failed in %s"
+msgstr ""
 
 #, fuzzy
 msgid "incorrect dimensions"
@@ -950,7 +956,7 @@ msgstr ""
 msgid "error computing the Hessian in %s"
 msgstr ""
 
-msgid "Jeffreys penalisation was applied in %s because initial optimisation failed with:"
+msgid "error computing the Hessian determinant in %s"
 msgstr ""
 
 msgid "unsuccessful optimisation in %s"
@@ -1357,6 +1363,9 @@ msgstr "dimensions incompatibles"
 
 msgid "missing or negative weights not allowed"
 msgstr "les poids manquants ou négatifs ne sont pas autorisés"
+
+msgid "weights smaller than tolerance wtol*sum(w) = %g treated as zero"
+msgstr ""
 
 msgid "invalid 'lm' object:  no 'terms' component"
 msgstr "objet 'lm' incorrect : pas de composantes 'terms'"
@@ -1768,15 +1777,18 @@ msgstr "l'argument 'subset' sera ignoré"
 msgid "argument 'na.action' will be ignored"
 msgstr "l'argument 'na.action' sera ignoré"
 
-msgid "upper and lower bounds ignored unless algorithm = \"port\""
-msgstr "limites hautes et basses ignorées, à moins d'utiliser l'algorithme \"port\""
+msgid "different names for %s and %s: names ignored"
+msgstr ""
 
 #, fuzzy
-msgid "'%s' is not implemented yet"
-msgstr "le type '%s' n'est pas encore implémenté"
+msgid "mismatched names for %s and %s"
+msgstr "'x' et 'y' ne correspondent pas"
 
-msgid "hatvalues() for nls(*, algorithm='plinear')"
+msgid "duplicated names in %s"
 msgstr ""
+
+msgid "upper and lower bounds ignored unless algorithm = \"port\""
+msgstr "limites hautes et basses ignorées, à moins d'utiliser l'algorithme \"port\""
 
 msgid "cannot calculate REML log-likelihood for \"nls\" objects"
 msgstr "impossible de calculer la log-vraisemblance REML pour les objets \"nls\""
@@ -2501,6 +2513,12 @@ msgid_plural "unknown names %s in the 'split' list"
 msgstr[0] "nom %s inconnu dans la liste 'split'"
 msgstr[1] "noms %s inconnus dans la liste 'split'"
 
+#, fuzzy
+msgid "essentially perfect fit for %s: summary may be unreliable"
+msgid_plural "essentially perfect fit for response(s) %s: summary may be unreliable"
+msgstr[0] "ajustement pratiquement parfait : le résumé n’est peut-être pas fiable"
+msgstr[1] "ajustement pratiquement parfait : le résumé n’est peut-être pas fiable"
+
 msgid "extra argument %s is not of class \"%s\""
 msgid_plural "extra arguments %s are not of class \"%s\""
 msgstr[0] "l'argument supplémentaire %s n'est pas de classe \"%s\""
@@ -2615,6 +2633,10 @@ msgid "'start.innov' is too short: need %d point"
 msgid_plural "'start.innov' is too short: need %d points"
 msgstr[0] "'start.innov' est trop court : il faut %d point"
 msgstr[1] "'start.innov' est trop court : il faut %d points"
+
+#, fuzzy
+#~ msgid "'%s' is not implemented yet"
+#~ msgstr "le type '%s' n'est pas encore implémenté"
 
 #~ msgid "cannot compute exact confidence intervals with ties"
 #~ msgstr "impossible de calculer les intervalles de confiance exacts avec des ex-aequos"

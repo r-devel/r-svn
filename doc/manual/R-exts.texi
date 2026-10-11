@@ -634,7 +634,7 @@ suggests and so the user package needs to do so too and include this in
 @c DESCRIPTION field Encoding
 If the @file{DESCRIPTION} file is not entirely in @acronym{ASCII} it
 should contain an @samp{Encoding} field specifying an encoding.  This is
-used as the encoding of the @file{DESCRIPTION} file itself and of the
+used as the encoding of the
 @file{R} and @file{NAMESPACE} files, and as the default encoding of
 @file{.Rd} files.  The examples are assumed to be in this encoding when
 running @command{R CMD check}, and it is used for the encoding of the
@@ -1423,7 +1423,7 @@ to the installation directory.  Subdirectories of @file{inst} should not
 interfere with those used by @R{} (currently, @file{R}, @file{data},
 @file{demo}, @file{exec}, @file{libs}, @file{man}, @file{help},
 @file{html} and @file{Meta}, and earlier versions used @file{latex},
-@file{R-ex}).  The copying of the @file{inst} happens after @file{src}
+@file{R-ex}).  The copying of the @file{inst} contents happens after @file{src}
 is built so its @file{Makefile} can create files to be installed.  To
 exclude files from being installed, one can specify a list of exclude
 patterns in file @file{.Rinstignore} in the top-level source directory.
@@ -1571,13 +1571,14 @@ can speed up installation by providing a file @file{datalist} in the
 @code{data()} will find, in the format @samp{foo} if @code{data(foo)}
 provides @samp{foo}, or @samp{foo: bar bah} if @code{data(foo)} provides
 @samp{bar} and @samp{bah}.  @command{R CMD build} will automatically add
-a @file{datalist} file to @file{data} directories of over 1Mb, using the
+a @file{datalist} file to @file{data} directories of over 1MB, using the
 function @code{tools::add_datalist}.
 
 Tables (@file{.tab}, @file{.txt}, or @file{.csv} files) can be
-compressed by @command{gzip}, @command{bzip2} or @command{xz},
-optionally with additional extension @file{.gz}, @file{.bz2} or
-@file{.xz}.
+compressed by @command{gzip}, @command{bzip2}, @command{xz} or
+@command{zstd} (if supported by the build) optionally with additional
+extension @file{.gz}, @file{.bz2} or @file{.xz}, or (from @R{} 4.7.0)
+@file{.zst} or @file{.zstd}.
 
 If your package is to be distributed, do consider the resource
 implications of large datasets for your users: they can make packages
@@ -1773,7 +1774,7 @@ expansion is a known issue: see
 for this and others.  Some checks can be done by the
 @code{checkbashisms} Perl script at
 @c 'checkbaskisms' really is the correct path
-@uref{https://sourceforge.net/projects/checkbaskisms/files}, also
+@uref{https://sourceforge.net/projects/checkbaskisms/files/}, also
 available in most Linux distributions in a package named either
 @samp{devscripts} or @samp{devscripts-checkbashisms}: a later version
 can be extracted from Debian sources such as the most recent
@@ -2964,7 +2965,7 @@ in late 2026.
 The default standard for compiling @R{} packages was changed to C++17 in
 @R{} 4.4.0: only a C++17 compiler will be selected as the default C++
 compiler.  Such a compiler is available (but not necessarily installed)
-on all known @R{} platforms.  C++20 will become the
+on all known @R{} platforms.  C++20 became the
 default (`where available') in @R{} 4.6.0: it has been supported on all
 known platforms since at least 2021. Since the default changes with @R{}
 version, packages which only compile with C++17 or C++20 should specify
@@ -3053,7 +3054,7 @@ or
 
 Note that `support' for a standard does not mean complete support: use
 feature tests as well as resources such as
-@uref{https://en.cppreference.com/w/cpp/compiler_support.html},
+@uref{https://en.cppreference.com/cpp/compiler_support},
 @uref{https://gcc.gnu.org/projects/cxx-status.html} and
 @uref{https://clang.llvm.org/cxx_status.html} to see if the features you
 want to use are widely implemented. (In particular, C++20 modules were
@@ -5069,9 +5070,11 @@ platforms (although it commonly is on macOS to support the GUI), so
 there need not be a file @file{libR.so} nor @file{libR.dylib}.  Users of
 @command{cmake} or @command{rust} have all too frequently assumed
 otherwise, so do ensure your package is checked under a vanilla @R{} build.
-@xref{Configuration options, , ,
+(@xref{Configuration options, , ,
 R-admin, R Installation and Administration}
-for more information.
+for more information.)  And do ensure that @file{-lR} is looked for in
+the version of @R{} used for installation, and not a system version.
+(On macOS @R{} may be a `foundation' and not a library).
 
 @item
 Make use of the abilities of your compilers to check the
@@ -5091,7 +5094,7 @@ for more information.
 
 Portable C++ code needs to follow all of the 2011, 2014 and 2017
 standards (including not using deprecated/removed features) or to
-specify C+11/14/17/20/23 where available (which is not the case on all
+specify C+11/14/17/20/23/26 where available (which is not the case on all
 @R{} platforms).  Currently C++20 support is patchy across @R{}
 platforms.
 
@@ -5132,9 +5135,9 @@ only cancel built-in defines (not portable) and those defined earlier on
 the command line (@R{} does not use any).)
 
 The GNU option @option{-pipe} used to be widely accepted by
-C/C++/Fortran compilers, but was removed in @w{@command{flang-new} 18}.
-In any case, it should not be used in distributed code as it may lead to
-excessive memory use.
+C/C++/Fortran compilers, but was removed in @I{LLVM} @w{@command{flang}
+18}.  In any case, it should not be used in distributed code as it may
+lead to excessive memory use.
 
 People have used @command{configure} to customize @file{src/Makevars},
 including for specific compilers.  This is unsafe for several reasons.
@@ -5348,7 +5351,7 @@ all linkers allow a space after @option{-L} .
 
 @item
 Care is needed with the use of @code{LinkingTo}.  This puts one or more
-directories on the include search path ahead of system headers but
+directories on the include search path ahead of system headers but used
 (prior to @R{} 3.4.0) after those specified in the @code{CPPFLAGS} macro
 of the @R{} build (which normally includes @code{-I/usr/local/include},
 but most platforms ignore that and include it with the system headers).
@@ -5443,7 +5446,7 @@ be for binary packages).
 When specifying a minimum Java version please use the official version
 names, which are (confusingly)
 @example
-1.1 1.2 1.3 1.4 5.0 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+1.1 1.2 1.3 1.4 5.0 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
 @end example
 @noindent
 and as from 2018 a year.month scheme such as @samp{18.9} is also in use.
@@ -5500,10 +5503,9 @@ interface.
 
 @c https://endoflife.date/java
 Java 8 is still in widespread use (and may remain so because of licence
-changes and support on older OSes: @I{OpenJDK} has security support until
-March 2026).  On the other hand, newer platforms may only have support
-for recent versions of Java: for @cputype{arm64} macOS the first
-officially supported version was 17.
+changes and support on older OSes).  On the other hand, newer platforms
+may only have support for fairly recent versions of Java: for @cputype{arm64}
+macOS the first officially supported version was 17.
 
 @item
 A package with a hard-to-satisfy system requirement is by definition not
@@ -5663,12 +5665,11 @@ one are silly: numerical tests should always have a tolerance.  That the
 tests on your platform achieve a particular tolerance says little about
 other platforms.  @R{} is configured by default to make use of long
 doubles where available, but they may not be available or be too slow
-for routine use.  Most @R{} platforms use @cputype{ix86} or
+for routine use.  Many @R{} platforms use @cputype{ix86} or
 @cputype{x86_64} CPUs: these may use extended precision registers on
-some but not all of their @abbr{FPU} instructions.  Thus the achieved precision
-can depend on the compiler version and optimization flags---our
-experience is that 32-bit builds tended to be less precise than 64-bit
-ones.  But not all platforms use those CPUs, and not all@footnote{Not
+some but not all of their @abbr{FPU} instructions.  Thus the achieved
+precision can depend on the compiler version and optimization
+flags.  But not all platforms use those CPUs, and not all@footnote{Not
 doing so is the default on Windows, overridden for the @R{}
 executables.} which use them configure them to allow the use of extended
 precision.  In particular, current ARM CPUs do not have extended
@@ -5908,7 +5909,7 @@ of your compiler diagnostics --- this typically means using flags
 @option{-Wall} and @option{-pedantic} for both C and C++ and additionally
 @option{-Werror=implicit-function-declaration} and
 @option{-Wstrict-prototypes} for C (on some platforms and compiler
-versions) these are part of @option{-Wall} or @option{-pedantic}).
+versions these are part of @option{-Wall} or @option{-pedantic}).
 
 @strong{C++ standards}: From version 4.0.0 @R{} required and defaulted
 to C++11; from @R{} 4.1.0 in defaulted to C++14 and from @R{} 4.3.0 to
@@ -6511,7 +6512,7 @@ object, or to a non-tentative definition.  However,
 @command{gcc}@tie{}10@footnote{see
 @uref{https://gcc.gnu.org/gcc-10/porting_to.html}.} and
 @I{LLVM} @command{clang}@tie{}11@footnote{See
-@uref{https://prereleases.llvm.org/11.0.0/rc2/tools/clang/docs/ReleaseNotes.html#modified-compiler-flags}.}
+@uref{https://releases.llvm.org/11.1.0/tools/clang/docs/ReleaseNotes.html#modified-compiler-flags}.}
 changed their default so that tentative definitions cannot be
 merged and the linker will give an error if the same variable is defined
 in more than one object file.  To avoid this, all but one of the C
@@ -7529,7 +7530,8 @@ Usage:
 
 @item \arguments@{@dots{}@}
 @findex \arguments
-Description of the function's arguments, using an entry of the form
+Description of the function's arguments as given in the @code{\usage},
+using an entry of the form
 
 @example
 \item@{@var{arg_i}@}@{@var{Description of arg_i}.@}
@@ -7675,8 +7677,8 @@ include a comment in the @code{\donttest} section explaining why it is
 needed.
 
 @findex \dontdiff
-Output from code marked with @code{\dontdiff} (requires @R{} >= 4.4.0)
-or between comment lines
+Output from code marked with @code{\dontdiff} at the beginning of a line
+(requires @R{} >= 4.4.0) or between comment lines
 @example
 ## IGNORE_RDIFF_BEGIN
 ## IGNORE_RDIFF_END
@@ -8739,7 +8741,7 @@ inserted before and after the citation if not empty.
 
 A @var{keyspec} is either a simple @var{key} or of the form
 @code{@var{pkg}::@var{key}}.
-In the latter case, @var{key} is looked up in the bibentry
+In the latter case, @var{key} is looked up in the installed bibentry
 data base of package @var{pkg}, made available in the packages sources
 either as @file{inst/REFERENCES.R} in R format (an R code file encoded
 in UTF-8 with calls to @code{bibentry()}, as for the
@@ -15259,9 +15261,7 @@ This remapping can cause problems@footnote{Known problems have been
 defining @code{LENGTH}, @code{error}, @code{length}, @code{match},
 @code{vector} and @code{warning}: whether these matter depends on the OS
 and toolchain, with many problem reports involving Apple or @I{LLVM}
-@command{clang++}.},
-@c As from @I{LLVM} @command{clang} 13.0.0, the remapping of @code{match}
-@c breaks the subsequent inclusion of @file{omp.h}.
+@command{clang++}. Also @code{length} as part of @code{#pragma omp}.},
 and can be eliminated by defining @code{R_NO_REMAP} (before including
 any @R{} headers) and prepending @samp{Rf_} to @emph{all} the function
 names used from @file{Rinternals.h} and @file{R_ext/Error.h}.  These
@@ -15330,7 +15330,7 @@ groups.
 
 @comment FIXME be more explicit as: ask on the R-devel mailing list or
 @comment post a WISHLIST PR
-@comment FIXME should we reference and link to bugdilla?
+@comment FIXME should we reference and link to Bugzilla?
 If you would like to use an entry point or variable that is not
 identified as part of the API in this document, or is currently hidden,
 you can make a request for it to be made available. Entry points or
@@ -15492,7 +15492,7 @@ Memory obtained by these macros should be aligned in the same way as
 @c @apifun Free
 @c The R_ forms were introduced in 2016-09, hence for R 3.4.0
 Historically the macros @code{Calloc}, @code{Free} and @code{Realloc}
-were used but have been removed in \R 4.5.0.
+were used but have been removed in @R{} 4.5.0.
 
 @code{R_Calloc}, @code{R_Realloc}, and @code{R_Free} are currently
 implemented as macros expanding to calls to @code{R_chk_calloc},
@@ -17044,7 +17044,7 @@ this is defined.
 @end deftypefun
 
 @eapifun Rf_acopy_string
-@deftypefun {const char *} Rf_acopy_string (const char *@var{in})
+@deftypefun {char *} Rf_acopy_string (const char *@var{in})
 Return a copy of a string using memory from @code{R_alloc}.
 @end deftypefun
 
@@ -17950,7 +17950,7 @@ accessed and set with @code{Rf_getAttrib} and @code{Rf_setAttrib}. Attributes
 can be copied from one object to another with @code{DUPLICATE_ATTRIB}
 and @code{SHALLOW_DUPLICATE_ATTRIB}. The @code{CLEAR_ATTRIB} function
 added in @R{} 4.5.0 can be used to remove all attributes. These
-functions ensure can that certain consistency requirements are
+functions ensure that certain consistency requirements are
 maintained, such as setting the object bit according to whether a class
 attribute is present.
 

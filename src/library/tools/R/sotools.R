@@ -159,74 +159,60 @@ so_symbol_names_table <-
       "linux, Fortran, gfortran, exit, _gfortran_exit_i4",
       "linux, Fortran, gfortran, exit, _gfortran_exit_i8",
 
-      ## Classic flang from Dec 2017 (and untested since)
-      "linux, Fortran, ClassicFlang, open, f90io_open03",
-      "linux, Fortran, ClassicFlang, open, f90io_open2003",
-      "linux, Fortran, ClassicFlang, close, f90io_close",
-      "linux, Fortran, ClassicFlang, rewind, f90io_rewind",
-      "linux, Fortran, ClassicFlang, write, f90io_print_init",
-      "linux, Fortran, ClassicFlang, print, f90io_print_init",
-      "linux, Fortran, ClassicFlang, read, f90io_fmt_read",
-      "linux, Fortran, ClassicFlang, write, f90io_fmt_write",
-      "linux, Fortran, ClassicFlang, stop, f90_stop",
-      "linux, Fortran, ClassicFlang, stop, f90_stop08",
-      "linux, Fortran, ClassicFlang, rand, rand",
-
-      ## and for for the 'flang' in the LLVM tree, currently
-      ## with executable 'flang-new'.
+      ## and for for the 'flang' in the LLVM tree
       ## This currently has static libs for its runtimes.
-      "linux, Fortran, flang-new, stop, _FortranAStopStatement",
-      "linux, Fortran, flang-new, stop, _FortranAStopStatementText",
-      "linux, Fortran, flang-new, open, _FortranAioBeginOpenUnit",
-      "linux, Fortran, flang-new, close, _FortranAioBeginClose",
-      "linux, Fortran, flang-new, rewind, _FortranAioBeginRewind",
-      "linux, Fortran, flang-new, read, _FortranAioInputAscii",
-      "linux, Fortran, flang-new, read, _FortranAioInputCharacter",
-      "linux, Fortran, flang-new, read, _FortranAioInputComplex32",
-      "linux, Fortran, flang-new, read, _FortranAioInputComplex64",
-      "linux, Fortran, flang-new, read, _FortranAioOutputExternalListInput",
-      "linux, Fortran, flang-new, read, _FortranAioInputInteger",
-      "linux, Fortran, flang-new, read, _FortranAioInputLogical",
-      "linux, Fortran, flang-new, read, _FortranAioInputNamelist",
-      "linux, Fortran, flang-new, read, _FortranAioInputReal32",
-      "linux, Fortran, flang-new, read, _FortranAioInputReal64",
-      "linux, Fortran, flang-new, read, _FortranAioInputUnformattedBlock",
-      "linux, Fortran, flang-new, print, _FortranAioOutputAscii",
-      "linux, Fortran, flang-new, print, _FortranAioOutputCharacter",
-      "linux, Fortran, flang-new, print, _FortranAioOutputComplex32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputComplex64",
-      "linux, Fortran, flang-new, print, _FortranAioOutputExternalListOutput",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger128",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger16",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger64",
-      "linux, Fortran, flang-new, print, _FortranAioOutputInteger8",
-      "linux, Fortran, flang-new, print, _FortranAioOutputLogical",
-      "linux, Fortran, flang-new, print, _FortranAioOutputNamelist",
-      "linux, Fortran, flang-new, print, _FortranAioOutputReal32",
-      "linux, Fortran, flang-new, print, _FortranAioOutputReal64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputAscii",
-      "linux, Fortran, flang-new, write, _FortranAioOutputCharacter",
-      "linux, Fortran, flang-new, write, _FortranAioOutputComplex32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputComplex64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputExternalListOutput",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger128",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger16",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputInteger8",
-      "linux, Fortran, flang-new, write, _FortranAioOutputLogical",
-      "linux, Fortran, flang-new, write, _FortranAioOutputNamelist",
-      "linux, Fortran, flang-new, write, _FortranAioOutputReal32",
-      "linux, Fortran, flang-new, write, _FortranAioOutputReal64",
-      "linux, Fortran, flang-new, write, _FortranAioOutputUnformatedBlock",
+      "linux, Fortran, flang, stop, _FortranAStopStatement",
+      "linux, Fortran, flang, stop, _FortranAStopStatementText",
+      "linux, Fortran, flang, open, _FortranAioBeginOpenUnit",
+      "linux, Fortran, flang, close, _FortranAioBeginClose",
+      "linux, Fortran, flang, rewind, _FortranAioBeginRewind",
+      "linux, Fortran, flang, read, _FortranAioInputAscii",
+      "linux, Fortran, flang, read, _FortranAioInputCharacter",
+      "linux, Fortran, flang, read, _FortranAioInputComplex32",
+      "linux, Fortran, flang, read, _FortranAioInputComplex64",
+      "linux, Fortran, flang, read, _FortranAioOutputExternalListInput",
+      "linux, Fortran, flang, read, _FortranAioInputInteger",
+      "linux, Fortran, flang, read, _FortranAioInputLogical",
+      "linux, Fortran, flang, read, _FortranAioInputNamelist",
+      "linux, Fortran, flang, read, _FortranAioInputReal32",
+      "linux, Fortran, flang, read, _FortranAioInputReal64",
+      "linux, Fortran, flang, read, _FortranAioInputUnformattedBlock",
+      "linux, Fortran, flang, print, _FortranAioOutputAscii",
+      "linux, Fortran, flang, print, _FortranAioOutputCharacter",
+      "linux, Fortran, flang, print, _FortranAioOutputComplex32",
+      "linux, Fortran, flang, print, _FortranAioOutputComplex64",
+      "linux, Fortran, flang, print, _FortranAioOutputExternalListOutput",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger128",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger16",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger32",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger64",
+      "linux, Fortran, flang, print, _FortranAioOutputInteger8",
+      "linux, Fortran, flang, print, _FortranAioOutputLogical",
+      "linux, Fortran, flang, print, _FortranAioOutputNamelist",
+      "linux, Fortran, flang, print, _FortranAioOutputReal32",
+      "linux, Fortran, flang, print, _FortranAioOutputReal64",
+      "linux, Fortran, flang, write, _FortranAioOutputAscii",
+      "linux, Fortran, flang, write, _FortranAioOutputCharacter",
+      "linux, Fortran, flang, write, _FortranAioOutputComplex32",
+      "linux, Fortran, flang, write, _FortranAioOutputComplex64",
+      "linux, Fortran, flang, write, _FortranAioOutputExternalListOutput",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger128",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger16",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger32",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger64",
+      "linux, Fortran, flang, write, _FortranAioOutputInteger8",
+      "linux, Fortran, flang, write, _FortranAioOutputLogical",
+      "linux, Fortran, flang, write, _FortranAioOutputNamelist",
+      "linux, Fortran, flang, write, _FortranAioOutputReal32",
+      "linux, Fortran, flang, write, _FortranAioOutputReal64",
+      "linux, Fortran, flang, write, _FortranAioOutputUnformatedBlock",
       ## does not support rand()
       ## https://discourse.llvm.org/t/support-for-gnu-fortran-extensions/69630
-      "linux, Fortran, flang-new, random_init, _FortranARandomInit",
-      "linux, Fortran, flang-new, random_number, _FortranARandomNumber",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeed",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeedGet",
-      "linux, Fortran, flang-new, random_seed, _FortranARandomSeedSize",
+      "linux, Fortran, flang, random_init, _FortranARandomInit",
+      "linux, Fortran, flang, random_number, _FortranARandomNumber",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeed",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeedGet",
+      "linux, Fortran, flang, random_seed, _FortranARandomSeedSize",
 
       ## Intel 'Clasic' and 202x
       "linux, Fortran, intel, stop, for_stop",
@@ -618,7 +604,7 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Rf_printNamedVector", "Rf_printRealVector",
             "Rf_printVector", "Rf_set_iconv",
             "Rf_sortVector", "Rf_strIsASCII", "Rf_strchr",
-            "Rf_strrchr", "Rf_ucstomb", "Rf_utf8towcs",
+            "Rf_strrchr", "Rf_strrchr_const", "Rf_ucstomb", "Rf_utf8towcs",
             "Rf_wcstoutf8", "Rg_PolledEvents", "Rg_set_col_ptrs",
             "Rf_wait_usec", "Ri18n_iswctype", "Ri18n_wcswidth",
             "Ri18n_wctype", "Ri18n_wcwidth", "Rsockclose",
@@ -694,11 +680,13 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "Rstrdup", "Rf_matchE", "R_popen", "R_system", "R_findVarLoc",
             "R_duplicate_attr", "Rf_substitute", "Rf_type2rstr",
             "R_MissingArgError", "R_MissingArgError_c",
-            "R_makePartialMatchWarningCondition", "Rf_EncodeChar",
+            "R_makePartialMatchWarningCondition",
+            "R_makePartialArgumentMatchWarningCondition",
+            "Rf_EncodeChar",
             "Rf_utf8clen", "R_strtod5", "Rf_utf8toucs", "Rf_wtransChar",
             "Rf_mbcsValid", "Rf_utf8Valid",
 ## non-API, declared in Rinternals.h
-            "SET_OBJECT", ## no longer used in an example in R-exts 
+            "SET_OBJECT", ## no longer used in an example in R-exts
             "SET_PRENV", "SET_PRVALUE", "SET_PRCODE",
             "R_PromiseExpr",
             ## "R_tryWrap",
@@ -783,6 +771,17 @@ check_so_symbols <- if(.Platform$OS.type == "windows") {
         if(have_tables) ind[1:4] <- TRUE
         tab <- so_symbol_names_table[ind, , drop = FALSE]
         attr(tab, "file") <- so
+        ignore_emb <- Sys.getenv("_R_CHECK_SO_SYMBOLS_IGNORE_EMB_",
+                                 "true")
+        ignore_emb <- config_val_to_logical(ignore_emb)
+        if(ignore_emb) {
+            ## make codetools happy
+            apitype <- NULL
+            nonAPI <-
+                setdiff(nonAPI,
+                        c(subset(funAPI(), apitype == "emb")$name,
+                          subset(varAPI(), apitype == "emb")$name))
+        }
         tab2 <- intersect(sub("^_", "", nms), nonAPI)
         if ("removeInputHandler" %in% tab2)
             tab2 <- setdiff(tab2, c("R_InputHandlers", "addInputHandler",
@@ -808,7 +807,17 @@ check_so_symbols <- if(.Platform$OS.type == "windows") {
         tab <- so_symbol_names_table[ind, , drop = FALSE]
         attr(tab, "file") <- so
         tab2 <- sub("^_", "", tab2)
-
+        ignore_emb <- Sys.getenv("_R_CHECK_SO_SYMBOLS_IGNORE_EMB_",
+                                 "true")
+        ignore_emb <- config_val_to_logical(ignore_emb)
+        if(ignore_emb) {
+            ## make codetools happy
+            apitype <- NULL
+            nonAPI <-
+                setdiff(nonAPI,
+                        c(subset(funAPI(), apitype == "emb")$name,
+                          subset(varAPI(), apitype == "emb")$name))
+        }
         tab2a <- intersect(tab2, nonAPI)
         if ("removeInputHandler" %in% tab2a)
             tab2a <- setdiff(tab2a, c("R_InputHandlers", "addInputHandler",
@@ -1139,9 +1148,9 @@ function(dir)
             !is.na(match(deparse(e[[1L]])[1L], ff_call_names))
     }
 
-    calls <- .find_calls_in_package_code(dir,
-                                         predicate = predicate,
-                                         recursive = TRUE)
+    calls <- find_calls_in_package_code(dir,
+                                        predicate = predicate,
+                                        recursive = TRUE)
     calls <- unlist(Filter(length, calls))
 
     if(!length(calls)) return(NULL)

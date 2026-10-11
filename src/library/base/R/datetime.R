@@ -91,18 +91,18 @@ Sys.timezone <- function(location = TRUE)
         } else tzdir <- ""
     }
 
-    ## First try timedatectl: should work on any modern (post 2015)
+    ## First try timedatectl show: should work on any modern (post 2018)
     ## glibc-based Linux as part of systemd (and probably nowhere else)
     ## https://www.freedesktop.org/software/systemd/man/sd_booted.html
     ## systemd is (in 2025) an optional part of musl
     if (dir.exists("/run/systemd/system") && nzchar(Sys.which("timedatectl"))) {
-        inf <- system("timedatectl", intern = TRUE)
-        ## typical format:
-        ## "       Time zone: Europe/London (GMT, +0000)"
-        ## "       Time zone: Europe/Vienna (CET, +0100)"
-        lines <- grep("Time zone: ", inf)
-        if (length(lines)) {
-            tz <- sub(" .*", "", sub(" *Time zone: ", "", inf[lines[1L]]))
+        ## Ubuntu 18.04 had systemd < 239 and would thus error with
+        ##   Unknown operation show
+        ##   timedatectl: unrecognized option '--property=Timezone'
+        ## but is covered by subsequent heuristics.
+        tz <- system("timedatectl show --property=Timezone --value",
+                     intern = TRUE) |> suppressWarnings()
+        if (length(tz) == 1L && nzchar(tz)) {
             ## quick sanity check
             if(nzchar(tzdir)) {
                 if(file.exists(file.path(tzdir, tz))) {
@@ -116,7 +116,9 @@ Sys.timezone <- function(location = TRUE)
                 cacheIt(tz)
                 return(tz)
             }
-        }
+        } else
+            message(gettext("unable to deduce timezone name from "),
+                    sQuote("timedatectl"), domain = NA)
     }
 
     ## Debian/Ubuntu Linux do things differently, so try that next.
@@ -680,10 +682,13 @@ c.POSIXlt <- function(..., recursive = FALSE) { # NB  `recursive` is *not* used 
     })
     n <- lengths(x, use.names = FALSE)
 
-    x <- as.POSIXlt(do.call(c.POSIXct, x))
+    x <- do.call(c.POSIXct, x)
     for(i in seq_along(s)) if(length(si <- s[[i]]) != (ni <- n[[i]]))
         s[[i]] <- if(is.null(si)) double(ni) else rep_len(si, ni)
     s <- unlist(s, recursive = FALSE, use.names = FALSE)
+    ## In far away times, seconds may be wrong, so don't add sub-seconds
+    s[abs(unclass(x)) >= .Machine$double.base ^ .Machine$double.digits] <- 0
+    x <- as.POSIXlt(x)
     i <- which(is.finite(x$sec) & s != 0)
     if(length(i)) {
         bal <- attr(x, "balanced")
@@ -709,6 +714,7 @@ ISOdate <- function(year, month, day, hour = 12, min = 0, sec = 0, tz = "GMT")
 
 as.matrix.POSIXlt <- function(x, ...)
 {
+    x$zone <- NULL # to always get numeric
     as.matrix(as.data.frame(unclass(x)), ...)
 }
 
@@ -1358,11 +1364,15 @@ function(x, units = c("secs", "mins", "hours", "days", "months", "years"))
                 if(tz1(value) == tz)
                     value <- unCfillPOSIXlt(value)
                 else {
-                    s <- value$sec - floor(value$sec)
-                    value <- unclass(as.POSIXlt(as.POSIXct(value), tz = tz))
-                    if(length(s) != (n <- length(value$sec))) s <- rep_len(s, n)
+                    s <- value$sec
+                    s <- s - (value$sec <- floor(s))
+                    value <- as.POSIXct(value)
+                    if(length(s) != (n <- length(value))) s <- rep_len(s, n)
+                    ## In far away times, seconds may be wrong, so don't add sub-seconds
+                    s[abs(unclass(value)) >= .Machine$double.base ^ .Machine$double.digits] <- 0
+                    value <- unclass(as.POSIXlt(value, tz = tz))
                     if(length(n <- which(is.finite(value$sec) & s != 0)))
-                        value$sec[n] <- floor(value$sec[n]) + s[n]
+                        value$sec[n] <- value$sec[n] + s[n]
                 }
             } else value <- unclass(as.POSIXlt(as.POSIXct(value), tz = tz))
             if(ici) {
@@ -1607,16 +1617,21 @@ as.list.POSIXlt <- function(x, ...)
     }
 
     tz1 <- function(x) attr(x, "tzone")[1L] %||% "" # never NA (?!)
-    value <- unCfillPOSIXlt(
-        if((isLt <- inherits(value, "POSIXlt")) && tz1(x) == tz1(value))
-            unclass(value)
+    tz <- tz1(x)
+    if(is.character(value) || is.factor(value)) value <- as.POSIXlt(value)
+    if(inherits(value, "POSIXlt")) {
+        if(tz1(value) == tz)
+            value <- unCfillPOSIXlt(value)
         else {
-            if(isLt) s <- value$sec # save
-            val <- unclass(as.POSIXlt(as.POSIXct(value), tz = attr(x, "tzone")))
-            if(isLt && is.finite(s) && (s1 <- s - floor(s)) != 0)
-                val$sec <- floor(s) + s1
-            val
-        })
+            s <- value$sec
+            s <- s - (value$sec <- floor(s))
+            value <- unclass(as.POSIXlt(ctv <- as.POSIXct(value), tz = tz))
+            if(is.finite(value$sec) && s != 0 &&
+               ## In far away times, seconds may be wrong, so don't add sub-seconds
+               abs(unclass(ctv)) < .Machine$double.base ^ .Machine$double.digits)
+                value$sec <- value$sec + s
+        }
+    } else value <- unclass(as.POSIXlt(as.POSIXct(value), tz = tz))
     for(n in names(x))
         x[[n]][[i]] <- value[[n]]
 

@@ -1,7 +1,7 @@
 #  File src/library/base/R/dcf.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2022 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -15,6 +15,28 @@
 #
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
+
+## Canonicalize 'x' to valid UTF-8: honour any declared encoding via
+## enc2utf8(), then escape bytes that are still invalid as <xx>, as
+## iconv(sub = "byte") does.  DCF files are required to be UTF-8.  This is
+## the same canonicalization strwrap() does inline; non-character input
+## (which carries no encoding) is returned unchanged.
+.enc2utf8_sub <-
+function(x)
+{
+    if(!is.character(x))
+        return(x)
+    x <- enc2utf8(x)
+    bad <- which(!is.na(x) & !validUTF8(x))
+    if(length(bad))
+        x[bad] <- iconv(x[bad], from = "UTF-8", to = "UTF-8", sub = "byte")
+    ## On some older macOS, the above may not suffice. As a last resort, convert 
+    ## offending bytes to ASCII
+    bad <- which(!is.na(x) & !validUTF8(x))
+    if(length(bad))
+        x[bad] <- iconv(x[bad], from="ASCII", to = "ASCII", sub = "byte")
+    x
+}
 
 read.dcf <-
 function(file, fields = NULL, all = FALSE, keep.white = NULL)
@@ -35,8 +57,17 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
     ##                  function(s)
     ##                  if(is.atomic(s)) s
     ##                  else mapply("[[", s, lengths(s))))
-    if(!all) return(.Internal(readDCF(file, fields, keep.white)))
-
+    if(!all) {
+        out <- .Internal(readDCF(file, fields, keep.white))
+        ## On some macOS versions, invalid UTF-8 can slip through, so
+        ##   we check and fix here. (Might move to C code, but hardly worth it.)
+        ## Note: .Internal version returns character matrix, not data frame
+	bad <- apply(out, 2, function(y) !all(validUTF8(y)))
+        if (any(bad))
+            for ( i in which(bad))
+                out[,i] <- .enc2utf8_sub(out[,i])
+        return(out)
+    }
     .assemble_things_into_a_data_frame <- function(tags, vals, nums) {
         tf <- factor(tags, levels = unique(tags))
 
@@ -68,19 +99,25 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
 
         out
     }
- 
+
     ## [:blank:] and [:space:] are locale specific
     ascii_blank <- " \t"
     ascii_space <- " \f\n\r\t\v"
 
-    lines <- readLines(file, skipNul = TRUE, encoding = "bytes")
+    ## DCF files must be encoded in UTF-8.  Read as UTF-8 and repair any
+    ## invalid byte sequences (escaping them as <xx>) so that invalid input
+    ## is preserved visually rather than silently dropped.
+    lines <- readLines(file, skipNul = TRUE, encoding = "UTF-8", warn = FALSE)
+    lines <- .enc2utf8_sub(lines)
 
     ## Ignore comment lines.
     lines <- lines[!startsWith(lines, "#")]
 
+    ## lines is known to be UTF-8 (or ASCII), so perl = TRUE is more efficient.
+
     ## Try to find out about invalid things: mostly, lines which do not
     ## start with blanks but have no ':' ...
-    ind <- grep(paste0("^[^", ascii_blank, "][^:]*$"), lines)
+    ind <- grep(paste0("^[^", ascii_blank, "][^:]*$"), lines, perl = TRUE)
     if(length(ind)) {
         lines <- substr(lines[ind], 1L, 0.7 * getOption("width"))
         stop(gettextf("Invalid DCF format.\nRegular lines must have a tag.\nOffending lines start with:\n%s",
@@ -88,7 +125,8 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
              domain = NA)
     }
 
-    line_is_not_empty <- !grepl(paste0("^[", ascii_space, "]*$"), lines)
+    line_is_not_empty <- !grepl(paste0("^[", ascii_space, "]*$"),
+                                lines, perl = TRUE)
     nums <- cumsum(diff(c(FALSE, line_is_not_empty) > 0L) > 0L)
     ## Remove the empty ones so that nums knows which record each line
     ## belongs to.
@@ -98,11 +136,13 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
     ## Deal with escaped blank lines (used by Debian at least for the
     ## Description: values, see man 5 deb-control):
     line_is_escaped_blank <- grepl(paste0("^[", ascii_space, "]+\\.[",
-                                          ascii_space, "]*$"), lines)
+                                          ascii_space, "]*$"),
+                                   lines, perl = TRUE)
     if(any(line_is_escaped_blank))
         lines[line_is_escaped_blank] <- ""
 
-    line_has_tag <- grepl(paste0("^[^", ascii_blank, "][^:]*:"), lines)
+    line_has_tag <- grepl(paste0("^[^", ascii_blank, "][^:]*:"),
+                          lines, perl= TRUE)
 
     ## Check that records start with tag lines.
     pos <- c(1L, which(diff(nums) > 0L) + 1L)
@@ -120,20 +160,17 @@ function(file, fields = NULL, all = FALSE, keep.white = NULL)
 
     tags <- sub(":.*", "", lines[line_has_tag])
     lines[line_has_tag] <-
-        sub(paste0("[^:]*:[", ascii_space, "]*"), "", lines[line_has_tag])
+        sub(paste0("[^:]*:[", ascii_space, "]*"), "", lines[line_has_tag],
+            perl = TRUE)
     fold <- is.na(match(tags, keep.white))
     foldable <- rep.int(fold, lengths)
-    lines[foldable] <- sub("^[[:space:]]*", "", lines[foldable])
-    lines[foldable] <- sub("[[:space:]]*$", "", lines[foldable])
+    lines[foldable] <- sub("^[[:space:]]*", "", lines[foldable], perl = TRUE)
+    lines[foldable] <- sub("[[:space:]]*$", "", lines[foldable], perl = TRUE)
 
     vals <- mapply(function(from, to) paste(lines[from:to],
                                             collapse = "\n"),
                    c(1L, pos[-length(pos)] + 1L), pos)
     vals[fold] <- trimws(vals[fold])
-
-    ## for back-compatibility, but creates invalid strings
-    Encoding(vals) <- "unknown"
-    Encoding(tags) <- "unknown"
 
     out <- .assemble_things_into_a_data_frame(tags, vals, nums[pos])
 
@@ -149,6 +186,10 @@ function(x, file = "", append = FALSE, useBytes = FALSE,
          width = 0.9 * getOption("width"),
          keep.white = NULL)
 {
+    ## DCF files must be encoded in UTF-8, so output is always written as
+    ## UTF-8 (see the value conversion in fmt() below).  The 'useBytes'
+    ## argument is therefore ignored.
+
     if(file == "")
         file <- stdout()
     else if(is.character(file)) {
@@ -168,6 +209,9 @@ function(x, file = "", append = FALSE, useBytes = FALSE,
 	     gsub("\n[ \t]*\n", "\n .\n ", s, perl = TRUE, useBytes = TRUE),
              perl = TRUE, useBytes = TRUE)
     fmt <- function(tag, val, fold = TRUE) {
+        ## DCF files must be encoded in UTF-8: canonicalize values to UTF-8
+        ## (escaping invalid bytes) before they are reformatted below.
+        val <- .enc2utf8_sub(val)
         s <- if(fold)
             formatDL(rep.int(tag, length(val)), val, style = "list",
                      width = width, indent = indent)
@@ -215,5 +259,9 @@ function(x, file = "", append = FALSE, useBytes = FALSE,
         ## Note that we do not write a trailing blank line.
         eor[ which(diff(c(col(out))[is_not_empty]) >= 1L) ] <- "\n"
     }
-    writeLines(paste0(c(out[is_not_empty]), eor), file, useBytes=useBytes)
+    ## The values were converted to UTF-8 above, so write the bytes
+    ## verbatim (useBytes = TRUE) rather than re-encoding to the session's
+    ## native encoding.  A connection opened with an explicit encoding may
+    ## still re-encode the output, but the default is always UTF-8.
+    writeLines(paste0(c(out[is_not_empty]), eor), file, useBytes = TRUE)
 }

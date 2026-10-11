@@ -90,6 +90,36 @@ inRbuildignore <- function(files, pkgdir) {
     exclude
 }
 
+build_exclude <- function(allfiles, pkgdir, pkgname) {
+    exclude <- inRbuildignore(allfiles, pkgdir)
+    bases <- basename(allfiles)
+    isdir <- dir.exists(allfiles)
+    ## old (pre-2.10.0) dirnames
+    exclude <- exclude | (isdir & (bases %in%
+                                   c("check", "chm", .vc_dir_names)))
+    exclude <- exclude | (isdir & grepl("([Oo]ld|\\.Rcheck)$", bases))
+    ## FIXME: GNU make uses GNUmakefile (note capitalization)
+    exclude <- exclude | bases %in% c("Read-and-delete-me", "GNUMakefile")
+    ## Mac resource forks
+    exclude <- exclude | startsWith(bases, "._")
+    exclude <- exclude | (isdir & grepl("^src.*/[.]deps$", allfiles))
+    ## Windows DLL resource file
+    exclude <- exclude | (allfiles == paste0("src/", pkgname, "_res.rc"))
+    ## inst/doc/.Rinstignore is a mistake
+    exclude <- exclude | endsWith(allfiles, "inst/doc/.Rinstignore") |
+        endsWith(allfiles, "inst/doc/.build.timestamp") |
+        endsWith(allfiles, "vignettes/.Rinstignore")
+    ## leftovers
+    exclude <- exclude | grepl("^.Rbuildindex[.]", allfiles)
+    ## or simply?  exclude <- exclude | startsWith(allfiles, ".Rbuildindex.")
+    exclude <- exclude | (bases %in% .hidden_file_exclusions)
+    ## exclude (old) source tarballs and binary packages (PR#17828)
+    exts <- "\\.(tar\\.gz|tar|tar\\.bz2|tar\\.xz|tar\\.zst|tgz|zip)"
+    exclude <- exclude | grepl(paste0("^", pkgname, "_[0-9.-]+", exts, "$"),
+                               allfiles)
+    exclude
+}
+
 ### based on Perl build script
 
 .build_packages <- function(args = NULL, no.q = interactive())
@@ -329,7 +359,7 @@ inRbuildignore <- function(files, pkgdir) {
                     printLog0(Log, paste(c(res$stdout, ""),  collapse = "\n"))
                     do_exit(1L)
                 } else {
-                    # Rescan for weave and tangle output files
+                    ## Rescan for weave and tangle output files
                     vigns <- pkgVignettes(dir = '.', output = TRUE, source = TRUE)
                     stopifnot(!is.null(vigns))
 
@@ -345,13 +375,13 @@ inRbuildignore <- function(files, pkgdir) {
                     copied <- file.copy(tocopy, doc_dir, copy.date = TRUE)
                     if (!all(copied)) {
                     	warning(sprintf(ngettext(sum(!copied),
-                                                 "%s file\n", "%s files\n"),
+                                                 "%s file\n", "%s files\n", domain = NA),
                                         sQuote("inst/doc")),
                     	        strwrap(paste(sQuote(basename(tocopy[!copied])), collapse=", "),
                     	                indent = 4, exdent = 2),
 			        "\n  ignored as vignettes have been rebuilt.",
 			        "\n  Run R CMD build with --no-build-vignettes to prevent rebuilding.",
-			     call. = FALSE)
+			     call. = FALSE, domain = NA)
 			file.copy(tocopy[!copied], doc_dir, overwrite = TRUE, copy.date = TRUE)
 		    }
                     unlink(c(vigns$outputs, unlist(vigns$sources)))
@@ -1027,84 +1057,62 @@ inRbuildignore <- function(files, pkgdir) {
 	    errorLog(Log, "invalid 'Package' field"); do_exit(1L)
 	}
         ## make a copy, cd to parent of copy
-        setwd(dirname(pkgdir))
+        setwd(pkgdir)
         filename <- paste0(intname, "_", desc["Version"], ".tar")
         filepath <- file.path(startdir, filename)
         Tdir <- tempfile("Rbuild")
         dir.create(Tdir, mode = "0755")
-        if (WINDOWS) {
-            ## This preserves read-only for files, and dates
-            if (!file.copy(pkgname, Tdir, recursive = TRUE, copy.date = TRUE)) {
-                errorLog(Log, "copying to build directory failed")
-                do_exit(1L)
-            }
-        } else {
-            ## This should preserve dates and permissions (subject to
-            ## umask, if that is consulted which it seems it usually is not).
-            ## Permissions are increased later.
-            ## -L is to follow (de-reference) symlinks
-            ## --preserve is GNU only: at least macOS, FreeBSD and Solaris
-            ##   have non-GNU cp's as it seems do some Linuxen.
-            ver <- suppressWarnings(system2("cp", "--version", stdout = TRUE,
-                                            stderr = FALSE))
-            GNU_cp <- any(grepl("GNU coreutils", ver))
-	    cp_sw <- if(GNU_cp) "-LR --preserve=timestamps" else "-pLR"
-            if (system2("cp", c(cp_sw, shQuote(pkgname), shQuote(Tdir)))) {
-                errorLog(Log, "copying to build directory failed")
-                do_exit(1L)
-            }
-        }
-        setwd(Tdir)
 
-        ## Now correct the package name (PR#9266)
-        if (pkgname != intname) {
-            if (!file.rename(pkgname, intname)) {
-                message(gettextf("Error: cannot rename directory to %s",
-                                 sQuote(intname)), domain = NA)
+        ## exclude ignored files
+        allfiles <- dir(".", all.files = TRUE, recursive = TRUE,
+                        include.dirs = TRUE)
+        pkgname <- intname
+        exclude <- build_exclude(allfiles, pkgdir, pkgname)
+
+        ## exclude contents of excluded directories
+        isdir <- dir.exists(allfiles)
+        for (d in allfiles[isdir & exclude])
+            exclude <- exclude |
+                startsWith(allfiles, paste0(d, .Platform$file.sep))
+
+        ## create empty directory tree to copy files into
+        dir.create(file.path(Tdir, intname), mode = "0755")
+        srcdirs <- allfiles[isdir & !exclude]
+        for (d in srcdirs) {
+            if (!dir.create(file.path(Tdir, intname, d), mode = "0755")) {
+                errorLog(Log, "failed to create build directory structure")
                 do_exit(1L)
             }
-            pkgname <- intname
         }
+        ## populate it with files
+        srcfiles <- allfiles[!exclude & !isdir]
+        dstfiles <- file.path(Tdir, intname, srcfiles)
+        if (!all(file.copy(srcfiles, dstfiles, copy.date = TRUE))) {
+            errorLog(Log, "copying to build directory failed")
+            do_exit(1L)
+        }
+        ## restore metadata _after_ directories are populated
+        for (d in srcdirs) {
+            ddest <- file.path(Tdir, intname, d)
+            if (!Sys.setFileTime(ddest, file.mtime(d)) ||
+                !Sys.chmod(ddest, file.mode(d), FALSE)) {
+                errorLog(Log, "failed to preserve build directory metadata")
+                do_exit(1L)
+            }
+        }
+
+        setwd(Tdir)
 
         ## prepare the copy
         messageLog(Log, "preparing ", sQuote(pkgname), ":")
-        prepare_pkg(normalizePath(pkgname, "/"), desc, Log);
-        owd <- setwd(pkgname)
-        ## remove exclude files
-        allfiles <- dir(".", all.files = TRUE, recursive = TRUE,
-                        full.names = TRUE, include.dirs = TRUE)
-        allfiles <- substring(allfiles, 3L)  # drop './'
-        bases <- basename(allfiles)
+        prepare_pkg(normalizePath(pkgname, "/"), desc, Log)
 
-        exclude <- inRbuildignore(allfiles, pkgdir)
-
-        isdir <- dir.exists(allfiles)
-        ## old (pre-2.10.0) dirnames
-        exclude <- exclude | (isdir & (bases %in%
-                                       c("check", "chm", .vc_dir_names)))
-        exclude <- exclude | (isdir & grepl("([Oo]ld|\\.Rcheck)$", bases))
-        ## FIXME: GNU make uses GNUmakefile (note capitalization)
-        exclude <- exclude | bases %in% c("Read-and-delete-me", "GNUMakefile")
-        ## Mac resource forks
-        exclude <- exclude | startsWith(bases, "._")
-        exclude <- exclude | (isdir & grepl("^src.*/[.]deps$", allfiles))
-	## Windows DLL resource file
-        exclude <- exclude | (allfiles == paste0("src/", pkgname, "_res.rc"))
-        ## inst/doc/.Rinstignore is a mistake
-        exclude <- exclude | endsWith(allfiles, "inst/doc/.Rinstignore") |
-            endsWith(allfiles, "inst/doc/.build.timestamp") |
-            endsWith(allfiles, "vignettes/.Rinstignore")
-        ## leftovers
-        exclude <- exclude | grepl("^.Rbuildindex[.]", allfiles)
-        ## or simply?  exclude <- exclude | startsWith(allfiles, ".Rbuildindex.")
-        exclude <- exclude | (bases %in% .hidden_file_exclusions)
-        ## exclude (old) source tarballs and binary packages (PR#17828)
-        exts <- "\\.(tar\\.gz|tar|tar\\.bz2|tar\\.xz|tgz|zip)"
-        exclude <- exclude | grepl(paste0("^", pkgname, "_[0-9.-]+", exts, "$"),
-                                   allfiles)
-        unlink(allfiles[exclude], recursive = TRUE, force = TRUE,
-               expand = FALSE)
-        setwd(owd)
+        ## unlink ignored files that were produced while preparing
+        allfiles <- dir(pkgname, all.files = TRUE, recursive = TRUE,
+                        include.dirs = TRUE)
+        exclude <- build_exclude(allfiles, pkgdir, pkgname)
+        unlink(file.path(pkgname, allfiles[exclude]),
+               recursive = TRUE, expand = FALSE)
 
         ## Fix up man, R, demo inst/doc directories
         res <- .check_package_subdirs(pkgname, TRUE)
@@ -1115,7 +1123,7 @@ inRbuildignore <- function(files, pkgdir) {
         setwd(Tdir)
         ## Fix permissions for all files to be at least 644, and dirs 755
         ## Not restricted by umask.
-	if (!WINDOWS) .Call(C_dirchmod, pkgname, group.writable=FALSE)
+	if (!WINDOWS) .Call(C_dirchmod, pkgname, group.writable = FALSE)
         ## Add build stamp *and* expanded R fields to the DESCRIPTION file:
         add_build_stamp_to_description_file(file.path(pkgname, "DESCRIPTION"),
                                             pkgdir, user)
@@ -1146,18 +1154,29 @@ inRbuildignore <- function(files, pkgdir) {
         ## work on 'data' directory if present
         if(dir.exists(file.path(pkgname, "data")) ||
            file_test("-f", file.path(pkgname, "R", "sysdata.rda"))) {
-            if(!str_parse_logic(desc["LazyData"], FALSE)) {
-                messageLog(Log,
-                           "looking to see if a 'data/datalist' file should be added")
+            dlfile <- file.path(pkgname, "data", "datalist")
+            has_dlfile <- file.exists(dlfile)
+            if(str_parse_logic(desc["LazyData"], FALSE)) {
+                if(has_dlfile) {
+                    printLog(Log, "WARNING: Removing file 'data/datalist'",
+                             " which is obsolete with 'LazyData'.\n")
+                    unlink(dlfile)
+                }
+            } else if(!has_dlfile) {
+                checkingLog(Log, "if a 'data/datalist' file should be added")
                 ## in some cases data() needs the package installed as
                 ## there are links to the package's namespace
-                tryCatch(add_datalist(pkgname),
-                         error = function(e)
-                             printLog(Log, "  unable to create a 'datalist' file: may need the package to be installed\n"))
+                added <- tryCatch(add_datalist(pkgname),
+                                  error = function(e) NA)
+                if (is.na(added)) {
+                    resultLog(Log, "WARNING")
+                    printLog(Log, "  unable to create a 'datalist' file: may need the package to be installed\n")
+                } else
+                    resultLog(Log, if (added) "yes (done)" else "no")
             }
             ## allow per-package override
             resave_data1 <- parse_description_field(desc, "BuildResaveData",
-                                                    resave_data, logical=FALSE)
+                                                    resave_data, logical = FALSE)
             resave_data_others(pkgname, resave_data1)
             resave_data_rda(pkgname, resave_data1)
         }
@@ -1288,7 +1307,7 @@ inRbuildignore <- function(files, pkgdir) {
 
         ## Finalize
         ext <- switch(compression,
-                      "none"="", "gzip"= ".gz", "bzip2" = ".bz2",
+                      "none" = "", "gzip" = ".gz", "bzip2" = ".bz2",
                       "xz" = ".xz", "zstd" = ".zst")
         filename <- paste0(pkgname, "_", desc["Version"], ".tar", ext)
         filepath <- file.path(startdir, filename)

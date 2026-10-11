@@ -350,6 +350,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
     } else on.exit(Sys.setenv(BSTINPUTS = obstinputs), add = TRUE)
     Sys.setenv(BSTINPUTS = paths2env(c(texinputs, obstinputs, Rbstinputs, "")))
 
+    bibwarnings <- character()
     if(index && nzchar(texi2dvi) && .Platform$OS.type != "windows") {
         ## switch off the use of texindy in texi2dvi >= 1.157
         Sys.setenv(TEXINDY = "false")
@@ -361,7 +362,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## the current heuristics for finding error messages in log files
         ## have better coverage with the default '!' error indicator, but
         ## texi2dvi enables the file:line:error style, so:
-        out <- .system_with_capture(texi2dvi, "--help")
+        out <- system_with_capture(texi2dvi, "--help")
         if(length(grep("--no-line-error", out$stdout)))
             opt_extra <- "--no-line-error"
 
@@ -376,10 +377,10 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         ## FIXME: This workaround should be obsolete with Texinfo 6.3.
 ##      if (grepl(" ", Sys.getenv("TMPDIR")))
 ##          env0 <- paste(env0,  "TMPDIR=/tmp")
-        out <- .system_with_capture(texi2dvi,
-                                    c(opt_pdf, opt_quiet, opt_extra,
-                                      shQuote(file)),
-                                    env = env0)
+        out <- system_with_capture(texi2dvi,
+                                   c(opt_pdf, opt_quiet, opt_extra,
+                                     shQuote(file)),
+                                   env = env0)
 
         log <- paste0(file_path_sans_ext(file), ".log")
 
@@ -396,10 +397,10 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 ##         file_test("-f", log) &&
 ##         any(grepl("(Rerun to get|biblatex.*\\(re\\)run)",
 ##                   readLines(log, warn = FALSE), useBytes = TRUE))) {
-##          out <- .system_with_capture(texi2dvi,
-##                                      c(opt_pdf, opt_quiet, opt_extra,
-##                                        shQuote(file)),
-##                                      env = env0)
+##          out <- system_with_capture(texi2dvi,
+##                                     c(opt_pdf, opt_quiet, opt_extra,
+##                                       shQuote(file)),
+##                                     env = env0)
 ##      }
 
         ## We cannot necessarily rely on out$status, hence let us
@@ -417,6 +418,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         log <- paste0(file_path_sans_ext(file), ".blg")
         if(file_test("-f", log)) {
             lines <- .get_BibTeX_errors_from_blg_file(log)
+            bibwarnings <- attr(lines, "warnings")
             if(length(lines))
                 errors <- paste0("BibTeX errors:\n",
                                  paste(lines, collapse = "\n"))
@@ -485,6 +487,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         logfile <- paste0(base, ".blg")
         if(file_test("-f", logfile)) {
             lines <- .get_BibTeX_errors_from_blg_file(logfile)
+            bibwarnings <- attr(lines, "warnings")
             if(length(lines))
                 msg <- paste(msg, "BibTeX errors:",
                              paste(lines, collapse = "\n"),
@@ -559,6 +562,10 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
         }
         do_cleanup(clean)
     }
+    if (length(bibwarnings))
+        message(sprintf("Bibliography warnings for '%s':\n",
+                        basename(file_path_sans_ext(file))),
+                paste(bibwarnings, collapse = "\n"), domain = NA)
     invisible(NULL)
 }
 
@@ -567,16 +574,16 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 ### ** .vc_dir_names
 
 ## Version control directory names: CVS, .svn (Subversion), .arch-ids
-## (arch), .bzr, .git, .hg (mercurial) and _darcs (Darcs)
+## (arch), .bzr, .git, .hg (mercurial), _darcs (Darcs), and .jj (jujutsu)
 ## And it seems .metadata (eclipse) is in the same category.
 
 .vc_dir_names <-
-    c("CVS", ".svn", ".arch-ids", ".bzr", ".git", ".hg", "_darcs", ".metadata")
+    c("CVS", ".svn", ".arch-ids", ".bzr", ".git", ".hg", "_darcs", ".jj", ".metadata")
 
 ## and RE version (beware of the need for escapes if amending)
 
 .vc_dir_names_re <-
-    "/(CVS|\\.svn|\\.arch-ids|\\.bzr|\\.git|\\.hg|_darcs|\\.metadata)(/|$)"
+    R"[/(CVS|\.svn|\.arch-ids|\.bzr|\.git|\.hg|_darcs|\.jj|\.metadata)(/|$)]"
 
 ## We are told
 ## .Rproj.user is Rstudio
@@ -745,11 +752,13 @@ function(db)
 ### ** .file_append_ensuring_LFs
 
 .file_append_ensuring_LFs <-
-function(file1, file2)
+function(file1, file2, enc = NA_character_)
 {
+    if (!is.character(enc))
+        enc <- as.character(enc)
     ## Use a fast version of file.append() that ensures LF between
     ## files.
-    .Call(C_codeFilesAppend, file1, file2)
+    .Call(C_codeFilesAppend, file1, file2, enc)
 }
 
 ### ** .file_path_to_LaTeX_graphicspath
@@ -786,8 +795,9 @@ function(x, dir, add = FALSE)
     x
 }
 
-### ** .find_calls
+### ** find_calls
 
+find_calls <-
 .find_calls <-
 function(x, predicate = NULL, recursive = FALSE)
 {
@@ -830,14 +840,18 @@ function(x, predicate = NULL, recursive = FALSE)
 .find_calls_in_file <-
 function(file, encoding = NA, predicate = NULL, recursive = FALSE)
 {
-    .find_calls(.parse_code_file(file, encoding), predicate, recursive)
+    find_calls(.parse_code_file(file, encoding), predicate, recursive)
 }
 
-### ** .find_calls_in_package_code
+### ** find_calls_in_package_code
 
+find_calls_in_package_code <-
+function(dir, predicate = NULL, recursive = FALSE, which = "code")
+    .find_calls_in_package_code(dir, predicate, recursive, which)
+    
 .find_calls_in_package_code <-
-function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
-         which = "code")
+function(dir, predicate = NULL, recursive = FALSE, which = "code",
+         .worker = NULL)
 {
     dir <- file_path_as_absolute(dir)
 
@@ -850,7 +864,7 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
             .find_calls_in_file(file, encoding, predicate, recursive)
 
     which <- match.arg(which,
-                       c("code", "vignettes", "tests",
+                       c("code", "data", "demo", "tests", "vignettes",
                          "NAMESPACE", "CITATION", "docs"),
                        several.ok = TRUE)
     code_files <-
@@ -858,18 +872,30 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
           if("code" %in% which)
               list_files_with_type(file.path(dir, "R"), "code",
                                    OS_subdirs = c("unix", "windows")),
+          if(("data" %in% which) &&
+             dir.exists(fp <- file.path(dir, "data")))
+              list.files(fp, pattern = "\\.[Rr]$",
+                         full.names = TRUE),
+          if(("demo" %in% which) &&
+             dir.exists(fp <- file.path(dir, "demo")))
+              list.files(fp, pattern = "\\.[Rr]$",
+                         full.names = TRUE),
+          ## cf. .check_packages_used_in_tests() ...
+          if(("tests" %in% which) &&
+             dir.exists(fp <- file.path(dir, "tests")))
+              c(list.files(fp, pattern = "\\.[Rr]$",
+                           full.names = TRUE),
+                unlist(lapply(Filter(dir.exists,
+                                     file.path(dir, "tests",
+                                               c("testthat", "testit",
+                                                 "unitizer", "RUnit"))),
+                              function(fp)
+                                  list.files(fp, pattern = "\\.[Rr]$",
+                                             full.names = TRUE)))),
           if(("vignettes" %in% which) &&
              dir.exists(file.path(dir, "vignettes")) &&
              dir.exists(fp <- file.path(dir, "inst", "doc")))
               list_files_with_type(fp, "code"),
-          ## cf. .check_packages_used_in_tests() ...
-          if(("tests" %in% which) &&
-             dir.exists(fp <- file.path(dir, "tests")))
-              c(list.files(fp, pattern = "\\.[rR]$",
-                           full.names = TRUE),
-                if(dir.exists(fp <- file.path(fp, "testthat")))
-                    list.files(fp, pattern = "\\.[rR]$",
-                               full.names = TRUE)),
           if(("NAMESPACE" %in% which) &&
              file.exists(fp <- file.path(dir, "NAMESPACE")))
               fp,
@@ -882,21 +908,23 @@ function(dir, predicate = NULL, recursive = FALSE, .worker = NULL,
         .file_path_relative_to_dir(code_files, dirname(dir))
 
     if("docs" %in% which) {
-        db <- Rd_db(dir = dir)
+        db <- Rd_db(dir = dir, stages = c("build", "later", "install"))
         names(db) <- file.path(basename(dir), "man", names(db))
+        tdir <- tempfile()
+        dir.create(tdir)
+        on.exit(unlink(tdir, recursive = TRUE))
         calls <-
             c(calls,
               Filter(length,
-                     lapply(db,
-                            function(e) {
-                                f <- tempfile()
-                                on.exit(unlink(f))
-                                Rd2ex(e, f)
-                                if(file.exists(f))
-                                    .worker(f, "UTF-8")
-                            })))
+                     Map(function(u, v) {
+                             f <- file.path(tdir, v)
+                             Rd2ex(u, f)
+                             if(file.exists(f))
+                                 .worker(f, "UTF-8")
+                         },
+                         db, basename(names(db)))))
     }
-    
+
     calls
 }
 
@@ -997,13 +1025,14 @@ function(con)
         (any(startsWith(lines, "---")) ||
          regexpr("There (was|were) ([0123456789]+) error messages?",
                  lines[length(lines)]) > -1L)
-    ## (Note that warnings are ignored for now.)
+    warnings <- grepv("(Warning--|WARN - )", lines)
+    warnings <- sub(".*(Warning--|WARN - )", "", warnings)
     ## MiKTeX does not give usage, so '(There were n error messages)' is
     ## last.
     pos <- grep("^(Warning|You've|\\(There)", lines)
-    if(!really_has_errors || !length(pos) ) return(character())
-    ind <- seq.int(from = 3L, length.out = pos[1L] - 3L)
-    lines[ind]
+    ind <- if (really_has_errors && length(pos))
+               seq.int(from = 3L, length.out = pos[1L] - 3L)
+    structure(lines[ind], warnings = warnings)
 }
 
 ### ** .get_LaTeX_errors_from_log_file
@@ -1292,7 +1321,7 @@ function(env, nms = NULL)
 ### ** .get_S3_group_generics
 
 .get_S3_group_generics <-
-function()
+function() # for S4, have methods::getGenerics()
     c("Ops", "Math", "Summary", "Complex", "matrixOps")
 
 ### ** .get_S3_primitive_generics
@@ -1534,6 +1563,12 @@ function(f)
     b
 }
 
+### ** .gh_repo_URL
+
+.gh_repo_URL <- 
+function(x)
+    sub("^(https?://[^/]+/[^/]+/[^/]+)/.*", "\\1", x)
+
 ### ** .gregexec_at_pos
 
 .gregexec_at_pos <-
@@ -1548,8 +1583,9 @@ function(pattern, x, m, pos)
            use.names = FALSE)
 }
 
-### ** .gsub_with_transformed_matches
+### ** gsub_with_transformed_matches
 
+gsub_with_transformed_matches <-
 .gsub_with_transformed_matches <-
 function(pattern, replacement, x, trafo, count, ...)
 {
@@ -1872,9 +1908,9 @@ function(parent = parent.frame())
     }
 })
 
-### ** .make_RFC4646_langtag_regexp
+### ** .make_RFC_4646_langtag_regexp
 
-.make_RFC4646_langtag_regexp <-
+.make_RFC_4646_langtag_regexp <-
 function()
 {
     ## See <https://www.ietf.org/rfc/rfc4646.html>.
@@ -1918,7 +1954,7 @@ function()
     sprintf("(%s)((-%s)?)((-%s)?)((-%s)*)((-%s)*)",
             re_language, re_script, re_region, re_variant, re_extension)
 }
-    
+
 ### ** nonS3methods [was .make_S3_methods_stop_list ]
 
 nonS3methods <- function(package)
@@ -2183,7 +2219,7 @@ function(meta, v)
     }
     FALSE
 }
-    
+
 ### ** .package_vignettes_via_call_to_R
 
 .package_vignettes_via_call_to_R <-
@@ -2206,11 +2242,11 @@ function(dir, ..., libpaths = .libPaths()) {
 .pandoc_md_for_CRAN <-
 function(ifile, ofile)
 {
-    .system_with_capture("pandoc",
-                         paste(shQuote(normalizePath(ifile)),
-                               "-s", "--mathjax",
-                               "--email-obfuscation=references",
-                               "-o", shQuote(ofile)))
+    system_with_capture("pandoc",
+                        paste(shQuote(normalizePath(ifile)),
+                              "-s", "--mathjax",
+                              "--email-obfuscation=references",
+                              "-o", shQuote(ofile)))
 }
 
 ### ** .parLapply_on_strings
@@ -2241,7 +2277,7 @@ function(X, FUN, ...,
 
     out
 }
-    
+
 .Ncpus_default <-
 function()
     getOption("Ncpus", 1L)
@@ -2358,82 +2394,22 @@ function(dfile, keep.white = .keep_white_description_fields)
     if (nrow(out) != 1L)
         stop("contains a blank line", call. = FALSE)
     out <- out[1L, ]
-    if(!is.na(encoding <- out["Encoding"])) {
-        ## could convert everything (valid) to UTF-8
-        if(encoding == "UTF-8") {
-            Encoding(out) <- "UTF-8"
-            ind <- validUTF8(out)
-            if(!all(ind)) {
-                pos <- which(!ind)
-                ## Be as nice as for the other cases ...
-                ## Could also throw an error along the lines of
-                ##   stop(sprintf(ngettext(length(pos),
-                ##                         "field %s is not valid UTF-8",
-                ##                         "fields %s are not valid UTF-8"),
-                ##                paste(sQuote(names(out)[pos]),
-                ##                             collapse = ", ")),
-                ##        call. = FALSE, domain = NA)
-                out[pos] <-
-                    iconv(out[pos], "UTF-8", "UTF-8", sub = "byte")
-            }
-        }
-        else if(encoding == "latin1")
-            Encoding(out) <- "latin1"
-        else
-            out <- iconv(out, encoding, "", sub = "byte")
-    }
+    ## read.dcf() now always returns UTF-8 (repairing any invalid bytes),
+    ## so the legacy Encoding-field post-processing is no longer needed.
     out
 }
 
 .write_description <-
 function(x, dfile, keep.white = .keep_white_description_fields)
 {
-    ## Invert how .read_description() handles package encodings.
-    if(!is.na(encoding <- x["Encoding"])) {
-        ## For UTF-8 or latin1 encodings, .read_description() would
-        ## simply have marked the encoding.  But we might have added
-        ## fields encoded differently ...
-        ind <- is.na(match(Encoding(x), c(encoding, "unknown")))
-        if(any(ind))
-            x[ind] <- mapply(iconv, x[ind], Encoding(x)[ind], encoding,
-                             sub = "byte")
-    } else {
-        ## If there is no declared encoding, we cannot have non-ASCII
-        ## content.
-        ## Cf. tools::showNonASCII():
-        asc <- iconv(x, "latin1", "ASCII")
-        ## fields might have been NA to start with, so use identical.
-        if(!identical(asc, x)) {
-            warning("Unknown encoding with non-ASCII data: converting to ASCII")
-	    ind <- is.na(asc) | (asc != x)
-            x[ind] <- iconv(x[ind], "latin1", "ASCII", sub = "byte")
-        }
-    }
+    ## write.dcf() now always writes valid UTF-8 (converting values with a
+    ## declared encoding and repairing any invalid bytes), so there is no
+    ## need to handle the declared Encoding field here.
     ## Avoid folding for fields where we keep whitespace when reading,
     ## plus two more fields where legacy code does not strip whitespace
     ## and so we should not wrap.
-    ## Unfortunately, wrapping may destroy declared encodings: for the
-    ## fields where we do not keep whitespace, write.dcf() calls
-    ## formatDL() which in turn calls paste() on the results of
-    ## strwrap(), and paste() may change the (common) encoding.
-    ## In particular, pasting a latin1 string comes out in UTF-8 in a
-    ## UTF-8 locale, and with unknown encoding in a C locale.
-    ## Hence, when we have a declared non-UTF-8 encoding, we convert
-    ## to UTF-8 before formatting, and convert back to the declared
-    ## encoding when writing out.
     keep.white <- unique(c(keep.white, "Maintainer", "BugReports"))
-    if(!is.na(encoding) && (encoding != "UTF-8")) {
-        x <- iconv(x, from = encoding, to = "UTF-8")
-        tfile <- tempfile()
-        write.dcf(rbind(x), tfile, keep.white = keep.white,
-                  useBytes = TRUE)
-        writeLines(iconv(readLines(tfile),
-                         from = "UTF-8", to = encoding),
-                   dfile, useBytes = TRUE)
-    } else {
-        write.dcf(rbind(x), dfile, keep.white = keep.white,
-                  useBytes = TRUE)
-    }
+    write.dcf(rbind(x), dfile, keep.white = keep.white)
 }
 
 .expand_package_description_db_R_fields <-
@@ -2559,7 +2535,7 @@ function(dir, envir, meta = character())
                file.path(dir, .read_collate_field(txt[ind[1L]])))
     else
         list_files_with_type(dir, "code")
-    if(!all(.file_append_ensuring_LFs(con, files)))
+    if(!all(.file_append_ensuring_LFs(con, files, enc = meta["Encoding"])))
         stop("unable to write code files")
     if(!is.na(package <- meta["Package"]))
         envir$.packageName <- package
@@ -2604,8 +2580,9 @@ function(x)
     } else list(name = x1)
 }
 
-### ** .system_with_capture
+### ** system_with_capture
 
+system_with_capture <-
 .system_with_capture <-
 function(command, args = character(), env = character(),
          stdin = "", input = NULL, timeout = 0)
@@ -2748,7 +2725,7 @@ function(fun, args = list(), opts = "--no-save --no-restore",
          env = character(), arch = "", drop = TRUE, timeout = 0)
 {
     stopifnot(is.list(args))
-    
+
     .safe_repositories <- function() {
         x <- getOption("repos")
         y <- .get_standard_repository_URLs()
@@ -2782,8 +2759,8 @@ function(fun, args = list(), opts = "--no-save --no-restore",
                    opts <- c(paste0("--arch=", arch), opts)
                file.path(R.home("bin"), "R")
            }
-    res <- .system_with_capture(cmd, opts, env, input = wrk,
-                                timeout = timeout)
+    res <- system_with_capture(cmd, opts, env, input = wrk,
+                               timeout = timeout)
     ## FIXME: what should the "value" be in case of error?
     if(file.exists(tfo)) {
         val <- readRDS(tfo)
@@ -2992,7 +2969,8 @@ function(f, verbose = FALSE)
 ### ** rsync
 
 rsync <-
-function(src, dst, ...){
+function(src, dst, ...)
+{
     ## needs rsync. On Wndows, the RTools version of rsync needs 
     ## special path treatment as in an msys shell,
     ## i.e. write /c/to/path rather than c:\to\path
@@ -3005,6 +2983,26 @@ function(src, dst, ...){
     system2("rsync", c(src, dst, ...))
 }
 
+### ** base64_encode
+
+base64_encode <-
+function(file)
+{
+    ## read file as octets
+    x <- as.numeric(readBin(file, 'raw', len <- file.size(file)))
+    if(len == 0L) return("")
+    ## group octets into 24-bit big-endian clusters with zero padding
+    x <- matrix(c(x, rep(0, c(0, 2, 1)[1 + len %% 3])), 3)
+    ## split into sextets
+    x <- outer(
+        6 * 3:0, colSums(x * 2^(8 * 2:0)),
+        function(shift, cluster) (cluster %/% 2^shift) %% 2^6
+    )
+    ## last 1 or 2 bytes may need to be a padding byte
+    if (rem <- len %% 3) x[length(x) - 0:(2-rem)] <- 64
+    ## encode sextets using Base64 alphabet
+    paste(c(LETTERS, letters, 0:9, '+', '/', '=')[x + 1], collapse = '')
+}
 
 ### Local variables: ***
 ### mode: outline-minor ***

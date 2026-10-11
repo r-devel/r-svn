@@ -155,7 +155,7 @@ getFunsHdr <- function(fpath, lines, include = R.home("include"), flags = "") {
         new_flags <- paste(flags, "-DHAVE_AQUA -DR_INTERFACE_PTRS")
     else
         new_flags <- paste(flags, "-DR_INTERFACE_PTRS")
-    
+
     lines <- ccE(lines, flags = new_flags, include = include)
     lines <- dropBraces(lines)
 
@@ -210,13 +210,12 @@ getVarsHdr <- function(fpath, lines, include = R.home("include"), flags = "") {
 }
 
 ccE <- function(lines, include = R.home("include"), flags, clean = TRUE) {
-    if (Sys.which("cc") == "")
-        stop("'cc' is not on the path")
+    CC <- Rcmd(c("config", "CC"), stdout = TRUE)
     tfile <- tempfile(fileext = ".h")
     on.exit(unlink(tfile))
     writeLines(lines, tfile)
     include <- paste(sprintf("-I%s", include), collapse = " ")
-    cmd <- sprintf("cc -E %s %s", include, tfile)
+    cmd <- sprintf("%s -E %s %s", CC, include, tfile)
     if (! missing(flags))
         cmd <- paste(cmd, flags)
     val <- system(cmd, intern=TRUE)
@@ -225,9 +224,13 @@ ccE <- function(lines, include = R.home("include"), flags, clean = TRUE) {
     else val
 }
 
-ccEclean <- function(lines, pattern = "Rtmp") {
+## cceclean remove lines brought in from header files, keeping only
+## ones corresponding to tfile
+ccEclean <- function(lines, tfile) {
     fline <- grepl("^#", lines)
-    keep <- grepl(pattern, lines[fline])
+    ## using basename should be sufficient and avoids dealing with
+    ## Windows path issues
+    keep <- grepl(basename(tfile), lines[fline])
     len <- diff(c(which(fline), length(lines) + 1))
     keep <- unlist(mapply(rep, keep, len, USE.NAMES = FALSE))
     lines <- lines[keep & ! fline]
@@ -354,7 +357,7 @@ cleanRfuns <- function(val) {
     if (any(grepl("^_*Rf_XLENGTH_*$", val)) &&
         any(grepl("^_*XLENGTH_*$", val)))
         val <- val[! grepl("^_*XLENGTH_*$", val)]
-    
+
     ## drop tre_ stuff if it is there and some others
     val[! grepl("tre_|^_*(main|MAIN|start)_*$|yyparse", val)]
 }
@@ -430,7 +433,7 @@ ofile_syms <- function(fname, keep = c("F", "V", "U")) {
     stopifnot(isFALSE(.Platform$OS.type == "windows"))
     v <- suppressWarnings(read_symbols_from_object_file(fname,
                                                         ignore.stderr = TRUE))
-    if (is.character(v) && nrow(v) == 0) 
+    if (is.character(v) && nrow(v) == 0)
         ofile_syms_od(fname, keep)
     else if (is.null(v))
         data.frame(name = character(0), type = character(0))
@@ -443,7 +446,7 @@ ofile_syms <- function(fname, keep = c("F", "V", "U")) {
         val <- val[val$type %in% keep, ]
         val$name <- sub("^_", "", val$name)
         val
-    }    
+    }
 }
 
 ofile_syms_od <- function(fpath, keep = c("F", "V", "U")) {
@@ -557,6 +560,7 @@ moduleRsyms <- function(repo = FALSE) {
 
 ##
 ## Check that the headers, WRE, and non-API variables are still in sync
+## -- (c|sh)ould be moved to a tests/ script run as part of test-Reg
 ##
 
 checkAPI <- function() {
@@ -574,14 +578,14 @@ checkAPI <- function() {
                 type == "F" & unmap(name) %notin% unmap(funAPI()$name))
     if (nrow(v) != 0)
         stop(sprintf("non-API functions declared in installed headers: %s",
-                     paste(v$name, collapse = " ")))
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## Check all variables declared in installed headers are in the API
     v <- subset(Rdecls(),
                 type == "V" & name %notin% varAPI()$name)
     if (nrow(v) != 0)
         stop(sprintf("non-API variables declared in installed headers: %s",
-                     paste(v$name, collapse = " ")))
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## check API functions (except macros and FORTRAN stuff) are in headers
     v <- subset(funAPI(),
@@ -589,34 +593,34 @@ checkAPI <- function() {
                 apitype != "for" &
                 unmap(name) %in% unmap(Rsyms()$name))
     if (nrow(v) != 0)
-        stop(sprintf("API funcitons not declared in installed headers: %s",
-                     paste(v$name, collapse = " ")))
+        stop(sprintf("API functions not declared in installed headers: %s",
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## check API variables are in headers
     v <- subset(varAPI(),
                 name %notin% Rdecls()$name &
                 name %in% Rsyms()$name)
     if (nrow(v) != 0)
-        stop(sprintf("API variables not in declared in installed headers: %s",
-                     paste(v$name, collapse = " ")))
+        stop(sprintf("API variables not declared in installed headers: %s",
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## check no declared functions or variables are marked for warnings
     v <- subset(Rdecls(), name %in% warnNonAPI)
     if (nrow(v) != 0)
         stop(sprintf("in API but marked for warnings: %s",
-                     paste(v$name, collapse = " ")))
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## check no API funs (except emb and hash stuff for now) are in
     ## nonAPI
     v <- subset(funAPI(), apitype != "emb" & unmap(name) %in% unmap(nonAPI)) |>
         subset(! grepl("[Hh]ash", name))
     if (nrow(v) != 0)
-        stop("API functions listed in nonAPI: %s",
-             paste(v$name, collapse = " "))
+        stop(sprintf("API functions listed in 'nonAPI': %s",
+                     paste(v$name, collapse = " ")), domain = NA)
 
     ## check no API vars (except emb for now) are in nonAPI
     v <- subset(varAPI(), apitype != "emb" & name %in% nonAPI)
     if (nrow(v) != 0)
-        stop("API variables listed in nonAPI: %s",
-             paste(v$name, collapse = " "))
+        stop(sprintf("API variables listed in 'nonAPI': %s",
+                     paste(v$name, collapse = " ")), domain = NA)
 }

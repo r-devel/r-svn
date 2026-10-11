@@ -107,16 +107,8 @@ vhtmlify <- function(x, inEqn = FALSE) { # code version
     x <- fsub("<", "&lt;", x)
     x <- fsub(">", "&gt;", x)
     x <- fsub('"\\{"', '"{"', x)
-    ## http://htmlhelp.com/reference/html40/entities/symbols.html
-    if(inEqn) {
-        rx <- paste0("\\\\(",
-                     paste(math_replacements[,"name"], collapse = "|"),
-                     ")(?![a-zA-Z])")
-        m <- gregexec(rx, x, perl = TRUE)
-        ii <- lapply(regmatches(x, m),
-                     function(mm) if (length(mm)) match(mm[2,], math_replacements[,"name"]))
-        regmatches(x, gregexpr(rx, x, perl = TRUE)) <- lapply(ii, function(i) math_replacements[i, "html"])
-    }
+    if(inEqn)
+        x <- eqn_to_text(x, "html", c("&#8216;", "&#8217;"))
     x
 }
 
@@ -413,17 +405,18 @@ createRedirects <- function(file, Rdobj)
 staticLogoPath <- function(package, lib.loc = NULL,
                            relative = FALSE, Rhome = "../../..", dir = FALSE) {
     ## This may be called with package="" (e.g., for standalone Rd files)
-    if (!nzchar(package)) file <- R.home("doc/html/Rlogo.svg")
+    file0 <- file.path(R.home("doc"), "html", "Rlogo.svg", fsep = "/")
+    if (!nzchar(package)) file <- file0
     else if (dir) {
         file <- file.path(package, "man", "figures", "logo.png")
         if (!file.exists(file)) file <- file.path(package, "man", "figures", "logo.svg")
-        if (!file.exists(file)) file <- R.home("doc/html/Rlogo.svg")
+        if (!file.exists(file)) file <- file0
     } else {
         file <- system.file("help", "figures", "logo.png",
                             package = package, lib.loc = lib.loc)
         if (!nzchar(file)) file <- system.file("help", "figures", "logo.svg",
                                                package = package, lib.loc = lib.loc)
-        if (!nzchar(file)) file <- R.home("doc/html/Rlogo.svg")
+        if (!nzchar(file)) file <- file0
     }
     if (relative) {
         file <- if (endsWith(file, "/logo.png")) "figures/logo.png"
@@ -1564,9 +1557,15 @@ function(dir)
 }
 
 .DESCRIPTION_to_HTML <- 
-function(descfile, dynamic = FALSE, hooks = list()) {
-
+function(descfile, dynamic = FALSE, resources = NULL, hooks = list())
+{
     ## Similar to .DESCRIPTION_to_latex().
+
+    if(is.null(resources))
+        resources <- if(dynamic)
+                         "/doc/html"
+                     else
+                         "https://cloud.R-project.org/web/resources"
 
     if(dynamic) {
         if(is.null(hooks$description_license_paths))
@@ -1587,7 +1586,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
             }
     }
 
-    trfm <- .gsub_with_transformed_matches
+    trfm <- gsub_with_transformed_matches
 
     ## A variant of htmlify() which optionally adds hyperlinks and does
     ## not HTMLify dashes inside these.
@@ -1861,10 +1860,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
                          .ORCID_iD_regexp),
                  paste0("<a href=\"https://orcid.org/\\1\">",
                         "<img alt=\"ORCID iD\" ",
-                        if(dynamic)
-                            " src=\"/doc/html/orcid.svg\" "
-                        else
-                            " src=\"https://cloud.R-project.org/web/resources/orcid.svg\" ",
+                        sprintf(" src=\"%s/orcid.svg\" ", resources),
                         "style=\"width:16px; height:16px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
                         "></a>"),
                  desc["Author"])
@@ -1873,10 +1869,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
                          .ROR_ID_regexp),
                  paste0("<a href=\"https://ror.org/\\1\">",
                         "<img alt=\"ROR ID\" ",
-                        if(dynamic)
-                            " src=\"/doc/html/ror.svg\" "
-                        else
-                            " src=\"https://cloud.R-project.org/web/resources/ror.svg\" ",
+                        sprintf(" src=\"%s/ror.svg\" ", resources),
                         "style=\"width:20px; height:20px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
                         "></a>"),
                  desc["Author"])
@@ -1898,3 +1891,17 @@ function(descfile, dynamic = FALSE, hooks = list()) {
               names(desc), desc),
       "</table>")
 }
+
+image_data_uri <-
+function(file)
+{
+    if(!length(file) || !nzchar(file) || !file.exists(file))
+        return(NA_character_)
+    size <- file.size(file)
+    if(is.na(size) || size == 0)
+        return(NA_character_)
+    mime <- mime_type(file)
+    if(is.na(mime)) return(NA_character_)
+    sprintf("data:%s;base64,%s", mime, base64_encode(file))
+}
+

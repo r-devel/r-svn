@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 3.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-02 17:58\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
 "Language-Team: Łukasz Daniel <lukasz.daniel@gmail.com>\n"
@@ -61,11 +61,11 @@ msgstr "katalog '%s' nie zawiera obiektów Rd"
 msgid "Functions or methods with usage in Rd file '%s' but not in code:"
 msgstr "Funkcje lub metody z użyciem w pliku Rd '%s' ale nie w kodzie:"
 
-msgid "Data with usage in Rd file '%s' but not in code:"
-msgstr "Dane z użyciem w pliku Rd '%s', ale nie w kodzie:"
-
 msgid "Variables with usage in Rd file '%s' but not in code:"
 msgstr "Zmienne z użyciem w pliku Rd '%s', ale nie w kodzie:"
+
+msgid "Data with usage in Rd file '%s' but not in code:"
+msgstr "Dane z użyciem w pliku Rd '%s', ale nie w kodzie:"
 
 msgid "Argument names in code not in docs:"
 msgstr "Nazwy argumentów w kodzie, ale nie w dokumentacji:"
@@ -477,13 +477,12 @@ msgstr "Nieprawidłowe aliasy pakietu w pliku Rd '%s':"
 msgid "Argument items with no description in Rd file '%s':"
 msgstr "Pozycje argumentów bez opisu w pliku Rd '%s':"
 
-#, fuzzy
 msgid "Auto-generated content requiring editing in Rd file '%s':"
-msgstr "Automatycznie wygenerowana treść wymagająca wykonania edycji w obiekcie Rd '%s':"
+msgstr "Automatycznie wygenerowana treść wymagająca edycji w pliku Rd '%s':"
 
 #, fuzzy
 msgid "Rd files without %s:"
-msgstr "Pliki Rd z powtórzonym aliasem '%s':"
+msgstr "Pliki Rd bez pola \\alias:"
 
 msgid "no Rd sections specified"
 msgstr "nie określono sekcji Rd"
@@ -665,9 +664,6 @@ msgstr "plik '%s' nie został znaleziony"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "nazwa pliku ilustracji '%s' nie zgadza się z żadną ze ścieżek nazwy pliku '%s'"
 
-msgid "+-+"
-msgstr "+-+"
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "W ilustracjach '%s', '%s' oraz '%s' mają te same nazwy ilustracji"
 
@@ -763,32 +759,8 @@ msgstr "BŁĄD: wersja tego programu to R %s, wymagana jest R %s %s"
 msgid "loading failed"
 msgstr "ładowanie nie powiodło się"
 
-msgid "'cc' is not on the path"
-msgstr "'cc' nie znajduje się na ścieżce"
-
 msgid "'objdump' is not on the path"
 msgstr "'objdump' nie znajduje się na ścieżce"
-
-msgid "non-API functions declared in installed headers: %s"
-msgstr ""
-
-msgid "non-API variables declared in installed headers: %s"
-msgstr ""
-
-msgid "API funcitons not declared in installed headers: %s"
-msgstr ""
-
-msgid "API variables not in declared in installed headers: %s"
-msgstr ""
-
-msgid "in API but marked for warnings: %s"
-msgstr ""
-
-msgid "API functions listed in nonAPI: %s"
-msgstr ""
-
-msgid "API variables listed in nonAPI: %s"
-msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Otrzymano %s podczas wyznaczania %s; oczekiwano %s"
@@ -822,9 +794,6 @@ msgstr "Uruchom 'R CMD build' z opcją '--no-build-vignettes' aby wyłączyć od
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "Niepoprawna wartość '--compact-vignettes', zakładanie %s"
-
-msgid "Error: cannot rename directory to %s"
-msgstr "Błąd: nie można zmienić katalogu na %s"
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "osiągnięto limit czasu upłyniętego %g %s dla podprocesu"
@@ -861,7 +830,7 @@ msgstr "'reverse$repos' powinien być podzbiorem getOption(\"repos\")"
 
 #, fuzzy
 msgid "downloading reverse dependencies %s"
-msgstr "pobieranie wstecznych zależności ..."
+msgstr "pobieranie odwrotnych zależności ..."
 
 #, fuzzy
 msgid "download of reverse dependency %s failed"
@@ -981,9 +950,6 @@ msgstr "nie można odczytać indeksu informacji w pliku '%s'"
 msgid ".install_packages() exit status"
 msgstr "Status wyjścia dla funkcji '.install_packages()'"
 
-msgid "restoration failed"
-msgstr "przywrócenie nie powiodło się"
-
 msgid "error reading file '%s'"
 msgstr "błąd podczas czytania pliku '%s'"
 
@@ -1009,18 +975,6 @@ msgstr "tworzenie symboli debugowania (%s)"
 msgid "no DLL was created"
 msgstr "nie utworzono pliku DLL"
 
-msgid "NOTE: fixed path"
-msgstr "UWAGA: poprawiona ścieżka"
-
-msgid "NOTE: fixed library identification name"
-msgstr "UWAGA: poprawiona nazwa identyfikacyjna biblioteki"
-
-msgid "NOTE: fixed library path"
-msgstr "UWAGA: poprawiona ścieżka do biblioteki"
-
-msgid "NOTE: fixed rpath"
-msgstr "UWAGA: poprawione rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "OSTRZEŻENIE: współdzielone obiekty/biblioteki dynamiczne z zakodowanymi na stałe tymczasowymi ścieżkami instalacji"
 
@@ -1030,29 +984,8 @@ msgstr "nieużywanie instalacji etapowej z opcją --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "instalacja etapowa jest możliwa tylko z blokadą"
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "OSTRZEŻENIE: poprawki instalacyjne nie zostaną zastosowane, nie można uzyskać indeksu poprawek"
-
 msgid "patch utility is needed for installation-time patching"
 msgstr "narzędzie do poprawek jest potrzebne do instalowania poprawek w czasie instalacji"
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr "UWAGA: Pomijanie łatki instalacyjnej"
-
-msgid "which seems to be already applied."
-msgstr "które wygląda na już zastosowane."
-
-msgid "WARNING: failed to apply patch"
-msgstr "OSTRZEŻENIE: nie udało się zastosować łatki"
-
-msgid "Applied installation-time patch"
-msgstr "Zastosowano łatkę podczas instalacji"
-
-msgid "and saved it as"
-msgstr "oraz zapisano ją jako"
-
-msgid "in package installation"
-msgstr "w instalacji pakietu"
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
 msgstr "Katalog 'include' w R jest pusty -- być może trzeba zainstalować R-devel.rpm lub coś podobnego"
@@ -1093,30 +1026,6 @@ msgstr "BŁĄD: brak uprawnień aby zainstalować w katalogu"
 msgid "building a fake installation is disallowed"
 msgstr "budowanie fałszywej instalacji jest zabronione"
 
-msgid "specified C++"
-msgstr ""
-
-msgid "using C compiler:"
-msgstr "używanie kompilatora C:"
-
-msgid "using Fortran compiler:"
-msgstr "używanie kompilatora Fortran:"
-
-msgid "using C++ compiler:"
-msgstr "używanie kompilatora C++:"
-
-msgid "using C++"
-msgstr "używanie C++"
-
-msgid "using SDK:"
-msgstr "używanie SDK:"
-
-msgid "WARNING: failed to revert patch"
-msgstr "OSTRZEŻENIE: nie udało się wycofać łatki"
-
-msgid "Reverted installation-time patch"
-msgstr "Wycofano łatkę"
-
 #, fuzzy
 msgid "Input must be character"
 msgstr "argument 'text' musi być wektorem tekstowym"
@@ -1129,6 +1038,21 @@ msgstr ""
 "Zobacz\n"
 "  %s\n"
 "aby poznać szczegóły."
+
+#, fuzzy
+msgid "must specify 'address'"
+msgstr "musisz określić argument 'dir' lub 'files'"
+
+msgid "'subject' is missing"
+msgstr ""
+
+msgid "Sending email to %s"
+msgstr ""
+
+msgid ""
+"Sending email failed!\n"
+"The unsent msg can be found in file %s."
+msgstr ""
 
 msgid "namespace must not be already loaded"
 msgstr "przestrzeń nazw nie może być już załadowana"
@@ -1477,9 +1401,6 @@ msgstr "plik '%s' nie jest poprawnym formatem DCF"
 msgid "contains a blank line"
 msgstr "zawiera pustą linię"
 
-msgid "Unknown encoding with non-ASCII data: converting to ASCII"
-msgstr "Nieznane kodowanie z danymi nie-ASCII: konwertowanie do ASCII"
-
 msgid "cannot source package code:"
 msgstr "nie można wykonać kodu pakietu:"
 
@@ -1690,6 +1611,15 @@ msgstr[0] "Odpowiedni wpis BibTeX:"
 msgstr[1] "Odpowiednie wpisy BibTeX:"
 msgstr[2] "Odpowiednie wpisy BibTeX:"
 
+#~ msgid "'cc' is not on the path"
+#~ msgstr "'cc' nie znajduje się na ścieżce"
+
+#~ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
+#~ msgstr "Nieznane kodowanie z danymi nie-ASCII: konwertowanie do ASCII"
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Błąd: nie można zmienić katalogu na %s"
+
 #, fuzzy
 #~ msgid "Rd files without \\description:"
 #~ msgstr "Pliki Rd z powtórzonym aliasem '%s':"
@@ -1860,25 +1790,3 @@ msgstr[2] "Odpowiednie wpisy BibTeX:"
 
 #~ msgid "installing dependencies %s"
 #~ msgstr "instalowanie zależności %s"
-
-#~ msgid "%s"
-#~ msgstr "%s"
-
-#~ msgid ":"
-#~ msgstr ":"
-
-#~ msgid "latin1"
-#~ msgstr "latin1"
-
-#~ msgid "ASCII"
-#~ msgstr "ASCII"
-
-#~ msgid "byte"
-#~ msgstr "byte"
-
-#~ msgid "parsing file %s"
-#~ msgstr "parsowanie pliku %s"
-
-#, fuzzy
-#~ msgid "Inconsistent encoding specifications: %s with %%\\SweaveUTF8"
-#~ msgstr "Niespójne specyfikacje strony kodowej:"

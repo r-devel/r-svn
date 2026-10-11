@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-02 17:58\n"
 "PO-Revision-Date: 2023-09-01 11:37+0000\n"
 "Last-Translator: Norbert Solymosi <solymosi.norbert@gmail.com>\n"
 "Language-Team: none\n"
@@ -58,10 +58,10 @@ msgstr ""
 msgid "Functions or methods with usage in Rd file '%s' but not in code:"
 msgstr ""
 
-msgid "Data with usage in Rd file '%s' but not in code:"
+msgid "Variables with usage in Rd file '%s' but not in code:"
 msgstr ""
 
-msgid "Variables with usage in Rd file '%s' but not in code:"
+msgid "Data with usage in Rd file '%s' but not in code:"
 msgstr ""
 
 msgid "Argument names in code not in docs:"
@@ -644,9 +644,6 @@ msgstr "a(z) '%s' fájl nem található"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr ""
 
-msgid "+-+"
-msgstr ""
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr ""
 
@@ -738,31 +735,7 @@ msgstr ""
 msgid "loading failed"
 msgstr ""
 
-msgid "'cc' is not on the path"
-msgstr ""
-
 msgid "'objdump' is not on the path"
-msgstr ""
-
-msgid "non-API functions declared in installed headers: %s"
-msgstr ""
-
-msgid "non-API variables declared in installed headers: %s"
-msgstr ""
-
-msgid "API funcitons not declared in installed headers: %s"
-msgstr ""
-
-msgid "API variables not in declared in installed headers: %s"
-msgstr ""
-
-msgid "in API but marked for warnings: %s"
-msgstr ""
-
-msgid "API functions listed in nonAPI: %s"
-msgstr ""
-
-msgid "API variables listed in nonAPI: %s"
 msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
@@ -796,9 +769,6 @@ msgid "Run R CMD build with --no-build-vignettes to prevent rebuilding."
 msgstr ""
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
-msgstr ""
-
-msgid "Error: cannot rename directory to %s"
 msgstr ""
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
@@ -953,9 +923,6 @@ msgstr ""
 msgid ".install_packages() exit status"
 msgstr ""
 
-msgid "restoration failed"
-msgstr ""
-
 msgid "error reading file '%s'"
 msgstr ""
 
@@ -980,18 +947,6 @@ msgstr ""
 msgid "no DLL was created"
 msgstr ""
 
-msgid "NOTE: fixed path"
-msgstr ""
-
-msgid "NOTE: fixed library identification name"
-msgstr ""
-
-msgid "NOTE: fixed library path"
-msgstr ""
-
-msgid "NOTE: fixed rpath"
-msgstr ""
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr ""
 
@@ -1001,28 +956,7 @@ msgstr ""
 msgid "staged installation is only possible with locking"
 msgstr ""
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr ""
-
 msgid "patch utility is needed for installation-time patching"
-msgstr ""
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr ""
-
-msgid "which seems to be already applied."
-msgstr ""
-
-msgid "WARNING: failed to apply patch"
-msgstr ""
-
-msgid "Applied installation-time patch"
-msgstr ""
-
-msgid "and saved it as"
-msgstr ""
-
-msgid "in package installation"
 msgstr ""
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1064,30 +998,6 @@ msgstr ""
 msgid "building a fake installation is disallowed"
 msgstr ""
 
-msgid "specified C++"
-msgstr ""
-
-msgid "using C compiler:"
-msgstr ""
-
-msgid "using Fortran compiler:"
-msgstr ""
-
-msgid "using C++ compiler:"
-msgstr ""
-
-msgid "using C++"
-msgstr ""
-
-msgid "using SDK:"
-msgstr ""
-
-msgid "WARNING: failed to revert patch"
-msgstr ""
-
-msgid "Reverted installation-time patch"
-msgstr ""
-
 msgid "Input must be character"
 msgstr ""
 
@@ -1095,6 +1005,20 @@ msgid ""
 "See\n"
 "  %s\n"
 "for details."
+msgstr ""
+
+msgid "must specify 'address'"
+msgstr ""
+
+msgid "'subject' is missing"
+msgstr ""
+
+msgid "Sending email to %s"
+msgstr ""
+
+msgid ""
+"Sending email failed!\n"
+"The unsent msg can be found in file %s."
 msgstr ""
 
 msgid "namespace must not be already loaded"
@@ -1415,9 +1339,6 @@ msgid "file '%s' is not in valid DCF format"
 msgstr ""
 
 msgid "contains a blank line"
-msgstr ""
-
-msgid "Unknown encoding with non-ASCII data: converting to ASCII"
 msgstr ""
 
 msgid "cannot source package code:"

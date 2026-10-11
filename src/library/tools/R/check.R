@@ -1225,7 +1225,7 @@ add_dummies <- function(dir, Log)
 
         if(!is.na(lang <- db["Language"])) {
             s <- unlist(strsplit(lang, ", *"), use.names = FALSE)
-            s <- s[!grepl(re_anchor(.make_RFC4646_langtag_regexp()), s)]
+            s <- s[!grepl(re_anchor(.make_RFC_4646_langtag_regexp()), s)]
             if(length(s)) {
                 if(!any) noteLog(Log)
                 any <- TRUE
@@ -2329,7 +2329,8 @@ add_dummies <- function(dir, Log)
         out1 <- if (length(out1) && length(out1a)) c(out1, "", out1a)
                 else c(out1, out1a)
 
-        out2 <- out3 <- out4 <- out5 <- out6 <- out7 <- out8 <- out9 <- out10 <- NULL
+        out2 <- out3 <- out4 <- out5 <- out6 <- out7 <- out8 <- out9 <-
+            out10 <- out11 <- NULL
 
         if (!is_base_pkg && R_check_unsafe_calls) {
             Rcmd <- paste(opWarn_string, "\n",
@@ -2369,7 +2370,7 @@ add_dummies <- function(dir, Log)
         }
 
         if(!is_base_pkg && R_check_use_codetools && R_check_dot_internal) {
-            details <- pkgname != "relax" # has .Internal in a 10,000 line fun
+            details <- TRUE
             Rcmd <- paste(opWarn_string, "\n",
                           if (do_install)
                               sprintf("tools:::.check_dotInternal(package = \"%s\",details=%s)\n", pkgname, details)
@@ -2428,13 +2429,18 @@ add_dummies <- function(dir, Log)
             out10 <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
         }
 
+        Rcmd <- paste(opWarn_string, "\n",
+                      sprintf("tools:::.check_package_code_structure_specials(dir = \"%s\")\n",
+                              pkgdir))
+        out11 <- R_runR0(Rcmd, R_opts2, "R_DEFAULT_PACKAGES=NULL")
+
         t2 <- proc.time()
         print_time(t1, t2, Log)
 
         if (length(out1) || length(out2) || length(out3) ||
             length(out4) || length(out5) || length(out6) ||
             length(out7) || length(out8) || length(out9) ||
-            length(out10)) {
+            length(out10) || length(out11)) {
             ini <- character()
             if(length(out4) ||
                (length(out8) &&
@@ -2500,6 +2506,10 @@ add_dummies <- function(dir, Log)
             }
             if(length(out10)) {
                 printLog0(Log, paste(c(ini, out10, ""), collapse = "\n"))
+                ini <- ""
+            }
+            if(length(out11)) {
+                printLog0(Log, paste(c(ini, out11, ""), collapse = "\n"))
                 ini <- ""
             }
         } else resultLog(Log, "OK")
@@ -2748,7 +2758,24 @@ add_dummies <- function(dir, Log)
                     out <- R_runR2(Rcmd)
                     if (length(out)) {
                         any <- TRUE
-                        warningLog(Log)
+                        ## <FIXME>
+                        ## This is terrible.  For now we only want to
+                        ## give a NOTE when all we report is functions
+                        ## missing from usages, but we cannot easily
+                        ## tell this from the printed (and partially
+                        ## localized) results.
+                        ind <- (nzchar(out) &
+                                (out !=
+                                 "Exported functions without usage information:"))
+                        if(all(startsWith(out[ind], " "))) {
+                            val <- Sys.getenv("_R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_",
+                                              "FALSE")
+                            if(is.na(config_val_to_logical(val)))
+                                infoLog(Log)
+                            else
+                                noteLog(Log)
+                        } else
+                            warningLog(Log)
                         printLog0(Log, paste(c(out, ""), collapse = "\n"))
                     }
                 }
@@ -3096,7 +3123,7 @@ add_dummies <- function(dir, Log)
                 printLog0(Log, .format_lines_with_indent(out), "\n")
             } else resultLog(Log, "OK")
         }
-        
+
         if(!is_base_pkg &&
            (dir.exists("data") || file.exists("R/sysdata.rda")) &&
            length(bad <- .check_package_data_namespace_loads("."))) {
@@ -3412,7 +3439,7 @@ add_dummies <- function(dir, Log)
                 } else {
                     if (!any) noteLog(Log)
                     any <- TRUE
-                    printLog(Log, "Unable to find GhostScript executable to run checks on size reduction\n")
+                    printLog(Log, "Unable to find Ghostscript executable to run checks on size reduction\n")
                 }
 
             }
@@ -4951,10 +4978,7 @@ add_dummies <- function(dir, Log)
             as.numeric(Sys.getenv("_R_CHECK_VIGNETTE_TIMING_CPU_TO_ELAPSED_THRESHOLD_",
                                   NA_character_))
 
-        libpaths <- .libPaths()
-        .libPaths(c(libdir, libpaths))
-        vigns <- pkgVignettes(dir = pkgdir)
-        .libPaths(libpaths)
+        vigns <- .package_vignettes_via_call_to_R(dir = pkgdir, libpaths = c(libdir, .libPaths()))
         if(is.null(vigns)) return()
 
         ## Packages with a 'vignette' subdir not providing vignettes.
@@ -4988,19 +5012,24 @@ add_dummies <- function(dir, Log)
         if (!is_base_pkg) {
             dir <- file.path(pkgdir, "inst", "doc")
             if (dir.exists(dir)) {
-                outputs <- character(length(vigns$docs))
-                .msg <- character()
-                for (i in seq_along(vigns$docs)) {
-                    file <- vigns$docs[i]
-                    name <- vigns$names[i]
-                    engine <- vignetteEngine(vigns$engines[i])
-                    outputs[i] <- tryCatch({
-                        find_vignette_product(name, what="weave", final=TRUE, dir=dir, engine = engine)
-                    }, error = function(e) {
-                        .msg <<- c(.msg, conditionMessage(e))
-                        NA}
-                    )
-                }
+                outputs <- R(function(docs, libpaths) {
+                    .libPaths(libpaths)
+                    outputs <- character(length(vigns$docs))
+                    .msg <- character()
+                    for (i in seq_along(vigns$docs)) {
+                        file <- vigns$docs[i]
+                        name <- vigns$names[i]
+                        engine <- vignetteEngine(vigns$engines[i])
+                        outputs[i] <- tryCatch({
+                            find_vignette_product(name, what="weave", final=TRUE, dir=dir, engine = engine)
+                        }, error = function(e) {
+                            .msg <<- c(.msg, conditionMessage(e))
+                            NA}
+                        )
+                    }
+                    structure(outputs, msg = .msg)
+                }, list(vigns$docs, c(libdir, .libPaths())), "--vanilla")
+                .msg <- attr(outputs, "msg")
                 bad_vignettes <- vigns$docs[is.na(outputs)]
             } else {
                 .msg <- "Directory 'inst/doc' does not exist."
@@ -5171,58 +5200,54 @@ add_dummies <- function(dir, Log)
             ## This is similar to the weave output check above, but we
             ## cannot simply use find_vignette_product(by = "tangle") as
             ## we need to ignore outputs with no R code, see above.
-            ## <FIXME>
-            ## Unfortunately, knitr::vtangle() still creates empty
-            ## outputs when xfun::is_R_CMD_check() which gives true when
-            ##   !is.na(Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA))
-            ## or when
-            ##   tolower(Sys.getenv("_R_CHECK_LICENSE_")) == "true"
-            ## so we have to reset these env vars.
-            rcp <- Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA_character_)
-            rcl <- Sys.getenv("_R_CHECK_LICENSE_")
-            if(!is.na(rcp))
+            bad_vignettes <- R(function(vigns, libpaths) {
+                ## <FIXME>
+                ## Unfortunately, knitr::vtangle() still creates empty
+                ## outputs when xfun::is_R_CMD_check() which gives true when
+                ##   !is.na(Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA))
+                ## or when
+                ##   tolower(Sys.getenv("_R_CHECK_LICENSE_")) == "true"
+                ## so we have to reset these env vars.
                 Sys.unsetenv("_R_CHECK_PACKAGE_NAME_")
-            if(tolower(rcl) == "true")
                 Sys.setenv("_R_CHECK_LICENSE_" = "false")
-            bad_vignettes <- character()
-            for (i in seq_along(vigns$docs)) {
-                tdir <- tempfile()
-                file <- vigns$docs[i]
-                engine <- vignetteEngine(vigns$engines[i])
-                encoding <- vigns$encodings[i]
-                dir.create(tdir)
-                ## Argh.
-                ## At least knitr::markdown() gives error msgs when
-                ## tangling with quiet = TRUE, so we need to capture
-                ## these.
-                .eval_with_capture({
-                    products <-
-                        tryCatch(buildVignette(file, dir = tdir,
-                                               weave = FALSE,
-                                               quiet = TRUE,
-                                               engine = engine,
-                                               encoding = encoding),
-                                 error = identity)
-                })
-                if(!inherits(products, "error") && length(products)) {
-                    ## Hmm ... there should really only be one tangle
-                    ## product.
-                    lines <- readLines(file.path(tdir, products[1L]),
-                                       warn = FALSE)
-                    if(!all(grepl("(^###|^[[:space:]]*$)", lines,
-                                  useBytes = TRUE)) &&
-                       !file.exists(file.path(dir, basename(products[1L])))
-                       )
-                        bad_vignettes <- c(bad_vignettes, file)
+                ## Hopefully knitr::vtangle() will be fixed eventually ...
+                ## </FIXME>
+                .libPaths(libpaths)
+                bad_vignettes <- character()
+                for (i in seq_along(vigns$docs)) {
+                    tdir <- tempfile()
+                    file <- vigns$docs[i]
+                    engine <- vignetteEngine(vigns$engines[i])
+                    encoding <- vigns$encodings[i]
+                    dir.create(tdir)
+                    ## Argh.
+                    ## At least knitr::markdown() gives error msgs when
+                    ## tangling with quiet = TRUE, so we need to capture
+                    ## these.
+                    .eval_with_capture({
+                        products <-
+                            tryCatch(buildVignette(file, dir = tdir,
+                                                   weave = FALSE,
+                                                   quiet = TRUE,
+                                                   engine = engine,
+                                                   encoding = encoding),
+                                     error = identity)
+                    })
+                    if(!inherits(products, "error") && length(products)) {
+                        ## Hmm ... there should really only be one tangle
+                        ## product.
+                        lines <- readLines(file.path(tdir, products[1L]),
+                                           warn = FALSE)
+                        if(!all(grepl("(^###|^[[:space:]]*$)", lines,
+                                      useBytes = TRUE)) &&
+                           !file.exists(file.path(dir, basename(products[1L])))
+                           )
+                            bad_vignettes <- c(bad_vignettes, file)
+                    }
+                    unlink(tdir, recursive = TRUE)
                 }
-                unlink(tdir, recursive = TRUE)
-            }
-            if(tolower(rcl) == "true")
-                Sys.setenv("_R_CHECK_LICENSE_" = rcl)
-            if(!is.na(rcp))
-                Sys.setenv("_R_CHECK_PACKAGE_NAME_" = rcp)
-            ## Hopefully knitr::vtangle() will be fixed eventually ...
-            ## </FIXME>
+                bad_vignettes
+            }, list(vigns, c(libdir, .libPaths())), "--vanilla")
             if(nb <- length(bad_vignettes)) {
                 if(!any) noteLog(Log)
                 any <- TRUE
@@ -5468,9 +5493,17 @@ add_dummies <- function(dir, Log)
                 if(R_check_suppress_RandR_message)
                     out <- filtergrep('^Xlib: *extension "RANDR" missing on display',
                                       out, useBytes = TRUE)
-                warns <- grep("^Warning: file .* is not portable",
-                              out, value = TRUE, useBytes = TRUE)
-                ltx_err <- any(grepl("LaTeX error", out, ignore.case = TRUE,
+                bibwarnings <-
+                    unique(grepv("I didn't find a database entry for",
+                                 out, useBytes = TRUE))
+                warns <- c(
+                    grepv("^Warning: file .* is not portable",
+                          out, useBytes = TRUE),
+                    if (length(bibwarnings))
+                        paste(c("From the bibliography engine:", # BibTeX or biber
+                                bibwarnings), collapse = "\n  ")
+                )
+                ltx_err <- any(grepl("(LaTeX|BibTeX) error", out, ignore.case = TRUE,
                                      useBytes = TRUE))
                 iskip <- grep("^Note: skipping .* dependencies:", out,
                               useBytes = TRUE)
@@ -5493,7 +5526,8 @@ add_dummies <- function(dir, Log)
                                           out, "", ""), collapse = "\n"))
                 } else if(nw <- length(warns)) {
                     any <- TRUE
-                    if(skip_run_maybe || !ran) warningLog(Log) else noteLog(Log)
+                    if(length(bibwarnings) && nw == 1L) noteLog(Log)
+                    else if(skip_run_maybe || !ran) warningLog(Log) else noteLog(Log)
                     msg <- ngettext(nw,
                                     "Warning in re-building vignettes:\n",
                                     "Warnings in re-building vignettes:\n",
@@ -5659,6 +5693,10 @@ add_dummies <- function(dir, Log)
         checkingLog(Log, "HTML version of manual")
         any <- FALSE
 
+        R_check_Rd_validate_Rd2HTML_refmans_only <-
+            config_val_to_logical(Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_REFMAN_ONLY_",
+                                             "TRUE"))
+
         t1 <- proc.time()
         if(i1) { ## validate
             Tidy <- .find_tidy_cmd()
@@ -5676,15 +5714,21 @@ add_dummies <- function(dir, Log)
                 ## creating the package HTML refmans via pkg2HTML(),
                 ## which may find additional problems (e.g., duplicated
                 ## anchors). Not sure whether we also want to validate
-                ## the Rd2HTML() outputs for the individual Rd files.
+                ## the Rd2HTML() outputs for the individual Rd files:
+                ## one can use
+                ##   _R_CHECK_RD_VALIDATE_RD2HTML_REFMAN_ONLY_=false
+                ## for force this.
                 results1a <-
-                    lapply(db,
-                           function(x)
-                               tryCatch({
-                                   Rd2HTML(x, out, concordance = TRUE)
-                                   tidy_validate(out, tidy = Tidy)
-                               },
-                               error = identity))
+                    if(R_check_Rd_validate_Rd2HTML_refmans_only)
+                        NULL
+                    else
+                        lapply(db,
+                               function(x)
+                                   tryCatch({
+                                       Rd2HTML(x, out, concordance = TRUE)
+                                       tidy_validate(out, tidy = Tidy)
+                                   },
+                                   error = identity))
                 results1b <-
                     tryCatch({
                         stages <- c("build", "later", "install",
@@ -5703,6 +5747,10 @@ add_dummies <- function(dir, Log)
                     },
                     error = identity)
                 results1 <- c(results1a, list(results1b))
+                paths1 <-
+                    c(if(!R_check_Rd_validate_Rd2HTML_refmans_only)
+                          names(db),
+                      paste0(basename(dir), ".html"))
 
                 ignore <-
                     Sys.getenv("_R_CHECK_RD_VALIDATE_RD2HTML_IGNORE_EMPTY_SPANS_",
@@ -5711,11 +5759,7 @@ add_dummies <- function(dir, Log)
                               "Warning: trimming empty <span>"
                           else
                               character()
-                results1 <- tidy_validate_db(results1,
-                                             c(names(db),
-                                               paste0(basename(dir),
-                                                      ".html")),
-                                             ignore)
+                results1 <- tidy_validate_db(results1, paths1, ignore)
             }
         }
 
@@ -6216,7 +6260,9 @@ add_dummies <- function(dir, Log)
                              "\\[-Warray-parameter\\]",
                              "\\[-Wuse-after-free\\]",
                              ## rustc
-                             "^warning: use of deprecated"
+                             "^warning: use of deprecated",
+                             ## GCC only at 2026-08
+                             ": warning: .* \\[-Wdeprecated-openmp\\]"
                              )
 
                 ## warning most seen with -D_FORTIFY_SOURCE
@@ -6321,8 +6367,18 @@ add_dummies <- function(dir, Log)
                              ## selected re-defining of macros": clang
                              ": warning: .*(M_PI|INT_MIN|FCONE).* \\[-Wmacro-redefined\\]",
                              ## LLVM >= 18 clang++
-                             ": warning: .* \\[-Wdeprecated-literal-operator\\]"
-                             )
+                             ": warning: .* \\[-Wdeprecated-literal-operator\\]",
+                             ## C23 warnings on some setups of GCC and clang
+                             ## see slso -Wincompatible-pointer-types-discards-qualifiers above
+                             "\\[-Wdiscarded-qualifiers\\]",
+                             ## LLVM >= 23
+                             "\\[-Wunused-but-set-global\\]",
+                             ## GCC warnings with
+                             ## -Werror=implicit-function-declaration
+                             ## and -Wstrict-prototypes
+                             "warning:.* is not valid for C\\+\\+",
+                             "warning:.* valid for C/ObjC but not for C\\+\\+"
+                            )
                 ## macOS ld warnings
                 warn_re <- c(warn_re,
                              "^ld: warning: search path .* not found",
@@ -6470,7 +6526,9 @@ add_dummies <- function(dir, Log)
                 if (!config_val_to_logical(check_src_flag)) {
                     lines <- filtergrep("warning: unused", lines,
                                         ignore.case = TRUE, useBytes = TRUE)
-                    lines <- filtergrep("warning: .* set but not used", lines,
+                    ## maybe in future unused-but-set-variable
+                    ## to allow through unused-but-set-global
+                    lines <- filtergrep("\\[-Wunused-but-set", lines,
                                         ignore.case = TRUE, useBytes = TRUE)
                 }
                 ## (gfortran seems to use upper case.)
@@ -6679,9 +6737,12 @@ add_dummies <- function(dir, Log)
         }
     } ## {check_install()}
 
-    ## This requires a GNU-like 'du' with 1k block sizes,
+    ## This requires a GNU-like 'du' with 1024-byte block sizes,
     ## so use -k (which POSIX requires).
     ## It also depends on the total being last.
+    ## NB: this can (transiently) overstate disk usage due to filesystem
+    ## preallocation, notably on XFS (where usage reported for */<pkg>.rdb
+    ## has been observed to shrink noticeably after some delay)
     check_install_sizes <- function()
     {
         pd <- file.path(libdir, pkgname)
@@ -6987,21 +7048,21 @@ add_dummies <- function(dir, Log)
                          if(!check_incoming) "bad_engine")
             if(!all(names(res) %in% allowed)) {
                 errorLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"), "\n")
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 if(length(res$suggested_but_not_installed))
-                   wrapLog("The suggested packages are required for",
+                   wrapLog("\nThe suggested packages are required for",
                            "a complete check.\n",
                            "Checking can be attempted without them",
                            "by setting the environment variable",
                            "_R_CHECK_FORCE_SUGGESTS_",
-                           "to a false value.\n\n")
-                wrapLog(msg_DESCRIPTION)
+                           "to a false value.")
+                wrapLog(paste0("\n", msg_DESCRIPTION))
                 summaryLog(Log)
                 do_exit(1L)
             } else if (length(res$required_for_checking_but_not_installed)) {
                 warningLog(Log, "Cannot process vignettes")
                 do_vignettes  <<- FALSE
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
             } else {
                 if( length(res[["orphaned"]]) || length(res[["orphaned1"]]) )
                     warningLog(Log)
@@ -7009,7 +7070,7 @@ add_dummies <- function(dir, Log)
                     infoLog(Log)
                 else
                     noteLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 ## if(length(res$orphaned2))
                 ##     wrapLog("\nSuggested packages need to be used conditionally:",
                 ##             "this is particularly important for",
@@ -7629,7 +7690,7 @@ add_dummies <- function(dir, Log)
 ##        Sys.setenv("_R_CHECK_XREFS_PKGS_ARE_DECLARED_" = "TRUE")
 ##        Sys.setenv("_R_CHECK_XREFS_MIND_SUSPECT_ANCHORS_" = "TRUE")
         ## allow this to be overridden if there is a problem elsewhere
-        prev <- Sys.getenv("_R_CHECK_MATRIX_DATA_",  NA_character_)
+        prev <- Sys.getenv("_R_CHECK_MATRIX_DATA_", NA_character_)
         if(is.na(prev)) Sys.setenv("_R_CHECK_MATRIX_DATA_" = "TRUE")
 ##        Sys.setenv("_R_NO_S_TYPEDEFS_" = "TRUE")
         Sys.setenv("_R_CHECK_NEWS_IN_PLAIN_TEXT_" = "TRUE")
@@ -7645,6 +7706,11 @@ add_dummies <- function(dir, Log)
         Sys.setenv("_R_CHECK_PACKAGES_USED_IN_DEMO_" = "TRUE")
         Sys.setenv("_R_CHECK_RCPP_NOT_NEEDED_" = "TRUE")
         Sys.setenv("_R_CHECK_URLS_SHOW_301_STATUS_" = "TRUE")
+        prev <-
+            Sys.getenv("_R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_",
+                       NA_character_)
+        if(is.na(prev))
+            Sys.setenv("_R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_" = "NA")
         R_check_vc_dirs <- TRUE
         R_check_executables_exclusions <- FALSE
         R_check_doc_sizes2 <- TRUE

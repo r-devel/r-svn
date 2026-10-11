@@ -54,7 +54,7 @@ ansari.test(x, \dots)
   unknown nuisance parameter and
   \eqn{s}, the ratio of scales, is the parameter of interest.  The
   \I{Ansari}-\I{Bradley} test is used for testing the null that \eqn{s} equals
-  1, the two-sided alternative being that \eqn{s \ne 1}{s != 1} (the
+  1, the two-sided alternative being that \eqn{s \ne 1} (the
   distributions differ only in variance), and the one-sided alternatives
   being \eqn{s > 1} (the distribution underlying \code{x} has a larger
   variance, \code{"greater"}) or \eqn{s < 1} (\code{"less"}).
@@ -64,7 +64,9 @@ ansari.test(x, \dots)
   there are no ties.  Otherwise, a normal approximation is used.
 
   Optionally, a nonparametric confidence interval and an estimator for
-  \eqn{s} are computed.  If exact p-values are available, an exact
+  \eqn{s} are computed.  This requires that the data have been
+  appropriately centered so that \eqn{m = 0}.
+  If exact p-values are available, an exact
   confidence interval is obtained by the algorithm described in
   \bibcitet{R:Bauer:1972}, and the \I{Hodges}-\I{Lehmann} estimator is
   employed.  Otherwise, the returned confidence interval and point

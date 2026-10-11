@@ -8,8 +8,8 @@
 \alias{ReferenceClasses}
 \alias{setRefClass}
 \alias{getRefClass}
-\alias{initFieldArgs}
-\alias{initRefFields}
+% \alias{initFieldArgs}
+% \alias{initRefFields}
 \alias{activeBindingFunction-class}
 \alias{defaultBindingFunction-class}
 \alias{uninitializedField-class}
@@ -64,6 +64,8 @@ setRefClass(Class, fields = , contains = , methods =,
      where =, inheritPackage =, ...)
 
 getRefClass(Class, where =)
+
+externalRefMethod(...)
 }
 \arguments{
   \item{Class}{
@@ -113,8 +115,11 @@ contained superclass?  Default \code{FALSE}.  See the Section \dQuote{Inter-Pack
   and External Methods}.
 } 
   \item{\dots}{
-other arguments to be passed to \code{\link{setClass}}.
-}
+    other arguments to be passed to \code{\link{setClass}} for
+    \code{setRefClass}, or to \code{\link{new}} when generating
+    \code{"externalRefMethod"} class objects via its class generator
+    function \code{externalRefMethod}.
+  }
 }
 
 \value{

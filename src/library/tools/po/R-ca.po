@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 4.4.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-02 17:58\n"
 "PO-Revision-Date: 2024-03-19 12:53+0000\n"
 "Last-Translator: Michael Chirico <michaelchirico4@gmail.com>\n"
 "Language-Team: none\n"
@@ -60,12 +60,12 @@ msgid "Functions or methods with usage in Rd file '%s' but not in code:"
 msgstr "Funcions o mètodes amb ús a l'objecte de documentació «%s» però no al codi:"
 
 #, fuzzy
-msgid "Data with usage in Rd file '%s' but not in code:"
-msgstr "Dades amb ús a l'objecte de documentació «%s» però no al codi:"
-
-#, fuzzy
 msgid "Variables with usage in Rd file '%s' but not in code:"
 msgstr "Variables amb ús a l'objecte de documentació «%s» però no al codi:"
+
+#, fuzzy
+msgid "Data with usage in Rd file '%s' but not in code:"
+msgstr "Dades amb ús a l'objecte de documentació «%s» però no al codi:"
 
 msgid "Argument names in code not in docs:"
 msgstr "Noms dels arguments en el codi que no estan en la documentació:"
@@ -765,10 +765,6 @@ msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "El nom de fitxer de vinyeta «%s» no coincideix amb cap dels patrons de nom de fitxer «%s»"
 
 #, fuzzy
-msgid "+-+"
-msgstr "+-+"
-
-#, fuzzy
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "A «%s» les vinyetes «%s» i «%s» tenen el mateix nom de vinyeta"
 
@@ -892,31 +888,7 @@ msgstr "ERROR: aquest R és la versió %s, és necessari R %s %s"
 msgid "loading failed"
 msgstr "ha fallat la càrrega"
 
-msgid "'cc' is not on the path"
-msgstr ""
-
 msgid "'objdump' is not on the path"
-msgstr ""
-
-msgid "non-API functions declared in installed headers: %s"
-msgstr ""
-
-msgid "non-API variables declared in installed headers: %s"
-msgstr ""
-
-msgid "API funcitons not declared in installed headers: %s"
-msgstr ""
-
-msgid "API variables not in declared in installed headers: %s"
-msgstr ""
-
-msgid "in API but marked for warnings: %s"
-msgstr ""
-
-msgid "API functions listed in nonAPI: %s"
-msgstr ""
-
-msgid "API variables listed in nonAPI: %s"
 msgstr ""
 
 #, fuzzy
@@ -961,10 +933,6 @@ msgstr "Executa la construcció de l'R CMD amb --no-build-vignettes per evitar l
 #, fuzzy
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "valor no vàlid per a «--compact-vignettes», s'assumeix %s"
-
-#, fuzzy
-msgid "Error: cannot rename directory to %s"
-msgstr "Error: no es pot canviar el nom del directori a %s"
 
 #, fuzzy
 msgid "elapsed-time limit of %g %s reached for sub-process"
@@ -1166,10 +1134,6 @@ msgid ".install_packages() exit status"
 msgstr "Estat de sortida de .installpackages()"
 
 #, fuzzy
-msgid "restoration failed"
-msgstr "ha fallat la restauració"
-
-#, fuzzy
 msgid "error reading file '%s'"
 msgstr "s'ha produït un error en llegir el fitxer «%s»"
 
@@ -1200,22 +1164,6 @@ msgid "no DLL was created"
 msgstr "no s'ha creat cap DLL"
 
 #, fuzzy
-msgid "NOTE: fixed path"
-msgstr "NOTA: camí fix"
-
-#, fuzzy
-msgid "NOTE: fixed library identification name"
-msgstr "NOTA: nom d'identificació fix de la biblioteca"
-
-#, fuzzy
-msgid "NOTE: fixed library path"
-msgstr "NOTA: s'ha esmenat el camí de la biblioteca"
-
-#, fuzzy
-msgid "NOTE: fixed rpath"
-msgstr "NOTA: rpath fix"
-
-#, fuzzy
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "ADVERTÈNCIA: objectes compartits/biblioteques dinàmiques amb camins d'instal·lació temporals codificats"
 
@@ -1228,36 +1176,8 @@ msgid "staged installation is only possible with locking"
 msgstr "la instal·lació per etapes només és possible amb el bloqueig"
 
 #, fuzzy
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "AVÍS: els pedaços en temps d'instal·lació no s'aplicaran, no s'ha pogut obtenir l'índex de pedaços"
-
-#, fuzzy
 msgid "patch utility is needed for installation-time patching"
 msgstr "La utilitat de pedaç és necessària per a l'ajustament en temps d'instal·lació"
-
-#, fuzzy
-msgid "NOTE: Skipping installation-time patch"
-msgstr "NOTA: s'omet el pedaç de temps d'instal·lació"
-
-#, fuzzy
-msgid "which seems to be already applied."
-msgstr "que sembla que ja s'aplica."
-
-#, fuzzy
-msgid "WARNING: failed to apply patch"
-msgstr "AVÍS: no s'ha pogut aplicar el pedaç"
-
-#, fuzzy
-msgid "Applied installation-time patch"
-msgstr "S'ha aplicat el pedaç de temps d'instal·lació"
-
-#, fuzzy
-msgid "and saved it as"
-msgstr "i l'ha desat com a"
-
-#, fuzzy
-msgid "in package installation"
-msgstr "en la instal·lació del paquet"
 
 #, fuzzy
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
@@ -1310,37 +1230,6 @@ msgstr "ERROR: no teniu permís per a instal·lar al directori"
 msgid "building a fake installation is disallowed"
 msgstr "no es permet la construcció d'una instal·lació falsa"
 
-msgid "specified C++"
-msgstr ""
-
-#, fuzzy
-msgid "using C compiler:"
-msgstr "utilitzant el compilador de C:"
-
-#, fuzzy
-msgid "using Fortran compiler:"
-msgstr "utilitzant el compilador Fortran:"
-
-#, fuzzy
-msgid "using C++ compiler:"
-msgstr "utilitzant el compilador C++:"
-
-#, fuzzy
-msgid "using C++"
-msgstr "utilitzant C++"
-
-#, fuzzy
-msgid "using SDK:"
-msgstr "s'està utilitzant SDK:"
-
-#, fuzzy
-msgid "WARNING: failed to revert patch"
-msgstr "AVÍS: no s'ha pogut revertir el pedaç"
-
-#, fuzzy
-msgid "Reverted installation-time patch"
-msgstr "S'ha revertit el pedaç del temps d'instal·lació"
-
 #, fuzzy
 msgid "Input must be character"
 msgstr "«text» ha de ser un vector de caràcters"
@@ -1354,6 +1243,21 @@ msgstr ""
 "Veure\n"
 "  %s\n"
 "per detalls."
+
+#, fuzzy
+msgid "must specify 'address'"
+msgstr "heu d'especificar «dir» o «files»"
+
+msgid "'subject' is missing"
+msgstr ""
+
+msgid "Sending email to %s"
+msgstr ""
+
+msgid ""
+"Sending email failed!\n"
+"The unsent msg can be found in file %s."
+msgstr ""
 
 #, fuzzy
 msgid "namespace must not be already loaded"
@@ -1788,10 +1692,6 @@ msgid "contains a blank line"
 msgstr "conté una línia en blanc"
 
 #, fuzzy
-msgid "Unknown encoding with non-ASCII data: converting to ASCII"
-msgstr "Codificació desconeguda amb dades no ASCII: s'està convertint a ASCII"
-
-#, fuzzy
 msgid "cannot source package code:"
 msgstr "no es pot font el codi del paquet:"
 
@@ -2001,6 +1901,14 @@ msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Entrada BibTeX corresponent:"
 msgstr[1] "Entrades corresponents de BibTeX:"
+
+#, fuzzy
+#~ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
+#~ msgstr "Codificació desconeguda amb dades no ASCII: s'està convertint a ASCII"
+
+#, fuzzy
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Error: no es pot canviar el nom del directori a %s"
 
 #~ msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
 #~ msgstr "Usa la llicència ACM: només és apropiat per al codi TOMS d'ACM anterior a 2013"

@@ -51,18 +51,9 @@ function(keys)
     ind <- grepl("::", keys, fixed = TRUE)
     brp <- if(!all(ind)) {
                ## Bibentries for base R and current package maybe.
-               rdfile <- processRdChunk_data_store()$Rdfile
-               dir <- dirname(normalizePath(rdfile, mustWork = FALSE))
-               if(basename(dir) %in% c("unix", "windows"))
-                   dir <- dirname(dir)
-               dir <- if(basename(dir) == "man") {
-                          dir <- dirname(dir)
-                          c(dir, file.path(dir, "inst"))
-                      } else character()
-               pkg <- if(length(dir)) {
-                          basename(dir[1L])
-                      } else character()
-               c(.bibentries_from_REFERENCES(dir, pkg),
+               dir <- file.path(Rd_macros_package_dir(), "inst")
+               ## Using pkg="." to cache separately from installed version.
+               c(.bibentries_from_REFERENCES(dir, "."),
                  R_bibentries())
            } else NULL
     if(!any(ind)) {
@@ -307,20 +298,23 @@ function(x)
     tab
 }
 
-## This somewhat duplicates the code in the helpers: ideally we could
-## have the same code for extracting the keys ...
 .bibkeys_from_cite <-
 function(x)
 {
     x <- trimws(x)
     m <- gregexpr("|", x, fixed = TRUE)
     if (m[[1L]][1L] == -1L) { # simple keys
-        keys <- strsplit(x, ",[[:space:]]*", perl = TRUE)[[1L]]
-    } else { # a single citespec
+        strsplit(x, ",[[:space:]]*", perl = TRUE)[[1L]]
+    } else { # a single citespec: before|key|after
         parts <- regmatches(x, m, invert = TRUE)[[1L]]
-        keys <- if (length(parts) == 3L) parts[2L] else character()
+        if (length(parts) == 3L) {
+            structure(parts[2L], before = parts[1L], after = parts[3L])
+        } else {
+            warning("Ignoring invalid citation specification\n  ",
+                    sQuote(x), call. = FALSE, domain = NA)
+            character()
+        }
     }
-    keys
 }
 
 .bibkeys_from_show <-

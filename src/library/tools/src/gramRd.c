@@ -903,10 +903,10 @@ static const yytype_int16 yyrline[] =
      257,   258,   259,   261,   262,   264,   265,   266,   267,   268,
      269,   270,   271,   272,   274,   275,   276,   277,   278,   279,
      280,   281,   282,   283,   284,   285,   286,   287,   288,   289,
-     290,   292,   293,   294,   295,   297,   299,   302,   304,   306,
-     309,   312,   317,   319,   320,   329,   331,   333,   337,   338,
-     340,   342,   346,   347,   349,   352,   354,   356,   358,   360,
-     362,   364,   366,   368,   370,   371,   372,   373,   374,   376
+     290,   292,   293,   295,   297,   300,   303,   307,   310,   313,
+     317,   321,   327,   329,   330,   339,   341,   343,   347,   348,
+     350,   352,   356,   357,   359,   363,   365,   367,   369,   371,
+     373,   375,   377,   379,   381,   382,   383,   384,   385,   387
 };
 #endif
 
@@ -2523,43 +2523,53 @@ yyreduce:
     break;
 
   case 52: /* UserMacro: USERMACRO  */
-                                                { yyval = xxusermacro(yyvsp[0], xxnewlist(NULL), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[0], PROTECT(xxnewlist(NULL)), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 53: /* UserMacro: USERMACRO1 VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-1], xxnewlist(yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-1], PROTECT(xxnewlist(yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 54: /* UserMacro: USERMACRO2 VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-2], xxnewlist2(yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-2], PROTECT(xxnewlist2(yyvsp[-1], yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 55: /* UserMacro: USERMACRO3 VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-3], xxnewlist3(yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-3], PROTECT(xxnewlist3(yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 56: /* UserMacro: USERMACRO4 VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-4], xxnewlist4(yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-4], PROTECT(xxnewlist4(yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 57: /* UserMacro: USERMACRO5 VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-5], xxnewlist5(yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-5], PROTECT(xxnewlist5(yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 58: /* UserMacro: USERMACRO6 VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-6], xxnewlist6(yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-6], PROTECT(xxnewlist6(yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+						  UNPROTECT(1); }
     break;
 
   case 59: /* UserMacro: USERMACRO7 VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-7], xxnewlist7(yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-7], PROTECT(xxnewlist7(yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+			    			  UNPROTECT(1); }
     break;
 
   case 60: /* UserMacro: USERMACRO8 VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-8], xxnewlist8(yyvsp[-7], yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-8], PROTECT(xxnewlist8(yyvsp[-7], yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+			    			  UNPROTECT(1); }
     break;
 
   case 61: /* UserMacro: USERMACRO9 VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg VerbatimArg  */
-                                                { yyval = xxusermacro(yyvsp[-9], xxnewlist9(yyvsp[-8], yyvsp[-7], yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0]), &(yyloc)); }
+                                                { yyval = xxusermacro(yyvsp[-9], PROTECT(xxnewlist9(yyvsp[-8], yyvsp[-7], yyvsp[-6], yyvsp[-5], yyvsp[-4], yyvsp[-3], yyvsp[-2], yyvsp[-1], yyvsp[0])), &(yyloc));
+			    			  UNPROTECT(1); }
     break;
 
   case 62: /* LatexArg: goLatexLike Arg  */
@@ -2618,7 +2628,8 @@ yyreduce:
     break;
 
   case 74: /* IfDefTarget: goLatexLike TEXT  */
-                                        { xxpopMode(yyvsp[-1]); yyval = xxnewlist(xxtag(yyvsp[0], TEXT, &(yyloc))); }
+                                        { xxpopMode(yyvsp[-1]); yyval = xxnewlist(PROTECT(xxtag(yyvsp[0], TEXT, &(yyloc))));
+						  UNPROTECT(1); }
     break;
 
   case 75: /* goLatexLike: %empty  */
@@ -3066,7 +3077,8 @@ static SEXP xxmarkup(SEXP header, SEXP body, int flag, YYLTYPE *lloc)
 	setAttrib(ans, R_RdTagSymbol, header);
 	RELEASE_SV(header);
     }
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -3125,9 +3137,9 @@ static SEXP xxnewcommand(SEXP cmd, SEXP name, SEXP defn, YYLTYPE *lloc)
     PROTECT(ans = ScalarInteger(USERMACRO + maxarg));
     setAttrib(ans, R_RdTagSymbol, cmd);
     setAttrib(ans, R_DefinitionSymbol, thedefn);
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
     defineVar(installTrChar(STRING_ELT(thename, 0)), ans, parseState.xxMacroList);
-    UNPROTECT(2); /* thedefn, ans */
+    UNPROTECT(3); /* thedefn, ans, srcref */
 
     PRESERVE_SV(ans);
     RELEASE_SV(cmd);
@@ -3235,7 +3247,8 @@ static SEXP xxusermacro(SEXP macro, SEXP args, YYLTYPE *lloc)
     xxungetc(START_MACRO);
     
     setAttrib(ans, R_RdTagSymbol, mkString("USERMACRO"));
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     setAttrib(ans, R_MacroSymbol, macro);
     RELEASE_SV(macro);
 #if DEBUGVALS
@@ -3258,7 +3271,8 @@ static SEXP xxOptionmarkup(SEXP header, SEXP option, SEXP body, int flag, YYLTYP
     flag |= getDynamicFlag(option);
     setAttrib(ans, R_RdOptionSymbol, option);
     RELEASE_SV(option);
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     setDynamicFlag(ans, flag);    
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -3292,7 +3306,8 @@ static SEXP xxmarkup2(SEXP header, SEXP body1, SEXP body2, int argcount, int fla
     }
     setAttrib(ans, R_RdTagSymbol, header);
     RELEASE_SV(header);
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -3333,7 +3348,8 @@ static SEXP xxmarkup3(SEXP header, SEXP body1, SEXP body2, SEXP body3, int flag,
     }    
     setAttrib(ans, R_RdTagSymbol, header);
     RELEASE_SV(header);
-    setAttrib(ans, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(ans, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     setDynamicFlag(ans, flag);
 #if DEBUGVALS
     Rprintf(" result: %p\n", ans);    
@@ -3347,7 +3363,8 @@ static void xxsavevalue(SEXP Rd, YYLTYPE *lloc)
     PRESERVE_SV(parseState.Value = PairToVectorList(CDR(Rd)));
     if (!isNull(parseState.Value)) {
     	setAttrib(parseState.Value, R_ClassSymbol, mkString("Rd"));
-    	setAttrib(parseState.Value, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    	setAttrib(parseState.Value, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    	UNPROTECT(1);
     	setDynamicFlag(parseState.Value, flag);
     }
     RELEASE_SV(Rd);
@@ -3356,7 +3373,8 @@ static void xxsavevalue(SEXP Rd, YYLTYPE *lloc)
 static SEXP xxtag(SEXP item, int type, YYLTYPE *lloc)
 {
     setAttrib(item, R_RdTagSymbol, mkString(yytname[YYTRANSLATE(type)]));
-    setAttrib(item, R_SrcrefSymbol, makeSrcref(lloc, SrcFile));
+    setAttrib(item, R_SrcrefSymbol, PROTECT(makeSrcref(lloc, SrcFile)));
+    UNPROTECT(1);
     return item;
 }
 
@@ -3886,11 +3904,16 @@ static void yyerror(const char *s)
     
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i, translated = FALSE;
+	/* Make local copy so we can modify it */
+	char s1[PARSE_ERROR_SIZE + 1];
+	strncpy(s1, s, PARSE_ERROR_SIZE);
+	s1[PARSE_ERROR_SIZE] = 0;
+
     	/* Edit the error message */    
-    	expecting = strstr(s + sizeof yyunexpected -1, yyexpecting);
+	expecting = strstr(s1 + sizeof yyunexpected -1, yyexpecting);
     	if (expecting) *expecting = '\0';
     	for (i = 0; yytname_translations[i]; i += 2) {
-    	    if (!strcmp(s + sizeof yyunexpected - 1, yytname_translations[i])) {
+	    if (!strcmp(s1 + sizeof yyunexpected - 1, yytname_translations[i])) {
     	    	if (yychar < 256)
     	    	    snprintf(ParseErrorMsg, PARSE_ERROR_SIZE,
 			     _(yyshortunexpected), 
@@ -3909,10 +3932,10 @@ static void yyerror(const char *s)
     	if (!translated) {
     	    if (yychar < 256) 
     		snprintf(ParseErrorMsg, PARSE_ERROR_SIZE, _(yyshortunexpected),
-			s + sizeof yyunexpected - 1);
+			 s1 + sizeof yyunexpected - 1);
     	    else
     	    	snprintf(ParseErrorMsg, PARSE_ERROR_SIZE, _(yylongunexpected),
-			 s + sizeof yyunexpected - 1, CHAR(STRING_ELT(yylval, 0)));
+			 s1 + sizeof yyunexpected - 1, CHAR(STRING_ELT(yylval, 0)));
 	}
     	if (expecting) {
  	    translated = FALSE;
@@ -4440,6 +4463,7 @@ static void PutState(ParseState *state) {
     state->Value = parseState.Value;
     state->xxinitvalue = parseState.xxinitvalue;
     state->xxMacroList = parseState.xxMacroList;
+    state->mset = parseState.mset;
     state->prevState = parseState.prevState;
 }
 
@@ -4460,6 +4484,7 @@ static void UseState(ParseState *state) {
     parseState.Value = state->Value;
     parseState.xxinitvalue = state->xxinitvalue;
     parseState.xxMacroList = state->xxMacroList;
+    parseState.mset = state->mset;
     parseState.prevState = state->prevState;
 }
 
@@ -4483,6 +4508,16 @@ static void PopState(void) {
     	busy = false;
 }
 
+/* Run PopState() when a parse is abandoned by a long jump.  Several error()
+   calls inside the parser (e.g. the unterminated-string error in mkCode, and
+   any warning promoted by options(warn=2)) unwind past the PopState() in
+   parseRd(), which would otherwise leave 'busy' set for the rest of the
+   session.  Compare FinalizeSrcRefStateOnError() in src/main/gram.y. */
+static void PopStateOnError(void *dummy)
+{
+    PopState();
+}
+
 /* "do_parseRd" 
 
  .External2(C_parseRd,file, srcfile, encoding, verbose, basename, warningCalls, macros, warndups)
@@ -4498,7 +4533,8 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
-    RCNTXT cntxt;
+    RCNTXT conn_cntxt;
+    RCNTXT state_cntxt;
     SEXP macros;
 
 #if DEBUGMODE
@@ -4508,7 +4544,25 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     R_ParseError = 0;
     R_ParseErrorMsg[0] = '\0';
     
+    /* Reject re-entrancy rather than corrupting the outer parse.  PushState()
+       saves only the ParseState fields listed in PutState(); the multi-set
+       (parseState.mset) and the lexer statics (con_parse, ptr_getc, pushbase,
+       npush, pushsize, macrolevel, SrcFile, wCalls, warnDups) are not saved,
+       so a nested parse leaves the outer one reading a dead connection and
+       preserving into a released multi-set.  This is reachable from a *calling*
+       handler -- withCallingHandlers() or globalCallingHandlers() -- since the
+       parser signals warnings mid-parse.  tryCatch() unwinds first and so is
+       unaffected. */
+    if (busy)
+	error(_("'parse_Rd' is not re-entrant"));
+
     PushState();
+    /* PopState() below is skipped when the parse is abandoned by a long jump,
+       so arrange for it to run on that path too. */
+    begincontext(&state_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+                 R_NilValue, R_NilValue);
+    state_cntxt.cend = &PopStateOnError;
+    state_cntxt.cenddata = NULL;
 
     ifile = asInteger(CAR(args));                       args = CDR(args);
 
@@ -4533,19 +4587,23 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!wasopen) {
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+	    begincontext(&conn_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    conn_cntxt.cend = &con_cleanup;
+	    conn_cntxt.cenddata = con;
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
 	s = R_ParseRd(con, &status, source, fragment, macros);
-	if(!wasopen) endcontext(&cntxt);
+	if(!wasopen) endcontext(&conn_cntxt);
 	PopState();
+	/* End the context before parseError(), so its long jump cannot run
+	   PopStateOnError() a second time. */
+	endcontext(&state_cntxt);
 	if (status != PARSE_OK) parseError(call, R_ParseError);
     }
     else {
       PopState();
+      endcontext(&state_cntxt);
       error(_("invalid Rd file"));
     }
     return s;
@@ -4641,7 +4699,7 @@ SEXP deparseRd(SEXP e, SEXP state)
     }
     *out = '\0';
     PROTECT(result = allocVector(VECSXP, 2));
-    SET_VECTOR_ELT(result, 0, ScalarString(mkChar(outbuf)));
+    SET_VECTOR_ELT(result, 0, mkString(outbuf));
     SET_VECTOR_ELT(result, 1, duplicate(state));
     R_chk_free(outbuf);
 

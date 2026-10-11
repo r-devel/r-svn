@@ -1,13 +1,13 @@
 # Translation of src/library/tools/po/R-tools.pot to German.
-# Copyright (C) 2008-2025 The R Foundation
+# Copyright (C) 2008-2026 The R Foundation
 # This file is distributed under the same license as the R package.
 # Detlef Steuer <steuer@hsu-hh.de>, 2008-2025.
 msgid ""
 msgstr ""
 "Project-Id-Version: R-4.5.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
-"PO-Revision-Date: 2025-07-10 15:25+0200\n"
+"POT-Creation-Date: 2026-09-02 17:58\n"
+"PO-Revision-Date: 2026-09-14 21:42+0200\n"
 "Last-Translator: Detlef Steuer <steuer@hsu-hh.de>\n"
 "Language-Team: R Core <r-core@r-project.org>\n"
 "Language: de\n"
@@ -62,11 +62,11 @@ msgstr "Verzeichnis '%s' enthält keine Rd-Objekte"
 msgid "Functions or methods with usage in Rd file '%s' but not in code:"
 msgstr "Funktionen bzw. Methoden mit Anleitung in Rd Datei '%s' jedoch nicht im Code"
 
-msgid "Data with usage in Rd file '%s' but not in code:"
-msgstr "Datensätze mit Anleitung in Rd Datei '%s', jedoch nicht im Code"
-
 msgid "Variables with usage in Rd file '%s' but not in code:"
 msgstr "Variablen mit Anleitung in der Rd Datei '%s', jedoch nicht im Code:"
+
+msgid "Data with usage in Rd file '%s' but not in code:"
+msgstr "Datensätze mit Anleitung in Rd Datei '%s', jedoch nicht im Code"
 
 msgid "Argument names in code not in docs:"
 msgstr "Argumentnamen im Code (nicht in der Dokumentation):"
@@ -267,13 +267,11 @@ msgstr "Das Authors@R Feld enthält Personen mit ungültigen ORCID IDs:"
 msgid "Authors@R field gives persons with duplicated ORCID identifiers:"
 msgstr "Das Authors@R Feld enthält Personen mit doppelten ORCID IDs:"
 
-#, fuzzy
 msgid "Authors@R field gives persons with invalid ROR identifiers:"
-msgstr "Das Authors@R Feld enthält Personen mit ungültigen ORCID IDs:"
+msgstr "Das Authors@R Feld enthält Personen mit ungültigen ROR IDs:"
 
-#, fuzzy
 msgid "Authors@R field gives persons with duplicated ROR identifiers:"
-msgstr "Das Authors@R Feld enthält Personen mit doppelten ORCID IDs:"
+msgstr "Das Authors@R Feld enthält Personen mit doppelten ROR IDs:"
 
 msgid "Encoding '%s' is not portable"
 msgstr "Kodierung '%s' ist nicht portabel"
@@ -323,7 +321,6 @@ msgstr "Variablen überschreiben Nutzer- bzw. Rechnereinstellungen:"
 msgid "invalid 'OS.type' \"%s\".  Should not happen"
 msgstr "unzulässiger 'OS.type' \"%s\". Sollte nicht passieren"
 
-#, fuzzy
 msgid "Missing link(s) in Rd file '%s':"
 msgstr "Fehlende(r) Link(s) in Rd Datei '%s':"
 
@@ -376,7 +373,7 @@ msgid "Package detach functions should have one argument with name starting with
 msgstr "Detach-Funktion für Pakete sollte ein Argument haben, dessen Name mit %s beginnt."
 
 msgid "Package detach functions should not call %s."
-msgstr "Detach-Funktion für Pakete sollten nicht %s aufrufen."
+msgstr "Detach-Funktionen für Pakete sollten nicht %s aufrufen."
 
 msgid "unable to create"
 msgstr "kann nicht erzeugen"
@@ -670,9 +667,6 @@ msgstr "Datei '%s' nicht gefunden"
 msgid "vignette filename '%s' does not match any of the '%s' filename patterns"
 msgstr "Vignetten-Dateiname '%s' passt zu keinem der %s' Dateinamenmuster"
 
-msgid "+-+"
-msgstr "+-+"
-
 msgid "In '%s' vignettes '%s' and '%s' have the same vignette name"
 msgstr "In '%s' Vignetten '%s' und '%s' haben denselben Vignetten-Namen"
 
@@ -768,32 +762,8 @@ msgstr "Fehler: Dies ist R Version %s, benötigt wird R %s %s"
 msgid "loading failed"
 msgstr "Laden fehlgeschlagen"
 
-msgid "'cc' is not on the path"
-msgstr "'cc' ist kein Pfad"
-
 msgid "'objdump' is not on the path"
 msgstr "'objdump' ist kein Pfad"
-
-msgid "non-API functions declared in installed headers: %s"
-msgstr ""
-
-msgid "non-API variables declared in installed headers: %s"
-msgstr ""
-
-msgid "API funcitons not declared in installed headers: %s"
-msgstr ""
-
-msgid "API variables not in declared in installed headers: %s"
-msgstr ""
-
-msgid "in API but marked for warnings: %s"
-msgstr ""
-
-msgid "API functions listed in nonAPI: %s"
-msgstr ""
-
-msgid "API variables listed in nonAPI: %s"
-msgstr ""
 
 msgid "Got %s in evaluating %s; wanted %s"
 msgstr "Erhielt %s bei der Auswertung von %s: wollte %s"
@@ -827,9 +797,6 @@ msgstr "Starte R CMD build with --no-build-vignettes um das erneute Erzeugen der
 
 msgid "invalid value for '--compact-vignettes', assuming %s"
 msgstr "unzulässiger Wert für '--compact-vignettes', nehme %s an"
-
-msgid "Error: cannot rename directory to %s"
-msgstr "Fehler: kann Verzeichnis nicht in %s umbenennen"
 
 msgid "elapsed-time limit of %g %s reached for sub-process"
 msgstr "Grenze für Zeitverbrauch von %g %s für Subprozess erreicht"
@@ -986,9 +953,6 @@ msgstr "kann die Indexinformation in Datei '%s' nicht lesen"
 msgid ".install_packages() exit status"
 msgstr "install_packages() Exitstatus"
 
-msgid "restoration failed"
-msgstr "Wiederherstellung fehlgeschlagen"
-
 msgid "error reading file '%s'"
 msgstr "Fehler beim Lesen der Datei '%s'"
 
@@ -1014,18 +978,6 @@ msgstr "erzeuge Debug-Symbole (%s)"
 msgid "no DLL was created"
 msgstr "keine DLL erzeugt"
 
-msgid "NOTE: fixed path"
-msgstr "Bemerkung: gefixter Pfad"
-
-msgid "NOTE: fixed library identification name"
-msgstr "Bemerkung: gefixter Bibliotheksidentifikationsname"
-
-msgid "NOTE: fixed library path"
-msgstr "Bemerkung: gefixter Bibliothekspfad"
-
-msgid "NOTE: fixed rpath"
-msgstr "Bemerkung: gefixter rpath"
-
 msgid "WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths"
 msgstr "Warnung: geteilte Objekte/dynamische Bibliotheken mit fest-kodierten temporären Installationspfaden"
 
@@ -1035,29 +987,8 @@ msgstr "staged install wird nicht genutzt mit --libs-only"
 msgid "staged installation is only possible with locking"
 msgstr "staged install ist nur mit locking möglich"
 
-msgid "WARNING: installation-time patches will not be applied, could not get the patches index"
-msgstr "Warnung: Patches zur Installationszeit werden nicht angewandt, konnte nicht auf den Patchindex zugreifen"
-
 msgid "patch utility is needed for installation-time patching"
 msgstr "Das patch Utility wird für Installationszeit Patches benötigt"
-
-msgid "NOTE: Skipping installation-time patch"
-msgstr "Bemerkung: Überspringe Installationszeit-Patch"
-
-msgid "which seems to be already applied."
-msgstr "welches anscheinend schon angewendet wurde"
-
-msgid "WARNING: failed to apply patch"
-msgstr "Warnung: Anwenden des Patches fehlgeschlagen"
-
-msgid "Applied installation-time patch"
-msgstr "Installations-Zeit Patch angewendet"
-
-msgid "and saved it as"
-msgstr "und gespeichert als"
-
-msgid "in package installation"
-msgstr "in Paketinstallation"
 
 msgid "R include directory is empty -- perhaps need to install R-devel.rpm or similar"
 msgstr "Das R include Verzeichnis ist leer -- evtl. muss das R-devel Paket installiert werden"
@@ -1098,30 +1029,6 @@ msgstr "Fehler: keine ausreichenden Rechte zur Installation in das Verzeichnis"
 msgid "building a fake installation is disallowed"
 msgstr "eine Scheininstallation ist nicht erlaubt"
 
-msgid "specified C++"
-msgstr ""
-
-msgid "using C compiler:"
-msgstr "nutze C Compiler:"
-
-msgid "using Fortran compiler:"
-msgstr "nutze Fortran Compiler:"
-
-msgid "using C++ compiler:"
-msgstr "nutze C++ Compiler:"
-
-msgid "using C++"
-msgstr "nuzte C++"
-
-msgid "using SDK:"
-msgstr "nutze SDK:"
-
-msgid "WARNING: failed to revert patch"
-msgstr "Warnung: Reverting Patch fehlgeschlagen"
-
-msgid "Reverted installation-time patch"
-msgstr "Kehre Installations-Zeit Patch um"
-
 #, fuzzy
 msgid "Input must be character"
 msgstr "'text' muss ein Zeichenkettenvektor sein"
@@ -1133,6 +1040,21 @@ msgid ""
 msgstr ""
 "Für Details siehe\n"
 "  %s ."
+
+#, fuzzy
+msgid "must specify 'address'"
+msgstr "sie müssen 'dir' oder 'files' angeben"
+
+msgid "'subject' is missing"
+msgstr ""
+
+msgid "Sending email to %s"
+msgstr ""
+
+msgid ""
+"Sending email failed!\n"
+"The unsent msg can be found in file %s."
+msgstr ""
 
 msgid "namespace must not be already loaded"
 msgstr "Namensraum darf nicht bereits geladen sein"
@@ -1480,9 +1402,6 @@ msgstr "Datei '%s' liegt nicht in gültigem DCF Format vor"
 msgid "contains a blank line"
 msgstr "enthält Leerzeile"
 
-msgid "Unknown encoding with non-ASCII data: converting to ASCII"
-msgstr "Unbekannte Kodierung mit nicht-ASCII Daten: konvertiere nach ASCII"
-
 msgid "cannot source package code:"
 msgstr "kann Paketquelltext nicht einlesen:"
 
@@ -1661,6 +1580,15 @@ msgid "Corresponding BibTeX entry:"
 msgid_plural "Corresponding BibTeX entries:"
 msgstr[0] "Zugehöriger BibTeX Eintrag:"
 msgstr[1] "Zugehörige BibTeX Einträge:"
+
+#~ msgid "'cc' is not on the path"
+#~ msgstr "'cc' ist kein Pfad"
+
+#~ msgid "Unknown encoding with non-ASCII data: converting to ASCII"
+#~ msgstr "Unbekannte Kodierung mit nicht-ASCII Daten: konvertiere nach ASCII"
+
+#~ msgid "Error: cannot rename directory to %s"
+#~ msgstr "Fehler: kann Verzeichnis nicht in %s umbenennen"
 
 #~ msgid "Uses ACM license: only appropriate for pre-2013 ACM TOMS code"
 #~ msgstr "Benutzt die ACM Lizenz: nur zulässig für ACM TOMS Kode vor 2013"

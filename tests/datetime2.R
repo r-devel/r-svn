@@ -2,7 +2,11 @@
 
 ### Expect differences, historically with 32-bit time_t and platforms
 ### without tm_zone/tm_gmtoff.
+### Also with musl (wrongly using current not historic "zone" abbreviations).
 ### Please use the R-internal version for .Rout.save.
+## IGNORE_RDIFF_BEGIN
+(tzCtype <- sessionInfo()[["tzcode_type"]])
+## IGNORE_RDIFF_END
 
 z <- ISOdate(1890:1912, 1, 10, tz="UTC")
 ## Rome changed to CET for 1894
@@ -138,13 +142,23 @@ format(x2, "%a, %d %b %Y %H:%M:%S %Z")
 ## offsets not in whole hours:
 x3 <- strptime("2022-01-01", "%Y-%m-%d", tz = "Australia/Adelaide")
 format(as.POSIXct(x3), "%a, %d %b %Y %H:%M:%S %z") # +10h30m
-# macOS' strftime printed the next two wrong.
-# Liberia does/did not have DST
+# Liberia does/did not have DST and, before 1972-01-07, used MMT (-44m30s)
 x4 <- strptime("1971-01-01", "%Y-%m-%d", tz = "Africa/Monrovia")
 y4 <- as.POSIXct(x4)
-str(unclass(as.POSIXlt(y4))) # correct gmtoff, printed wrong  as -44m
-# glibc prints an abbreviation for DST.
+lt4 <- unclass(as.POSIXlt(y4))
+## IGNORE_RDIFF_BEGIN
+attr(lt4, "tzone")
+## glibc prints an abbreviation for DST. internal and musl leave it blank.
+## IGNORE_RDIFF_END
+stopifnot(identical(
+    attr(lt4, "tzone") |> trimws(), # ignore "   " (internal) vs. "" (musl)
+    c("Africa/Monrovia", "GMT", if(grepl("glibc", tzCtype)) "GMT" else "")
+))
+str(`attr<-`(lt4, "tzone", NULL))
+## musl wrongly gives zone="GMT" (the current, not that at the time).
+## macOS' strftime printed gmtoff wrong as -44m.
 format(y4, "%a, %d %b %Y %H:%M:%S %z")
+
 ## timezones in 1900 might not be supported
 x5 <- strptime("1900-03-01", "%Y-%m-%d", tz = "Europe/Paris")
 y5 <- as.POSIXct(x5)

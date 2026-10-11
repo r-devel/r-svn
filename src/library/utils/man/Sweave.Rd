@@ -1,13 +1,11 @@
 % File src/library/utils/man/Sweave.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Sweave}
 \alias{Sweave}
 \alias{Stangle}
-\alias{SweaveSyntaxLatex}
-\alias{SweaveSyntaxNoweb}
 \title{Automatic Generation of Reports}
 \description{
   \code{Sweave} provides a flexible framework for mixing text and R/S code
@@ -29,13 +27,13 @@ Stangle(file, driver = Rtangle(),
     if there is exactly one Sweave file in the directory whose
     basename matches \code{file}.}
   \item{driver}{the actual workhorse, (a function returning) a named
-    \code{\link{list}} of five functions; for details, see Section 5 of the
+    \code{\link{list}} of five functions; for details, see Section 6 of the
     \sQuote{Sweave User Manual} available as \code{vignette("Sweave")}.}
   \item{syntax}{\code{NULL} or an object of class \code{"SweaveSyntax"} or
     a character string with its name.
     See the section \sQuote{Syntax Definition}.}
   \item{encoding}{The default encoding to assume for \code{file}.}
-  \item{\dots}{further arguments passed to the driver's setup function.
+  \item{\dots}{further arguments passed to the driver's \code{setup} function.
     See \code{\link{RweaveLatexSetup}} and \code{\link{RtangleSetup}},
     respectively, for the arguments of the default drivers.}
 }
@@ -74,6 +72,11 @@ Stangle(file, driver = Rtangle(),
   \code{encoding = "bytes"}.
 }
 
+\value{
+  Given by the driver's \code{finish} function.
+  The default from \code{Sweave} is the name of the output file (invisibly).
+}
+
 \section{Syntax Definition}{
   Sweave allows a flexible syntax framework for marking
   documentation and text chunks. The default is a \I{noweb}-style syntax, as
@@ -83,8 +86,8 @@ Stangle(file, driver = Rtangle(),
   If \code{syntax = NULL} (the default) then the available syntax
   objects are consulted in turn, and selected if their \code{extension}
   component matches (as a regexp) the file name.  Objects
-  \code{SweaveSyntaxNoweb} (with \code{extension = "[.][rsRS]nw$"}) and
-  \code{SweaveSyntaxLatex} (with \code{extension = "[.][rsRS]tex$"}) are
+  \code{\link{SweaveSyntaxNoweb}} (with \code{extension = "[.][rsRS]nw$"}) and
+  \code{\link{SweaveSyntaxLatex}} (with \code{extension = "[.][rsRS]tex$"}) are
   supplied, but users or packages can supply others with names matching
   the pattern \samp{SweaveSyntax.*}.
 }

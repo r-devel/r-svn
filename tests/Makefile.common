@@ -241,6 +241,7 @@ test-Packages1:
 	  $(ECHO) "checking package '$${p}'"; \
 	  _R_CHECK_FF_CALLS_=registration \
 	  _R_CHECK_CODE_USAGE_WITH_ONLY_BASE_ATTACHED_=true \
+	  _R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_=true \
 	  $(RCHK) --install=skip --no-build-vignettes \
 	    $(top_srcdir)/src/library/$${p} || fail="$${fail} $${p}"; \
 	done; if test -n "$${fail}"; then $(ECHO) "FAILED:$${fail}"; exit 1; fi
@@ -260,6 +261,7 @@ stamp-Packages: $(PKG_OBJECTS)
 	@rm -f $@
 	@_R_CHECK_FF_CALLS_=registration \
 	  _R_CHECK_CODE_USAGE_WITH_ONLY_BASE_ATTACHED_=true \
+	  _R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_=true \
 	  $(RCHK) --install=skip --no-build-vignettes \
 	  $(top_srcdir)/src/library/`basename $@ .log` > $@ 2>&1 || (cat $@ && exit 1)
 	@cat $@
@@ -312,7 +314,7 @@ test-CRANtools:
 
 ## Not part of any other target.
 ## On x86_64 Linux uses up to 220GB of VM and takes the best part of an hour.
-## On Linux tests are skipped if there is no enough memory.
+## On Linux tests are skipped if there is not enough memory.
 test-Large:
 	@$(ECHO) "running tests needing large amounts of processor memory"
 	@$(ECHO) "  (is slow, notably when memory is available)"
@@ -326,6 +328,10 @@ test-Random:
 	@$(ECHO) "running tests of random deviate generation"
 	@$(MK) $(test-out-random) RVAL_IF_DIFF=1
 
+test-Reg-enc:
+	@$(ECHO) "running tests with 'encoding'"
+	@$(MK) $(test-out-reg-enc) R="$(R2)"
+
 test-Reg:
 	@$(ECHO) "running regression tests ..."
 	@if test -n "${TEST_MC_CORES}"; then \
@@ -333,7 +339,7 @@ test-Reg:
 	else \
 	  $(MK) $(test-out-reg) RVAL_IF_DIFF=1; \
 	fi
-	@$(MK) $(test-out-reg-enc) R="$(R2)"
+	@$(MK) test-Reg-enc
 	@$(MK) $(test-out-reg3) RVAL_IF_DIFF=0
 
 test-Regexp:
@@ -512,6 +518,7 @@ test-Packages1-Recommended:
 	  $(ECHO) "checking package '$${p}'"; \
 	  R_LIBS="$(top_builddir)/library:$${R_LIBS}" \
 	  _R_CHECK_FORCE_SUGGESTS_=FALSE \
+	  _R_CHECK_CODOC_FUNCTIONS_MISSING_FROM_USAGES_=true \
 	  $(RCHK) --install=skip --library="$(top_builddir)/library" \
 	    RecPackages/$${p} || fail="$${fail} $${p}"; \
 	done; if test -n "$${fail}"; then $(ECHO) "FAILED:$${fail}"; exit 1; fi

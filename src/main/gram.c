@@ -3106,7 +3106,8 @@ static void attachSrcrefs(SEXP val)
 	wholeFile.last_column = ParseState.xxcolno;
 	wholeFile.first_parsed = 1;
 	wholeFile.last_parsed = ParseState.xxparseno;
-	setAttrib(val, R_WholeSrcrefSymbol, makeSrcref(&wholeFile, PS_SRCFILE));
+	setAttrib(val, R_WholeSrcrefSymbol, PROTECT(makeSrcref(&wholeFile, PS_SRCFILE)));
+	UNPROTECT(1);
     }
     PS_SET_SRCREFS(R_NilValue);
     ParseState.didAttach = true;
@@ -3483,7 +3484,8 @@ static SEXP xxdefun(SEXP fname, SEXP formals, SEXP body, YYLTYPE *lloc)
     	    ParseState.didAttach = true;
     	} else
     	    srcref = R_NilValue;
-	PRESERVE_SV(ans = lang4(fname, CDR(formals), body, srcref));
+	PRESERVE_SV(ans = lang4(fname, CDR(formals), body, PROTECT(srcref)));
+	UNPROTECT(1);
     } else
 	PRESERVE_SV(ans = R_NilValue);
     RELEASE_SV(body);
@@ -3586,7 +3588,12 @@ static SEXP xxpipe(SEXP lhs, SEXP rhs, YYLTYPE *lloc_rhs)
 	    SEXP alist = list1(R_MissingArg);
 	    SET_TAG(alist, var);
 	    SEXP fun = lang4(R_FunctionSymbol, alist, expr, R_NilValue);
-	    return lang2(fun, lhs);
+	    /* the result stays on the parser stack until the next
+	       reduction, so it must be preserved like any other value */
+	    PRESERVE_SV(ans = lang2(fun, lhs));
+	    RELEASE_SV(lhs);
+	    RELEASE_SV(rhs);
+	    return ans;
 	}
 
 	/* check for placeholder in the RHS function */
@@ -4035,6 +4042,11 @@ static bool checkForPipeBind(SEXP arg)
 	    if (checkForPipeBind(CAR(cur)))
 		return true;
     return false;
+}
+
+static bool isCommentLike(int token)
+{
+	return token == COMMENT || token == LINE_DIRECTIVE;
 }
 
 static SEXP R_Parse1(ParseStatus *status)
@@ -4680,11 +4692,15 @@ static void yyerror(const char *s)
 
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i;
-	/* Edit the error message */
-	expecting = strstr(s + sizeof yyunexpected -1, yyexpecting);
+	/* Edit the error message: needs a copy */
+	char s1[PARSE_ERROR_SIZE + 1];
+	strncpy(s1, s, PARSE_ERROR_SIZE);
+	s1[PARSE_ERROR_SIZE] = 0;
+	expecting = strstr(s1 + sizeof yyunexpected -1, yyexpecting);
 	if (expecting) *expecting = '\0';
+	
 	for (i = 0; yytname_translations[i]; i += 2) {
-	    if (!strcmp(s + sizeof yyunexpected - 1, yytname_translations[i])) {
+	    if (!strcmp(s1 + sizeof yyunexpected - 1, yytname_translations[i])) {
                 switch(i/2)
                 {
                 case 0:
@@ -4712,7 +4728,7 @@ static void yyerror(const char *s)
                         snprintf(R_ParseErrorMsg, PARSE_ERROR_SIZE, _("unexpected end of line"));
                                 break;
                 default:
-		  if (!strcmp(s + sizeof yyunexpected - 1, "PLACEHOLDER")) {
+		  if (!strcmp(s1 + sizeof yyunexpected - 1, "PLACEHOLDER")) {
 		      /* cheat to avoid changing the parse error
 			 message for mis-use of _ */
 		      snprintf(R_ParseErrorMsg, PARSE_ERROR_SIZE,
@@ -4728,7 +4744,7 @@ static void yyerror(const char *s)
 	    }
 	}
 	snprintf(R_ParseErrorMsg, PARSE_ERROR_SIZE - 1, _("unexpected %s"),
-                 s + sizeof yyunexpected - 1);
+                 s1 + sizeof yyunexpected - 1);
     } else {
 	strncpy(R_ParseErrorMsg, s, PARSE_ERROR_SIZE - 1);
         R_ParseErrorMsg[PARSE_ERROR_SIZE - 1] = '\0';
@@ -5702,7 +5718,6 @@ int isValidName(const char *name)
     return 1;
 }
 
-
 static int SymbolValue(int c)
 {
     int kw;
@@ -6544,7 +6559,7 @@ static void finalizeData(void){
       */
 
     for(i = nloc-1; i >= 0; i--) {
-	if (_TOKEN(i) == COMMENT) {
+	if (isCommentLike(_TOKEN(i))) {
 	    int orphan = 1;
 	    int istartl = _FIRST_PARSED(i);
 	    int istartc = _FIRST_COLUMN(i);
@@ -6583,7 +6598,7 @@ static void finalizeData(void){
     int orphan ;
 
     for( i=0; i<nloc; i++){
-	if( _TOKEN(i) == COMMENT ){
+	if( isCommentLike(_TOKEN(i)) ){
 	    comment_line = _FIRST_PARSED( i ) ;
 	    comment_first_col = _FIRST_COLUMN( i ) ;
 
@@ -6619,10 +6634,9 @@ static void finalizeData(void){
 
     for( i=0; i<nloc; i++){
 	int token = _TOKEN(i); 
-	if( token == COMMENT && _PARENT(i) == 0 ){
+	if( isCommentLike(token) && _PARENT(i) == 0 ){
 	    for( j=i; j<nloc; j++){
-		int token_j = _TOKEN(j); 
-		if( token_j == COMMENT ) continue ;
+		if( isCommentLike(_TOKEN(j)) ) continue ;
 		if( _PARENT(j) != 0 ) continue ;
 		_PARENT(i) = - _ID(j) ;
 		break ;

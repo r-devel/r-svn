@@ -193,11 +193,36 @@ function(x, mu, n = length(x), digits.rank, digits.zap)
         x <- signif(x, digits.rank)
     if(is.finite(digits.zap))
         x <- .zapsmall.r(x, digits.zap)
+    ## In general, with w the ranks of the non-zero observations, mean
+    ## and variance are that of \sum_i w_i U_i, where the U_i are
+    ## i.i.d. Bernoulli(1/2), hence
+    ##   mean = sum(w)/2, variance = sum(w^2)/4.
+    ## If there are no ties or zeros, sort(w) equals 1 : n, and hence
+    ##   mean = n(n+1)/4, variance = n(n+1)(2n+1)/24 = mean * (2n+1)/6.
+    ## If there are ties but no zeros, the mean remains the same, and
+    ## the literature gives a simplified expression for the variance.
+    ## If there are k zeros, they get rank (k+1)/2.
+    ## sum(w)/2 does not use these, so we need to subtract k(k+1)/4
+    ## from the mean.
+    ## sum(w^2)/4 does not use these, so we need to subtract k(k+1)^2/16
+    ## from the variance.
+    ## Of course, we could always use the general expressions (or at
+    ## least when there are ties or zeros).
+    ## Re zeros, see e.g.
+    ## <https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test#Zeros>.
+    ## In R < 4.6.0, we always removed zeros.  In R 4.6.0, we added
+    ## exact inference based on the conditional/permutation
+    ## distribution which can also handle zeros.  In the non-exact case
+    ## we can simply use the asymptotic normal approximations of these
+    ## distributions, using the above expressions for mean and variance,
+    ## so now we longer remove zeros also in this case.
+    ## (Note that removing zeros changes w to w - k.)
     ZERO <- any(i0 <- x == 0)
-    if(ZERO) {
-        x <- x[!i0]
-        n <- length(x)
-    }
+    ## Follow Pratt rather than Wilcoxon and do not remove zeros.
+    ## if(ZERO) {
+    ##     x <- x[!i0]
+    ##     n <- length(x)
+    ## }
     r <- rank(abs(x))
     TIES <- length(r) != length(unique(r))
     STATISTIC <- c("V" = sum(r[x > 0]))
@@ -207,8 +232,13 @@ function(x, mu, n = length(x), digits.rank, digits.zap)
         NTIES <- table(r)
         V <- V - sum(NTIES^3 - NTIES) / 48
     }
+    if(ZERO) {
+        k <- sum(x == 0)
+        MEAN <- MEAN - k * (k + 1) / 4
+        V <- V - k * (k + 1)^2 / 16
+    }
     list(statistic = STATISTIC, ex = MEAN, sd = sqrt(V),
-         ties = TIES, zero = ZERO)
+         ties = TIES, zero = ZERO, w = r[!i0])
 }
 
 .wilcox_test_one_pval_exact <-
@@ -368,13 +398,10 @@ function(x, n, z, alternative, conf.level, digits.rank, digits.zap)
 }
 
 .wilcox_test_one_pval_asymp <-
-function(STAT, n, alternative, correct)
+function(STAT, n, alternative, correct, simplify = TRUE)
 {
     z <- `names<-`(STAT$statistic, NULL) - STAT$ex
-    ## Edgeworth approximations only work if there are no ties (or
-    ## zeroes).
-    if((correct > 0) && (STAT$ties || STAT$zero))
-        correct <- 0
+    if(z == 0 && STAT$sd == 0) return(1)
     CORRECTION <- if(correct >= 0)
                       switch(alternative,
                              "two.sided" = sign(z) * 0.5,
@@ -386,19 +413,64 @@ function(STAT, n, alternative, correct)
     F <- function(z, lower.tail = TRUE) {
         y <- pnorm(z, lower.tail = lower.tail)
         if(correct < 1) return(y)
-        ## Edgeworth expansion given in Fellingham and Stoker (1964),
-        ## <doi:10.1080/01621459.1964.10480738>
-        n4 <- (n + 1)* 3 * n - 1 # shorten: 1/4! = 1/24 from below: (12 / 5) / 24 == 1 / 10
-        d4 <- 10 * (nn2n <- n * (n + 1) * (2 * n + 1))
-        la4 <- - n4 / d4 # = \lambda_4 / 4!
+        ## Edgeworth expansion for the case without ties or zeroes are
+        ## given in Fellingham and Stoker (1964),
+        ## <doi:10.1080/01621459.1964.10480738>.
+        ## In general, with w the ranks of the non-zero observations, we
+        ## need to approximate the distribution of \sum_i w_i U_i, where
+        ## the U_i are i.i.d. Bernoulli(1/2).  This has
+        ##   mean = sum(w)/2, variance = sum(w^2)/4.
+        ## The cumulants \lambda_j of the standardized distribution are
+        ##   \lambda_j = \sigma^{-j} \kappa_j(U_i - 1/2) \sum_i w_i^j.
+        ## where from Haldane (1940) <doi:10.1093/biomet/31.3-4.392> the
+        ## cumulants \kappa_j = \kappa_j(U_i - 1/2) are zero when j is
+        ## odd and the first four for even j are given by
+        ##   \kappa_2 = 1/4, \kappa_4 = -1/8,
+        ##   \kappa_6 = 1/4, \kappa_8 = -17/16.
+        ## The Edgeworth series then has
+        ##   \frac{\lambda_4}{4!} H_3(z) +
+        ##   \frac{\lambda_6}{6!} H_5(z) +
+        ##   \frac{\lambda_8 + 35 \lambda_4^2}{8!} H_7(z)
+        ## see e.g. Kendall and Stuart Vol 1 2nd edition, Eqn 6.48 on
+        ## page 149.  Now if length(w) = N,
+        ##   \sum_i w_i^j ~ N^{j+1}/(j+1)
+        ## so that
+        ##   \lambda_{2j} ~ (N^{2j+1}/(2j+1)) / (N^3/3)^j
+        ## and hence
+        ##   \lambda_4 ~ (N^5/5) / (N^3/3)^2 = O(1/N)
+        ## and
+        ##   \lambda_8 ~ (N^9/9) / (N^3/3)^8 = O(1/N^3)
+        ## so that \lambda_8 = o(\lambda_4^2) and hence neglected by
+        ## Fellingham and Stoker (presumbably because obtaining an
+        ## explicit formula requires too much effort).
+        ## We thus ignore \lambda_8 and in general can use
+        ##   \lambda_4 = (-1/8) * \sum(w^4) / sd^4
+        ##   \lambda_6 = ( 1/4) * \sum(w^6) / sd^6.
+        w <- STAT$w
+        if(STAT$ties || STAT$zero)
+            simplify <- FALSE
+        sd <- STAT$sd
+        if(simplify) {
+            ## shorten: 1/4! = 1/24 from below: (12 / 5) / 24 == 1 / 10
+            n4 <- (n + 1)* 3 * n - 1
+            d4 <- 10 * (nn2n <- n * (n + 1) * (2 * n + 1))
+            la4 <- - n4 / d4 # = \lambda_4 / 4!
+        } else {
+            la4 <- - sum(w^4) / sd^4 / 192
+        }
         ## \frac{\lambda_4}{4!} H_3(z)
         z2 <- z^2
         e <- la4 * z * (z2 - 3)
-        if(correct > 1) { # shorten: 1/6! * 576 / 7 = 576 / (7 * 720) = 4 / 35
-                                  ## ___ paper has N^3, R-code{orig} n^2  : which is correct ?
-            n6 <- 4 * (3 * n^4 + 6 * n^3 - 3 * n + 1)
-            d6 <- 35 * nn2n^2
-            la6 <- n6 / d6 # = \lambda_6 / 6!
+        if(correct > 1) {
+            if(simplify) {
+                ## shorten: 1/6! * 576 / 7 = 576 / (7 * 720) = 4 / 35
+                ##  ___ paper has N^3, R-code{orig} had n^2
+                n6 <- 4 * (((3*n + 6) * n^2 - 3) * n + 1)
+                d6 <- 35 * nn2n^2
+                la6 <- n6 / d6 # = \lambda_6 / 6!
+            } else {
+                la6 <- sum(w^6) / sd^6 / 2880
+            }
             ## \frac{\lambda_6}{6!} H_5(z)
             e <- e + la6 * z * ((z2 - 10) * z2 + 15)
         }
@@ -407,12 +479,13 @@ function(STAT, n, alternative, correct)
             ## = la4^2 * H() * 35 * 4! *4! / 8! = la4^2 * H() * 35 * 24 / 5*6*7*8 = la4^2 * H() / 2
             e <- e + la4^2 / 2 * z * (((z2 - 21) * z2 + 105) * z2 - 105)
         }
-        y + (if(lower.tail) - e else e) * dnorm(z)
+        min(1, max(y + (if(lower.tail) - e else e) * dnorm(z), 0))
     }
     switch(alternative,
            "less" = F(z),
            "greater" = F(z, lower.tail = FALSE),
-           "two.sided" = 2 * min(p <- F(z), if(p < 0.99999) 1 - p else F(z, lower.tail=FALSE)))
+           "two.sided" = 2 * min(p <- F(z),
+                                 if(p < 0.99999) 1 - p else F(z, lower.tail = FALSE)))
 }
 
 .wilcox_test_one_cint_asymp <-
@@ -457,7 +530,7 @@ function(x, n, alternative, conf.level, correct,
         Wmumax <- if(!is.finite(Wmumin)) NA else W(mumax) # if(): warn only once
     }
     if(n == 0 || !is.finite(Wmumax)) { # incl. "all zero / ties" warning above
-        ## FIXME: in the one-side cases this gives (-Inf, NaN) and
+        ## FIXME: in the one-sided cases this gives (-Inf, NaN) and
         ## (NaN, Inf): is this really what we want?
         CONF.INT <-
             structure(c(if(alternative == "less"   ) -Inf else NaN,
@@ -581,7 +654,7 @@ function(STAT, n.x, n.y, alternative)
                ## probabilities, unlike \CRANpkg{coin} which uses
                ## Prob(|T - E(T)| > |t - E(T)|), and unlike binom.test()
                ## which computes the probability of values with density
-               ## not exceeding that of the observed one. 
+               ## not exceeding that of the observed one.
                min(2 * .pwilcox(q, n.x, n.y, z),
                    2 * .pwilcox(q - 1/4, n.x, n.y, z, lower.tail = FALSE),
                    1)
@@ -718,6 +791,7 @@ function(x, y, n.x, n.y, z, alternative, conf.level)
 function(STAT, n.x, n.y, alternative, correct)
 {
     z <- `names<-`(STAT$statistic, NULL) - STAT$ex
+    if(z == 0 && STAT$sd == 0) return(1)
     ## Edgeworth approximations only work if there are no ties.
     if((correct > 0) && STAT$ties)
         correct <- 0
@@ -747,35 +821,43 @@ function(STAT, n.x, n.y, alternative, correct)
         ## where e(z) contains max(correct, 3) terms.
         m <- n.x
         n <- n.y
-        n3 <- m^2 + n^2 + m * n + m + n
-        d3 <- 20 * m * n * (m + n + 1)
+        mn <- m * n
+        m2 <- m^2
+        n2 <- n^2
+        mpn <- m + n
+        n3 <- (mpn1 <- mpn+1)*mpn - mn
+        ## = mpn^2 - mn + mpn = m^2 + n^2 + m*n + m+n
+        d3 <- 20 * mn * mpn1
         c3 <- - n3 / d3
         ## c_3 He_3(z)
-        e <- c3 * z * (z^2 - 3)
+        z2 <- z^2
+        e <- c3 * z * (z2 - 3)
         if(correct > 1) {
-            n5 <- (2 * (m^4 + n^4)
-                + 4 * m * n * (m^2 + n^2)
-                + 6 * m^2 * n^2
-                + 4 * (m^3 + n^3)
-                + 7 * m * n * (m + n)
-                + (m^2 + n^2) + 2 * m * n - (m + n))
-            d5 <- 210 * m^2 * n^2 * (m + n + 1)^2
+            n5 <- 2 * (m2^2 + n2^2) +
+                4 * mn * (m2 + n2) +
+                6 * m2 * n2 +
+                4 * (m2*m + n2*n) + # simplification of
+                ## 7 * m * n * (m + n) + (m^2 + n^2) + 2 * m * n - (m + n)
+                (7 * mn + mpn - 1) * mpn
+            d5 <- 210 * m2 * n2 * mpn1^2
             c5 <- n5 / d5
             ## c_5 He_5(z)
-            e <- e + c5 * z * (z^4 - 10 * z^2 + 15)
+            e <- e + c5 * z * ((z2 - 10) * z2 + 15)
         }
         if(correct > 2) {
-            ## c_7 He_7(z)            
-            e <- 0.5 * c3^2 * z *
-                (z^6 - 21 * z^4 + 105 * z^2 - 105)
+            ## c_7 He_7(z)
+            e <- e + 0.5 * c3^2 * z *
+                (((z2 - 21) * z2 + 105) * z2 - 105)
         }
         e <- e * dnorm(z)
-        if(lower.tail) y - e else y + e
+        min(1, max(if(lower.tail) y - e else y + e, 0))
     }
     switch(alternative,
            "less" = F(z),
            "greater" = F(z, lower.tail = FALSE),
-           "two.sided" = 2 * min(p <- F(z), 1 - p))
+           "two.sided" = 2 * min(p <- F(z),
+                                 if(p < 0.99999) 1 - p
+                                 else F(z, lower.tail = FALSE)))
 }
 
 .wilcox_test_two_cint_asymp <-
@@ -944,13 +1026,19 @@ function(q, m, n, z = NULL, lower.tail = TRUE)
              seq.int(0, 2 * m * n) / 2
     ## Density
     d <- .dwilcox(s, m, n, z)
-    y[i] <- vapply(q[i],
-                   function(e) {
-                       ## NOTE: C code in src/nmath uses a fuzz of 1e-7.
-                       sum(d[s < e + 1e-8])
-                   },
-                   0)
-    if(lower.tail) y else 1 - y
+    y[i] <- vapply(q[i], function(e) sum(d[s < e + 1e-8]), 0)# C code in src/nmath uses 1e-7.
+
+    if(lower.tail) {
+        y[i] <- pmin(y[i], 1) # PR#19144
+        y
+    } else { # upper tail:
+        r <- 1 - y #  for y ~ 1 prevent strong cancellation:
+        if(any(yi1 <- abs(y[i] - 1) < 0x1p-6)) { # |y - 1| < 2^-6 (1/64 = 1.6% )
+            ## compute the *complementary* sum for these (with same fuzz)
+            r[i][yi1] <- vapply(q[i][yi1], function(e) sum(d[s >= e + 1e-8]), 0)
+        }
+        r
+    }
 }
 
 .qwilcox <-
@@ -971,7 +1059,7 @@ function(p, m, n, z = NULL, lower.tail = TRUE)
          else
              seq.int(0, 2 * m * n) / 2
     v <- .pwilcox(s, m, n, z)
-    if(!lower.tail)
+    if(!lower.tail) # FIXME for (orig.) p ~~ 1  !?!
         p <- 1 - p
     ## See qwilcox C code:
     p <- p - 10 * .Machine$double.eps
@@ -985,11 +1073,11 @@ function(x, n, z = NULL)
     if(is.null(z))
         return(dsignrank(x, n))
 
-    if(!all(2 * z == floor(2 * z)) || any(z < 1)) 
+    if(!all(2 * z == floor(2 * z)) || any(z < 1))
         stop("'z' is not a rank vector")
     y <- rep.int(NA_real_, length(x))
     i <- which(!is.na(x))
-    if(!any(i)) 
+    if(!length(i))
         return(y)
     ## scores can be x.5: in that case need to multiply by f=2.
     f <- 2 - all(z == floor(z))
@@ -1009,7 +1097,7 @@ function(q, n, z = NULL, lower.tail = TRUE)
 
     y <- rep.int(NA_real_, length(q))
     i <- which(!is.na(q))
-    if(!any(i)) 
+    if(!length(i))
         return(y)
 
     ## Support of V
@@ -1019,13 +1107,19 @@ function(q, n, z = NULL, lower.tail = TRUE)
              seq.int(0, n * (n + 1)) / 2
     ## Density
     d <- .dsignrank(s, n, z)
-    y[i] <- vapply(q[i],
-                   function(e) {
-                       ## NOTE: C code in src/nmath uses a fuzz of 1e-7.
-                       sum(d[s < e + 1e-8])
-                   },
-                   0)
-    if(lower.tail) y else 1 - y
+    y[i] <- vapply(q[i], function(e) sum(d[s < e + 1e-8]), 0)# C code in src/nmath uses 1e-7.
+
+    if(lower.tail) {
+        y[i] <- pmin(y[i], 1) # PR#19144
+        y
+    } else { # upper tail:
+        r <- 1 - y #  for y ~ 1 prevent strong cancellation:
+        if(any(yi1 <- abs(y[i] - 1) < 0x1p-6)) { # |y - 1| < 2^-6 (1/64 = 1.6% )
+            ## compute the *complementary* sum for these (with same fuzz)
+            r[i][yi1] <- vapply(q[i][yi1], function(e) sum(d[s >= e + 1e-8]), 0)
+        }
+        r
+    }
 }
 
 .qsignrank <-
@@ -1035,10 +1129,10 @@ function(p, n, z = NULL, lower.tail = TRUE)
         return(qsignrank(p, n, lower.tail = lower.tail))
 
     y <- rep.int(NA_real_, length(p))
-    if (any(i <- (p < 0) | (p > 1))) 
+    if (any(i <- (p < 0) | (p > 1)))
         y[i] <- NaN
     i <- !is.na(p) & !i
-    if (!any(i)) 
+    if (!any(i))
         return(y)
 
     s <- if(all(z == floor(z)))
@@ -1046,7 +1140,7 @@ function(p, n, z = NULL, lower.tail = TRUE)
          else
              seq.int(0, n * (n + 1)) / 2
     v <- .psignrank(s, n, z)
-    if (!lower.tail) 
+    if (!lower.tail) # FIXME for (orig.) p ~~ 1  !?!
         p <- 1 - p
     p <- p - 10 * .Machine$double.eps
     y[i] <- vapply(p[i], function(e) s[v >= e][1L], 0)

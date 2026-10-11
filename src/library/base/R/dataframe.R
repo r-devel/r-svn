@@ -1227,7 +1227,7 @@ xpdrows.data.frame <- function(x, old.rows, new.rows)
 	}
     }
     nm <- c(old.rows, new.rows)
-    if (any(duplicated(nm))) nm <- make.unique(as.character(nm))
+    if (anyDuplicated(nm)) nm <- make.unique(as.character(nm))
     attr(x, "row.names") <- nm
     x
 }
@@ -1598,8 +1598,8 @@ Math.data.frame <- function (x, ...)
     } else {
 	vnames <- names(x)
 	if (is.null(vnames)) vnames <- seq_along(x)
-	stop("non-numeric-alike variable(s) in data frame: ",
-	     paste(vnames[!mode.ok], collapse = ", "))
+	stop(gettext("non-numeric-alike variable(s) in data frame: "),
+	     paste(vnames[!mode.ok], collapse = ", "), domain = NA)
     }
 }
 

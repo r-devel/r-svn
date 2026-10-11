@@ -4,19 +4,58 @@
 #### - No *.Rout.save <==> use stopifnot() etc for testing
 #### - Recommended packages allowed, e.g., "Matrix"
 
-## Method for implicit generic 'norm' (x="ANY", type="missing") -- test *before* Matrix is loaded
+## Methods for implicit generic  'norm' (x="ANY", type="missing")
+##                              'rcond' (x="ANY", norm="missing")
+## tested *before* Matrix is loaded
 setClass("zzz", slots = c(x = "NULL"))
-setMethod("norm", c(x = "zzz", type = "character"), function (x, type, ...) "ok")
-m1 <- getMethod("norm", c(x = "ANY", type = "missing"))
-m2 <- selectMethod("norm", c(x = "zzz", type = "missing"))
+setMethod( "norm", c(x = "zzz", type = "character"),
+          function (x, type, ...) type)
+setMethod("rcond", c(x = "zzz", norm = "character"),
+          function (x, norm, ...) norm)
+m4 <- list(getMethod( "norm", c(x = "ANY", type = "missing")),
+           getMethod("rcond", c(x = "ANY", norm = "missing")), # was Error .... : no method found ....
+           selectMethod( "norm", c(x = "zzz", type = "missing")),
+           selectMethod("rcond", c(x = "zzz", norm = "missing")))
+f4 <- lapply(m4, getDataPart)
 x <- new("zzz")
-stopifnot(is(m1, "MethodDefinition"),
-          is(m2, "MethodDefinition"),
-          identical(getDataPart(m1), getDataPart(m2)),
-          identical(norm(x, "O"), "ok"),
-          identical(norm(x     ), "ok"), # was Error .... : invalid 'x': type "S4"
-          removeGeneric("norm"),
+stopifnot(all(vapply(m4, is, FALSE, "MethodDefinition")),
+          identical(f4[3:4], f4[1:2]),
+          identical( norm(x, "O"), "O"),
+          identical( norm(x     ), "O"), # was Error .... : invalid 'x': type "S4"
+          identical(rcond(x, "O"), "O"),
+          identical(rcond(x     ), "O"), # was Error .... : argument "norm" is missing ....
+          removeGeneric( "norm"),
+          removeGeneric("rcond"),
           removeClass("zzz"))
+
+
+## PR#19080:
+## getGenerics() when a generic function is defined in more than one
+## top level environment (package namespace or global environment)
+chkgg <-
+function (object = getGenerics(), name = "isDiagonal",
+          package = character(0L), noEponym = ".GlobalEnv") {
+    ## Test that the set of packages defining generic function 'name'
+    ## is exactly 'package' and (only for packages in 'noEponym') that
+    ## <function name> != <package name>
+    stopifnot(is(object, "ObjectsWithPackage"),
+              length(w <- which(object == name)) == length(package),
+              setequal((p <- packageSlot(object))[w], package),
+              noEponym %notin% p[object == p])
+}
+chkgg()
+if (requireNamespace("Matrix", lib.loc = .Library, quietly = TRUE)) {
+    chkgg(package = "Matrix")
+    setGeneric("isDiagonal", function (.) standardGeneric("isDiagonal"))
+    chkgg(package = c("Matrix", ".GlobalEnv"))
+ ## ^^^^^ was Error .... : length(w <- .... is not TRUE
+    ## data part of getGenerics() had package names
+    ##     c("Matrix", ".GlobalEnv")
+    ## in place of function names
+    ##     c("isDiagonal", "isDiagonal")
+    stopifnot(removeGeneric("isDiagonal"))
+    chkgg(package = "Matrix")
+}
 
 
 if(require("Matrix", lib.loc = .Library, quietly = TRUE)) {
@@ -153,6 +192,63 @@ err <- tryCatch(f(stop("this is mentioned")), error = identity)
 stopifnot(identical(err$message, "error in evaluating the argument 'x' in selecting a method for function 'f': this is mentioned"))
 
 
+## Upcasting to an S4 class that extends an old class should return the
+## requested S4 class, not just the object's S3 part.
+local({
+    setOldClass(c("oldClassChildForAs",
+                  "oldClassParentForAs",
+                  "oldClassGrandParentForAs"))
+    setClass("GrandParentShimForAs",
+             contains = "oldClassGrandParentForAs")
+    setClass("ParentShimForAs",
+             contains = c("oldClassParentForAs", "GrandParentShimForAs"))
+    setClass("S4ChildForAs",
+             slots = list(extra = "character"),
+             contains = "ParentShimForAs")
+
+    object <- new("S4ChildForAs",
+                  structure(list(),
+                            class = c("oldClassParentForAs",
+                                      "oldClassGrandParentForAs")),
+                  extra = "x")
+
+    parent <- as(object, "ParentShimForAs")
+    grandparent <- as(object, "GrandParentShimForAs")
+
+    stopifnot(
+        isS4(parent),
+        is(parent, "ParentShimForAs"),
+        identical(as.character(class(parent)), "ParentShimForAs"),
+        isS4(grandparent),
+        is(grandparent, "GrandParentShimForAs"),
+        identical(as.character(class(grandparent)), "GrandParentShimForAs")
+    )
+})
+
+
+## Registering an old class from an existing S4 class should update class
+## union subclass caches after the old class definition itself is available.
+local({
+    where <- environment()
+    setClass("UnionMemberForOldClassRecache", contains = "VIRTUAL", where = where)
+    setClassUnion("UnionForOldClassRecache", "UnionMemberForOldClassRecache",
+                  where = where)
+    setClass("ParentForOldClassRecache",
+             contains = c("UnionForOldClassRecache", "VIRTUAL"), where = where)
+    setClass("ChildForOldClassRecache",
+             contains = c("ParentForOldClassRecache", "VIRTUAL"), where = where)
+    setOldClass(c("ChildForOldClassRecache", "oldClass"),
+                S4Class = "ChildForOldClassRecache", where = where)
+
+    union <- getClass("UnionForOldClassRecache", where = where)
+    child <- getClass("ChildForOldClassRecache", where = where)
+    stopifnot(
+        "ChildForOldClassRecache" %in% names(union@subclasses),
+        "UnionForOldClassRecache" %in% names(child@contains)
+    )
+})
+
+
 ## canCoerce(obj, .)  when length(class(obj)) > 1 :
 setOldClass("foo")
 setAs("foo", "A", function(from) new("A", foo=from))
@@ -245,5 +341,45 @@ setMethod("toeplitz", "A", function(x, ...) x)
 stopifnot(identical(T3, print(toeplitz(x, r))), removeGeneric("toeplitz"))
 ## badly failed since r82364 when stats::toeplitz was generalized to 3 args
 
+## trace() a function whose S3 class() has multiple strings,
+## e.g. S7 generics and methods
+setOldClass(c("myfun", "function"))
+f <- structure(function(x) x, class = c("myfun", "function"))
+n <- 0
+suppressMessages( # error: 'length = 2' in coercion to 'logical(1)'  in R <= 4.5.x
+    trace("f", quote(n <<- n + 1), print = FALSE))
+f1 <- f(1)
+untrace("f")
+stopifnot(identical(f1, 1), identical(n, 1),
+          identical(class(f), c("myfun", "function")),
+          identical(f(2), 2), identical(n, 1)) # f no longer traced
+
+setClass("myS4Fun", contains = "function", slots = c(label = "character"))
+g <- new("myS4Fun", function(x) x, label = "kept")
+n <- 0
+suppressMessages(
+    trace("g", quote(n <<- n + 1), print = FALSE))
+g1 <- g(1)
+stopifnot(identical(g@label, "kept"))
+untrace("g")
+stopifnot(identical(g1, 1), identical(n, 1),
+          is(g, "myS4Fun"), identical(g@label, "kept"),
+          identical(g(2), 2), identical(n, 1)) # g no longer traced
+
+setClass("myS3FunS4", contains = c("function", "VIRTUAL"),
+         slots = c(label = "character"))
+setOldClass(c("myS3Fun", "function"), S4Class = "myS3FunS4")
+h <- structure(function(x) x, class = c("myS3Fun", "function"),
+               label = "kept")
+n <- 0
+suppressMessages(
+    trace("h", quote(n <<- n + 1), print = FALSE))
+h1 <- h(1)
+stopifnot(identical(h@label, "kept"))
+untrace("h")
+stopifnot(identical(h1, 1), identical(n, 1),
+          identical(class(h), c("myS3Fun", "function")),
+          identical(attr(h, "label"), "kept"),
+          identical(h(2), 2), identical(n, 1)) # h no longer traced
 
 cat('Time elapsed: ', proc.time(),'\n')

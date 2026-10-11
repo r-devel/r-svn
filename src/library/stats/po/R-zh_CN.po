@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: R 2.2.0\n"
 "Report-Msgid-Bugs-To: bugs.r-project.org\n"
-"POT-Creation-Date: 2026-05-25 12:54\n"
+"POT-Creation-Date: 2026-09-02 17:54\n"
 "PO-Revision-Date: 2023-12-20 13:03+0000\n"
 "Last-Translator: Shun Wang <shuonwang@gmail.com>\n"
 "Language-Team: Chinese\n"
@@ -947,11 +947,17 @@ msgstr ""
 msgid "'hybrid' is ignored for a 2 x 2 table"
 msgstr "'hybrid'对2x2的表无用"
 
+msgid "'pval.only' and 'conf.int' may not both be true"
+msgstr ""
+
 msgid "all groups must contain data"
 msgstr "所有的组都必需包含数据"
 
 msgid "not enough observations"
 msgstr "观察量不足"
+
+msgid "computing Newton updated failed in %s"
+msgstr ""
 
 #, fuzzy
 msgid "incorrect dimensions"
@@ -970,7 +976,7 @@ msgstr ""
 msgid "error computing the Hessian in %s"
 msgstr ""
 
-msgid "Jeffreys penalisation was applied in %s because initial optimisation failed with:"
+msgid "error computing the Hessian determinant in %s"
 msgstr ""
 
 msgid "unsuccessful optimisation in %s"
@@ -1384,6 +1390,9 @@ msgstr "维度不匹配"
 
 msgid "missing or negative weights not allowed"
 msgstr "权数不允许是缺失值或负值"
+
+msgid "weights smaller than tolerance wtol*sum(w) = %g treated as zero"
+msgstr ""
 
 msgid "invalid 'lm' object:  no 'terms' component"
 msgstr "'lm'对象无效: 不包含'term'组件"
@@ -1814,15 +1823,18 @@ msgstr "参数'subset'忽略不用"
 msgid "argument 'na.action' will be ignored"
 msgstr "参数'na.action'忽略不用"
 
-msgid "upper and lower bounds ignored unless algorithm = \"port\""
-msgstr "除非algorithm = \"port\"，否则上限或下限将忽略不用"
+msgid "different names for %s and %s: names ignored"
+msgstr ""
 
 #, fuzzy
-msgid "'%s' is not implemented yet"
-msgstr "还没有实现'%s'类型"
+msgid "mismatched names for %s and %s"
+msgstr "'x'和'y'不匹配"
 
-msgid "hatvalues() for nls(*, algorithm='plinear')"
+msgid "duplicated names in %s"
 msgstr ""
+
+msgid "upper and lower bounds ignored unless algorithm = \"port\""
+msgstr "除非algorithm = \"port\"，否则上限或下限将忽略不用"
 
 msgid "cannot calculate REML log-likelihood for \"nls\" objects"
 msgstr "无法为\"nls\"对象计算REML log-likelihood"
@@ -2563,6 +2575,11 @@ msgid_plural "unknown names %s in the 'split' list"
 msgstr[0] "'split'列表里的名称%s不正确"
 
 #, fuzzy
+msgid "essentially perfect fit for %s: summary may be unreliable"
+msgid_plural "essentially perfect fit for response(s) %s: summary may be unreliable"
+msgstr[0] "对几乎是完全拟合进行ANOVA F-检验的结果不会可靠"
+
+#, fuzzy
 msgid "extra argument %s is not of class \"%s\""
 msgid_plural "extra arguments %s are not of class \"%s\""
 msgstr[0] "额外参数%s的类别不是\"%s\""
@@ -2659,6 +2676,10 @@ msgstr[0] "删除了含NA, NaN或Inf的%d个观察量"
 msgid "'start.innov' is too short: need %d point"
 msgid_plural "'start.innov' is too short: need %d points"
 msgstr[0] "'start.innov'太短了，需要%d个点"
+
+#, fuzzy
+#~ msgid "'%s' is not implemented yet"
+#~ msgstr "还没有实现'%s'类型"
 
 #~ msgid "cannot compute exact confidence intervals with ties"
 #~ msgstr "无法精确计算带连结的置信区间"

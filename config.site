@@ -134,6 +134,12 @@
 ## Unlike SHLIB_CXXLDFLAGS, SHLIB_FCLDFLAGS is never additional
 ## SHLIB_FCLDFLAGS=${SHLIB_LDFLAGS}
 
+## Libraries potentially needed whwn linking a DSO/DLL by the C compiler
+## when compiled Fortan code is included.
+## Auto-detected by configure, but can be overridden here.
+## NB: may be static (flang) or dynamic (gfortran)
+## FLIBS=
+
 ## Additional libraries needed to link a shared object with FC,
 ## e.g. on x86 Solaris
 ## FCLIBS_XTRA=
@@ -427,8 +433,10 @@
 ## PKG_CONFIG=
 ## search path for pkg-config
 ## PKG_CONFIG_PATH=
+## export PKG_CONFIG_PATH
 ## path overriding pkg-config's default search path
 ## PKG_CONFIG_LIBDIR=
+## export PKG_CONFIG_LIBDIR
 
 ## OpenMP settings.
 ## The configure code is conservative about enabling OpenMP 

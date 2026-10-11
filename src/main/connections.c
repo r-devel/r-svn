@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2025   The R Core Team.
+ *  Copyright (C) 2000-2026   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@
   because of the non-dynamic fd limit.
 
   The current implementation of socket connections uses select(). On
-  POSIX systems, only FD_SETSIZE descriptors are supported and they 
+  POSIX systems, only FD_SETSIZE descriptors are supported and they
   must have numbers between 0 and FD_SETSIZE-1, inclusive. On Linux and macOS,
   FD_SETSIZE is normally 1024. On macOS, the limit could be overcome via
   _DARWIN_UNLIMITED_SELECT (not used by R), but a POSIX solution would
@@ -1339,7 +1339,7 @@ static Rboolean	fifo_open(Rconnection con)
 	if (strncmp(pipe_prefix, con->description, strlen(pipe_prefix)) != 0) {
 	    len += strlen(pipe_prefix);
 	    add_prefix = TRUE;
-	}	
+	}
 	hch_pipename = (char*) malloc(len+1);
 	if (!hch_pipename)
 	    error(_("allocation of fifo name failed"));
@@ -1549,7 +1549,7 @@ static void cend_con_destroy(void *data)
 {
     int ncon = *(int *)data;
     con_destroy(ncon);
-} 
+}
 
 static void checked_open(int ncon)
 {
@@ -2870,7 +2870,7 @@ static Rboolean clp_open(Rconnection con)
 	   OpenClipboard(NULL) &&
 	   (hglb = GetClipboardData(CF_UNICODETEXT)) &&
 	   (wpc = (wchar_t *)GlobalLock(hglb))) {
-	    
+
 	    int len = (int)wcslen(wpc) * sizeof(wchar_t);
 	    this->buff = (char *)malloc(len + 1);
 	    this->last = this->len = len;
@@ -3408,6 +3408,7 @@ static Rconnection newraw(const char *description, SEXP raw, const char *mode)
     new->canwrite = (mode[0] == 'w' || mode[0] == 'a');
     new->canread = mode[0] == 'r';
     if(strlen(mode) >= 2 && mode[1] == '+') new->canread = new->canwrite = TRUE;
+    new->encname[0] = '\0';
     new->open = &raw_open;
     new->close = &raw_close;
     new->destroy = &raw_destroy;
@@ -3479,8 +3480,16 @@ static Rconnection getConnectionCheck(SEXP rcon, const char *cls,
 	error(_("'%s' is not a %s"), var, cls);
     Rconnection con = getConnection(asInteger(rcon));
     /* check that the R class and internal class match */
-    if (strcmp(con->class, cls))
-	error(_("internal connection is not a %s"), cls);
+    if (strcmp(con->class, cls)) {
+	/* Allow rawConnectionValue() to unwrap the gzcon object */
+	if (con->isGzcon) {
+	    Rgzconn priv = con->private;
+	    con = priv->con;
+	    if (strcmp(con->class, cls))
+		error(_("internal gzcon connection is not a %s"), cls);
+	} else
+	    error(_("internal connection is not a %s"), cls);
+    }
     return con;
 }
 
@@ -4094,6 +4103,9 @@ attribute_hidden SEXP do_open(SEXP call, SEXP op, SEXP args, SEXP env)
     if(block == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "blocking");
     open = CHAR(STRING_ELT(sopen, 0)); /* ASCII */
+    /* con->mode is char[5]; reject anything that would overflow it */
+    if(strlen(open) >= sizeof(con->mode))
+	error(_("invalid '%s' argument"), "open");
     if(strlen(open) > 0) strcpy(con->mode, open);
     con->blocking = block;
     success = con->open(con);
@@ -4168,6 +4180,7 @@ static int con_close1(Rconnection con)
 	Rgzconn priv = con->private;
 	con_close1(priv->con);
 	R_ReleaseObject(priv->con->ex_ptr);
+	free(priv->con);
     }
     /* close inconv and outconv if open */
     if(con->inconv) Riconv_close(con->inconv);
@@ -5353,7 +5366,7 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP object, nchars, sep, ans = R_NilValue, si;
     R_xlen_t i, n, len;
     int useBytes;
-    size_t slen, tlen, lenb, lenc;
+    size_t slen, lenb, lenc;
     char *buf;
     const char *s, *ssep = "";
     Rboolean wasopen = TRUE, usesep, isRaw = FALSE;
@@ -5401,26 +5414,52 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(isRaw) return allocVector(RAWSXP, 0); else return R_NilValue;
     }
 
+    /* Compute the number of bytes the writing loop below emits for each
+       element.  This has to agree with that loop: 'nchars' is a count of
+       *characters*, but zero-padding extends the *byte* count, so sizing
+       from max(strlen, nchars) is too small in an MBCS locale. */
+    size_t *nbytes = (size_t *) R_alloc(n, sizeof(size_t));
+    for(i = 0; i < n; i++) {
+	SEXP sii = STRING_ELT(object, i);
+	int tt = INTEGER(nchars)[i];
+	if(tt == NA_INTEGER || tt < 0)
+	    error(_("invalid '%s' argument"), "nchars");
+	if(strlen(CHAR(sii)) < LENGTH(sii))
+	    /* embedded nul: the writing loop copies exactly 'tt' bytes */
+	    nbytes[i] = (size_t) tt;
+	else {
+	    const char *ss = useBytes ? CHAR(sii) : translateChar(sii);
+	    size_t nb = strlen(ss),
+		nc = mbcslocale ? mbstowcs(NULL, ss, 0) : nb;
+	    if((size_t) tt > nc)
+		nb += ((size_t) tt - nc); /* zero-padding, counted in bytes */
+	    else if((size_t) tt < nc) {
+		if(mbcslocale) {
+		    mbstate_t mb_st1;
+		    mbs_init(&mb_st1);
+		    const char *p = ss;
+		    nb = 0;
+		    for(int j = 0; j < tt; j++) {
+			size_t used = Mbrtowc(NULL, p, R_MB_CUR_MAX, &mb_st1);
+			p  += used;
+			nb += used;
+		    }
+		} else
+		    nb = (size_t) tt;
+	    }
+	    nbytes[i] = nb;
+	}
+    }
+
     len = 0;
     if (!isRaw) {
-	for(i = 0; i < n; i++) {
-	    /* This is not currently needed, just future-proofing in case
-	       the logic gets changed */
-	    if(useBytes)
-		tlen = strlen(CHAR(STRING_ELT(object, i)));
-	    else
-		tlen = strlen(translateChar(STRING_ELT(object, i)));
-	    if (tlen > len) len = tlen;
-	    int tt = INTEGER(nchars)[i];
-	    if(tt == NA_INTEGER || tt < 0)
-		error(_("invalid '%s' argument"), "nchars");
-	    if (tt > len) len = tt;
-	}
+	for(i = 0; i < n; i++)
+	    if(nbytes[i] > (size_t) len) len = (R_xlen_t) nbytes[i];
 	buf = (char *) R_alloc(len + slen, sizeof(char));
     } else {
 	double dlen = 0;
 	for (i = 0; i < n; i++)
-	    dlen += (double)(INTEGER(nchars)[i] + slen);
+	    dlen += (double)(nbytes[i] + slen);
 	if (dlen > R_XLEN_T_MAX)
 	    error("too much data for a raw vector on this platform");
 	len = (R_xlen_t) dlen;
@@ -5821,6 +5860,7 @@ do_getconnection(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+// provide R level  summary(Rcon)
 attribute_hidden SEXP do_sumconnection(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, names, tmp;
@@ -6305,47 +6345,74 @@ static void putLong(Rconnection con, uLong x)
     con->write(&buf, 4, 1, con);
 }
 
+static void gzconFlush(Rconnection con, bool reopen) {
+    Rgzconn priv = con->private;
+    Rconnection icon = priv->con;
+
+    uInt len;
+    bool done = false;
+    priv->s.avail_in = 0; /* should be zero already anyway */
+    for (;;) {
+	len = Z_BUFSIZE - priv->s.avail_out;
+
+	if (len != 0) {
+	    if (icon->write(priv->buffer, 1, len, icon) != len) {
+		priv->z_err = Z_ERRNO;
+		error(_("writing error whilst flushing 'gzcon' connection"));
+	    }
+	    priv->s.next_out = priv->buffer;
+	    priv->s.avail_out = Z_BUFSIZE;
+	}
+	if (done) break;
+	priv->z_err = deflate(&(priv->s), Z_FINISH);
+
+	/* deflate has finished flushing only when it hasn't used up
+	 * all the available space in the output buffer:
+	 */
+	done = (priv->s.avail_out != 0 || priv->z_err == Z_STREAM_END);
+
+	if (priv->z_err != Z_OK && priv->z_err != Z_STREAM_END) break;
+    }
+    deflateEnd(&(priv->s));
+    /* NB: these must be little-endian */
+    putLong(icon, priv->crc);
+    putLong(icon, (uLong) (priv->s.total_in & 0xffffffff));
+    if (reopen) { // see  * write a header * above
+	deflateInit2(&(priv->s), priv->cp, Z_DEFLATED, -MAX_WBITS,
+		     8, Z_DEFAULT_STRATEGY);
+	snprintf((char *)priv->buffer, 11, "%c%c%c%c%c%c%c%c%c%c", gz_magic[0], gz_magic[1],
+	         Z_DEFLATED, 0 /*flags*/, 0,0,0,0 /*time*/, 0 /*xflags*/,
+	         OS_CODE);
+	priv->s.next_out = priv->buffer+10;
+	priv->s.avail_out = Z_BUFSIZE-10;
+	priv->crc = crc32(0L, Z_NULL, 0);
+    }
+}
+
 
 static void gzcon_close(Rconnection con)
 {
     Rgzconn priv = con->private;
     Rconnection icon = priv->con;
 
-    if(icon->canwrite) {
-	uInt len;
-	int done = 0;
-	priv->s.avail_in = 0; /* should be zero already anyway */
-	for (;;) {
-	    len = Z_BUFSIZE - priv->s.avail_out;
-
-	    if (len != 0) {
-		if (icon->write(priv->buffer, 1, len, icon) != len) {
-		    priv->z_err = Z_ERRNO;
-		    error(_("writing error whilst flushing 'gzcon' connection"));
-		}
-		priv->s.next_out = priv->buffer;
-		priv->s.avail_out = Z_BUFSIZE;
-	    }
-	    if (done) break;
-	    priv->z_err = deflate(&(priv->s), Z_FINISH);
-
-	    /* deflate has finished flushing only when it hasn't used up
-	     * all the available space in the output buffer:
-	     */
-	    done = (priv->s.avail_out != 0 || priv->z_err == Z_STREAM_END);
-
-	    if (priv->z_err != Z_OK && priv->z_err != Z_STREAM_END) break;
-	}
-	deflateEnd(&(priv->s));
-	/* NB: these must be little-endian */
-	putLong(icon, priv->crc);
-	putLong(icon, (uLong) (priv->s.total_in & 0xffffffff));
-    } else inflateEnd(&(priv->s));
+    if(icon->canwrite)
+	gzconFlush(con, false);
+    else
+	inflateEnd(&(priv->s));
 
     if(icon->isopen) icon->close(icon);
     con->isopen = FALSE;
 }
 
+static int gzcon_fflush(Rconnection con) {
+    if(con->canwrite) {
+	gzconFlush(con, true);
+	Rgzconn priv = con->private;
+	Rconnection icon = priv->con;
+	icon->fflush(icon);
+    }
+    return 0;
+}
 
 static size_t gzcon_read(void *ptr, size_t size, size_t nitems,
 			 Rconnection con)
@@ -6437,16 +6504,15 @@ static size_t gzcon_read(void *ptr, size_t size, size_t nitems,
 static size_t gzcon_write(const void *ptr, size_t size, size_t nitems,
 			  Rconnection con)
 {
-    Rgzconn priv = con->private;
-    Rconnection icon = priv->con;
-
     if ((double) size * (double) nitems > INT_MAX)
 	error(_("too large a block specified"));
+    Rgzconn priv = con->private;
     priv->s.next_in = (Bytef*) ptr;
     priv->s.avail_in = (uInt)(size*nitems);
 
     while (priv->s.avail_in != 0) {
 	if (priv->s.avail_out == 0) {
+	    Rconnection icon = priv->con;
 	    priv->s.next_out = priv->buffer;
 	    if (icon->write(priv->buffer, 1, Z_BUFSIZE, icon) != Z_BUFSIZE) {
 		priv->z_err = Z_ERRNO;
@@ -6533,6 +6599,7 @@ attribute_hidden SEXP do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
     new->fgetc = &gzcon_fgetc;
     new->read = &gzcon_read;
     new->write = &gzcon_write;
+    new->fflush = &gzcon_fflush;
     new->private = (void *) malloc(sizeof(struct gzconn));
     if(!new->private) {
 	free(new->description); free(new->class); free(new);
@@ -6689,7 +6756,7 @@ SEXP R_decompress1(SEXP in, Rboolean *err)
     Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
     int res = uncompress(buf, &outlen, (Bytef *)(p + 4), inlen - 4);
     if(res != Z_OK) {
-	warning("internal error %d in R_decompress1", res);
+	warning("internal error %d in R_decompress2", res);
 	*err = TRUE;
 	return R_NilValue;
     }
@@ -7273,15 +7340,20 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    opt = 16;  // force gzip format
 	}
 	while(1) {
-	    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-	    // R_uncompress is in gzio.h
+	    uLong buflen = outlen;
+	    buf = (Bytef *) R_alloc(buflen, sizeof(Bytef));
+	    // R_uncompress is in gzio.h.  It sets outlen to the number of
+	    // bytes actually produced, whatever the result.
 	    int res = R_uncompress(buf, &outlen, p, inlen, opt);
-	    if(res == Z_BUF_ERROR) {
-		if(outlen < ULONG_MAX/2) {
-		    outlen *= 2; continue;
+	    if(res == Z_BUF_ERROR && outlen == buflen) {
+		// the output buffer filled up: grow it and retry
+		if(buflen < ULONG_MAX/2) {
+		    outlen = buflen ? 2*buflen : 1; continue;
 		} else break;
 	    }
 	    if(res >= 0) break;
+	    // Z_BUF_ERROR with room left in the buffer means the input
+	    // ended prematurely, so a bigger buffer cannot help.
 	    error("internal error %d in memDecompress(%s)", res,
 		  "type = \"gzip\"");
 	}

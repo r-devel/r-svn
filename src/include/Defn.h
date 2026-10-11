@@ -822,7 +822,7 @@ const char * R_typeToChar2(SEXP, SEXPTYPE);
 
 /*
    These are the private inlinable functions that are provided in
-   Rinlinedfuns.h It is *essential* that these do not appear in any
+   Rinlinedfuns.h.  It is *essential* that these do not appear in any
    other header file, with or without the Rf_ prefix.
 */
 
@@ -2159,6 +2159,7 @@ SEXP deparse1w(SEXP,bool,int);
 SEXP deparse1line (SEXP, bool);
 SEXP deparse1line_ex(SEXP, bool, int);
 SEXP deparse1s(SEXP call);
+R_xlen_t dim2total(SEXP, bool *err);
 int DispatchAnyOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchOrEval(SEXP, SEXP, const char *, SEXP, SEXP, SEXP*, int, int);
 int DispatchGroup(const char *, SEXP,SEXP,SEXP,SEXP,SEXP*);
@@ -2355,6 +2356,7 @@ NORET void R_ObjectNotFoundError(SEXP sym, SEXP call, const char *mode);
 NORET void R_FunctionNotFoundError(SEXP sym, SEXP call);
 
 SEXP R_makePartialMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
+SEXP R_makePartialArgumentMatchWarningCondition(SEXP call, SEXP argument, SEXP formal);
 
 void R_setConditionField(SEXP cond, R_xlen_t idx, const char *name, SEXP val);
 SEXP R_makeNotSubsettableError(SEXP x, SEXP call);
@@ -2452,8 +2454,11 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps);
 Rboolean mbcsValid(const char *str);
 char *mbcsTruncateToValid(char *s);
 Rboolean utf8Valid(const char *str);
-char *Rf_strchr(const char *s, int c);
-char *Rf_strrchr(const char *s, int c);
+int utf8ValidClen(const char *);
+char *Rf_strchr(char *s, int c);
+char *Rf_strrchr(char *s, int c);
+const char *Rf_strchr_const(const char *s, int c);
+const char *Rf_strrchr_const(const char *s, int c);
 int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
     R_PRINTF_FORMAT(3,0);
 

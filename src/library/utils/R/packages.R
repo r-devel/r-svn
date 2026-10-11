@@ -38,7 +38,8 @@ function(contriburl = contrib.url(repos, type), method,
 	fields <- requiredFields
     else {
 	stopifnot(is.character(fields))
-	fields <- unique(c(requiredFields, fields))
+        fields <- unique(c(requiredFields,
+                           fields[fields != "Repository"])) # appended below
     }
 
     if(missing(max_repo_cache_age))
@@ -1155,8 +1156,9 @@ setRepositories <-
     res <- if (length(name)) {
         m <- match(tolower(name), tolower(row.names(a)))
         if (any(is.na(m)))
-            stop("No matching repositories found for ",
-                 paste(name[is.na(m)], collapse=', '))
+            stop(gettextf("no matching repositories found for %s",
+                          paste(dQuote(name[is.na(m)]), collapse=", ")),
+                 domain = NA)
         m
     } else if(length(ind)) as.integer(ind)
     else {

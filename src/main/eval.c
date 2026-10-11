@@ -4177,7 +4177,6 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
     }
 	/* try to dispatch on the object */
     if( isObject(x) ) {
-	char *pt;
 	/* Try for formal method. */
 	if(IS_S4_OBJECT(x) && R_has_methods(op)) {
 	    SEXP value, argValue;
@@ -4215,8 +4214,9 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
 		argsevald = 1;
 	    }
 	}
+	const char *pt;
 	if (TYPEOF(CAR(call)) == SYMSXP)
-	    pt = Rf_strrchr(CHAR(PRINTNAME(CAR(call))), '.');
+	    pt = Rf_strrchr_const(CHAR(PRINTNAME(CAR(call))), '.');
 	else
 	    pt = NULL;
 
@@ -8629,7 +8629,10 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
        SEXP names = GETCONST(constants, GETOP());
        SEXP coffsets = GETCONST(constants, GETOP());
        SEXP ioffsets = GETCONST(constants, GETOP());
-       SEXP value = BCNPOP();
+       /* Leave the value on the node stack for the whole instruction: the
+	  node stack below R_BCNodeStackTop is the only thing rooting it, and
+	  warningcall() below allocates and can run R-level handlers. */
+       SEXP value = GETSTACK(-1);
        if (!isVector(value) || length(value) != 1)
 	   errorcall(call, _("EXPR must be a length 1 vector"));
        if (isFactor(value))
@@ -8676,6 +8679,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	       warningcall(call, _("'switch' with no alternatives"));
 	   pc = codebase + INTEGER(ioffsets)[which];
        }
+       BCNPOP_IGNORE_VALUE();
        NEXT();
     }
     OP(RETURNJMP, 0): {
@@ -9153,12 +9157,12 @@ attribute_hidden SEXP do_bcversion(SEXP call, SEXP op, SEXP args, SEXP rho)
    should do that if it wants to */
 char *R_CompiledFileName(char *fname, char *buf, size_t bsize)
 {
-    char *basename, *ext;
+    const char *basename, *ext;
 
     /* find the base name and the extension */
-    basename = Rf_strrchr(fname, FILESEP[0]);
+    basename = Rf_strrchr_const(fname, FILESEP[0]);
     if (basename == NULL) basename = fname;
-    ext = Rf_strrchr(basename, '.');
+    ext = Rf_strrchr_const(basename, '.');
 
     if (ext != NULL && strcmp(ext, R_COMPILED_EXTENSION) == 0) {
 	/* the supplied file name has the compiled file extension, so

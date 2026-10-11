@@ -1,7 +1,7 @@
 
-R Under development (unstable) (2026-05-22 r90067) -- "Unsuffered Consequences"
+R Under development (unstable) (2026-09-20 r90574) -- "Unsuffered Consequences"
 Copyright (C) 2026 The R Foundation for Statistical Computing
-Platform: aarch64-apple-darwin25.3.0
+Platform: x86_64-pc-linux-gnu
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -1266,16 +1266,16 @@ Residual standard error: 0.04103 on 7 degrees of freedom
 +         nls(conc ~ SSbiexp(time, A1, lrc1, A2, lrc2), data = datN,
 +             trace=TRUE, control = list(maxiter = 10)) )
 0.01722077  (5.34e+02): par = (0.6168807 -1.783839 2.050204 0.2004597)
-3.308944e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
-2.571079e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-1.650535e-23 (2.91e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.486470e-28 (9.76e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.475413e-28 (1.03e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
-3.425893e-28 (5.48e-01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+3.308943e-06 (1.13e+04): par = (0.5798674 -1.784335 2.028943 0.1920502)
+2.571069e-11 (7.68e+06): par = (0.5793882 -1.78778 2.029276 0.1915479)
+1.669346e-23 (5.53e+03): par = (0.5793887 -1.787785 2.029277 0.1915475)
+2.285755e-29 (1.59e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.345909e-29 (1.20e+01): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.224242e-29 (9.63e+00): par = (0.5793887 -1.787785 2.029277 0.1915475)
 Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  : 
   number of iterations exceeded maximum of 10
 > ## End(Don't show)
@@ -1288,13 +1288,13 @@ Error in nls(y ~ cbind(exp(-exp(lrc1) * x), exp(-exp(lrc2) * x)), data = xy,  :
 3.308942e-06  (9.08e-04): par = (0.5798674 -1.784335 2.028943 0.1920502)
   It.   2, fac=           1, eval (no.,total): ( 1,  2): new dev = 2.57108e-11
 2.571081e-11  (2.53e-06): par = (0.5793882 -1.78778 2.029276 0.1915479)
-  It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66968e-23
-1.669677e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
-1.667503e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
+  It.   3, fac=           1, eval (no.,total): ( 1,  3): new dev = 1.66926e-23
+1.669257e-23  (2.04e-12): par = (0.5793887 -1.787785 2.029277 0.1915475)
+1.670550e-23  (1.67e-13): par = (2.029277 0.5793887 0.1915475 -1.787785)
 > all.equal(coef(fm1), coef(fmX1), tolerance=0) # ... rel.diff.: 1.57e-6
-[1] "Mean relative difference: 1.574121e-06"
+[1] "Mean relative difference: 1.574118e-06"
 > all.equal(coef(fm1), coef(fmX),  tolerance=0) # ... rel.diff.: 1.03e-12
-[1] "Mean relative difference: 1.031016e-12"
+[1] "Mean relative difference: 1.032123e-12"
 > ## IGNORE_RDIFF_END
 > stopifnot(all.equal(coef(fm1), coef(fmX1), tolerance = 6e-6),
 +           all.equal(coef(fm1), coef(fmX ), tolerance = 1e-11))
@@ -4837,20 +4837,26 @@ Levels: a b c d e f g h i j k l m n o p q r s t u v w x y z
 factor> as.integer(ff)      # the internal codes
  [1] 19 20  1 20  9 19 20  9  3 19
 
-factor> (f. <- factor(ff))  # drops the levels that do not occur
+factor> (fff <- factor(ff)) # drops the levels that do not occur
  [1] s t a t i s t i c s
 Levels: a c i s t
 
-factor> ff[, drop = TRUE]   # the same, more transparently
+factor> droplevels(ff)      # the same, more transparently
  [1] s t a t i s t i c s
 Levels: a c i s t
 
+factor> ff[, drop = TRUE]   # the same
+ [1] s t a t i s t i c s
+Levels: a c i s t
+
+factor> ## creating enumerated levels
 factor> factor(letters[1:20], labels = "letter")
  [1] letter1  letter2  letter3  letter4  letter5  letter6  letter7  letter8 
  [9] letter9  letter10 letter11 letter12 letter13 letter14 letter15 letter16
 [17] letter17 letter18 letter19 letter20
 20 Levels: letter1 letter2 letter3 letter4 letter5 letter6 letter7 ... letter20
 
+factor> ## ordered levels
 factor> class(ordered(4:1)) # "ordered", inheriting from "factor"
 [1] "ordered" "factor" 
 
@@ -4930,7 +4936,9 @@ factor> table(addNA(Month, ifany = TRUE))
 
  5  6  7  8  9 
 31 30 31 31 30 
-> fff <- ff[, drop = TRUE]  # reduce to 5 levels.
+> fff
+ [1] s t a t i s t i c s
+Levels: a c i s t
 > contrasts(fff) # treatment contrasts by default
   c i s t
 a 0 0 0 0
@@ -5177,13 +5185,14 @@ function (V)
         r[seq.int(from = 1L, by = p + 1L, length.out = p)] <- 1
     r
 }
-<bytecode: 0xbda651498>
+<bytecode: 0x564f1628bcf0>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
 +             cov2cor(cov(longley, method = "kendall"))))
 > 
 > ##--- Missing value treatment:
+> uses <- c("everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs")
 > C1 <- cov(swiss)
 > range(eigen(C1, only.values = TRUE)$values) # 6.19        1921
 [1]    6.191249 1921.562488
@@ -7187,6 +7196,29 @@ attr(,"class")
 > 
 > ### ** Examples
 > 
+> ## Dobson (1990) Page 93: Randomized Controlled Trial :
+> D93 <- data.frame(counts   = c(18,17,15, 20,10,20, 25,13,12),
++                   outcome  = gl(3,1,9),
++                   treatment= gl(3,3))
+> glm.D93 <- glm(counts ~ outcome + treatment, data = D93, family = poisson())
+> (eA <- extractAIC(glm.D93)) # 5  56.76132 -- which is the same as AIC() here:
+[1]  5.00000 56.76132
+> stopifnot(all.equal(eA[2], AIC(glm.D93), tolerance = 1e-15))
+> ## OTOH, for lm():
+> lm1 <- lm(Fertility ~ . , data = swiss)
+> lm2 <- update(lm1, . ~ . -Examination)
+> Am <- rbind(
++     A1 = c(xtrAIC = extractAIC(lm1)[2], AIC = AIC(lm1)),
++     A2 = c(xtrAIC = extractAIC(lm2)[2], AIC = AIC(lm2)))
+> Am
+     xtrAIC      AIC
+A1 190.6913 326.0716
+A2 189.8606 325.2408
+> diff(Am)# A2 - A1 -- the same 
+       xtrAIC        AIC
+A2 -0.8307244 -0.8307244
+> 
+> 
 > 
 > cleanEx()
 > nameEx("factanal")
@@ -7830,7 +7862,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0xbdab4d8c0>
+<environment: 0x564f14668d10>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -7875,7 +7907,8 @@ circumference ~ A/(1 + exp((B - age)/C))
 > ### Title: Distribution-free Inference in a Stratified One-Way Layout
 > ### Aliases: free1way free1way.formula free1way.table free1way.numeric
 > ###   free1way.factor print.free1way coef.free1way vcov.free1way
-> ###   logLik.free1way summary.free1way confint.free1way
+> ###   logLik.free1way summary.free1way confint.free1way summary.MPLfree1way
+> ###   confint.MPLfree1way
 > ### Keywords: htest
 > 
 > ### ** Examples
@@ -8277,10 +8310,13 @@ Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’
 > A1 <- -2*c(ll) + 2*attr(ll, "df")
 > A2 <- glm.D93$family$aic(counts, mu=fitted(glm.D93), wt=1) +
 +         2 * length(coef(glm.D93))
+> (A3 <- extractAIC(glm.D93))
+[1]  5.00000 56.76132
 > stopifnot(exprs = {
 +   all.equal(A0, A1)
 +   all.equal(A1, A2)
-+   all.equal(A1, glm.D93$aic)
++   all.equal(A2, A3[2])
++   all.equal(A3[2], glm.D93$aic)
 + })
 > 
 > 
@@ -9110,23 +9146,23 @@ totss        60.99123 60.99123
 > ## The ordering of the clusters may be platform-dependent.
 > ## IGNORE_RDIFF_BEGIN
 > (cl <- kmeans(x, 5, nstart = 25))
-K-means clustering with 5 clusters of sizes 12, 15, 25, 24, 24
+K-means clustering with 5 clusters of sizes 12, 24, 24, 15, 25
 
 Cluster means:
            x          y
 1  1.3290081  1.1185534
-2  0.8609139  1.3145869
-3 -0.1096832  0.2106891
-4  0.1581362 -0.1761590
-5  0.8043520  0.7805033
+2  0.1581362 -0.1761590
+3  0.8043520  0.7805033
+4  0.8609139  1.3145869
+5 -0.1096832  0.2106891
 
 Clustering vector:
-  [1] 3 4 3 4 3 3 4 4 3 3 5 4 3 3 4 3 4 3 4 3 4 4 3 3 4 3 4 3 3 4 4 4 3 4 3 3 3
- [38] 4 4 4 4 3 3 3 3 3 4 4 4 4 2 5 5 5 5 1 1 1 5 1 2 5 1 2 5 2 5 5 1 2 2 1 2 5
- [75] 5 1 2 2 2 2 5 2 1 5 1 5 2 5 5 5 5 1 5 2 5 5 1 5 2 5
+  [1] 5 2 5 2 5 5 2 2 5 5 3 2 5 5 2 5 2 5 2 5 2 2 5 5 2 5 2 5 5 2 2 2 5 2 5 5 5
+ [38] 2 2 2 2 5 5 5 5 5 2 2 2 2 4 3 3 3 3 1 1 1 3 1 4 3 1 4 3 4 3 3 1 4 4 1 4 3
+ [75] 3 1 4 4 4 4 3 4 1 3 1 3 4 3 3 3 3 1 3 4 3 3 1 3 4 3
 
 Within cluster sum of squares by cluster:
-[1] 1.0314888 0.7104553 2.5330710 1.2816507 1.5056575
+[1] 1.0314888 1.2816507 1.5056575 0.7104553 2.5330710
  (between_SS / total_SS =  88.4 %)
 
 Available components:
@@ -9282,7 +9318,7 @@ alternative hypothesis: the CDF of x lies below that of y
 > # with ties, example from Schröer and Trenkler (1995)
 > # D = 3/7, p = 8/33 = 0.242424..
 > ks.test(c(1, 2, 2, 3, 3),
-+         c(1, 2, 3, 3, 4, 5, 6))# -> exact
++         c(1, 2,    3, 3, 4, 5, 6))# -> exact
 
 	Exact two-sample Kolmogorov-Smirnov test
 
@@ -11448,16 +11484,16 @@ Initializing ‘Const’, ‘A’, ‘B’ to '1.'.
 Consider specifying 'start' or using a selfStart model
 1017460.306    (4.15e+02): par = (1 1 1)
 758164.7503    (2.34e+02): par = (13.42031396 1.961485 0.05947543745)
-269506.3538    (3.23e+02): par = (51.75719816 -13.09155956 0.8428607705)
-68969.21895    (1.03e+02): par = (76.0006985 -1.935226741 1.019085799)
-633.3672233    (1.29e+00): par = (100.3761515 8.624648407 5.104490263)
-151.4400223    (9.39e+00): par = (100.6344391 4.913490982 0.2849209561)
-53.08739887    (7.24e+00): par = (100.6830407 6.899303309 0.4637755073)
-1.344478645    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
+269506.3539    (3.23e+02): par = (51.75719815 -13.09155956 0.8428607704)
+68969.21896    (1.03e+02): par = (76.0006985 -1.93522674 1.019085799)
+633.3672231    (1.29e+00): par = (100.3761515 8.624648403 5.104490265)
+151.4400225    (9.39e+00): par = (100.6344391 4.913490981 0.2849209558)
+53.08739902    (7.24e+00): par = (100.6830407 6.899303306 0.4637755073)
+1.344478646    (5.97e-01): par = (100.0368306 9.897714142 0.516929494)
 0.9908415909   (1.55e-02): par = (100.0300625 9.9144191 0.5023516843)
 0.9906046057   (1.84e-05): par = (100.0288724 9.916224018 0.5025207337)
-0.9906046054   (9.93e-08): par = (100.028875 9.916228366 0.50252165)
-0.9906046054   (6.56e-10): par = (100.028875 9.916228388 0.5025216549)
+0.9906046054   (9.94e-08): par = (100.028875 9.916228366 0.50252165)
+0.9906046054   (5.87e-10): par = (100.028875 9.916228388 0.5025216549)
 Nonlinear regression model
   model: y ~ Const + A * exp(B * x)
    data: parent.frame()
@@ -11495,6 +11531,46 @@ Nonlinear regression model
 + musc.2 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), MASS::muscle,
 +               start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]))
 + summary(musc.2)
++ 
++ 
++ 
++ 
++ ## Example with constraint, using "port" algorithm. Also showing possibility
++ ## for reordering if using named vector for lower=
++ dd <- structure(list(time = c(1L, 2L, 3L, 6L, 12L, 24L, 48L), y = c(1.95, 
++ 6.43, 10.39, 27.01, 113.72, 251.14, 314.22)), row.names = c(NA, 
++ -7L), class = "data.frame")
++ 
++ st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
++ lwr <- c(k = 0.1, Max =-Inf, Lag = -Inf)
++ form <- y ~ (time > Lag) * Max * (1-exp(-k * (time - Lag)))
++ m1 <- nls(form,
++     data = dd,
++     algorithm="port",
++     lower = lwr,
++     start = st0)
++ stopifnot(coef(m1)[["k"]] >= lwr[["k"]])
++ 
++ ## Simplified form naming specific elements of lwr, upr
++ st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
++ lwr <- c(k = 0.09)
++ upr <- c(Lag = 5.5)
++ m2 <- nls(form,
++     data = dd,
++     algorithm="port",
++     lower = lwr,
++     upper = upr,
++     start = st0)
++ stopifnot(coef(m2)[["k"]] >= lwr[["k"]] && coef(m2)[["Lag"]] <= upr[["Lag"]])
++ 
++ ## Example using indexing features and bounds
++ ## (Notice that constructions like this make e.g. start$a a named
++ ## vector with strange names, so these are stripped internally.)
++ musc.3 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), MASS::muscle,
++ start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]),
++ upper = list(a = rep(35, 21)),
++  algorithm="port")
++ summary(musc.3)
 + })
 > with(MASS::muscle, table(Strip))
 Strip
@@ -11574,6 +11650,78 @@ th     0.797      0.127    6.30  8.0e-06 ***
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
 Residual standard error: 1.11 on 17 degrees of freedom
+
+> dd <- structure(list(time = c(1L, 2L, 3L, 6L, 12L, 24L, 48L), y = c(1.95, 
++     6.43, 10.39, 27.01, 113.72, 251.14, 314.22)), row.names = c(NA, -7L), class = "data.frame")
+> st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
+> lwr <- c(k = 0.1, Max = -Inf, Lag = -Inf)
+> form <- y ~ (time > Lag) * Max * (1 - exp(-k * (time - Lag)))
+> m1 <- nls(form, data = dd, algorithm = "port", lower = lwr, start = st0)
+> stopifnot(coef(m1)[["k"]] >= lwr[["k"]])
+> st0 <- list(Max = 200, k = 0.1, Lag = 0.5)
+> lwr <- c(k = 0.09)
+> upr <- c(Lag = 5.5)
+> m2 <- nls(form, data = dd, algorithm = "port", lower = lwr, upper = upr, 
++     start = st0)
+> stopifnot(coef(m2)[["k"]] >= lwr[["k"]] && coef(m2)[["Lag"]] <= upr[["Lag"]])
+> musc.3 <- nls(Length ~ a[Strip] + b[Strip] * exp(-Conc/th), MASS::muscle, 
++     start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]), upper = list(a = rep(35, 
++         21)), algorithm = "port")
+> summary(musc.3)
+
+Formula: Length ~ a[Strip] + b[Strip] * exp(-Conc/th)
+
+Parameters:
+    Estimate Std. Error t value Pr(>|t|)    
+a1    23.050      0.845   27.28  1.8e-15 ***
+a2    27.964      0.844   33.13  < 2e-16 ***
+a3    28.951      1.587   18.25  1.3e-12 ***
+a4    22.606      2.676    8.45  1.7e-07 ***
+a5    20.031      2.570    7.79  5.2e-07 ***
+a6    17.993      2.230    8.07  3.2e-07 ***
+a7    32.975      1.683   19.59  4.2e-13 ***
+a8    34.521      3.210   10.75  5.3e-09 ***
+a9    29.398      3.000    9.80  2.1e-08 ***
+a10   35.000      2.805   12.48  5.5e-10 ***
+a11   32.727      2.751   11.89  1.2e-09 ***
+a12   35.000      1.759   19.90  3.3e-13 ***
+a13   29.922      1.695   17.66  2.3e-12 ***
+a14   31.151      3.135    9.94  1.7e-08 ***
+a15   35.000      3.006   11.64  1.6e-09 ***
+a16   30.499      0.892   34.19  < 2e-16 ***
+a17   30.770      0.859   35.81  < 2e-16 ***
+a18   19.688      1.064   18.50  1.1e-12 ***
+a19   35.000      1.077   32.49  < 2e-16 ***
+a20   31.819      1.125   28.29  9.7e-16 ***
+a21   29.802      1.088   27.38  1.7e-15 ***
+b1   -37.778     12.855   -2.94  0.00917 ** 
+b2   -37.191     12.737   -2.92  0.00955 ** 
+b3   -32.028      2.947  -10.87  4.5e-09 ***
+b4   -30.682      3.950   -7.77  5.4e-07 ***
+b5   -28.288      3.945   -7.17  1.6e-06 ***
+b6   -19.613      3.929   -4.99  0.00011 ***
+b7   -25.379     12.873   -1.97  0.06518 .  
+b8   -43.463      3.994  -10.88  4.4e-09 ***
+b9   -31.614      7.508   -4.21  0.00059 ***
+b10  -34.525      3.966   -8.71  1.1e-07 ***
+b11  -32.341      3.954   -8.18  2.7e-07 ***
+b12  -45.363     15.195   -2.99  0.00831 ** 
+b13  -29.185     13.240   -2.20  0.04157 *  
+b14  -36.478      7.527   -4.85  0.00015 ***
+b15  -31.830      7.509   -4.24  0.00055 ***
+b16  -64.874     18.877   -3.44  0.00315 ** 
+b17  -47.557     14.919   -3.19  0.00539 ** 
+b18  -21.747     10.549   -2.06  0.05489 .  
+b19  -30.015     11.713   -2.56  0.02018 *  
+b20  -49.822     15.262   -3.26  0.00457 ** 
+b21  -35.563     12.618   -2.82  0.01184 *  
+th     0.614      0.107    5.74  2.4e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 1.3 on 17 degrees of freedom
+
+Algorithm "port", convergence message: relative convergence (4)
 
 > ## IGNORE_RDIFF_END
 > ## Don't show: 
@@ -12775,14 +12923,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0xbdb9f6468>
-<environment: 0xbdba04d28>
+<bytecode: 0x564f16fadfa0>
+<environment: 0x564f16f2e1e8>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0xbdb9f6318>
-<environment: 0xbdba04d28>
+<bytecode: 0x564f16fade50>
+<environment: 0x564f16f2e1e8>
 
 > 
 > 
@@ -16267,7 +16415,7 @@ Contrast 1 Contrast 2 Contrast 3
 > getInitial(weight ~ mySSlogis(Time, Asym, xmid, scal),
 +            data = subset(ChickWeight, Chick == 1))
      Asym      xmid      scal 
-937.03000  35.22296  11.40521 
+937.03011  35.22296  11.40521 
 > ## IGNORE_RDIFF_END
 > 
 > # 'first.order.log.model' is a function object defining a first order
@@ -16475,12 +16623,17 @@ attr(,"kind")[[2]]
 attr(,"kind")[[3]]
 [1] "Rejection"
 
+attr(,"kind")[[4]]
+[1] "BTPE"
+
 > stopifnot(identical(S2, simulate(mod1, nsim = 200, seed = sseed)))
 > 
 > ## To be sure about the proper RNGkind, e.g., after
 > RNGversion("2.7.0")
-Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding") :
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
   non-uniform 'Rounding' sampler used
+Warning in RNGkind("Mersenne-Twister", "Inversion", "Rounding", "Buggy BTPE") :
+  Buggy BTPE algorithm used for rbinom()
 > ## first set the RNG kind, then simulate
 > do.call(RNGkind, attr(sseed, "kind"))
 > identical(S2, simulate(mod1, nsim = 200, seed = sseed))
@@ -17170,8 +17323,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0xbda7a65f0>
-<environment: 0xbdb01eee8>
+<bytecode: 0x564f16411288>
+<environment: 0x564f12eb36c8>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -19212,9 +19365,9 @@ difference in location
 	Wilcoxon signed rank exact test
 
 data:  -2:12
-V = 112, p-value = 0.0007324
+V = 112, p-value = 0.001465
 alternative hypothesis: true location is not equal to 0
-95.6 percent confidence interval:
+95.5 percent confidence interval:
  2.5 7.5
 sample estimates:
 (pseudo)median 
@@ -19225,7 +19378,7 @@ sample estimates:
 	Wilcoxon signed rank test with continuity correction
 
 data:  c(-2:11, 1000)
-V = 98, p-value = 0.004708
+V = 112, p-value = 0.003119
 alternative hypothesis: true location is not equal to 0
 95 percent confidence interval:
  2.000036 8.500017
@@ -19801,7 +19954,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  2.882 0.262 3.161 0 0 
+Time elapsed:  3.735 0.1 3.85 0 0 
 > grDevices::dev.off()
 null device 
           1 

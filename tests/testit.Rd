@@ -30,6 +30,8 @@ foo(\var{x}, \var{y}, ...)
 #endif
   End(\verb{#ifdef}).
 
+% A new paragraph should start here,
+  % regardless of these comment lines.
   Escaped backslash \code{\\x}.
 
   \code{\%\{\}}
@@ -97,6 +99,9 @@ foo(\var{x}, \var{y}, ...)
 
   Simple 1-arg case with basic substitution in plain text (and legacy HTML):
   \eqn{0 \le \code{x} \leq 1}
+
+  More symbols: \eqn{\sqrt{\sum_i (\log(x_i)-\mu)^2}} \cr
+  where \eqn{i \in \{1,\ldots,n\}} if \eqn{n \times \pi < \infty}.
 }
 \section{\verb{\deqn}}{
   1-arg form, centered also in text conversion:

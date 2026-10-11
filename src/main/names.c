@@ -489,8 +489,8 @@ FUNTAB R_FunTab[] =
 {"sample",	do_sample,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"sample2",	do_sample2,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 
-{"RNGkind",	do_RNGkind,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"set.seed",	do_setseed,	0,	111,	4,	{PP_FUNCALL, PREC_FN,	0}},
+{"RNGkind",	do_RNGkind,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
+{"set.seed",	do_setseed,	0,	111,	5,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Data Summaries */
 /* these four are group generic and so need to eval args */
@@ -979,6 +979,7 @@ FUNTAB R_FunTab[] =
 {"unserialize",	do_serialize,	2,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"rowsum_matrix",do_rowsum,	0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"rowsum_df",	do_rowsum,	1,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"objsxp",	do_objsxp,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"setS4Object",	do_setS4Object, 0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"traceOnOff",	do_traceOnOff,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"debugOnOff",	do_traceOnOff,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -1003,7 +1004,7 @@ FUNTAB R_FunTab[] =
 {"La_solve",	do_lapack,	100,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_qr",	do_lapack,	101,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_chol",	do_lapack,	200,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"La_chol2inv",	do_lapack,	201,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"La_chol2inv",	do_lapack,	201,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 
 {"qr_coef_real",do_lapack,	300,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"qr_qy_real",	do_lapack,	301,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},

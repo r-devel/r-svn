@@ -487,7 +487,7 @@ statements: these may not work well in Sweave processing. Since
 included file, it is easiest to declare the encoding to Sweave using
 the \verb|%\SweaveUTF8| comment.
 
-It is all too easy for B\textsc{ib}\TeX{} to pick up UTF-8-encoded
+It is all too easy for \I{B\textsc{ib}\TeX{}} to pick up UTF-8-encoded
 references for a Latin-1 document, or \emph{vice versa}.
 
 R output is again to a large extent under the user's control.  If a
@@ -876,6 +876,7 @@ named list of five functions:
     chunk.  Returns a possibly updated \code{object}.
 \item{\code{finish(object, error)}} Finish up, or clean up if
     \code{error} is true.
+    Its return value determines that of \code{Sweave}.
 \item{\code{checkopts(options)}} Convert or validate \code{options}
     given as a named list of character strings.
 \end{description}

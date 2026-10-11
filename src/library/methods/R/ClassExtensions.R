@@ -203,7 +203,8 @@ makeExtends <- function(Class,
     }
     if(is.null(coerce)) {
         coerce <- .simpleExtCoerce
-        if(isXS3Class(classDef2)) {
+        if(isXS3Class(classDef2) &&
+           as.character(to) %in% attr(classDef2@prototype, ".S3Class")) {
 ##            allNames <- names(slots)
             body(coerce, envir = packageEnv) <-
                 substitute({
@@ -256,10 +257,8 @@ makeExtends <- function(Class,
         }
         else if(simple) {
             replace <- .simpleExtReplace
-            if(isXS3Class(classDef2)) {  # replace the S3 part & slots in class to
-                S3Class <- attr(classDef2@prototype, ".S3Class")
-                if(is.null(S3Class)) # the setOldClass case ?
-                  S3Class <- to
+            S3Class <- attr(classDef2@prototype, ".S3Class")
+            if(!is.null(S3Class)) {
                 body(replace, envir = packageEnv) <-
                   quote({
                       methods::S3Part(from) <- value
@@ -391,7 +390,8 @@ makeExtends <- function(Class,
         what <- superClasses[[i]]
         whatDef <- getClassDef(what, package=packageSlot(exti))
         if(is.null(whatDef) # but shouldn't happen,
-           || !isXS3Class(whatDef))
+           || !isXS3Class(whatDef)
+           || !what %in% attr(whatDef@prototype, ".S3Class"))
             next
         coerce <- exti@coerce
         body(coerce, environment(coerce))<- body(.S3coerce)

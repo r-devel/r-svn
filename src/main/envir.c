@@ -4288,11 +4288,10 @@ attribute_hidden SEXP do_unregNS(SEXP call, SEXP op, SEXP args, SEXP rho)
 // .Internal(isRegisteredNamespace (name))  ==  isNamespaceLoaded(name)
 attribute_hidden SEXP do_getRegNS(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP name, val;
     checkArity(op, args);
-    name = checkNSname(call, PROTECT(coerceVector(CAR(args), SYMSXP)));
+    SEXP name = checkNSname(call, PROTECT(coerceVector(CAR(args), SYMSXP)));
     UNPROTECT(1);
-    val = R_findVarInFrame(R_NamespaceRegistry, name);
+    SEXP val = R_findVarInFrame(R_NamespaceRegistry, name);
 
     switch(PRIMVAL(op)) {
     case 0: // get..()
@@ -4769,8 +4768,10 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 	SEXP c;
 	/* This is tricky: we want to make a reasonable job of
 	   representing this string, and EncodeString() is the most
-	   comprehensive */
-	c = allocCharsxp(len);
+	   comprehensive.  It may translate c, and the R_alloc() that
+	   involves can run the GC, so c must be protected: the error
+	   unwind pops from the PROTECT stack. */
+	PROTECT(c = allocCharsxp(len));
 	if (len) memcpy(CHAR_RW(c), name, len);
 	switch(enc) {
 	case CE_UTF8: SET_UTF8(c); break;

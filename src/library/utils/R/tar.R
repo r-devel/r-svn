@@ -47,7 +47,7 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
     ## But as all commonly-used tars do (some commercial Unix do not,
     ## but GNU tar is commonly used there).
     ##
-    ## OTOH some (e.g. macOS) need external commands which may not be present.
+    ## OTOH some (e.g. macOS) need external commands which may not be present.
     cflag <- ""
     if (!missing(compressed))
         warning("untar(compressed=) is deprecated", call. = FALSE, domain = NA)
@@ -73,25 +73,25 @@ untar <- function(tarfile, files = NULL, list = FALSE, exdir = ".",
                 TAR <- paste(ZIP, "-dc", shQuote(tarfile), "|", TAR)
                 tarfile <- "-"
                 cflag <- ""
-            } else stop(sprintf("No %s command found", sQuote("gzip")))
+            } else stop(gettextf("No %s command found", sQuote("gzip")), domain = NA)
         if (cflag == "j")
             if (nzchar(ZIP <- Sys.getenv("R_BZIPCMD"))) {
                 TAR <- paste(ZIP,  "-dc", shQuote(tarfile), "|", TAR)
                 tarfile <- "-"
                 cflag <- ""
-            } else stop(sprintf("No %s command found", sQuote("bzip2")))
+            } else stop(gettextf("No %s command found", sQuote("bzip2")), domain = NA)
         if (cflag == "J")
             if (nzchar(Sys.which("xz"))) {
                 TAR <- paste("xz -dc", shQuote(tarfile), "|", TAR)
                 tarfile <- "-"
                 cflag <- ""
-            } else stop(sprintf("No %s command found", sQuote("xz")))
+            } else stop(gettextf("No %s command found", sQuote("xz")), domain = NA)
         if (cflag == "-zstd")
             if (nzchar(Sys.which("zstd"))) {
                 TAR <- paste("zstd -dc", shQuote(tarfile), "|", TAR)
                 tarfile <- "-"
                 cflag <- ""
-            } else stop(sprintf("No %s command found", sQuote("zstd")))
+            } else stop(gettextf("No %s command found", sQuote("zstd")), domain = NA)
     }
 
     if (list) {

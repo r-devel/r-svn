@@ -1,6 +1,6 @@
 % File src/library/stats/man/glm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2025 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{glm}
@@ -27,7 +27,9 @@ glm(formula, family = gaussian, data, weights, subset,
 glm.fit(x, y, weights = rep.int(1, nobs),
         start = NULL, etastart = NULL, mustart = NULL,
         offset = rep.int(0, nobs), family = gaussian(),
-        control = list(), intercept = TRUE, singular.ok = TRUE)
+        control = list(), intercept = TRUE,
+        tol  = control$tol  \%||\% min(1e-7, control$epsilon/1000), %
+        wtol = control$wtol \%||\% 0, singular.ok = TRUE) %
 
 \method{weights}{glm}(object, type = c("prior", "working"), \dots)
 }
@@ -114,13 +116,20 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \item{intercept}{logical. Should an intercept be included in the
     \emph{null} model?}
 
+  \item{tol}{tolerance for the \code{\link{qr}} decomposition.  Default
+    is 1e-7 (the previously hardwired value), as for \code{\link{lm}}.}
+  \item{wtol}{tolerance for treating small positive weights as zero.
+    Default is currently 0 for back compatibility, indicating that only
+    exact zeros are treated as zero.}
+
   \item{object}{an object inheriting from class \code{"glm"}.}
   \item{type}{character, partial matching allowed.  Type of weights to
     extract from the fitted model object.  Can be abbreviated.}
 
   \item{\dots}{
     For \code{glm}: arguments to be used to form the default
-    \code{control} argument if it is not supplied directly.
+    \code{control} argument if it is not supplied directly, hence see
+    \code{\link{glm.control}()}.
 
     For \code{weights}: further arguments passed to or from other methods.
   }
@@ -210,6 +219,10 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \code{effects}, \code{fitted.values} and \code{residuals} can be used to
   extract various useful features of the value returned by \code{glm}.
 
+  Such models can be updated via \code{\link{update}()}.
+  For that to work,  \code{glm()} now % R-devel: Sep 3, 2026; R >= 4.7.0
+  may fix up the resulting \code{call} component.
+
   \code{weights} extracts a vector of weights, one for each case in the
   fit (after subsetting and \code{na.action}).
 
@@ -291,11 +304,11 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   the component \code{y} of the result is the proportion of successes.
 }
 \seealso{
-  \code{\link{anova.glm}}, \code{\link{summary.glm}}, etc. for
-  \code{glm} methods,
-  and the generic functions \code{\link{anova}}, \code{\link{summary}},
+  \code{\link{anova.glm}}, \code{\link{residuals.glm}},
+  \code{\link{summary.glm}}, etc. for \code{glm} methods,
+  and the generic functions \code{\link{AIC}}, \code{\link{extractAIC}},
   \code{\link{effects}}, \code{\link{fitted.values}},
-  and \code{\link{residuals}}.
+  and \code{\link{logLik}}.
 
   \code{\link{lm}} for non-generalized \emph{linear} models (which SAS
   calls GLMs, for \sQuote{general} linear models).
@@ -339,10 +352,12 @@ anova(glm.D93)
 A1 <- -2*c(ll) + 2*attr(ll, "df")
 A2 <- glm.D93$family$aic(counts, mu=fitted(glm.D93), wt=1) +
         2 * length(coef(glm.D93))
+(A3 <- extractAIC(glm.D93))
 stopifnot(exprs = {
   all.equal(A0, A1)
   all.equal(A1, A2)
-  all.equal(A1, glm.D93$aic)
+  all.equal(A2, A3[2])
+  all.equal(A3[2], glm.D93$aic)
 })
 
 
