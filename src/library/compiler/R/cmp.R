@@ -654,7 +654,14 @@ INCLNK.OP = 0,
 DECLNK.OP = 0,
 DECLNK_N.OP = 1,
 INCLNKSTK.OP = 0,
-DECLNKSTK.OP = 0
+DECLNKSTK.OP = 0,
+MAKESAVED.OP = 1,
+PROMSAVED.OP = 2,
+FORCESAVED.OP = 2,
+SETSAVEDARGS.OP = 2,
+DROPSAVED.OP = 1,
+BRSAVED.OP = 2,
+STORESAVED.OP = 1
 )
 
 Opcodes.names <- names(Opcodes.argc)
@@ -788,6 +795,13 @@ DECLNK.OP <- 125
 DECLNK_N.OP <- 126
 INCLNKSTK.OP <- 127
 DECLNKSTK.OP <- 128
+MAKESAVED.OP <- 129
+PROMSAVED.OP <- 130
+FORCESAVED.OP <- 131
+SETSAVEDARGS.OP <- 132
+DROPSAVED.OP <- 133
+BRSAVED.OP <- 134
+STORESAVED.OP <- 135
 
 
 ##
@@ -1187,13 +1201,19 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
     if (cntxt$tailcall) cb$putcode(RETURN.OP)
 }
 
-cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
+## 'shared' describes the shared arguments of an inner getter or setter
+## call of a complex assignment (see sharedArgs); NULL otherwise
+cmpCallArgs <- function(args, cb, cntxt, nse = FALSE, shared = NULL) {
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
         n <- names[[i]]
-        if (missing(a)) { ## better test for missing??
+        if (! is.null(shared) && shared$map[i] >= 0) {
+            cmpSharedPromise(shared, i, cb)
+            cmpTag(n, cb)
+        }
+        else if (missing(a)) { ## better test for missing??
             cb$putcode(DOMISSING.OP)
             cmpTag(n, cb)
         }
@@ -1645,6 +1665,137 @@ flattenPlace <- function(place, cntxt, loc = NULL) {
     list(places = places, origplaces = origplaces)
 }
 
+##
+## Shared argument promises for complex assignments
+##
+## The inner calls of x[i]$y <- v evaluate i twice, in the getter `[`
+## and in the setter `[<-`.  To evaluate it once the compiled code
+## reserves one node stack slot per shared argument (symbols and
+## calls, except the name argument of `$` and `@`) below the working
+## values of the assignment; promiseAssignArgs() in eval.c is the
+## interpreter's version.  A slot is filled with the argument's value
+## or promise on first use, so the getter and the setter fetch the
+## slot instead of compiling the expression twice.  The number of
+## stack entries above the slots is tracked in saved$depth; the
+## instructions get the distance from the top of the stack to the
+## slot they use as their first operand.  After evaluating the RHS,
+## MAKESAVED marks initially missing symbols as unshared, matching
+## promiseAssignArgs() even if a getter later binds one of them.
+##
+
+## The promise code of a shared call argument is compiled, as for
+## MAKEPROM; its first use in a value context compiles it inline as
+## well (cmpSharedValue), so such an argument is compiled twice.
+## Evaluating the promise code there instead would cost a nested
+## bcEval() per assignment, 25-40% on x[i + 1L][[1L]] <- v.
+planSavedArgs <- function(flatPlace, idxs, cb, cntxt) {
+    pcntxt <- make.promiseContext(cntxt)
+    pcntxt$savedMap <- NULL
+    codes <- list()
+    maps <- vector("list", length(flatPlace))
+    argMaps <- vector("list", length(flatPlace))
+    for (i in idxs) {
+        place <- flatPlace[[i]]
+        args <- place[-c(1, 2)]
+        map <- rep(-1L, length(args))
+        fun <- place[[1]]
+        nameArg <- is.name(fun) && as.character(fun) %in% c("$", "@")
+        if (! nameArg)
+            for (j in seq_along(args)) {
+                a <- args[[j]]
+                if (missing(a) || identical(a, quote(`...`)))
+                    next
+                if (is.symbol(a) || typeof(a) == "language") {
+                    code <- if (is.symbol(a)) a
+                            else genCode(a, pcntxt, loc = cb$savecurloc())
+                    codes <- c(codes, list(code))
+                    map[j] <- length(codes) - 1L
+                }
+            }
+        maps[[i]] <- map
+        ## the SETSAVEDARGS constant covers the arguments of the
+        ## getter call, `*tmp*` and the others; an entry is NULL or
+        ## the slot and code (eval.c treats the setter's value
+        ## argument after them as NULL)
+        argMap <- vector("list", length(map) + 1L)
+        for (j in seq_along(map))
+            if (map[j] >= 0)
+                argMap[[j + 1L]] <- list(map[j], codes[[map[j] + 1L]])
+        argMaps[[i]] <- argMap
+    }
+    saved <- new.env(parent = emptyenv())
+    saved$n <- length(codes)
+    saved$codes <- codes
+    saved$maps <- maps
+    saved$argMaps <- argMaps
+    saved$depth <- 0L
+    saved
+}
+
+## distance from the top of the stack to a slot, 'adj' entries above
+## saved$depth
+savedSlotOffset <- function(saved, adj, slot)
+    saved$depth + adj + saved$n - slot
+
+## emit SETSAVEDARGS for the getter or setter call about to be made
+## when some of its arguments are shared; 'adj' is the number of stack
+## entries the call sequence has added above saved$depth
+cmpSetSavedArgs <- function(cntxt, adj, cb) {
+    map <- cntxt$savedMap
+    if (is.null(map) || ! any(map >= 0))
+        return(invisible(FALSE))
+    saved <- cntxt$saved
+    ci <- cb$putconst(saved$argMaps[[cntxt$savedPlace]])
+    cb$putcode(SETSAVEDARGS.OP, savedSlotOffset(saved, adj, 0L), ci)
+    invisible(TRUE)
+}
+
+## The shared arguments of the getter or setter call about to be
+## compiled, for cmpCallArgs, cmpBuiltinArgs and cmpIndices: NULL when
+## there are none, otherwise the slot map, the number of stack entries
+## the call sequence has added above saved$depth, and whether this is
+## the getter (first) use of the arguments.
+sharedArgs <- function(cntxt, adj, first = FALSE) {
+    map <- cntxt$savedMap
+    if (is.null(map) || ! any(map >= 0))
+        NULL
+    else
+        list(saved = cntxt$saved, map = map, adj = adj, first = first)
+}
+
+## push the promise (or, for a builtin, the value) of shared argument
+## 'i' as a call argument
+cmpSharedPromise <- function(shared, i, cb) {
+    saved <- shared$saved
+    slot <- shared$map[i]
+    ci <- cb$putconst(saved$codes[[slot + 1L]])
+    cb$putcode(PROMSAVED.OP, savedSlotOffset(saved, shared$adj, slot), ci)
+}
+
+## push the value of shared argument 'i' in a value context: in the
+## getter ('first' use) its expression is compiled inline and the
+## result stored in the slot, in the setter the slot is used; 'extra'
+## is the number of stack entries pushed since shared$adj was computed
+cmpSharedValue <- function(a, shared, i, cb, cntxt, extra = 0L) {
+    saved <- shared$saved
+    slot <- shared$map[i]
+    off <- savedSlotOffset(saved, shared$adj + extra, slot)
+    if (shared$first) {
+        label <- cb$makelabel()
+        cb$putcode(BRSAVED.OP, off, label)
+        if (is.symbol(a))
+            cmpSym(a, cb, cntxt)
+        else
+            cmp(a, cb, cntxt)
+        cb$putcode(STORESAVED.OP, off + 1L)
+        cb$putlabel(label)
+    }
+    else {
+        ci <- cb$putconst(saved$codes[[slot + 1L]])
+        cb$putcode(FORCESAVED.OP, off, ci)
+    }
+}
+
 cmpGetterCall <- function(place, origplace, cb, cntxt) {
     ncntxt <- make.callContext(cntxt, place)
     sloc <- cb$savecurloc()
@@ -1655,8 +1806,10 @@ cmpGetterCall <- function(place, origplace, cb, cntxt) {
             ci <- cb$putconst(fun)
             cb$putcode(GETFUN.OP, ci)
             cb$putcode(PUSHNULLARG.OP)
-            cmpCallArgs(place[-c(1, 2)], cb, ncntxt)
+            cmpCallArgs(place[-c(1, 2)], cb, ncntxt,
+                        shared = sharedArgs(ncntxt, 3L))
             cci <- cb$putconst(place)
+            cmpSetSavedArgs(ncntxt, 3L, cb)
             cb$putcode(GETTER_CALL.OP, cci)
             cb$putcode(SWAP.OP)
         }
@@ -1665,8 +1818,10 @@ cmpGetterCall <- function(place, origplace, cb, cntxt) {
         cmp(fun, cb, ncntxt)
         cb$putcode(CHECKFUN.OP)
         cb$putcode(PUSHNULLARG.OP)
-        cmpCallArgs(place[-c(1, 2)], cb, ncntxt)
+        cmpCallArgs(place[-c(1, 2)], cb, ncntxt,
+                        shared = sharedArgs(ncntxt, 3L))
         cci <- cb$putconst(place)
+        cmpSetSavedArgs(ncntxt, 3L, cb)
         cb$putcode(GETTER_CALL.OP, cci)
         cb$putcode(SWAP.OP)
     }
@@ -1727,23 +1882,42 @@ cmpComplexAssign <- function(symbol, lhs, value, superAssign, cb, cntxt) {
         endOP <- ENDASSIGN.OP
     }
     if (! cntxt$toplevel) cb$putcode(INCLNKSTK.OP)
-    ncntxt <- make.nonTailCallContext(cntxt)
-    cmp(value, cb, ncntxt)
-    csi <- cb$putconst(symbol)
-    cb$putcode(startOP, csi)
-
-    ncntxt <- make.argContext(cntxt)
     flat <- flattenPlace(lhs, cntxt, loc = cb$savecurloc())
     flatOrigPlace <- flat$origplaces
     flatPlace <- flat$places
     flatPlaceIdxs <- seq_along(flatPlace)[-1]
-    for (i in rev(flatPlaceIdxs))
+    saved <- planSavedArgs(flatPlace, flatPlaceIdxs, cb, cntxt)
+
+    ncntxt <- make.nonTailCallContext(cntxt)
+    cmp(value, cb, ncntxt)
+    if (saved$n > 0)
+        cb$putcode(MAKESAVED.OP, cb$putconst(saved$codes))
+    csi <- cb$putconst(symbol)
+    cb$putcode(startOP, csi)
+    saved$depth <- 4L
+
+    ## the stack holds RHS, LHS cell, LHS value, RHS; each getter
+    ## leaves one more value, each setter consumes one
+    ncntxt <- make.argContext(cntxt)
+    ncntxt$saved <- saved
+    for (i in rev(flatPlaceIdxs)) {
+        ncntxt$savedPlace <- i
+        ncntxt$savedMap <- saved$maps[[i]]
         cmpGetterCall(flatPlace[[i]], flatOrigPlace[[i]], cb, ncntxt)
+        saved$depth <- saved$depth + 1L
+    }
+    ncntxt$savedMap <- NULL
     cmpSetterCall(flatPlace[[1]], flatOrigPlace[[1]], value, cb, ncntxt)
-    for (i in flatPlaceIdxs)
+    saved$depth <- saved$depth - 1L
+    for (i in flatPlaceIdxs) {
+        ncntxt$savedPlace <- i
+        ncntxt$savedMap <- saved$maps[[i]]
         cmpSetterCall(flatPlace[[i]], flatOrigPlace[[i]], as.name("*vtmp*"), cb, ncntxt)
+        saved$depth <- saved$depth - 1L
+    }
 
     cb$putcode(endOP, csi)
+    if (saved$n > 0) cb$putcode(DROPSAVED.OP, saved$n)
     if (! cntxt$toplevel) cb$putcode(DECLNKSTK.OP)
     if (cntxt$tailcall) {
         cb$putcode(INVISIBLE.OP)
@@ -1770,9 +1944,11 @@ cmpSetterCall <- function(place, origplace, vexpr, cb, cntxt) {
             ci <- cb$putconst(afun)
             cb$putcode(GETFUN.OP, ci)
             cb$putcode(PUSHNULLARG.OP)
-            cmpCallArgs(place[-c(1, 2)], cb, ncntxt)
+            cmpCallArgs(place[-c(1, 2)], cb, ncntxt,
+                        shared = sharedArgs(ncntxt, 3L))
             cci <- cb$putconst(acall)
             cvi <- cb$putconst(vexpr)
+            cmpSetSavedArgs(ncntxt, 3L, cb)
             cb$putcode(SETTER_CALL.OP, cci, cvi)
         }
     }
@@ -1780,9 +1956,11 @@ cmpSetterCall <- function(place, origplace, vexpr, cb, cntxt) {
         cmp(afun, cb, ncntxt)
         cb$putcode(CHECKFUN.OP)
         cb$putcode(PUSHNULLARG.OP)
-        cmpCallArgs(place[-c(1, 2)], cb, ncntxt)
+        cmpCallArgs(place[-c(1, 2)], cb, ncntxt,
+                        shared = sharedArgs(ncntxt, 3L))
         cci <- cb$putconst(acall)
         cvi <- cb$putconst(vexpr)
+        cmpSetSavedArgs(ncntxt, 3L, cb)
         cb$putcode(SETTER_CALL.OP, cci, cvi)
     }
     cb$restorecurloc(sloc)
@@ -1810,10 +1988,12 @@ cmpSetterDispatch <- function(start.op, dflt.op, afun, place, call, cb, cntxt) {
     else {
         ci <- cb$putconst(call)
         end.label <- cb$makelabel()
+        cmpSetSavedArgs(cntxt, 0L, cb)
         cb$putcode(start.op, ci, end.label)
         if (length(place) > 2) {
             args <- place[-(1:2)]
-            cmpBuiltinArgs(args, names(args), cb, cntxt, TRUE)
+            cmpBuiltinArgs(args, names(args), cb, cntxt, TRUE,
+                           sharedArgs(cntxt, 4L))
         }
         cb$putcode(dflt.op)
         cb$putlabel(end.label)
@@ -1858,10 +2038,12 @@ cmpGetterDispatch <- function(start.op, dflt.op, call, cb, cntxt) {
         ci <- cb$putconst(call)
         end.label <- cb$makelabel()
         cb$putcode(DUP2ND.OP)
+        cmpSetSavedArgs(cntxt, 1L, cb)
         cb$putcode(start.op, ci, end.label)
         if (length(call) > 2) {
             args <- call[-(1:2)]
-            cmpBuiltinArgs(args, names(args), cb, cntxt, TRUE)
+            cmpBuiltinArgs(args, names(args), cb, cntxt, TRUE,
+                           sharedArgs(cntxt, 5L, first = TRUE))
         }
         cb$putcode(dflt.op)
         cb$putlabel(end.label)
@@ -2293,12 +2475,20 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
     }
 }
 
-cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
+## 'shared' describes the shared arguments of an inner getter or setter
+## call of a complex assignment (see sharedArgs); NULL otherwise
+cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE,
+                           shared = NULL) {
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
         n <- names[[i]]
-        if (missing(a)) {
+        if (! is.null(shared) && shared$map[i] >= 0) {
+            cmpSharedValue(a, shared, i, cb, ncntxt)
+            cb$putcode(PUSHARG.OP)
+            cmpTag(n, cb)
+        }
+        else if (missing(a)) {
             if (missingOK) {
                 cb$putcode(DOMISSING.OP)
                 cmpTag(n, cb)
@@ -3282,7 +3472,9 @@ asm <- function(e, gen, env = .GlobalEnv, options = NULL) {
 ## Improved subset and subassign handling
 ##
 
-cmpIndices <- function(indices, cb, cntxt) {
+## 'shared' describes the shared indices of an inner getter or setter
+## call of a complex assignment (see sharedArgs); NULL otherwise
+cmpIndices <- function(indices, cb, cntxt, shared = NULL) {
     n <- length(indices)
     needInc <- FALSE
     for (i in seq_along(indices))
@@ -3291,7 +3483,11 @@ cmpIndices <- function(indices, cb, cntxt) {
             break
         }
     for (i in seq_along(indices)) {
-        cmp(indices[[i]], cb, cntxt, TRUE)
+        ## each index is pushed on the stack, so the depth grows by one
+        if (! is.null(shared) && shared$map[i] >= 0)
+            cmpSharedValue(indices[[i]], shared, i, cb, cntxt, i - 1L)
+        else
+            cmp(indices[[i]], cb, cntxt, TRUE)
         if (needInc && i < n) cb$putcode(INCLNK.OP)
     }
     if (needInc) {
@@ -3362,9 +3558,10 @@ cmpSubassignDispatch <- function(start.op, dflt.op, afun, place, call, cb,
     else {
         ci <- cb$putconst(call)
         label <- cb$makelabel()
+        cmpSetSavedArgs(cntxt, 0L, cb)
         cb$putcode(start.op, ci, label)
         indices <- place[-c(1, 2)]
-        cmpIndices(indices, cb, cntxt)
+        cmpIndices(indices, cb, cntxt, sharedArgs(cntxt, 0L))
         if (dflt.op$rank) cb$putcode(dflt.op$code, ci, length(indices))
         else cb$putcode(dflt.op$code, ci)
         cb$putlabel(label)
@@ -3414,9 +3611,10 @@ cmpSubsetGetterDispatch <- function(start.op, dflt.op, call, cb, cntxt) {
         ci <- cb$putconst(call)
         end.label <- cb$makelabel()
         cb$putcode(DUP2ND.OP)
+        cmpSetSavedArgs(cntxt, 1L, cb)
         cb$putcode(start.op, ci, end.label)
         indices <- call[-c(1, 2)]
-        cmpIndices(indices, cb, cntxt)
+        cmpIndices(indices, cb, cntxt, sharedArgs(cntxt, 1L, first = TRUE))
         if (dflt.op$rank)
             cb$putcode(dflt.op$code, ci, length(indices))
         else
