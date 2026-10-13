@@ -2091,6 +2091,43 @@ wsub_buffer_expand(double needed, int *nns, wchar_t **cbuf, wchar_t **u)
  * either once or globally.
  * The functions are loosely patterned on the "sub" and "gsub" in "nawk". */
 
+/* Release whatever do_gsub() compiled.  Also called before an error is
+   signalled part-way through the text vector, since the unwind would
+   otherwise leak the compiled pattern. */
+static void gsub_free_pattern(bool fixed_opt, bool perl_opt, regex_t *reg,
+			      const unsigned char *tables,
+#ifdef HAVE_PCRE2
+			      pcre2_code *re, pcre2_match_data *mdata,
+			      pcre2_match_context *mcontext)
+#else
+			      pcre *re_pcre, pcre_extra *re_pe)
+#endif
+{
+    if (fixed_opt) ;
+    else if (perl_opt) {
+#ifdef HAVE_PCRE2
+	pcre2_match_data_free(mdata);
+	pcre2_code_free(re);
+	pcre2_match_context_free(mcontext);
+	if (tables)
+	    /* new PCRE2 will have pcre2_maketables_free() */
+	    free((void *)tables);
+#else
+	if (re_pe) pcre_free_study(re_pe);
+	pcre_free(re_pcre);
+	pcre_free((void *)tables);
+#endif
+    } else tre_regfree(reg);
+}
+
+#ifdef HAVE_PCRE2
+# define GSUB_FREE_PATTERN() \
+    gsub_free_pattern(fixed_opt, perl_opt, &reg, tables, re, mdata, mcontext)
+#else
+# define GSUB_FREE_PATTERN() \
+    gsub_free_pattern(fixed_opt, perl_opt, &reg, tables, re_pcre, re_pe)
+#endif
+
 attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP pat, rep, text, ans;
@@ -2247,18 +2284,24 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	    s = CHAR(STRING_ELT(text, i));
 	else if (use_WC) {
 	    ws = wtransChar2(STRING_ELT(text, i));
-	    if (!ws)
+	    if (!ws) {
+		GSUB_FREE_PATTERN();
 		error(_("input string %lld is invalid"), (long long)i+1);
+	    }
 	} else if (use_UTF8) {
 	    s = trCharUTF82(STRING_ELT(text, i));
-	    if (!s || !utf8Valid(s))
+	    if (!s || !utf8Valid(s)) {
+		GSUB_FREE_PATTERN();
 		error(_("input string %lld is invalid UTF-8"),
 		     (long long)i+1);
+	    }
 	} else {
 	    s = translateCharFP2(STRING_ELT(text, i));
-	    if (!s || (mbcslocale && !mbcsValid(s)))
+	    if (!s || (mbcslocale && !mbcsValid(s))) {
+		GSUB_FREE_PATTERN();
 		error(_("input string %lld is invalid in this locale"),
 		      (long long)i+1);
+	    }
 	}
 
 	if (fixed_opt) {
@@ -2489,21 +2532,7 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	vmaxset(vmax);
     }
 
-    if (fixed_opt) ;
-    else if (perl_opt) {
-#ifdef HAVE_PCRE2
-	pcre2_match_data_free(mdata);
-	pcre2_code_free(re);
-	pcre2_match_context_free(mcontext);
-	if (tables)
-	    /* new PCRE2 will have pcre2_maketables_free() */
-	    free((void *)tables);
-#else
-	if (re_pe) pcre_free_study(re_pe);
-	pcre_free(re_pcre);
-	pcre_free((void *)tables);
-#endif
-    } else tre_regfree(&reg);
+    GSUB_FREE_PATTERN();
 
   exit_gsub: 
     SHALLOW_DUPLICATE_ATTRIB(ans, text);
@@ -3404,16 +3433,22 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 				  nmatch, pmatch, 0);
 	    else if(use_WC) {
 		wt = wtransChar2(STRING_ELT(text, i));
-		if (!wt)
+		if (!wt) {
+		    free(pmatch);
+		    tre_regfree(&reg);
 		    error(_("input string %lld is invalid in this locale"),
 		          (long long)i + 1);
+		}
 		rc = tre_regwexec(&reg, wt, nmatch, pmatch, 0);
 		vmaxset(vmax);
 	    } else {
 		t = translateCharFP2(STRING_ELT(text, i));
-		if (!t || (mbcslocale && !mbcsValid(t)))
+		if (!t || (mbcslocale && !mbcsValid(t))) {
+		    free(pmatch);
+		    tre_regfree(&reg);
 		    error(_("input string %lld is invalid in this locale"),
 			  (long long)i + 1);
+		}
 		rc = tre_regexec(&reg, t,
 				 nmatch, pmatch, 0);
 		vmaxset(vmax);
