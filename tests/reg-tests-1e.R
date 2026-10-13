@@ -3973,6 +3973,14 @@ long_idx <- nchar(pd$text) > 1000L
 stopifnot(sum(long_idx) == 6L,
           grepl("^(STR_CONST|SYMBOL|SLOT)", pd$token[long_idx]))
 
+## scan() stripping a UTF-8 BOM from a first field that fills its buffer
+if (l10n_info()[["UTF-8"]]) {
+    x <- paste0("\ufeff", strrep("a", 8186L)) # 8189 bytes: buffer size - 3
+    stopifnot(identical(scan(text = x, what = "", quiet = TRUE), strrep("a", 8186L)))
+}
+## read 3 bytes past the end of the field buffer in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
