@@ -1894,6 +1894,11 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 
     R_assert(TYPEOF(ref_table) == LISTSXP && TYPEOF(CAR(ref_table)) == VECSXP);
 
+    /* Each level of nesting in the stream recurses here, so a stream
+       nesting lists tens of thousands deep would otherwise overflow the
+       C stack before anything else notices. */
+    R_CheckStack();
+
     UnpackFlags(flags, &type, &levs, &objf, &hasattr, &hastag);
 
     switch(type) {
