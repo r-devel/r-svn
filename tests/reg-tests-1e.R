@@ -3973,6 +3973,17 @@ long_idx <- nchar(pd$text) > 1000L
 stopifnot(sum(long_idx) == 6L,
           grepl("^(STR_CONST|SYMBOL|SLOT)", pd$token[long_idx]))
 
+## strsplit(perl = TRUE) stepped over an empty match by utf8clen() of the
+## next byte even for bytes-encoded or single-byte-locale input, running
+## past the end of the string (and of the token buffer) for bytes >= 0xf0
+x <- "\xff"; Encoding(x) <- "bytes"
+y <- "a\xffb"; Encoding(y) <- "bytes"
+stopifnot(identical(strsplit(x, "|", perl = TRUE, useBytes = TRUE),
+                    strsplit(x, "|", useBytes = TRUE)),
+          identical(strsplit(y, "x*", perl = TRUE, useBytes = TRUE),
+                    strsplit(y, "x*", useBytes = TRUE)))
+## heap-buffer-overflow in R 4.4.0 to 4.6.1 (visible under ASan)
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

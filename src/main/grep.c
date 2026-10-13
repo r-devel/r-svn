@@ -869,11 +869,14 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 					  (int) strlen(bufp),
 					  0, 0, ovector, ovecsize)) >= 0) {
 #endif
-			/* Empty matches get the next char, so move by one. */
+			/* Empty matches get the next char, so move by one.
+			   Only use_UTF8 input has been validated as UTF-8;
+			   utf8clen() on an arbitrary byte claims up to 6 and
+			   would run past the terminator. */
 			if (ovector[1] > 0)
 			    bufp += ovector[1];
 			else if (*bufp)
-			    bufp += utf8clen(*bufp);
+			    bufp += use_UTF8 ? utf8clen(*bufp) : 1;
 			ntok++;
 			if (*bufp == '\0')
 			    break;
@@ -903,8 +906,8 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 			pt[ovector[0]] = '\0';
 			bufp += ovector[1];
 		    } else {
-			/* Match was empty. */
-			int clen = utf8clen(*bufp);
+			/* Match was empty: copy one character (see above). */
+			int clen = use_UTF8 ? utf8clen(*bufp) : 1;
 			strncpy(pt, bufp, clen);
 			pt[clen] = '\0';
 			bufp += clen;
