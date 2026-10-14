@@ -3973,7 +3973,7 @@ long_idx <- nchar(pd$text) > 1000L
 stopifnot(sum(long_idx) == 6L,
           grepl("^(STR_CONST|SYMBOL|SLOT)", pd$token[long_idx]))
 
-## parse(keep.source = TRUE) after a lexer error in a previous parse
+## parse(keep.source = TRUE) after a lexer error in a previous parse -- PR#19215
 local({
     try(parse(text = "#a\n#a\n#a\ny + '\\q'", keep.source = TRUE), silent = TRUE)
     pd <- getParseData(parse(text = "c#\nc#\n", keep.source = TRUE))
