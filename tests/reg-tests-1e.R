@@ -3944,6 +3944,22 @@ stopifnot(print(abs(pvW/pvX - 1)) <= c(2e-14, 2e-14, 1e-15),
 ## not ok in  R <= 4.6.1
 
 
+## memDecompress(type = "gzip") with libdeflate allocated the uncompressed
+## size recorded in the gzip trailer before decoding anything, so a small
+## stream claiming 4 GB could exhaust memory (found by fuzzing)
+x <- as.raw(rep(0L, 1000))
+tf <- tempfile(fileext = ".gz")
+con <- gzfile(tf, "wb"); writeBin(x, con); close(con)
+g <- readBin(tf, "raw", file.size(tf)); unlink(tf)
+stopifnot(identical(memDecompress(g, "gzip"), x))
+g[length(g) - 3:0] <- as.raw(0xff)              # ISIZE = 2^32 - 1
+vs <- mem.maxVSize(); invisible(mem.maxVSize(1024))
+r <- tryCatch(memDecompress(g, "gzip"), error = conditionMessage)
+invisible(mem.maxVSize(vs))
+stopifnot(is.character(r), !grepl("memory limit", r, fixed = TRUE))
+assertErrV(memDecompress(g[1:12], "gzip"))      # shorter than a gzip member
+## allocated 4 GB (and read past short input) in R <= 4.6.x
+
 
 ## read.dcf() escapes 4-byte sequences above U+10FFFF, which iconv()
 ## passes through but validUTF8() rejects, like other invalid bytes
