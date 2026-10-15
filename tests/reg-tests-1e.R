@@ -3973,6 +3973,12 @@ long_idx <- nchar(pd$text) > 1000L
 stopifnot(sum(long_idx) == 6L,
           grepl("^(STR_CONST|SYMBOL|SLOT)", pd$token[long_idx]))
 
+## Kalman*() with a list 'mod' lacking names -- PR#NNNNN
+tools::assertError(KalmanLike(1:5, list(1, 2)))
+tools::assertError(KalmanForecast(3L, list(1, "a")))
+## segfaulted in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
