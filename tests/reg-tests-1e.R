@@ -3973,7 +3973,7 @@ long_idx <- nchar(pd$text) > 1000L
 stopifnot(sum(long_idx) == 6L,
           grepl("^(STR_CONST|SYMBOL|SLOT)", pd$token[long_idx]))
 
-## isoreg() on empty input left 'yc' uninitialized -- PR#NNNNN
+## isoreg() on empty input left 'yc' uninitialized -- PR#19224
 x <- lapply(1:1e5, function(i) 12345.5 + 0); rm(x); invisible(gc()) # free nodes holding junk
 stopifnot(vapply(1:3, function(i) identical(isoreg(numeric(0))$yc, 0), NA))
 ## returned stale heap contents in R <= 4.6.1
