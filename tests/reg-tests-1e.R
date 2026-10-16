@@ -4000,6 +4000,26 @@ local({
 })
 ## segfaulted in R <= 4.6.1
 
+
+## load() of a pre-1.0 save file with two records at one node index
+local({
+    f <- tempfile()
+    writeLines(c("1976", "1 2 0", "0 100 \"x\"", "1 200", "2 300",
+                 "1 2 0 0 -1 300 -1 100", "2 13 0 0 -1 3 1 2 3", "200"), f)
+    e <- new.env()
+    stopifnot(identical(suppressWarnings(load(f, e)), "x"),
+              identical(e$x, 1:3))
+    writeLines(c("1976", "1 3 0", "0 100 \"x\"", "1 200", "2 300", "3 400",
+                 "1 2 0 0 -1 300 -1 100", "2 13 0 0 -1 2 7 7",
+                 "2 13 0 0 -1 0", "200"), f)
+    E <- tryCid(suppressWarnings(load(f, new.env())))
+    stopifnot(inherits(E, "error"))
+    if(englishMsgs)
+        stopifnot(grepl("duplicate node index", conditionMessage(E)))
+    unlink(f)
+})
+## heap-buffer-overflow in R <= 4.6.1
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
