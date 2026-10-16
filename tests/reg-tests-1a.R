@@ -1136,6 +1136,10 @@ stopifnot(tmp$mon == 11)
 # day of month will be different in a leap year on systems that default
 # to the current year, so test differences:
 stopifnot(diff(tmp$mday) == c(0, 1, 0, 0))
+## An out-of-range day-of-year must not read past month_days in glibc_fix.
+year <- as.POSIXlt(Sys.time())$year + 1900L
+leap <- year %% 4L == 0L && (year %% 100L != 0L || year %% 400L == 0L)
+stopifnot(is.na(strptime("366", "%j")) == !leap)
 ## Comments: failed on glibc-based systems in 1.3.1, including Windows.
 
 
