@@ -4038,6 +4038,12 @@ assertErrV(qr.influence(qr = list(1,"a"), res = 0))
 
 
 
+## isoreg() on empty input left 'yc' uninitialized -- PR#19224
+x <- lapply(1:1e5, function(i) 12345.5 + 0); rm(x); invisible(gc()) # free nodes holding junk
+stopifnot(vapply(1:3, function(i) identical(isoreg(numeric(0))$yc, 0), NA))
+## returned stale heap contents in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
