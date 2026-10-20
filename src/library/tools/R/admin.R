@@ -315,43 +315,49 @@ function(dir, outDir)
     }
     ## assume that if locale is 'C' we can used 8-bit encodings unchanged.
     if(need_enc && (Sys.getlocale("LC_CTYPE") %notin% c("C", "POSIX"))) {
-        con <- file(outFile, "a")
-        on.exit(close(con))  # Windows does not like files left open
-        badfiles <- c()
-        for(f in codeFiles) {
-            ## We needed more care here: iconv() in macOS 14.1 throws
-            ## Aborts on some incorrectly encoded inputs.
+        process_one_enc <- function(f) {
             lines <- readLines(f, warn = FALSE)
-            if (enc == "UTF-8") {
-                valid <- validUTF8(lines)
-                if (any(!valid)) {
-                    warning(sprintf("file %s is invalid UTF-8",
-                                    sQuote(basename(f))),
-                            domain = NA, call. = FALSE)
-                    badfiles <- c(badfiles, basename(f))
-                }
-            }
+            bad_utf8 <- enc == "UTF-8" && any(!validUTF8(lines))
             tmp <- iconv(lines, from = enc, to = "")
             bad <- which(is.na(tmp))
-            if(length(bad))
-                tmp <- iconv(lines, from = enc, to = "", sub = "byte")
-            ## do not report purely comment lines,
-            ## nor trailing comments not after quotes
+            if (length(bad)) tmp <- iconv(lines, from = enc, to = "", sub = "byte")
             comm <- grep("^[^#'\"]*#", lines[bad],
                          invert = TRUE, useBytes = TRUE)
             bad2 <- bad[comm]
-            if(length(bad2)) {
-                warning(sprintf(ngettext(length(bad2),
+            line1 <- paste0("#line 1 \"", f, "\"")
+            err <- tryCatch(testParse(text = c(line1, tmp)), error = function(e) e)
+            list(f = f, line1 = line1, tmp = tmp, bad_utf8 = bad_utf8,
+                 bad2 = bad2, err = err)
+        }
+        ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                      getOption("mc.cores", 1L) else 1L
+        results <- if (ncores > 1L && length(codeFiles) > 1L) {
+            parallel::mclapply(codeFiles, process_one_enc, mc.cores = ncores)
+        } else {
+            lapply(codeFiles, process_one_enc)
+        }
+        con <- file(outFile, "a")
+        on.exit(close(con))
+        badfiles <- c()
+        for (res in results) {
+            if (res$bad_utf8) {
+                warning(sprintf("file %s is invalid UTF-8",
+                                sQuote(basename(res$f))),
+                        domain = NA, call. = FALSE)
+                badfiles <- c(badfiles, basename(res$f))
+            }
+            if (length(res$bad2)) {
+                warning(sprintf(ngettext(length(res$bad2),
                                          "unable to re-encode %s line %s",
                                          "unable to re-encode %s lines %s"),
-                                sQuote(basename(f)),
-                                paste(bad2, collapse = ", ")),
+                                sQuote(basename(res$f)),
+                                paste(res$bad2, collapse = ", ")),
                         domain = NA, call. = FALSE)
             }
-            line1 <- paste0("#line 1 \"", f, "\"")
-            testParse(text = c(line1, tmp))
-            writeLines(line1, con)
-            writeLines(tmp, con)
+            if (inherits(res$err, "error"))
+                stop(conditionMessage(res$err), domain = NA, call. = FALSE)
+            writeLines(res$line1, con)
+            writeLines(res$tmp, con)
         }
         if(length(badfiles)) {
             validate <- config_val_to_logical(Sys.getenv("_R_CHECK_VALIDATE_UTF8_",
@@ -363,15 +369,21 @@ function(dir, outDir)
         }
 	close(con); on.exit()
     } else {
-        ## <NOTE>
-        ## It may be safer to do
-        ##   writeLines(sapply(codeFiles, readLines), outFile)
-        ## instead, but this would be much slower ...
         ## use fast version of file.append that ensures LF between files
-        lapply(codeFiles, testParse)
+        ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                      getOption("mc.cores", 1L) else 1L
+        if (ncores > 1L && length(codeFiles) > 1L) {
+            results <- parallel::mclapply(codeFiles, function(f)
+                tryCatch(testParse(f), error = function(e) e),
+                mc.cores = ncores)
+            errs <- Filter(function(x) inherits(x, "error"), results)
+            if (length(errs))
+                stop(conditionMessage(errs[[1L]]), domain = NA, call. = FALSE)
+        } else {
+            lapply(codeFiles, testParse)
+        }
         if(!all(.file_append_ensuring_LFs(outFile, codeFiles, enc = enc)))
             stop("unable to write code files")
-        ## </NOTE>
     }
     invisible()
 }
@@ -685,8 +697,19 @@ function(src_dir, out_dir, packages)
     ## Really only useful for base packages under Unix.
     ## See @file{src/library/Makefile.in}.
 
-    for(p in unlist(strsplit(packages, "[[:space:]]+")))
-        .install_package_indices(file.path(src_dir, p), file.path(out_dir, p))
+    pkgs <- unlist(strsplit(packages, "[[:space:]]+"))
+    ncores <- if (requireNamespace("parallel", quietly = TRUE))
+                  getOption("mc.cores", 1L) else 1L
+    if (ncores > 1L) {
+        parallel::mclapply(pkgs, function(p)
+            .install_package_indices(file.path(src_dir, p),
+                                     file.path(out_dir,  p)),
+            mc.cores = ncores)
+    } else {
+        for (p in pkgs)
+            .install_package_indices(file.path(src_dir, p),
+                                     file.path(out_dir,  p))
+    }
     utils::make.packages.html(.Library, verbose = FALSE)
     invisible()
 }
