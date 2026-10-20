@@ -4208,6 +4208,18 @@ if (l10n_info()[["UTF-8"]]) {
 ## read 3 bytes past the end of the field buffer in R <= 4.6.1
 
 
+## chartr() with a large translation table
+if (l10n_info()[["UTF-8"]]) {
+    old <- paste0("a-", intToUtf8(0x1F600L)); old <- paste0(old, old)
+    stopifnot(identical(chartr(old, toupper(old), "abc"), "ABC"),
+              identical(chartr("aa", "bc", "a"), "c"), # last mapping wins
+              identical(chartr("a-ca", "x-zq", "abc"), "qyz"),
+              identical(chartr(paste0(old, "a-c"), paste0(toupper(old), "x-z"),
+                               "abc"), "xyz"))
+}
+## sorted the ~257000 entries by insertion sort, taking ~30s in R <= 4.6.x
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
