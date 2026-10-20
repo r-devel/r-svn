@@ -849,8 +849,7 @@ cacheMetaData <-
     packages <- attr(generics, "package")
     if(length(packages) <  length(generics))
         packages <- rep(packages, length.out = length(generics))
-    if(attach && exists(".requireCachedGenerics", where, inherits = FALSE)) {
-        others <- get(".requireCachedGenerics", where)
+    if(attach && !is.null(others <- get0(".requireCachedGenerics", where, inherits = FALSE))) {
         generics <- c(generics, others)
         packages <- c(packages, attr(others, "package"))
     }
