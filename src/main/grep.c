@@ -3390,7 +3390,8 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 
     nmatch = rx.reg.re_nsub + 1;
 
-    pmatch = (regmatch_t *) malloc(nmatch * sizeof(regmatch_t));
+    /* R_alloc, not malloc: the errors below would skip a free() */
+    pmatch = (regmatch_t *) R_alloc(nmatch, sizeof(regmatch_t));
 
     PROTECT(ans = allocVector(VECSXP, n));
 
@@ -3460,7 +3461,6 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
 
-    free(pmatch);
     R_regex_end(&rx);
 
     UNPROTECT(2);
