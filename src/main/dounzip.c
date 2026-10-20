@@ -25,6 +25,7 @@
 
 #define HAVE_BZIP2
 
+#define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Fileio.h> /* for R_fopen */
 #include "unzip.h"
@@ -242,6 +243,11 @@ extract_one(unzFile uf, const char *const dest, const char * const filename,
 }
 
 
+static void unz_cleanup(void *data)
+{
+    unzClose((unzFile) data);
+}
+
 static int
 zipunzip(const char *zipname, const char *dest, int nfiles, const char **files,
 	 SEXP *pnames, int *nnames, int overwrite, int junk, int setTime)
@@ -249,9 +255,17 @@ zipunzip(const char *zipname, const char *dest, int nfiles, const char **files,
     int   i, err = UNZ_OK;
     unzFile uf;
     SEXP names = *pnames;
+    RCNTXT cntxt;
 
     uf = unzOpen64(zipname);
     if (!uf) return 1;
+    /* extract_one() raises an R error when an output file cannot be
+       opened, which would unwind past the unzClose() below and leak the
+       handle and its open FILE: close it from the context instead. */
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &unz_cleanup;
+    cntxt.cenddata = uf;
     if (nfiles == 0) { /* all files */
 	unz_global_info64 gi;
 	unzGetGlobalInfo64(uf, &gi);
@@ -287,6 +301,7 @@ zipunzip(const char *zipname, const char *dest, int nfiles, const char **files,
 	}
     }
     *pnames = names;
+    endcontext(&cntxt);
     unzClose(uf);
     UNPROTECT(1); /* names */
     return err;
@@ -476,8 +491,9 @@ static Rboolean unz_open(Rconnection con)
 	return FALSE;
     }
     if (unzLocateFile(uf, p+1, 1) != UNZ_OK) {
-	warning(_("cannot locate file '%s' in zip file '%s'"), p+1, path);
+	/* close first: the warning is an error under options(warn = 2) */
 	unzClose(uf);
+	warning(_("cannot locate file '%s' in zip file '%s'"), p+1, path);
 	return FALSE;
     }
     unzOpenCurrentFile(uf);
