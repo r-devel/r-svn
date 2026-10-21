@@ -4080,22 +4080,28 @@ stopifnot(is.nan(bY))
 ## non-pairlist node
 local({
     f <- tempfile()
-    con <- file(f, "wb")
-    writeBin(charToRaw("RDX2\nX\n"), con)
-    ## version 2 header, then a LISTSXP node tagged with the symbol "x"
-    writeBin(c(2L, 0x00040500L, 0x00020300L, 0x402L, 1L, 0x40009L, 1L),
-             con, endian = "big")
-    writeBin(charToRaw("x"), con)
-    ## CAR: NULL; CDR: an EXTPTRSXP (prot = NULL, tag = ref to "x")
-    writeBin(c(0xfeL, 0x16L, 0xfeL, 0x1ffL), con, endian = "big")
-    close(con)
-    E <- tryCid(load(f, new.env()))
-    stopifnot(inherits(E, "error"))
+    ## version 2 header, then a LISTSXP node tagged with the symbol "x",
+    ## with CAR = NULL
+    node <- c(charToRaw("RDX2\nX\n"),
+              writeBin(c(2L, 0x00040500L, 0x00020300L, 0x402L, 1L, 0x40009L),
+                       raw(), endian = "big"),
+              writeBin(1L, raw(), endian = "big"), charToRaw("x"),
+              writeBin(0xfeL, raw(), endian = "big"))
+    ## CDR: an EXTPTRSXP (prot = NULL, tag = ref to "x")
+    writeBin(c(node, writeBin(c(0x16L, 0xfeL, 0x1ffL), raw(), endian = "big")),
+             f)
+    E1 <- tryCid(load(f, new.env()))
+    ## CDR: a new SYMSXP "y", whose value slot is R_UnboundValue
+    writeBin(c(node, writeBin(c(1L, 0x40009L, 1L), raw(), endian = "big"),
+               charToRaw("y")), f)
+    E2 <- tryCid(load(f, new.env()))
+    stopifnot(inherits(E1, "error"), inherits(E2, "error"))
     if(englishMsgs)
-        stopifnot(grepl("not in pair list form", conditionMessage(E)))
+        stopifnot(grepl("not in pair list form", conditionMessage(E1)),
+                  grepl("not in pair list form", conditionMessage(E2)))
     unlink(f)
 })
-## segfaulted in R <= 4.6.1
+## segfaulted (E1) or looped forever (E2) in R <= 4.6.1
 
 
 ## keep at end
