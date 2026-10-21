@@ -4101,6 +4101,11 @@ oV <- mem.maxVSize(64)
 r <- tryCatch(suppressWarnings(load(f)), error = identity)
 mem.maxVSize(oV); unlink(f)
 stopifnot(inherits(r, "error"), grepl("table sizes", conditionMessage(r)))
+## a well-formed version-1 file (one symbol, no environments) still loads
+writeLines(c("RDA1", "1 0", "1 x", "2 0 0", "1 0 0 1 -1", "13 0 0 3 1 2 3 -1",
+             "-1", "-1"), f)
+e <- new.env(); suppressWarnings(load(f, envir = e)); unlink(f)
+stopifnot(identical(e$x, 1:3))
 ## allocated the tables (512 MB and 2^26 environments) first in R <= 4.6.0
 
 
