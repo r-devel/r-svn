@@ -4076,6 +4076,28 @@ stopifnot(is.nan(bY))
 
 
 
+## load() of a hand-crafted RDX2 file whose pairlist chain holds a
+## non-pairlist node
+local({
+    f <- tempfile()
+    con <- file(f, "wb")
+    writeBin(charToRaw("RDX2\nX\n"), con)
+    ## version 2 header, then a LISTSXP node tagged with the symbol "x"
+    writeBin(c(2L, 0x00040500L, 0x00020300L, 0x402L, 1L, 0x40009L, 1L),
+             con, endian = "big")
+    writeBin(charToRaw("x"), con)
+    ## CAR: NULL; CDR: an EXTPTRSXP (prot = NULL, tag = ref to "x")
+    writeBin(c(0xfeL, 0x16L, 0xfeL, 0x1ffL), con, endian = "big")
+    close(con)
+    E <- tryCid(load(f, new.env()))
+    stopifnot(inherits(E, "error"))
+    if(englishMsgs)
+        stopifnot(grepl("not in pair list form", conditionMessage(E)))
+    unlink(f)
+})
+## segfaulted in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
