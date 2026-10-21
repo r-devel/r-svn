@@ -903,7 +903,7 @@ cacheMetaData <-
                 !.duplicateClassesExist() &&
                 !exists(f, envir = .genericTable, inherits = FALSE) &&
                 exists(f, envir = where, inherits = FALSE)) {
-            .cacheGenericLazy(f, where, .genericTable)
+            .cacheGenericLazy(f, where)
             if(.tr) message("--- done getting generic ", sQuote(f))
             next
         }
