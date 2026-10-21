@@ -989,25 +989,24 @@
   if(is.null(mtable <- fenv$.MTable)) {
       .setupMethodsTables(generic)
       mtable <- get(".MTable", envir = fenv)
-      changed <- TRUE
+      changed <- changed || attach
   }
   if(!reset) {
     env <- as.environment(where)
     tname <- .TableMetaName(generic@generic, generic@package)
     if(!is.null(tt <- env[[tname]])) {
       .mergeMethodsTable(generic, mtable, tt, attach)
-      changed <- TRUE
+      changed <- changed || attach
     }
     ## else used to warn, but the generic may be implicitly required
     ## by class inheritance, without any explicit methods in this package
   }
-  .checkGroup <- .checkGroup && changed
   if(is(generic, "groupGenericFunction")) {
-      if(.checkGroup)
-          .checkGroupSigLength(list(generic@generic), list(generic))
       for(g in getGroupMembers(generic))
-          .updateMethodsInTable(getGeneric(g), where, attach, .checkGroup = FALSE)
-  } else if(.checkGroup && length(generic@group)) {
+          changed <- .updateMethodsInTable(getGeneric(g), where, attach, .checkGroup = FALSE) || changed
+      if(.checkGroup && changed)
+          .checkGroupSigLength(list(generic@generic), list(generic))
+  } else if(.checkGroup && changed && length(generic@group)) {
       groups <- as.list(generic@group)
       generics <- vector("list", length(groups))
       for(i in seq_along(groups))
@@ -1015,7 +1014,7 @@
       .checkGroupSigLength(groups, generics)
   }
   .resetInheritedMethods(fenv, mtable)
-  mtable
+  if (.checkGroup) mtable else changed
 }
 
 .resetInheritedMethods <- function(fenv, mtable) {
