@@ -524,6 +524,17 @@ getGeneric <-
 .cacheGeneric <- function(name, def)
   .cacheGenericTable(name, def, .genericTable)
 
+.cacheGenericLazy <- function(name, where)
+{
+    force(where)
+    delayedAssign(name, {
+        fdef <- get(name, envir = where, inherits = FALSE)
+        mtable <- .getMethodsTable(fdef)
+        .resetInheritedMethods(environment(fdef), mtable)
+        fdef
+    }, assign.env = .genericTable)
+}
+
 .cacheImplicitGeneric <- function(name, def)
    .cacheGenericTable(name, def, .implicitTable)
 
@@ -857,6 +868,7 @@ cacheMetaData <-
     ## check for duplicates
     dups <- duplicated(generics) & duplicated(packages)
     generics <- generics[!dups]
+    isNs <- isNamespace(where)
     for(i in seq_along(generics)) {
         f <- generics[[i]]
         fpkg <- packages[[i]]
@@ -885,6 +897,15 @@ cacheMetaData <-
             }
             else
                 fdef <- getGeneric(f, FALSE, searchWhere, fpkg)
+        }
+        else if(identical(fpkg, pkg) && attach && isNs &&
+                !(pkg %in% c("base", "methods")) &&
+                !.duplicateClassesExist() &&
+                !exists(f, envir = .genericTable, inherits = FALSE) &&
+                exists(f, envir = where, inherits = FALSE)) {
+            .cacheGenericLazy(f, where, .genericTable)
+            if(.tr) message("--- done getting generic ", sQuote(f))
+            next
         }
         else
             fdef <- getGeneric(f, FALSE, searchWhere, fpkg)
