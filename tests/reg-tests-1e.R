@@ -4094,19 +4094,23 @@ stopifnot(is.nan(bY))
 
 
 
-## load() of a pre-1.4 file: table sizes bounded by the file size
+## load() of a pre-1.4 file: table sizes checked before the tables are allocated
 f <- tempfile(fileext = ".rda")
-writeBin(c(charToRaw("RDX1\n"), as.raw(c(0,0,0,0, 64,0,0,0))), f) # 2^30 environments
-oV <- mem.maxVSize(2048)
+rdx1 <- function(sym, env) writeBin(c(charToRaw("RDX1\n"), as.raw(sym), as.raw(env)), f)
+rdx1(c(255,255,255,255), c(0,0,0,0))               # symbol count -1
 r <- tryCatch(suppressWarnings(load(f)), error = identity)
-mem.maxVSize(oV); unlink(f)
+stopifnot(inherits(r, "error"), grepl("table size", conditionMessage(r)))
+rdx1(c(0,0,0,0), c(127,255,255,255))               # 2^31 - 1 environments
+oV <- mem.maxVSize(); mem.maxVSize(gc()[2, 4] + 1024) # so a 16 GB table fails cleanly
+r <- tryCatch(suppressWarnings(load(f)), error = identity)
+mem.maxVSize(oV)
 stopifnot(inherits(r, "error"), grepl("table sizes", conditionMessage(r)))
 ## a well-formed version-1 file (one symbol, no environments) still loads
 writeLines(c("RDA1", "1 0", "1 x", "2 0 0", "1 0 0 1 -1", "13 0 0 3 1 2 3 -1",
              "-1", "-1"), f)
 e <- new.env(); suppressWarnings(load(f, envir = e)); unlink(f)
 stopifnot(identical(e$x, 1:3))
-## allocated the tables (8 GB, then 2^30 environments) first in R <= 4.6.0
+## "negative length vectors" error / allocated a 16 GB table first in R <= 4.6.0
 
 
 
