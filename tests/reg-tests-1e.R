@@ -4094,6 +4094,17 @@ stopifnot(is.nan(bY))
 
 
 
+## load() of a pre-1.4 file: table sizes bounded by the file size
+f <- tempfile(fileext = ".rda")
+writeBin(c(charToRaw("RDX1\n"), as.raw(c(0,0,0,0, 4,0,0,0))), f) # 2^26 environments
+oV <- mem.maxVSize(64)
+r <- tryCatch(suppressWarnings(load(f)), error = identity)
+mem.maxVSize(oV); unlink(f)
+stopifnot(inherits(r, "error"), grepl("table sizes", conditionMessage(r)))
+## allocated the tables (512 MB and 2^26 environments) first in R <= 4.6.0
+
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
