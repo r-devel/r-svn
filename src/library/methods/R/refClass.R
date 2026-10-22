@@ -90,7 +90,9 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 ## session: it is not yet installed when the methods package is built,
 ## so the value saved then is not reused (see ..onLoad).  Probing again
 ## on every call, as was done while the answer was FALSE, searched the
-## library paths several times for each method processed.
+## library paths several times for each method processed; that was there
+## for the build-time value, so a codetools installed or added to the
+## library paths later in the session is only seen after a restart.
 ..hasCodeTools <- NULL
 .hasCodeTools <- function() {
     if(is.null(..hasCodeTools)) {
@@ -656,8 +658,8 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## or removed must not be appended: a method removed by a NULL
     ## definition was re-inserted from its previous version.)
     touched <- names(methodDefs)
-    existing <- .thisClassMethods(methodsEnv, def@className)
-    existing <- existing[match(names(existing), touched, 0L) == 0L]
+    local <- .thisClassMethods(methodsEnv, def@className)
+    existing <- local[match(names(local), touched, 0L) == 0L]
     existing <- existing[vapply(existing, .mayCallAny, NA,
                                 names = c(touched, "usingMethods"))]
     methodDefs <- c(methodDefs, existing)
@@ -672,8 +674,9 @@ getRefSuperClasses <- function(classes, classDefs) {
         methodDefs <- methodDefs[!removeThese]
         remove(list = rmNames, envir = methodsEnv)
         ## a removed method that overrode an inherited one leaves the
-        ## inherited definition in force, as if it had never been defined
-        for(what in rmNames)
+        ## inherited definition in force, as if it had never been defined;
+        ## removing an inherited method itself hides it from this class
+        for(what in intersect(rmNames, names(local)))
             for(super in def@refSuperClasses) {
                 superDef <- getClassDef(super, package = def@contains[[super]]@package)
                 if(is.null(superDef))
