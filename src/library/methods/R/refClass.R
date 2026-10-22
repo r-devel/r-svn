@@ -173,11 +173,13 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
        (is.character(superClassMethod) || inherits(superClassMethod, "refMethodDef"))) {
         cl <- oldClass(def)
         if(is.null(cl)) {
-            attributes(def) <- c(list(mayCall = mayCall, name = name,
+            ## the slots last, so that they take precedence over any
+            ## attribute of the same name the function already has
+            attributes(def) <- c(attributes(def),
+                                 list(mayCall = mayCall, name = name,
                                       refClassName = refClassName,
                                       superClassMethod = superClassMethod,
-                                      class = .refMethodDefClass),
-                                 attributes(def))
+                                      class = .refMethodDefClass))
             return(asS4(def))
         }
         if(.identC(cl, "refMethodDef")) {
@@ -855,8 +857,8 @@ class method modifies a field.
     else if(typeof(thisField) == "closure" && is.null(oldClass(thisField))) {
         ## what new("activeBindingFunction", thisField) returns, constructed
         ## directly (see .makeRefMethodDef)
-        attributes(thisField) <- c(list(class = .activeBindingFunctionClass),
-                                   attributes(thisField))
+        attributes(thisField) <- c(attributes(thisField),
+                                   list(class = .activeBindingFunctionClass))
         asS4(thisField)
     }
     else

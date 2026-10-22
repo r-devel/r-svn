@@ -4353,6 +4353,13 @@ stopifnot(identical(RC2$new()$a(), 1), "a" %in% RC2$methods())
 ## the method was put back from its previous definition in R <= 4.6.1
 
 
+## a reference method's slots take precedence over the function's own attributes -- PR#19244
+RC <- suppressMessages(setRefClass("attrMeth", methods = list(
+    a = structure(function() b(), mayCall = character()), b = function() 2)))
+stopifnot(identical(RC$new()$a(), 2), identical(RC$def@refMethods$a@mayCall, "b"))
+## guards the direct construction of the method objects in makeClassMethod()
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
