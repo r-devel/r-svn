@@ -644,8 +644,18 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## allow either name=function, ... or a single list
     if(length(methodDefs) == 1 && is.list(methodDefs[[1]]))
         methodDefs <- methodDefs[[1]]
-    ## append existing local methods, so they are re-analysed for new method names
-    methodDefs <- c(methodDefs, .thisClassMethods(methodsEnv, def@className))
+    ## append the other existing local methods that could call one of the
+    ## methods being defined or removed, so that they are re-analysed for
+    ## them; the analysis of the remaining methods could not come out
+    ## differently.  (The previous versions of the methods being defined
+    ## or removed must not be appended: a method removed by a NULL
+    ## definition was re-inserted from its previous version.)
+    touched <- names(methodDefs)
+    existing <- .thisClassMethods(methodsEnv, def@className)
+    existing <- existing[match(names(existing), touched, 0L) == 0L]
+    existing <- existing[vapply(existing, .mayCallAny, NA,
+                                names = c(touched, "usingMethods"))]
+    methodDefs <- c(methodDefs, existing)
     mnames <- names(methodDefs)
     if(is.null(mnames) || !all(nzchar(mnames)))
         stop("arguments to methods() must be named, or one named list")

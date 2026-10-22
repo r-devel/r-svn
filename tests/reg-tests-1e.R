@@ -4339,6 +4339,14 @@ local({
 ## wrote past the "counts" array: gave garbage counts or segfaulted in R <= 4.6.2
 
 
+## $methods(name = NULL) on a reference class generator must remove the method
+RC <- suppressMessages(setRefClass("rmMeth", methods = list(a = function() 1, b = function() 2)))
+suppressMessages(RC$methods(b = NULL))
+stopifnot(!("b" %in% RC$methods()), identical(RC$new()$a(), 1),
+          inherits(tryCatch(RC$new()$b(), error = identity), "error"))
+## the method was put back from its previous definition in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
