@@ -314,16 +314,23 @@ static SEXP ziplist(const char *zipname)
     uLong i;
     unz_global_info64 gi;
     int err, nfiles;
+    RCNTXT cntxt;
 
     uf = unzOpen64(zipname);
     if (!uf) error(_("zip file '%s' cannot be opened"), zipname);
+    /* allocVector() below raises an R error when the entry count read
+       from the central directory is not a usable length, and that
+       unwind would leak the handle: close it from the context, which
+       also covers the explicit errors here. */
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &unz_cleanup;
+    cntxt.cenddata = uf;
 
     gi.number_entry = 0; /* =Wall */
     err = unzGetGlobalInfo64 (uf, &gi);
-    if (err != UNZ_OK) {
-	unzClose(uf);
+    if (err != UNZ_OK)
 	error("error %d with zipfile in unzGetGlobalInfo", err);
-    }
     nfiles = (int) gi.number_entry;
     /* name, length, datetime */
     PROTECT(ans = allocVector(VECSXP, 3));
@@ -338,11 +345,8 @@ static SEXP ziplist(const char *zipname)
 	err = unzGetCurrentFileInfo64(uf, &file_info, filename_inzip,
 				      sizeof(filename_inzip), NULL, 0, NULL, 0);
 	if (err != UNZ_OK ||
-	    file_info.size_filename >= sizeof(filename_inzip)) {
-
-	    unzClose(uf);
+	    file_info.size_filename >= sizeof(filename_inzip))
 	    error("error %d with zipfile in unzGetCurrentFileInfo\n", err);
-	}
 	/* In theory at least bit 11 of the flag tells us that the
 	   filename is in UTF-8, so FIXME */
 	SET_STRING_ELT(names, i, mkChar(filename_inzip));
@@ -357,12 +361,11 @@ static SEXP ziplist(const char *zipname)
 
 	if (i < nfiles - 1) {
 	    err = unzGoToNextFile(uf);
-	    if (err != UNZ_OK) {
-		unzClose(uf);
+	    if (err != UNZ_OK)
 		error("error %d with zipfile in unzGoToNextFile\n", err);
-	    }
 	}
     }
+    endcontext(&cntxt);
     unzClose(uf);
 
     UNPROTECT(1);
