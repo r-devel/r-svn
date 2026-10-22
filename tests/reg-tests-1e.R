@@ -4350,7 +4350,26 @@ RC2 <- suppressMessages(setRefClass("rmMeth2", contains = "rmMeth",
 stopifnot(identical(RC2$new()$a(), 2))
 suppressMessages(RC2$methods(a = NULL))
 stopifnot(identical(RC2$new()$a(), 1), "a" %in% RC2$methods())
+## removing an inherited method hides it from the subclass
+suppressMessages(RC2$methods(a = NULL))
+stopifnot(!("a" %in% RC2$methods()),
+          inherits(tryCatch(RC2$new()$a(), error = identity), "error"))
 ## the method was put back from its previous definition in R <= 4.6.1
+
+
+## $methods() must re-analyse the existing methods for a method added or removed later
+RC <- suppressMessages(setRefClass("mayCallUpd", methods = list(
+    kA = function() mcA(),
+    kB = function() { f <- function(y = mcB()) y; f() })))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()))
+suppressMessages(RC$methods(mcA = function() 2, mcB = function() 3))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, "mcA"), identical(RC$new()$kA(), 2))
+if(methods:::.hasCodeTools()) # the call in a nested default argument needs codetools
+    stopifnot(identical(RC$def@refMethods$kB@mayCall, "mcB"), identical(RC$new()$kB(), 3))
+suppressMessages(RC$methods(mcA = NULL))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()),
+          inherits(tryCatch(RC$new()$kA(), error = identity), "error"))
+## guards the narrowed re-analysis in $methods()
 
 
 ## a reference method's slots take precedence over the function's own attributes -- PR#19244
