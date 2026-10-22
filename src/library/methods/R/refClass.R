@@ -115,11 +115,15 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 ## anything: every function name it reports is a symbol in the formal
 ## arguments or body (or "f<-" for a replacement call f(x) <- value),
 ## except inside the formal arguments of a nested function definition,
-## which all.names() does not visit, and except a string used as the
-## function name in a call, "f"(x), which the fallback in
-## .getGlobalFuns() does not see either.
+## which all.names() does not visit.  (A string as the function name in
+## a call, "f"(x), is not visited either, but the parser turns that into
+## f(x); only a call constructed by as.call() can have one, and the
+## fallback in .getGlobalFuns() does not see it either.)  The formals and
+## body are taken apart here rather than with as.list(def), whose S3
+## dispatch fails for a closure with a class attribute.
 .mayCallAny <- function(def, names) {
-    syms <- unique(unlist(lapply(def, all.names)))
+    syms <- unique(c(all.names(body(def)),
+                     unlist(lapply(formals(def), all.names))))
     "function" %in% syms || any(c(syms, paste0(syms, "<-")) %in% names)
 }
 
@@ -665,6 +669,19 @@ getRefSuperClasses <- function(classes, classDefs) {
         mnames <- mnames[!removeThese]
         methodDefs <- methodDefs[!removeThese]
         remove(list = rmNames, envir = methodsEnv)
+        ## a removed method that overrode an inherited one leaves the
+        ## inherited definition in force, as if it had never been defined
+        for(what in rmNames)
+            for(super in def@refSuperClasses) {
+                superDef <- getClassDef(super, package = def@contains[[super]]@package)
+                if(is.null(superDef))
+                    next
+                superMethods <- superDef@refMethods
+                if(exists(what, envir = superMethods, inherits = FALSE)) {
+                    assign(what, get(what, envir = superMethods), envir = methodsEnv)
+                    break
+                }
+            }
         if(length(mnames) == 0)
             return(invisible(methodsEnv))
     }
