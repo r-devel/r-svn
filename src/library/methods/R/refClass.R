@@ -87,12 +87,20 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     def
    }
 
-..hasCodeTools <- FALSE
+## Whether the codetools package is available, found out once per
+## session: it is not yet installed when the methods package is built,
+## so the value saved then is not reused (see ..onLoad).  Probing again
+## on every call, as was done while the answer was FALSE, searched the
+## library paths several times for each method processed.
+..hasCodeTools <- NA
 .hasCodeTools <- function() {
-    if(!isTRUE(..hasCodeTools)) # will be FALSE when methods is built, keep checking
-        .assignOverBinding("..hasCodeTools",length(list.files(system.file(package = "codetools"))) > 0,
-                           .methodsNamespace, FALSE)
-    ..hasCodeTools
+    if(is.na(..hasCodeTools)) {
+        value <- length(list.files(system.file(package = "codetools"))) > 0
+        .assignOverBinding("..hasCodeTools", value, .methodsNamespace, FALSE)
+        value
+    }
+    else
+        ..hasCodeTools
 }
 
 .getGlobalFuns <- function(def) {
@@ -100,6 +108,20 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
         codetools::findGlobals(def, merge = FALSE)$functions
     else
         unique(unlist(lapply(def, all.names)))
+}
+
+## Could method def call any of the functions named in 'names'?  A cheap
+## test used to skip the code analysis in .getGlobalFuns(), by far the
+## most expensive step in processing a method, when it could not find
+## anything: every function name it reports is a symbol in the formal
+## arguments or body (or "f<-" for a replacement call f(x) <- value),
+## except inside the formal arguments of a nested function definition,
+## which all.names() does not visit, and except a string used as the
+## function name in a call, "f"(x), which the fallback in
+## .getGlobalFuns() does not see either.
+.mayCallAny <- function(def, names) {
+    syms <- unique(unlist(lapply(def, all.names)))
+    "function" %in% syms || any(c(syms, paste0(syms, "<-")) %in% names)
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
@@ -112,7 +134,10 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         def@superClassMethod <- superClassMethod
         return(def)
     }
-    depends <- .getGlobalFuns(def)
+    depends <- if(.mayCallAny(def, c(allMethods, "usingMethods")))
+                   .getGlobalFuns(def)
+               else
+                   character()
     ## find the field methods called ...
     if("usingMethods" %in% depends) { # including those declared
         declared <- .declaredMethods(def)
@@ -1152,6 +1177,13 @@ showRefClassDef <- function(object, title = "Reference Class") {
 .checkFieldsInMethod <- function(methodDef, fieldNames, methodNames) {
     if(!.hasCodeTools())
         return(NA)
+    ## Nothing to report unless the body assigns to a field name or
+    ## non-locally, so skip the (expensive) code analysis otherwise.  The
+    ## target of an assignment is a symbol in the body, except when
+    ## written as a string, "f" <- value, which is not worth a walk.
+    syms <- all.names(body(methodDef))
+    if(!("<<-" %in% syms) && !any(fieldNames %in% syms))
+        return(TRUE)
     p0q <- function(x) paste0('"', x, '"', collapse = "; ")
     if(is(methodDef, "refMethodDef")) {
         methodName <- p0q(methodDef@name)
