@@ -148,8 +148,45 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         depends <- c(declared, depends)
     }
     depends <- depends[match(depends, allMethods, 0) > 0]
-    new("refMethodDef", def, mayCall = depends, name = name,
-        refClassName = Class, superClassMethod = superClassMethod)
+    .makeRefMethodDef(def, depends, name, Class, superClassMethod)
+}
+
+## the class attributes of the objects new() creates for these classes
+.refMethodDefClass <- structure("refMethodDef", package = "methods")
+.activeBindingFunctionClass <- structure("activeBindingFunction", package = "methods")
+.defaultBindingFunctionClass <- structure("defaultBindingFunction", package = "methods")
+
+## The object new("refMethodDef", def, mayCall = mayCall, name = name, ...)
+## would return, constructed directly in the two cases that arise here: a
+## plain function (the usual method definition) gets the slots and the
+## class added to its attributes, and a refMethodDef (a method being
+## re-analysed by $methods()) gets its slots replaced.  The generic
+## initialize() and validObject() took about 100 us per method, several
+## times the rest of makeClassMethod(); the slot values here are always
+## valid.  Anything else is left to new().
+.makeRefMethodDef <- function(def, mayCall, name, refClassName, superClassMethod) {
+    if(typeof(def) == "closure" && is.character(mayCall) && is.character(name) &&
+       is.character(refClassName) &&
+       (is.character(superClassMethod) || inherits(superClassMethod, "refMethodDef"))) {
+        cl <- oldClass(def)
+        if(is.null(cl)) {
+            attributes(def) <- c(list(mayCall = mayCall, name = name,
+                                      refClassName = refClassName,
+                                      superClassMethod = superClassMethod,
+                                      class = .refMethodDefClass),
+                                 attributes(def))
+            return(asS4(def))
+        }
+        if(.identC(cl, "refMethodDef")) {
+            attr(def, "mayCall") <- mayCall
+            attr(def, "name") <- name
+            attr(def, "refClassName") <- refClassName
+            attr(def, "superClassMethod") <- superClassMethod
+            return(def)
+        }
+    }
+    new("refMethodDef", def, mayCall = mayCall, name = name,
+        refClassName = refClassName, superClassMethod = superClassMethod)
 }
 
 refObjectClass <- function(object) {
@@ -787,10 +824,17 @@ class method modifies a field.
     paste0(".->", fieldName)
 
 .makeActiveBinding <- function(thisField) {
-    if(is(thisField, "activeBindingFunction"))
-     thisField
+    if(inherits(thisField, "activeBindingFunction"))
+        thisField
+    else if(typeof(thisField) == "closure" && is.null(oldClass(thisField))) {
+        ## what new("activeBindingFunction", thisField) returns, constructed
+        ## directly (see .makeRefMethodDef)
+        attributes(thisField) <- c(list(class = .activeBindingFunctionClass),
+                                   attributes(thisField))
+        asS4(thisField)
+    }
     else
-     new("activeBindingFunction", thisField)
+        new("activeBindingFunction", thisField)
 }
 
 .makeDefaultBinding <- function(fieldName, fieldClass, readOnly = FALSE, where) {
@@ -819,8 +863,17 @@ class method modifies a field.
         }, list(dummyField = metaName, dummyClass = fieldClass,
                 thisField = fieldName, dummyFieldName = as.name(metaName))))
     environment(f) <- where ## <note> Does this matter? </note>
-    f <- new("defaultBindingFunction", f,
-             field = fieldName, className = fieldClass)
+    if(is.character(fieldName) && is.character(fieldClass)) {
+        ## what new("defaultBindingFunction", f, field = fieldName,
+        ## className = fieldClass) returns, constructed directly (see
+        ## .makeRefMethodDef); f has no attributes of its own
+        attributes(f) <- list(field = fieldName, className = fieldClass,
+                              class = .defaultBindingFunctionClass)
+        f <- asS4(f)
+    }
+    else
+        f <- new("defaultBindingFunction", f,
+                 field = fieldName, className = fieldClass)
     init <- (if(isVirtualClass(fieldClass))
                  new("uninitializedField", field = fieldName,
                      className = fieldClass)
