@@ -47,9 +47,8 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(is(def, "externalMethodDef") || !is(def, "refMethodDef")) {
-        ## Don't process either an external method (not needed),
-        ## or a special object in the class refMethods
+    if(!inherits(def, "refMethodDef")) {
+        ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
         return(def)
@@ -60,7 +59,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
     done <- names(selfEnv)
-    notDone <- setdiff(depends, done)
+    notDone <- unique(depends[match(depends, done, 0L) == 0L])
     superCase <- match("callSuper", notDone, 0)
     if(superCase > 0) {
         if(nzchar(def@superClassMethod))
@@ -234,10 +233,10 @@ envRefSetField <- function(object, field,
     fields <- names(fieldClasses)
     for(field in fields) {
         fp <- prototypes[[field]] # prototype or NULL
-        if(is(fp, "activeBindingFunction")) {
+        if(inherits(fp, "activeBindingFunction")) {
             environment(fp) <- selfEnv
             makeActiveBinding(field, fp, selfEnv)
-            if(is(fp, "defaultBindingFunction")) {
+            if(inherits(fp, "defaultBindingFunction")) {
                 ## ensure an initial value
                 class <- fieldClasses[[field]]
 		value <- if(!isVirtualClass(class)) new(class) # else NULL
@@ -267,7 +266,7 @@ envRefSetField <- function(object, field,
     lockBinding(".refClassDef", selfEnv)
     ## validObject was called from the S4 initialize; check that
     ## a method specified for the ref. class is satisfied, if there is one
-    if(is(classDef@validity, "function"))
+    if(is.function(classDef@validity))
         validObject(.Object)
     .Object
 }
