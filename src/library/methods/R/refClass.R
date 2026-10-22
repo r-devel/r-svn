@@ -59,6 +59,8 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
     done <- names(selfEnv)
+    ## setdiff(depends, done), which costs 5 times as much, once per
+    ## method installed into every object
     notDone <- unique(depends[match(depends, done, 0L) == 0L])
     superCase <- match("callSuper", notDone, 0)
     if(superCase > 0) {
@@ -245,10 +247,15 @@ envRefSetField <- function(object, field,
             environment(fp) <- selfEnv
             makeActiveBinding(field, fp, selfEnv)
             if(inherits(fp, "defaultBindingFunction")) {
-                ## ensure an initial value
-                class <- fieldClasses[[field]]
-		value <- if(!isVirtualClass(class)) new(class) # else NULL
-                assign(.bindingMetaName(field), value, envir = selfEnv)
+                ## ensure an initial value; .makeDefaultBinding() stored
+                ## an "uninitializedField" under the meta name when the
+                ## field class is virtual, so it need not be looked up here
+                metaName <- .bindingMetaName(field)
+                value <- if(inherits(prototypes[[metaName]], "uninitializedField"))
+                             NULL
+                         else
+                             new(fieldClasses[[field]])
+                assign(metaName, value, envir = selfEnv)
             }
         }
         else
