@@ -91,9 +91,9 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 ## so the value saved then is not reused (see ..onLoad).  Probing again
 ## on every call, as was done while the answer was FALSE, searched the
 ## library paths several times for each method processed.
-..hasCodeTools <- NA
+..hasCodeTools <- NULL
 .hasCodeTools <- function() {
-    if(is.na(..hasCodeTools)) {
+    if(is.null(..hasCodeTools)) {
         value <- length(list.files(system.file(package = "codetools"))) > 0
         .assignOverBinding("..hasCodeTools", value, .methodsNamespace, FALSE)
         value

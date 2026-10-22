@@ -121,7 +121,7 @@
     setPrimitiveMethods("$", `$`, code="reset", generic = getGeneric("$"), mlist = NULL)
     assign(".methodsNamespace", where, where)
     ## codetools was not available when the package was built; look again
-    assign("..hasCodeTools", NA, where)
+    assign("..hasCodeTools", NULL, where)
     ## if(Sys.getenv("R_S4_BIND") == "active")
     ##     bind_activation(TRUE)
 }
