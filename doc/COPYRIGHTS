@@ -262,6 +262,11 @@ src/nmath/dpois.c
   (C) 1999-2000 Lucent Technologies, Bell Laboratories.
 
 
+src/main/random.c
+src/library/base/R/sample.R
+  the code for the "marginal" method of unequal-probability sampling
+  without replacement is based on R code (C) 2005 by Yves Tillé and Alina Matei
+
 src/main/RNG.c
 
   The Mersenne-Twister part is
