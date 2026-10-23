@@ -2106,8 +2106,9 @@ assign("#HAS_DUPLICATE_CLASS_NAMES", FALSE, envir = .classTable)
             subDef <- getClassDef(what, env) # may be the case for members of a classUnion
         if(is.null(subDef))
             warning(gettextf("undefined subclass %s of class %s; definition not updated",
-                             .dQ(what), .dQ(def@className)))
-        else if(is.na(match(what, names(subDef@contains)))) {
+                             .dQ(what), .dQ(def@className)), domain = NA)
+        else if(is.na(m <- match(class, names(subDef@contains))) ||
+                subs[[i]]@distance < subDef@contains[[m]]@distance) {
             ## insert the new superclass to maintain order by distance
             cntns <- subDef@contains
             cntns[[class]] <- subs[[i]]
@@ -2155,13 +2156,17 @@ assign("#HAS_DUPLICATE_CLASS_NAMES", FALSE, envir = .classTable)
           warning(gettextf("no definition of inheritance from %s to %s, though the relation was implied by the setIs() from %s",
                            .dQ(what), .dQ(def2@className), .dQ(class)),
                   call. = FALSE, domain = NA)
-        else if(is.na(match(class2, names(subDef@contains)))) {
+        else if(is.na(m <- match(class2, names(subDef@contains))) ||
+                extension@distance < subDef@contains[[m]]@distance) {
             if(isTRUE(as.logical(Sys.getenv("_R_METHODS_SHOW_CHECKSUBCLASSES", "false"))))
             message(sprintf(paste( # currently only seen from setClassUnion() -> setIs() ->
                 "Debugging .checkSubclasses(): assignClassDef(what=\"%s\", *, where=%s, force=TRUE);\n",
                 "E := environment(): %s; parent.env(E): %s"), what, format(cwhere),
                 format(E <- environment()), format(parent.env(E))))
-            subDef@contains[[class2]] <- extension
+            cntns <- subDef@contains
+            cntns[[class2]] <- extension
+            cntns <- cntns[sort.list(vapply(cntns, function(x) x@distance, 1))]
+            subDef@contains <- cntns
             assignClassDef(what, subDef, cwhere, TRUE)
         } # else  no action (incl no warning!) at all
     }
