@@ -4220,6 +4220,12 @@ if (l10n_info()[["UTF-8"]]) {
 ## sorted the ~257000 entries by insertion sort, taking ~30s in R <= 4.6.x
 
 
+## chartr() with a withdrawn 5-byte UTF-8 form as a range end
+old <- ")-\xfb\x9f\xbf\xbf\x9a"; Encoding(old) <- "UTF-8"
+tools::assertError(chartr(old, old, "abc"))
+## expanded the range to a 58-million-entry table in R <= 4.6.x
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

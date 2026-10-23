@@ -1487,6 +1487,9 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* Build the old and new wtr_spec lists. */
 	if (use_WC && IS_UTF8(STRING_ELT(old, 0))) {
 	    s = CHAR(STRING_ELT(old, 0));
+	    /* utf8towcs() still decodes the withdrawn 5- and 6-byte forms,
+	       so without this check a range can span 2^31 code points. */
+	    if (!utf8Valid(s)) error(_("invalid UTF-8 string 'old'"));
 	    nc = (int) utf8towcs(NULL, s, 0);
 	    if (nc < 0) error(_("invalid UTF-8 string 'old'"));
 	    wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t), &cbuff);
@@ -1512,6 +1515,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	if (use_WC && IS_UTF8(STRING_ELT(_new, 0))) {
 	    s = CHAR(STRING_ELT(_new, 0));
+	    if (!utf8Valid(s)) error(_("invalid UTF-8 string 'new'"));
 	    nc = (int) utf8towcs(NULL, s, 0);
 	    if (nc < 0) error(_("invalid UTF-8 string 'new'"));
 	    wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t), &cbuff);
