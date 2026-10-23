@@ -570,7 +570,7 @@ assignClassDef <-
 ##    assignClassDef("classRepresentation", object, where)
     assign(classMetaName("classRepresentation"), object, where)
     ## the list of needed generics, initially empty (see .InitStructureMethods)
-    assign(".NeedPrimitiveMethods", list(), where)
+    assign(".NeedPrimitiveMethods", character(), where)
 }
 
 .classNameFromMethods <- function(what) {

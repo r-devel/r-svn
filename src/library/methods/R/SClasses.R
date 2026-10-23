@@ -861,21 +861,26 @@ names(.indirectAbnormalClasses) <- .AbnormalTypes
   allNeeded <- get(".NeedPrimitiveMethods", envir = .methodsNamespace)
   specials <- names(allNeeded)
   needed <- match(specials, supers, 0L) > 0L
-  if(any(needed)) {
-    generics <- unique(allNeeded[needed])
-    packages <- vapply(generics, function(g) {
-        def <- getGeneric(g)
-        pkg <- def@package # must be "methods" ?
-        cacheGenericsMetaData(g, def, TRUE, where, pkg)
-        pkg
-    }, character(1))
-    previous <- if(exists(".requireCachedGenerics", where, inherits = FALSE))
-		      get(".requireCachedGenerics", where) else character()
-    packages <- c(attr(previous, "package"), packages)
-    gg <- c(previous, generics)
-    attr(gg, "package") <- packages
-    assign(".requireCachedGenerics", gg, where)
+  if(!any(needed))
+    return(invisible())
+
+  generics <- unique(allNeeded[needed])
+  packages <- vapply(generics, function(g) {
+      def <- getGeneric(g)
+      pkg <- def@package # must be "methods" ?
+      cacheGenericsMetaData(g, def, TRUE, where, pkg)
+      pkg
+  }, character(1), USE.NAMES = FALSE)
+  previous <- get0(".requireCachedGenerics", where, inherits = FALSE, ifnotfound = character())
+  packages <- c(attr(previous, "package"), packages)
+  gg <- c(previous, generics)
+  if (anyDuplicated(gg)) {
+    keep_idx <- !duplicated(paste(packages, gg))
+    gg <- gg[keep_idx]
+    packages <- packages[keep_idx]
   }
+  attr(gg, "package") <- packages
+  assign(".requireCachedGenerics", gg, where)
 }
 
 .setS3MethodsOn <- function(classDef) {
