@@ -4208,6 +4208,32 @@ if (l10n_info()[["UTF-8"]]) {
 ## read 3 bytes past the end of the field buffer in R <= 4.6.1
 
 
+## load() of a version-1 save file must not change interned symbols or NULL
+local({
+    f <- tempfile()
+    con <- file(f, "wb")
+    ## pairlist(symv1 = NULL): the tag item carries levels 1 (a ..N
+    ## symbol), the object bit and attributes; the value is a symbol item
+    ## with index 0, i.e. R_NilValue, carrying the object bit and attributes
+    writeLines(c("RDA1", "2 0", "5 symv1", "3 foo",
+                 "2 0 0  1 1 1 1  2 0 0  1 0 0 2 -1  13 0 0 1 7 -1  -1 -1",
+                 "1 0 1 0  2 0 0  1 0 0 2 -1  13 0 0 1 7 -1  -1 -1",
+                 "-1  -1"), con)
+    close(con)
+    e <- new.env()
+    stopifnot(identical(suppressWarnings(load(f, e)), "symv1"),
+              exists("symv1", envir = e, inherits = FALSE),
+              is.null(e$symv1),
+              is.null(attributes(quote(symv1))), !is.object(quote(symv1)),
+              is.null(attributes(NULL)), !is.object(NULL))
+    symv1 <- 42L
+    stopifnot(identical(symv1, 42L))
+    unlink(f)
+})
+## the symbol and NULL carried attributes and the object bit, and the symbol
+## was evaluated as a ..N reference, in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
