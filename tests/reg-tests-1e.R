@@ -4207,6 +4207,46 @@ if (l10n_info()[["UTF-8"]]) {
 ## read 3 bytes past the end of the field buffer in R <= 4.6.1
 
 
+## $methods(name = NULL) on a reference class generator must remove the method -- PR#19244
+RC <- suppressMessages(setRefClass("rmMeth", methods = list(a = function() 1, b = function() 2)))
+suppressMessages(RC$methods(b = NULL))
+stopifnot(!("b" %in% RC$methods()), identical(RC$new()$a(), 1),
+          inherits(tryCatch(RC$new()$b(), error = identity), "error"))
+## removing an overriding method leaves the inherited one in force
+RC2 <- suppressMessages(setRefClass("rmMeth2", contains = "rmMeth",
+                                    methods = list(a = function() 2)))
+stopifnot(identical(RC2$new()$a(), 2))
+suppressMessages(RC2$methods(a = NULL))
+stopifnot(identical(RC2$new()$a(), 1), "a" %in% RC2$methods())
+## removing an inherited method hides it from the subclass
+suppressMessages(RC2$methods(a = NULL))
+stopifnot(!("a" %in% RC2$methods()),
+          inherits(tryCatch(RC2$new()$a(), error = identity), "error"))
+## the method was put back from its previous definition in R <= 4.6.1
+
+
+## $methods() must re-analyse the existing methods for a method added or removed later
+RC <- suppressMessages(setRefClass("mayCallUpd", methods = list(
+    kA = function() mcA(),
+    kB = function() { f <- function(y = mcB()) y; f() })))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()))
+suppressMessages(RC$methods(mcA = function() 2, mcB = function() 3))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, "mcA"), identical(RC$new()$kA(), 2))
+if(methods:::.hasCodeTools()) # the call in a nested default argument needs codetools
+    stopifnot(identical(RC$def@refMethods$kB@mayCall, "mcB"), identical(RC$new()$kB(), 3))
+suppressMessages(RC$methods(mcA = NULL))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()),
+          inherits(tryCatch(RC$new()$kA(), error = identity), "error"))
+## guards the narrowed re-analysis in $methods()
+
+
+## a reference method's slots take precedence over the function's own attributes -- PR#19244
+RC <- suppressMessages(setRefClass("attrMeth", methods = list(
+    a = structure(function() b(), mayCall = character()), b = function() 2)))
+stopifnot(identical(RC$new()$a(), 2), identical(RC$def@refMethods$a@mayCall, "b"))
+## guards the direct construction of the method objects in makeClassMethod()
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
