@@ -46,7 +46,7 @@ Class:      character      character optionalMethod           call
 Extends: 
 Class "genericFunction", directly
 Class "function", by class "genericFunction", distance 2
-Class "OptionalFunction", by class "function", distance 3
+Class "OptionalFunction", by class "genericFunction", distance 3
 Class "PossibleMethod", by class "genericFunction", distance 3
 Class "optionalMethod", by class "genericFunction", distance 4
 
