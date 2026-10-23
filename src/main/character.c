@@ -1387,49 +1387,21 @@ tr_get_next_char_from_spec(struct tr_spec **p) {
     return(c);
 }
 
-typedef struct { wchar_t c_old, c_new; } xtable_t;
+/* idx is the entry's position in the spec: qsort() is not stable, and
+   when a character is given more than once the last mapping wins. */
+typedef struct { wchar_t c_old, c_new; int idx; } xtable_t;
 
-static R_INLINE int xtable_comp(const void *a, const void *b)
+static int xtable_comp(const void *a, const void *b)
 {
-    return ((xtable_t *)a)->c_old - ((xtable_t *)b)->c_old;
+    const xtable_t *x = a, *y = b;
+    if (x->c_old != y->c_old)
+	return x->c_old < y->c_old ? -1 : 1;
+    return x->idx < y->idx ? -1 : (x->idx > y->idx);
 }
 
 static R_INLINE int xtable_key_comp(const void *a, const void *b)
 {
     return *((wchar_t *)a) - ((xtable_t *)b)->c_old;
-}
-
-#define SWAP(_a, _b, _TYPE)                                    \
-{                                                              \
-    _TYPE _t;                                                  \
-    _t    = *(_a);                                             \
-    *(_a) = *(_b);                                             \
-    *(_b) = _t;                                                \
-}
-
-#define ISORT(_base,_num,_TYPE,_comp)                          \
-{                                                              \
-/* insert sort */                                              \
-/* require stable data */                                      \
-    int _i, _j ;                                               \
-    for ( _i = 1 ; _i < _num ; _i++ )                          \
-	for ( _j = _i; _j > 0 &&                               \
-		      (*_comp)(_base+_j-1, _base+_j)>0; _j--)  \
-	   SWAP(_base+_j-1, _base+_j, _TYPE);                  \
-}
-
-#define COMPRESS(_base,_num,_TYPE,_comp)                       \
-{                                                              \
-/* suppress even c_old. last use */                             \
-    int _i,_j ;                                                \
-    for ( _i = 0 ; _i < (*(_num)) - 1 ; _i++ ){                \
-	int rc = (*_comp)(_base+_i, _base+_i+1);               \
-	if (rc == 0){                                          \
-	   for ( _j = _i, _i-- ; _j < (*(_num)) - 1; _j++ )     \
-		*((_base)+_j) = *((_base)+_j+1);               \
-	    (*(_num))--;                                       \
-	}                                                      \
-    }                                                          \
 }
 
 #define BSEARCH(_rc,_key,_base,_nmemb,_TYPE,_comp)             \
@@ -1515,6 +1487,9 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* Build the old and new wtr_spec lists. */
 	if (use_WC && IS_UTF8(STRING_ELT(old, 0))) {
 	    s = CHAR(STRING_ELT(old, 0));
+	    /* utf8towcs() still decodes the withdrawn 5- and 6-byte forms,
+	       so without this check a range can span 2^31 code points. */
+	    if (!utf8Valid(s)) error(_("invalid UTF-8 string 'old'"));
 	    nc = (int) utf8towcs(NULL, s, 0);
 	    if (nc < 0) error(_("invalid UTF-8 string 'old'"));
 	    wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t), &cbuff);
@@ -1540,6 +1515,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 
 	if (use_WC && IS_UTF8(STRING_ELT(_new, 0))) {
 	    s = CHAR(STRING_ELT(_new, 0));
+	    if (!utf8Valid(s)) error(_("invalid UTF-8 string 'new'"));
 	    nc = (int) utf8towcs(NULL, s, 0);
 	    if (nc < 0) error(_("invalid UTF-8 string 'new'"));
 	    wc = (wchar_t *) R_AllocStringBuffer((nc+1)*sizeof(wchar_t), &cbuff);
@@ -1585,6 +1561,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else {
 		xtable[i].c_old = c_old;
 		xtable[i].c_new = c_new;
+		xtable[i].idx = (int) i;
 	    }
 	}
 
@@ -1593,8 +1570,14 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	wtr_free_spec(trs_new);
 	R_Free(trs_old_ptr); R_Free(trs_new_ptr);
 
-	ISORT(xtable, xtable_cnt, xtable_t , xtable_comp);
-	COMPRESS(xtable, &xtable_cnt, xtable_t, xtable_comp);
+	/* Sort by c_old, keeping only the last entry for each: the
+	   insertion sort used before was quadratic in the table size,
+	   and a spec with two large ranges took tens of seconds. */
+	qsort(xtable, xtable_cnt, sizeof(xtable_t), xtable_comp);
+	for (j = 0, i = 0; i < xtable_cnt; i++)
+	    if (i + 1 == xtable_cnt || xtable[i].c_old != xtable[i + 1].c_old)
+		xtable[j++] = xtable[i];
+	xtable_cnt = j;
 
 	PROTECT(y = allocVector(STRSXP, n));
 	vmax = vmaxget();
