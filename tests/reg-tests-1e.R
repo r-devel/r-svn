@@ -4223,6 +4223,23 @@ unlink(zipfile)
 ## n2 - n1 was 50 in R <= 4.6.2
 
 
+## an output textConnection() kept its character vector alive only through
+## the binding of the target name -- PR#19228
+con <- textConnection("out", "w")
+cat("a", file = con)
+rm(out); invisible(gc())
+junk <- lapply(1:2000, function(i) pairlist(i)) # reuse the freed node
+cat("b\n", file = con)
+close(con)
+stopifnot(identical(out, "ab"))
+con <- textConnection("out", "w")
+tools::assertError(textConnection("out", "w")) # locked whilst open, as documented
+close(con)
+stopifnot(!bindingIsLocked("out", environment()))
+## used a freed STRSXP in R <= 4.6.2; second textConnection() silently
+## replaced the first
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
