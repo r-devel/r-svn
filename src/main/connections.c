@@ -3661,6 +3661,8 @@ static void outtext_close(Rconnection con)
 	SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(this->lastline));
 	if(this->namesymbol) defineVar(this->namesymbol, tmp, env);
 	ENSURE_NAMEDMAX(tmp);
+	R_ReleaseObject(this->data);
+	R_PreserveObject(tmp);
 	this->data = tmp;
 	UNPROTECT(1);
     }
@@ -3670,12 +3672,8 @@ static void outtext_destroy(Rconnection con)
 {
     Routtextconn this = con->private;
     int idx = ConnIndex(con);
-    /* OutTextData is preserved, and that implies that the environment
-       we are writing it and hence the character vector is protected.
-       However, this could be quite expensive.
-    */
     SET_VECTOR_ELT(OutTextData, idx, R_NilValue);
-    if(!this->namesymbol) R_ReleaseObject(this->data);
+    R_ReleaseObject(this->data);
     free(this->lastline); free(this);
 }
 
@@ -3739,10 +3737,9 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 		    R_unLockBinding(this->namesymbol, env);
 		defineVar(this->namesymbol, tmp, env);
 		R_LockBinding(this->namesymbol, env);
-	    } else {
-		R_ReleaseObject(this->data);
-		R_PreserveObject(tmp);
 	    }
+	    R_ReleaseObject(this->data);
+	    R_PreserveObject(tmp);
 	    this->data = tmp;
 	    ENSURE_NAMEDMAX(tmp);
 	    UNPROTECT(1);
@@ -3778,9 +3775,7 @@ static void outtext_init(Rconnection con, SEXP stext, const char *mode, int idx)
 
     if(stext == R_NilValue) {
 	this->namesymbol = NULL;
-	    /* create variable pointed to by con->description */
 	val = allocVector(STRSXP, 0);
-	R_PreserveObject(val);
     } else {
 	this->namesymbol = install(con->description);
 	if(strcmp(mode, "w") == 0) {
@@ -3789,6 +3784,7 @@ static void outtext_init(Rconnection con, SEXP stext, const char *mode, int idx)
 	    defineVar(this->namesymbol, val, VECTOR_ELT(OutTextData, idx));
 	    /* Not clear if this is needed, but be conservative */
 	    ENSURE_NAMEDMAX(val);
+	    R_LockBinding(this->namesymbol, VECTOR_ELT(OutTextData, idx));
 	    UNPROTECT(1);
 	} else {
 	    /* take over existing variable */
@@ -3806,6 +3802,9 @@ static void outtext_init(Rconnection con, SEXP stext, const char *mode, int idx)
 	    UNPROTECT(1);
 	}
     }
+    /* The binding alone cannot keep 'val' alive: rm() or a rebinding of
+       the name would leave this->data dangling (PR#19228). */
+    R_PreserveObject(val);
     this->len = LENGTH(val);
     this->data = val;
     this->lastline[0] = '\0';
