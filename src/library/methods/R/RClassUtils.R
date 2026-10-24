@@ -84,8 +84,7 @@ makePrototypeFromClassDef <-
         if(identical(what, "VIRTUAL")) {
             ## the class is virtual, and the prototype usually NULL
 ##            virtual <- TRUE
-        } else if(isClass(what, where=packageSlot(exti))) {
-            cli <- getClassDef(what, package=packageSlot(exti))
+        } else if(!is.null(cli <- getClassDef(what, package=packageSlot(exti)))) {
             slotsi <- names(cli@slots)
             pri <- cli@prototype
             ## once in a while
@@ -127,8 +126,8 @@ makePrototypeFromClassDef <-
     pslots <-
         if(.identC(class(prototype), className))
             names(attributes(unclass(prototype)))
-        else if(isClass(class(prototype)))
-            names(getSlots(getClass(class(prototype))))
+        else if(!is.null(def <- getClassDef(class(prototype))))
+            names(getSlots(def))
         ## else NULL
 
     ## now check that all the directly specified slots have corresponding elements
@@ -138,8 +137,7 @@ makePrototypeFromClassDef <-
 
         ## check the data part
         if(!(isVirtualClass(dataPartClass))) {
-            if(isClass(class(prototype), where = where)) {
-                prototypeClass <- getClass(class(prototype), where = where)
+            if(!is.null(prototypeClass <- getClassDef(class(prototype), where = where))) {
                 OK <- extends(prototypeClass, dataPartClass)
             }
             else
@@ -267,8 +265,8 @@ completeClassDefinition <-
             superProps[[1L]] <- properties
             for(i in seq_along(ext)) {
                 eClass <- ext[[i]]
-                if(isClass(eClass, where = where))
-                    superProps[[i+1L]] <- getClassDef(eClass, where = where)@slots
+                if(!is.null(eDef <- getClassDef(eClass, where = where)))
+                    superProps[[i+1L]] <- eDef@slots
             }
             properties <- unlist(superProps, recursive = FALSE)
             ## check for conflicting slot names
@@ -444,8 +442,8 @@ selectSuperClasses <-
 {
     ext <- if(isClassDef(Class))
         Class@contains
-    else if(isClass(Class, where = where))
-        getClass(Class, where = where)@contains
+    else if(!is.null(def <- getClassDef(Class, where = where)))
+        def@contains
     else stop("'Class' must be a valid class definition or class")
 
     .selectSuperClasses(ext, dropVirtual = dropVirtual, namesOnly = namesOnly,
@@ -476,8 +474,8 @@ inheritedSlotNames <- function(Class, where = topenv(parent.frame()))
 {
     ext <- if(isClassDef(Class))
         Class@contains
-    else if(isClass(Class, where = where))
-        getClass(Class, where = where)@contains
+    else if(!is.null(def <- getClassDef(Class, where = where)))
+        def@contains
     supcl <- .selectSuperClasses(ext, namesOnly=FALSE) ## maybe  simpleOnly = FALSE or use as argument?
     supdefs <- lapply(supcl, function(s) {
         getClassDef(s@superClass, package=packageSlot(s))
@@ -494,8 +492,8 @@ isVirtualClass <-
   function(Class, where = topenv(parent.frame())) {
       if(isClassDef(Class))
           Class@virtual
-      else if(isClass(Class, where = where))
-          getClass(Class, where = where)@virtual
+      else if(!is.null(def <- getClassDef(Class, where = where)))
+          def@virtual
       else
           TRUE
   }
@@ -1117,8 +1115,7 @@ completeSubclasses <-
     what <- names(ext)
     for(i in seq_along(ext)) { # note that this loops only over the original ext
         by <- what[[i]]
-        if(isClass(by, where = packageSlot(ext[[i]]))) {
-            byDef <- getClassDef(by, package=packageSlot(ext[[i]]))
+        if(!is.null(byDef <- getClassDef(by, package=packageSlot(ext[[i]])))) {
             exti <-  slot(byDef, slotName)
             coni <- attr(exti, "conflicts") # .resolveSuperclasses makes this
             if(superClassCase && length(coni) > 0) {
@@ -1184,8 +1181,7 @@ completeSubclasses <-
         by <- what[[i]]
         ## report only the direct superclass from which inconsistencies are inherited
         wherei <- packageSlot(ext[[i]])
-        if(identical(ext[[i]]@distance, 1) && isClass(by, where = wherei)) {
-            byDef <- getClassDef(by, package=wherei)
+        if(identical(ext[[i]]@distance, 1) && !is.null(byDef <- getClassDef(by, package=wherei))) {
             exti <-  byDef@contains
             coni <- attr(exti, "conflicts") # .resolveSuperclasses makes this
             if( length(coni) > 0) {
@@ -1212,8 +1208,8 @@ completeSubclasses <-
   .condExts <- function(contains)
       vapply(contains, function(x) is(x, "conditionalExtension" ), NA)
   .noncondExtsClass <- function(cl) {
-    if(isClass(cl, where = where) ) {
-      contains <- getClass(cl, where = where)@contains
+    if(!is.null(clDef <- getClassDef(cl, where = where))) {
+      contains <- clDef@contains
       names(contains)[!.condExts(contains)]
     }
     else cl
