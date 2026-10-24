@@ -4224,6 +4224,28 @@ unlink(zipfile)
 
 
 
+## load() of a pre-1.4 file: table sizes checked before the tables are allocated
+f <- tempfile(fileext = ".rda")
+rdx1 <- function(sym, env) writeBin(c(charToRaw("RDX1\n"), as.raw(sym), as.raw(env)), f)
+rdx1(c(255,255,255,255), c(0,0,0,0))               # symbol count -1
+r <- tryCatch(suppressWarnings(load(f)), error = identity)
+stopifnot(inherits(r, "error"), grepl("table size", conditionMessage(r)))
+rdx1(c(0,0,0,0), c(127,255,255,255))               # 2^31 - 1 environments
+oV <- mem.maxVSize(); mem.maxVSize(gc()[2, 4] + 1024) # so a 16 GB table fails cleanly
+r <- tryCatch(suppressWarnings(load(f)), error = identity)
+mem.maxVSize(oV)
+stopifnot(inherits(r, "error"), grepl("table sizes", conditionMessage(r)))
+## a well-formed version-1 file (one symbol, no environments) still loads
+con <- file(f, "wb") # LF line endings also on Windows: the magic is "RDA1\n"
+writeLines(c("RDA1", "1 0", "1 x", "2 0 0", "1 0 0 1 -1", "13 0 0 3 1 2 3 -1",
+             "-1", "-1"), con)
+close(con)
+e <- new.env(); suppressWarnings(load(f, envir = e)); unlink(f)
+stopifnot(identical(e$x, 1:3))
+## "negative length vectors" error / allocated a 16 GB table first in R <= 4.6.0
+
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
