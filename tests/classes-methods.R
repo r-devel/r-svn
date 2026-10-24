@@ -385,9 +385,9 @@ stopifnot(identical(h1, 1), identical(n, 1),
 ## .recacheSubclasses() & .checkSubclasses() preserve shortest @distance and @contains order:
 setClassUnion("U1", c("factor", "numeric"))
 setClassUnion("U2", c("numeric", "factor"))
-setGeneric("fU", function(x) standardGeneric("fU"))
-setMethod("fU", "U1", function(x) "U1")
-setMethod("fU", "numeric", function(x) "numeric")
+setGeneric("fU", \(x) standardGeneric("fU"))
+setMethod("fU", "U1", \(x) "U1")
+setMethod("fU", "numeric", \(x) "numeric")
 stopifnot(identical(getClassDef("ordered")@contains[["U1"]]@distance, 2),
           identical(getClassDef("ordered")@contains[["U2"]]@distance, 2),
           identical(fU(ordered("a")), "U1"),
@@ -399,10 +399,10 @@ setClass("B", contains = "S1")
 setClass("C", contains = "B")
 setClass("X")
 setClassUnion("U", c("B", "X"))
-setGeneric("fPick", function(x) standardGeneric("fPick"))
-setMethod("fPick", "S0", function(x) "S0")
-setMethod("fPick", "U", function(x) "U")
-stopifnot(!is.unsorted(vapply(getClassDef("C")@contains, slot, 1, "distance")),
+setGeneric("fPick", \(x) standardGeneric("fPick"))
+setMethod("fPick", "S0", \(x) "S0")
+setMethod("fPick", "U", \(x) "U")
+stopifnot(!is.unsorted(vapply(getClassDef("C")@contains, \(cl) cl@distance, 1)),
           identical(fPick(new("C")), "U"),
           removeGeneric("fPick"))
 for(cl in c("U", "X", "C", "B", "S1", "S0")) removeClass(cl)
