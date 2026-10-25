@@ -382,4 +382,8 @@ stopifnot(identical(h1, 1), identical(n, 1),
           identical(attr(h, "label"), "kept"),
           identical(h(2), 2), identical(n, 1)) # h no longer traced
 
+## getClassDef() / isClass() with character 'where' for an undefined class
+stopifnot(is.null(getClassDef("noSuchClass", where = ".GlobalEnv")),
+          !isClass("noSuchClass", where = ".GlobalEnv"))
+
 cat('Time elapsed: ', proc.time(),'\n')
