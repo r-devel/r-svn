@@ -4223,6 +4223,23 @@ unlink(zipfile)
 ## n2 - n1 was 50 in R <= 4.6.2
 
 
+## Reject oversized names of serialized primitive functions before
+## allocating a buffer on the C stack.
+for (name in c("if", "sum")) {
+    fun <- get(name, baseenv())
+    blob <- serialize(fun, NULL, version = 2L)
+    stopifnot(identical(unserialize(blob), fun))
+    pos <- seq.int(length(blob) - nchar(name) - 3L, length.out = 4L)
+    for (n in c(256L, 117901063L)) {
+        invalid <- blob
+        invalid[pos] <- writeBin(n, raw(), size = 4L, endian = "big")
+        err <- tryCatch(unserialize(invalid), error = identity)
+        stopifnot(inherits(err, "error"))
+        if (englishMsgs)
+            stopifnot(grepl("invalid length", conditionMessage(err), fixed = TRUE))
+    }
+}
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
