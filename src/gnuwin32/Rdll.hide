@@ -241,6 +241,7 @@
  R_SetOptionWarn
  R_SetOptionWidth
  R_SetPPSize
+ R_SetParseErrorFile
  R_SetVarLocValue
  R_SetWin32
  R_ShowErrorCalls

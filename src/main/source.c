@@ -80,23 +80,36 @@ attribute_hidden SEXP getParseContext(void)
     return ans2;
 }
 
+/* The parser state can be finalized before parseError() uses this file. */
+attribute_hidden void R_SetParseErrorFile(SEXP srcfile)
+{
+    if (srcfile && srcfile != R_NilValue)
+	R_PreserveObject(srcfile);
+    if (R_ParseErrorFile && R_ParseErrorFile != R_NilValue)
+	R_ReleaseObject(R_ParseErrorFile);
+    R_ParseErrorFile = srcfile;
+}
+
 static void getParseFilename(char* buffer, size_t buflen)
 {
+    SEXP srcfile = R_ParseErrorFile;
     buffer[0] = '\0';
-    if (R_ParseErrorFile) {
-	if (isEnvironment(R_ParseErrorFile)) {
+    if (srcfile) {
+	PROTECT(srcfile);
+	if (isEnvironment(srcfile)) {
 	    SEXP filename;
 	    PROTECT(filename = R_findVar(install("filename"),
-					 R_ParseErrorFile));
+					 srcfile));
 	    if (isString(filename) && length(filename)) {
 		strncpy(buffer, CHAR(STRING_ELT(filename, 0)), buflen - 1);
 		buffer[buflen - 1] = '\0';
 	    }
 	    UNPROTECT(1);
-	} else if (isString(R_ParseErrorFile) && length(R_ParseErrorFile)) {
-	    strncpy(buffer, CHAR(STRING_ELT(R_ParseErrorFile, 0)), buflen - 1);
+	} else if (isString(srcfile) && length(srcfile)) {
+	    strncpy(buffer, CHAR(STRING_ELT(srcfile, 0)), buflen - 1);
 	    buffer[buflen - 1] = '\0';
 	}
+	UNPROTECT(1);
     }
 }
 
@@ -133,7 +146,10 @@ NORET void parseError(SEXP call, int linenum)
     if (linenum) {
 	getParseFilename(filename, sizeof(filename)-2);
 	if (strlen(filename)) strcpy(filename + strlen(filename), ":");
+    }
+    R_SetParseErrorFile(NULL);
 
+    if (linenum) {
 	switch (len) {
 	case 0:
 	    error("%s%d:%d: %s",

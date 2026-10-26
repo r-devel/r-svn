@@ -3901,6 +3901,7 @@ static void FinalizeSrcRefStateOnError(void *dummy)
 attribute_hidden
 void R_InitSrcRefState(RCNTXT* cptr)
 {
+    R_SetParseErrorFile(NULL);
     if (busy) {
     	SrcRefState *prev = malloc(sizeof(SrcRefState));
 	if (prev == NULL)
@@ -4694,7 +4695,7 @@ static void yyerror(const char *s)
 
     R_ParseError     = yylloc.first_line;
     R_ParseErrorCol  = yylloc.first_column;
-    R_ParseErrorFile = PS_SRCFILE;
+    R_SetParseErrorFile(PS_SRCFILE);
 
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i;

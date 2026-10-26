@@ -1044,7 +1044,7 @@ static void jump_to_top_ex(Rboolean traceback,
 	R_FlushConsole();
 	R_ClearerrConsole();
 	R_ParseError = 0;
-	R_ParseErrorFile = NULL;
+	R_SetParseErrorFile(NULL);
 	R_ParseErrorMsg[0] = '\0';
     }
 

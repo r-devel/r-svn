@@ -1647,6 +1647,7 @@ LibExtern int	R_ParseError	INI_as(0); /* Line where parse error occurred */
 extern0 int	R_ParseErrorCol;    /* Column of start of token where parse error occurred */
 extern0 SEXP	R_ParseErrorFile;   /* Source file where parse error was seen.  Either a
 				       STRSXP or (when keeping srcrefs) a SrcFile ENVSXP */
+attribute_hidden void R_SetParseErrorFile(SEXP);
 #define PARSE_ERROR_SIZE 256	    /* Parse error messages saved here */
 LibExtern char	R_ParseErrorMsg[PARSE_ERROR_SIZE] INI_as("");
 #define PARSE_CONTEXT_SIZE 256	    /* Recent parse context kept in a circular buffer */
