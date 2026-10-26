@@ -29,7 +29,7 @@ is <- function(object, class2)
     if(missing(class2))
         return(extends(class1))
     if(length(class2) != 1L)
-        stop("'class2' must be a single class name or class definition")
+        stop("'class2' must be the name of a class or a class definition")
     class1Def <- getClassDef(class1)
     class2Def <- NULL
     if(!is.character(class2)) {
