@@ -1270,6 +1270,7 @@ static void UndoHashing(SEXP x, SEXP table, HashData *d)
 DEFLOOKUP(iLookup, ihash, iequal)
 DEFLOOKUP(rLookup, rhash, requal)
 DEFLOOKUP(sLookup, shash, sequal)
+DEFLOOKUP(scLookup, cshash, sequal_cached)
 
 /* definition for the general case */
 DEFLOOKUP(Lookup, d->hash, d->equal)
@@ -1294,8 +1295,12 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
 	    pa[i] = rLookup(table, x, i, d);
 	break;
     case STRSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = sLookup(table, x, i, d);
+	if (d->equal == sequal_cached)
+	    for (i = 0; i < n; i++)
+		pa[i] = scLookup(table, x, i, d);
+	else
+	    for (i = 0; i < n; i++)
+		pa[i] = sLookup(table, x, i, d);
 	break;
     default:
 	for (i = 0; i < n; i++)
