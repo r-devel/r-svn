@@ -646,7 +646,10 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     HashData data = { 0 };					\
     HashTableSetup(x, &data, nmax);				\
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
-    duplicatedInit(x, &data);					\
+    duplicatedInit(x, &data);
+
+/* Only valid without incomparables, which are not covered by the scan */
+#define USE_CACHED_SEQUAL						\
     if (TYPEOF(x) == STRSXP && data.useCache &&			\
 	!data.useUTF8 && !data.useBytes)				\
 	data.equal = sequal_cached;
@@ -660,6 +663,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
 
     PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
@@ -854,6 +858,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     	return sorted_Duplicated(x, from_last, nmax);
     }
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
 
     PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
@@ -1006,6 +1011,7 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     }
 
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
     PROTECT(data.HashTable);
 
     if(from_last) {
@@ -1106,6 +1112,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
 #undef IS_DUPLICATED_CHECK
 #undef DUPLICATED_INIT
+#undef USE_CACHED_SEQUAL
 
 
 /* .Internal(   duplicated(x, incomparables, fromLast, nmax))  [op=0]
@@ -1514,7 +1521,7 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	    }
 	    data.useUTF8 = useUTF8;
 	    data.useCache = useCache;
-	    if (useCache && !useUTF8 && !useBytes)
+	    if (useCache && !useUTF8 && !useBytes && !incomp)
 		data.equal = sequal_cached;
 	}
 	DoHashing(table, &data);
