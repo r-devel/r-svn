@@ -1333,8 +1333,9 @@ static SEXP match_transform(SEXP s, SEXP env)
 	    return r;
 	}
     }
-    /* else */
-    return duplicate(s);
+    /* else: match5 never modifies its inputs (coerceVector and asUTF8
+       allocate), so there is nothing to protect by copying */
+    return s;
 }
 
 /* assumes that x does not have any element in bytes encoding */
