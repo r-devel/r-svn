@@ -1645,11 +1645,10 @@ extern0 char	R_StdinEnc[31]  INI_as("");	/* Encoding assumed for stdin */
 /* Objects Used In Parsing  */
 LibExtern int	R_ParseError	INI_as(0); /* Line where parse error occurred */
 extern0 int	R_ParseErrorCol;    /* Column of start of token where parse error occurred */
-extern0 SEXP	R_ParseErrorFile;   /* Source file where parse error was seen.  Either a
-				       STRSXP or (when keeping srcrefs) a SrcFile ENVSXP */
-attribute_hidden void R_SetParseErrorFile(SEXP);
 #define PARSE_ERROR_SIZE 256	    /* Parse error messages saved here */
 LibExtern char	R_ParseErrorMsg[PARSE_ERROR_SIZE] INI_as("");
+extern0 char	R_ParseErrorFilename[PARSE_ERROR_SIZE] INI_as(""); /* Name of the
+				       source file where parse error was seen, or "" */
 #define PARSE_CONTEXT_SIZE 256	    /* Recent parse context kept in a circular buffer */
 LibExtern char	R_ParseContext[PARSE_CONTEXT_SIZE] INI_as("");
 LibExtern int	R_ParseContextLast INI_as(0); /* last character in context buffer */

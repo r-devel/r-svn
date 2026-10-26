@@ -218,7 +218,7 @@
  R_ParseBuffer
  R_ParseConn
  R_ParseErrorCol
- R_ParseErrorFile
+ R_ParseErrorFilename
  R_ParseFile
  R_PendingPromises
  R_PlaceholderToken
@@ -241,7 +241,6 @@
  R_SetOptionWarn
  R_SetOptionWidth
  R_SetPPSize
- R_SetParseErrorFile
  R_SetVarLocValue
  R_SetWin32
  R_ShowErrorCalls

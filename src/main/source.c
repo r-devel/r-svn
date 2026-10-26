@@ -80,39 +80,6 @@ attribute_hidden SEXP getParseContext(void)
     return ans2;
 }
 
-/* The parser state can be finalized before parseError() uses this file. */
-attribute_hidden void R_SetParseErrorFile(SEXP srcfile)
-{
-    if (srcfile && srcfile != R_NilValue)
-	R_PreserveObject(srcfile);
-    if (R_ParseErrorFile && R_ParseErrorFile != R_NilValue)
-	R_ReleaseObject(R_ParseErrorFile);
-    R_ParseErrorFile = srcfile;
-}
-
-static void getParseFilename(char* buffer, size_t buflen)
-{
-    SEXP srcfile = R_ParseErrorFile;
-    buffer[0] = '\0';
-    if (srcfile) {
-	PROTECT(srcfile);
-	if (isEnvironment(srcfile)) {
-	    SEXP filename;
-	    PROTECT(filename = R_findVar(install("filename"),
-					 srcfile));
-	    if (isString(filename) && length(filename)) {
-		strncpy(buffer, CHAR(STRING_ELT(filename, 0)), buflen - 1);
-		buffer[buflen - 1] = '\0';
-	    }
-	    UNPROTECT(1);
-	} else if (isString(srcfile) && length(srcfile)) {
-	    strncpy(buffer, CHAR(STRING_ELT(srcfile, 0)), buflen - 1);
-	    buffer[buflen - 1] = '\0';
-	}
-	UNPROTECT(1);
-    }
-}
-
 static SEXP tabExpand(SEXP strings)
 {
     int i;
@@ -140,16 +107,15 @@ NORET void parseError(SEXP call, int linenum)
 {
     SEXP context;
     int len, width;
-    char filename[128], buffer[10];
+    char filename[PARSE_ERROR_SIZE + 1], buffer[10];
     PROTECT(context = tabExpand(getParseContext()));
     len = length(context);
     if (linenum) {
-	getParseFilename(filename, sizeof(filename)-2);
-	if (strlen(filename)) strcpy(filename + strlen(filename), ":");
-    }
-    R_SetParseErrorFile(NULL);
+	if (R_ParseErrorFilename[0])
+	    snprintf(filename, sizeof filename, "%s:", R_ParseErrorFilename);
+	else
+	    filename[0] = '\0';
 
-    if (linenum) {
 	switch (len) {
 	case 0:
 	    error("%s%d:%d: %s",

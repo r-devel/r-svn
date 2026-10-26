@@ -1592,7 +1592,6 @@ static void FinalizeSrcRefStateOnError(void *dummy)
 attribute_hidden
 void R_InitSrcRefState(RCNTXT* cptr)
 {
-    R_SetParseErrorFile(NULL);
     if (busy) {
     	SrcRefState *prev = malloc(sizeof(SrcRefState));
 	if (prev == NULL)
@@ -2324,6 +2323,27 @@ SEXP mkFalse(void)
     return s;
 }
 
+/* Record the name of the file a parse error was seen in.  It has to be
+   copied out here: parseError() runs after R_FinalizeSrcRefState() has
+   dropped the parser's reference to srcfile, and a #line directive can
+   leave that as the only one. */
+static void setParseErrorFilename(SEXP srcfile)
+{
+    SEXP filename = R_NilValue;
+
+    if (isEnvironment(srcfile))
+	filename = R_findVar(install("filename"), srcfile);
+    else if (isString(srcfile))
+	filename = srcfile;
+
+    R_ParseErrorFilename[0] = '\0';
+    if (isString(filename) && length(filename) > 0) {
+	strncpy(R_ParseErrorFilename, CHAR(STRING_ELT(filename, 0)),
+		PARSE_ERROR_SIZE - 1);
+	R_ParseErrorFilename[PARSE_ERROR_SIZE - 1] = '\0';
+    }
+}
+
 static void yyerror(const char *s)
 {
     static const char *const yytname_translations[] =
@@ -2386,7 +2406,7 @@ static void yyerror(const char *s)
 
     R_ParseError     = yylloc.first_line;
     R_ParseErrorCol  = yylloc.first_column;
-    R_SetParseErrorFile(PS_SRCFILE);
+    setParseErrorFilename(PS_SRCFILE);
 
     if (!strncmp(s, yyunexpected, sizeof yyunexpected -1)) {
 	int i;
