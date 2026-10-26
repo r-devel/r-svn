@@ -4224,6 +4224,36 @@ unlink(zipfile)
 
 
 
+## string hashing: equal content must match across encoding marks
+lat <- "caf\xe9"; Encoding(lat) <- "latin1"
+utf <- enc2utf8(lat)
+byt <- "caf\xe9"; Encoding(byt) <- "bytes"
+asc <- c("a", "b", NA, "a", "")
+stopifnot(exprs = {
+    identical(match(utf, lat), 1L)
+    identical(match(lat, c("x", utf)), 2L)
+    identical(match(asc, c(NA, "", "b")), c(NA, 3L, 1L, NA, 2L))
+    identical(unique(c(lat, utf, "x", NA, NA)), c(lat, "x", NA))
+    identical(duplicated(c(utf, lat, "a", "a")), c(FALSE, TRUE, FALSE, TRUE))
+    identical(anyDuplicated(c("a", "b", NA, NA)), 4L)
+    identical(anyDuplicated(c("a", "b", utf, lat)), 4L)
+    identical(match(byt, byt), 1L)
+    identical(unique(c("x", "x", byt, byt)), c("x", byt))
+    identical(duplicated(c("a", byt, byt)), c(FALSE, FALSE, TRUE))
+    identical(c("a", "b") %in% c("b", NA), c(FALSE, TRUE))
+    ## incomparables are not covered by the encoding scan
+    identical(match(c("a", lat, "b"), c(utf, "b"), incomparables = utf), c(NA, NA, 2L))
+    identical(match(c("a", "b", "b"), c("b", "a"), incomparables = "b"), c(2L, NA, NA))
+    identical(duplicated(c("a", "a", NA, NA), incomparables = NA), c(FALSE, TRUE, FALSE, FALSE))
+})
+if(l10n_info()[["UTF-8"]]) {
+    nat <- rawToChar(charToRaw(utf)) # same bytes, no encoding mark
+    stopifnot(identical(Encoding(nat), "unknown"),
+              identical(duplicated(c(nat, nat), incomparables = utf), c(FALSE, FALSE)),
+              identical(match(utf, nat), 1L))
+}
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
