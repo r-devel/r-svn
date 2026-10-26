@@ -74,6 +74,7 @@ struct _HashData {
     int nomatch;
     Rboolean useUTF8;
     Rboolean useCache;
+    Rboolean useBytes;
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
@@ -301,6 +302,15 @@ static R_INLINE int sequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (IS_CACHED(xi) && IS_CACHED(yj) && ENC_KNOWN(xi) == ENC_KNOWN(yj))
 	return 0;
     return Seql(xi, yj);
+}
+
+/* When every string is cached and none is marked as latin1, UTF-8 or
+   bytes, equal content means the same CHARSXP, so the headers need not
+   be read: that saves a cache miss per probe on large tables. */
+static int sequal_cached(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+    return STRING_ELT(x, i) == STRING_ELT(y, j);
 }
 
 static hlen rawhash(SEXP x, R_xlen_t indx, HashData *d)
@@ -569,6 +579,7 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
 	for(i = 0; i < n; i++) {
 	    if(IS_BYTES(STRING_ELT(x, i))) {
 		d->useUTF8 = FALSE;
+		d->useBytes = TRUE;
 		stop = TRUE;
 		break;
 	    }
@@ -635,7 +646,10 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     HashData data = { 0 };					\
     HashTableSetup(x, &data, nmax);				\
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
-    duplicatedInit(x, &data);
+    duplicatedInit(x, &data);					\
+    if (TYPEOF(x) == STRSXP && data.useCache &&			\
+	!data.useUTF8 && !data.useBytes)				\
+	data.equal = sequal_cached;
 
 /* used in scan() */
 SEXP duplicated(SEXP x, Rboolean from_last)
@@ -1500,6 +1514,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	    }
 	    data.useUTF8 = useUTF8;
 	    data.useCache = useCache;
+	    if (useCache && !useUTF8 && !useBytes)
+		data.equal = sequal_cached;
 	}
 	DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
