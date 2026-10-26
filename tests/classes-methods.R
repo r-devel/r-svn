@@ -384,6 +384,15 @@ stopifnot(identical(h1, 1), identical(n, 1),
 
 ## getClassDef() / isClass() with character 'where' for an undefined class
 stopifnot(is.null(getClassDef("noSuchClass", where = ".GlobalEnv")),
-          !isClass("noSuchClass", where = ".GlobalEnv"))
+          is.null(getClassDef("noSuchClass", where = "methods")),
+          !isClass("noSuchClass", where = ".GlobalEnv"),
+          !isClass("noSuchClass", where = "methods"))
+setClass("A", slots = c(x = "numeric"))
+setClass("B", contains = "A")
+b_def <- getClassDef("B")
+removeClass("A")
+err <- tryCatch(suppressWarnings(completeExtends(b_def)), error = conditionMessage)
+stopifnot(grepl("includes an undefined class", err),
+          removeClass("B"))
 
 cat('Time elapsed: ', proc.time(),'\n')
