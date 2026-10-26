@@ -59,9 +59,9 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
     done <- names(selfEnv)
-    ## setdiff(depends, done), which costs 5 times as much, once per
-    ## method installed into every object
-    notDone <- unique(depends[match(depends, done, 0L) == 0L])
+    ## setdiff(depends, done), which costs 5 times as much (mostly its
+    ## argument compatibility checks), once per method in every object
+    notDone <- unique(depends[!depends %in% done])
     superCase <- match("callSuper", notDone, 0)
     if(superCase > 0) {
         if(nzchar(def@superClassMethod))
@@ -98,7 +98,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 ..hasCodeTools <- NULL
 .hasCodeTools <- function() {
     if(is.null(..hasCodeTools)) {
-        value <- length(list.files(system.file(package = "codetools"))) > 0
+        value <- length(find.package("codetools", quiet = TRUE)) > 0L
         .assignOverBinding("..hasCodeTools", value, .methodsNamespace, FALSE)
         value
     }
