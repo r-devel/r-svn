@@ -218,7 +218,7 @@
  R_ParseBuffer
  R_ParseConn
  R_ParseErrorCol
- R_ParseErrorFilename
+ R_ParseErrorFile
  R_ParseFile
  R_PendingPromises
  R_PlaceholderToken

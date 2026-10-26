@@ -80,6 +80,26 @@ attribute_hidden SEXP getParseContext(void)
     return ans2;
 }
 
+static void getParseFilename(char* buffer, size_t buflen)
+{
+    buffer[0] = '\0';
+    if (R_ParseErrorFile) {
+	if (isEnvironment(R_ParseErrorFile)) {
+	    SEXP filename;
+	    PROTECT(filename = R_findVar(install("filename"),
+					 R_ParseErrorFile));
+	    if (isString(filename) && length(filename)) {
+		strncpy(buffer, CHAR(STRING_ELT(filename, 0)), buflen - 1);
+		buffer[buflen - 1] = '\0';
+	    }
+	    UNPROTECT(1);
+	} else if (isString(R_ParseErrorFile) && length(R_ParseErrorFile)) {
+	    strncpy(buffer, CHAR(STRING_ELT(R_ParseErrorFile, 0)), buflen - 1);
+	    buffer[buflen - 1] = '\0';
+	}
+    }
+}
+
 static SEXP tabExpand(SEXP strings)
 {
     int i;
@@ -107,15 +127,18 @@ NORET void parseError(SEXP call, int linenum)
 {
     SEXP context;
     int len, width;
-    char filename[PARSE_ERROR_SIZE + 1], buffer[10];
+    char filename[128], buffer[10];
     PROTECT(context = tabExpand(getParseContext()));
     len = length(context);
     if (linenum) {
-	if (R_ParseErrorFilename[0])
-	    snprintf(filename, sizeof filename, "%s:", R_ParseErrorFilename);
-	else
-	    filename[0] = '\0';
+	getParseFilename(filename, sizeof(filename)-2);
+	if (strlen(filename)) strcpy(filename + strlen(filename), ":");
+    }
+    /* The GC keeps the srcfile alive until here; let it go now rather
+       than when the error reaches top level, which a handler may prevent. */
+    R_ParseErrorFile = NULL;
 
+    if (linenum) {
 	switch (len) {
 	case 0:
 	    error("%s%d:%d: %s",
