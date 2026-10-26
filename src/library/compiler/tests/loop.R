@@ -24,3 +24,9 @@ f <- function(x) { for (y in x) { z <- y; g(break) } ; z }
 g <- function(x) x
 cmpfun(f)(c(1,2,3))
 
+## A break in the right-hand side of a complex assignment must unwind
+## the link stack before leaving the loop.
+f <- function() 1 - repeat x[1] <- break
+fc <- cmpfun(f)
+stopifnot(identical(f(), numeric(0)), identical(fc(), f()))
+
