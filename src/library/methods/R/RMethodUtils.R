@@ -901,11 +901,6 @@ cacheMetaData <-
         if(.tr) message("--- done getting generic ", sQuote(f))
     }
     .doLoadActions(where, attach)
-    if (attach && isNamespace(where) && !isBaseNamespace(where)) {
-        p_path <- .getNamespaceInfo(where, "path")
-        if (is.character(p_path) && length(p_path) == 1L && nzchar(p_path, keepNA = TRUE))
-            .Internal(lazyLoadDBflush(file.path(p_path, "R", paste0(getNamespaceName(where), ".rdb"))))
-    }
     invisible(NULL) ## as some people call this at the end of functions
 }
 
