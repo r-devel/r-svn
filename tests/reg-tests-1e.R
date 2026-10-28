@@ -4270,6 +4270,17 @@ stopifnot(identical(lapply(snms, slot, object = x), dots),
 ## in R <= 4.6.2
 
 
+## Oversized numeric subscripts must not corrupt growable vectors.
+## OSS-Fuzz testcase 6491489048526848
+for (expr in list(quote(x[1e19] <- 0),
+                  compiler::compile(quote(x[1e19] <- 0)))) {
+    x <- 0
+    x[20] <- 0
+    stopifnot(inherits(try(eval(expr), silent = TRUE), "try-error"),
+              length(x) == 20L)
+    x[1] <- 0
+}
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
