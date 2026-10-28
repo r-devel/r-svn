@@ -918,6 +918,9 @@ NORET void errorcall(SEXP call, const char *format,...)
 	/* behave like error( */
 	call = getCurrentCall();
 
+    /* getCurrentCall() can construct a new byte-code assignment call. */
+    PROTECT(call);
+
     va_start(ap, format);
     vsignalError(call, format, ap);
     va_end(ap);
