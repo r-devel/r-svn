@@ -1727,8 +1727,10 @@ cmpComplexAssign <- function(symbol, lhs, value, superAssign, cb, cntxt) {
         endOP <- ENDASSIGN.OP
     }
     if (! cntxt$toplevel) cb$putcode(INCLNKSTK.OP)
-    ## A break or next in value must unwind the link stack marker above.
-    ncntxt <- make.argContext(cntxt)
+    if (cntxt$toplevel)
+        ncntxt <- make.nonTailCallContext(cntxt)
+    else
+        ncntxt <- make.argContext(cntxt)
     cmp(value, cb, ncntxt)
     csi <- cb$putconst(symbol)
     cb$putcode(startOP, csi)
