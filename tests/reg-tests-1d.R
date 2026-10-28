@@ -5470,8 +5470,8 @@ stopifnot(exprs = {
 (m2 <- tryCmsg(match.arg("", choices = c("", "a", "b"))))
 stopifnot(!grepl(dQuote(""), m1), !grepl(dQuote(""), m2))
 if(englishMsgs)
-    stopifnot(grepl("'arg' should be ", m1),
-              grepl("'arg' should be one ", c(m1, m2)) |> identical( c(FALSE,TRUE) ))
+    stopifnot(grepl("'arg' should be NULL or ", m1),
+              grepl("'arg' should be NULL or one ", c(m1, m2)) |> identical( c(FALSE,TRUE) ))
 ## was  'arg' should be one of “”, “a” ( , “b” )
 
 
