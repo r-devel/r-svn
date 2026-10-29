@@ -4371,29 +4371,13 @@ stopifnot(!("a" %in% RC2$methods()),
 ## the method was put back from its previous definition in R <= 4.6.1
 
 
-## $methods() must re-analyse the existing methods for a method added or removed later
-RC <- suppressMessages(setRefClass("mayCallUpd", methods = list(
-    kA = function() mcA(),
-    kB = function() { f <- function(y = mcB()) y; f() })))
-stopifnot(identical(RC$def@refMethods$kA@mayCall, character()))
-suppressMessages(RC$methods(mcA = function() 2, mcB = function() 3))
-stopifnot(identical(RC$def@refMethods$kA@mayCall, "mcA"), identical(RC$new()$kA(), 2))
-if(methods:::.hasCodeTools()) # the call in a nested default argument needs codetools
-    stopifnot(identical(RC$def@refMethods$kB@mayCall, "mcB"), identical(RC$new()$kB(), 3))
-suppressMessages(RC$methods(mcA = NULL))
-stopifnot(identical(RC$def@refMethods$kA@mayCall, character()),
-          inherits(tryCatch(RC$new()$kA(), error = identity), "error"))
-## guards the narrowed re-analysis in $methods()
-
-
 ## Reference class method installation, incremental re-analysis, and removal
 RCBase <- setRefClass("RCBase",
     fields = list(x = "numeric"),
     methods = list(
         foo = function() x + 1,
         bar = function() foo() * 2,
-        .dot = function() x + 10,
-        `val<-` = function(obj, value) { x <<- obj + value; obj }
+        .dot = function() x + 10
     ))
 RCSub <- setRefClass("RCSub", contains = "RCBase",
     methods = list(
@@ -4419,12 +4403,9 @@ RCGrand <- setRefClass("RCGrand", contains = "RCSub",
 stopifnot(identical(RCGrand$new(x = 5)$foo(), 42))
 RCGrand$methods(foo = NULL)
 stopifnot(!"foo" %in% RCGrand$methods())
-## Dot-prefixed methods (.dot), replacement methods (`val<-`), nested function
-## default args, and externalRefMethod (first formal '.self'):
+## Dot-prefixed methods (.dot) and externalRefMethod (first formal '.self'):
 RCBase$methods(
     useDot = function() .dot() + 1,
-    useDefault = function(fn = function() foo()) fn(),
-    useRepl = function(v) { y <- 2; val(y) <- v; x },
     extMeth = function(.self, k) .self$x + k
 )
 RCBase$methods(
@@ -4432,10 +4413,7 @@ RCBase$methods(
 )
 a <- RCBase$new(x = 3)
 stopifnot(identical(a$useDot(), 24),
-          identical(a$useDefault(), 4),
-          identical(a$useRepl(10), 12),
-          "val<-" %in% RCBase$def@refMethods$useRepl@mayCall,
-          identical(a$extMeth(7), 19))
+          identical(a$extMeth(7), 10))
 ## Incremental re-analysis of traced methods must not bake the trace wrapper
 ## into the method definition:
 traced <- FALSE

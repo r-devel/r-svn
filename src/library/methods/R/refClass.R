@@ -102,32 +102,6 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
         unique(unlist(lapply(def, all.names)))
 }
 
-## Could method def call any of the functions named in 'names'?  A cheap
-## test used to skip the code analysis in .getGlobalFuns(), by far the
-## most expensive step in processing a method, when it could not find
-## anything: every function name it reports is a symbol in the formal
-## arguments or body (or "f<-" for a replacement call f(x) <- value),
-## except inside the formal arguments of a nested function definition,
-## which all.names() does not visit.  (A string as the function name in
-## a call, "f"(x), is not visited either, but the parser turns that into
-## f(x); only a call constructed by as.call() can have one, and the
-## fallback in .getGlobalFuns() does not see it either.)  The formals and
-## body are taken apart here rather than with as.list(def), whose S3
-## dispatch fails for a closure with a class attribute.
-.mayCallAny <- function(def, names) {
-    syms <- c(all.names(body(def)),
-              unlist(lapply(formals(def), all.names)))
-    if (!length(syms))
-      return(FALSE)
-    if (any(c("function", names) %in% syms))
-      return(TRUE)
-    if (!any(c("<-", "=", "<<-") %in% syms))
-      return(FALSE)
-    if (!any(endsWith(names, "<-")))
-      return(FALSE)
-    any(paste0(syms, "<-") %in% names)
-}
-
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
     if(identical(formalArgs(def)[[1]], ".self"))
         def <- externalRefMethod(def)
@@ -138,8 +112,6 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         def@superClassMethod <- superClassMethod
         return(def)
     }
-    if(!.mayCallAny(def, c(allMethods, "usingMethods")))
-        return(new("refMethodDef", def, mayCall = character(), name = name, refClassName = Class, superClassMethod = superClassMethod))
     depends <- .getGlobalFuns(def)
     ## find the field methods called ...
     if("usingMethods" %in% depends) { # including those declared
@@ -613,16 +585,12 @@ getRefSuperClasses <- function(classes, classDefs) {
     mnames <- names(methodDefs)
     if(is.null(mnames) || !all(nzchar(mnames)))
         stop("arguments to methods() must be named, or one named list")
-    ## append the other existing local methods that could call one of the
-    ## methods being defined or removed, so that they are re-analysed for
-    ## them; the analysis of the remaining methods could not come out
-    ## differently.  (The previous versions of the methods being defined
+    ## append the other existing local methods, so they are re-analysed for
+    ## new method names (the previous versions of the methods being defined
     ## or removed must not be appended: a method removed by a NULL
-    ## definition was re-inserted from its previous version.)
+    ## definition was re-inserted from its previous version)
     local <- .thisClassMethods(methodsEnv, def@className)
     existing <- local[names(local) %notin% mnames]
-    existing <- existing[vapply(existing, .mayCallAny, NA,
-                                names = c(mnames, "usingMethods"))]
     methodDefs <- c(methodDefs, existing)
     mnames <- names(methodDefs)
     ## look for methods to remove (new definition is NULL)
@@ -1201,14 +1169,6 @@ showRefClassDef <- function(object, title = "Reference Class") {
 .checkFieldsInMethod <- function(methodDef, fieldNames, methodNames) {
     if(!.hasCodeTools())
         return(NA)
-    ## Nothing to report unless the body assigns to a field name or
-    ## non-locally, so skip the (expensive) code analysis otherwise.  The
-    ## target of an assignment is a symbol in the body, except when
-    ## written as a string, "f" <- value, which is not worth a walk.
-    syms <- all.names(body(methodDef))
-    if(!("<<-" %in% syms) &&
-       (!any(c("<-", "=") %in% syms) || !any(fieldNames %in% syms)))
-        return(TRUE)
     p0q <- function(x) paste0('"', x, '"', collapse = "; ")
     if(is(methodDef, "refMethodDef")) {
         methodName <- p0q(methodDef@name)
