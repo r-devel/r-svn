@@ -47,9 +47,8 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(is(def, "externalMethodDef") || !is(def, "refMethodDef")) {
-        ## Don't process either an external method (not needed),
-        ## or a special object in the class refMethods
+    if(!inherits(def, "refMethodDef")) {
+        ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
         return(def)
@@ -59,30 +58,34 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     assign(me, def, envir = selfEnv)
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
-    done <- names(selfEnv)
-    notDone <- setdiff(depends, done)
-    superCase <- match("callSuper", notDone, 0)
-    if(superCase > 0) {
-        if(nzchar(def@superClassMethod))
-            notDone[[superCase]] <- def@superClassMethod
-        else
-            stop(gettextf("a call to superClass() is in the method %s but there is no superclass definition of this method for class %s",
-                          sQuote(me),
-                          dQuote(thisClass@className)),
-                 domain = NA)
-    }
-    for(what in notDone)
-        installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
-    if(superCase > 0) {
-        ## provide an environment with the correct callSuper() definition,
-        ## with selfEnv as its parent (can't override the definition of "callSuper"
-        ## in selfEnv--there may  be other methods with a callSuper() in them
-        newEnv <- new.env(FALSE, parent = selfEnv)
-        assign("callSuper", get(def@superClassMethod, envir = selfEnv),
-               envir = newEnv)
-        environment(def) <- newEnv
-        assign(me, def, envir = selfEnv)
-        ## the callSuper() inside def now goes to the right method
+    if(length(depends)) {
+        done <- names(selfEnv)
+        ## setdiff(depends, done), which costs 5 times as much (mostly its
+        ## argument compatibility checks), once per method in every object
+        notDone <- unique(depends[!depends %in% done])
+        superCase <- match("callSuper", notDone, 0L)
+        if(superCase > 0L) {
+            if(nzchar(def@superClassMethod))
+                notDone[[superCase]] <- def@superClassMethod
+            else
+                stop(gettextf("a call to superClass() is in the method %s but there is no superclass definition of this method for class %s",
+                              sQuote(me),
+                              dQuote(thisClass@className)),
+                     domain = NA)
+        }
+        for(what in notDone)
+            installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
+        if(superCase > 0L) {
+            ## provide an environment with the correct callSuper() definition,
+            ## with selfEnv as its parent (can't override the definition of "callSuper"
+            ## in selfEnv--there may  be other methods with a callSuper() in them
+            newEnv <- new.env(FALSE, parent = selfEnv)
+            assign("callSuper", get(def@superClassMethod, envir = selfEnv),
+                   envir = newEnv)
+            environment(def) <- newEnv
+            assign(me, def, envir = selfEnv)
+            ## the callSuper() inside def now goes to the right method
+        }
     }
     def
    }
@@ -156,6 +159,10 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 }
 
 refObjectClass <- function(object) {
+    if(isS4(object) && is.environment(object) &&
+       inherits(classDef <- as.environment(object)[[".refClassDef"]],
+                "refClassRepresentation"))
+        return(classDef)
     Class <- class(object)
     classDef <- getClassDef(Class)
     if(is(classDef, "refClassRepresentation"))
@@ -281,6 +288,8 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     if(exists(what, envir = selfEnv, inherits = FALSE))
         ## either a field or previously cached method
         get(what, envir = selfEnv)
+    else if(!is.null(thisClass <- selfEnv[[".refClassDef"]]))
+        envRefInferField(x, what, thisClass, selfEnv)
     else if(is(x, "envRefClass"))
         ## infer (usually) the method, cache it and return it
         envRefInferField(x, what, getClass(class(x)), selfEnv)
@@ -297,7 +306,7 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     else
         what <- name
     selfEnv <- as.environment(x)
-    envRefSetField(x, what, refObjectClass(x), selfEnv, value)
+    envRefSetField(x, what, selfEnv[[".refClassDef"]] %||% refObjectClass(x), selfEnv, value)
     invisible(x)
 }
 
@@ -565,7 +574,7 @@ makeEnvRefMethods <- function() {
                       what <- as.character(what)
                   else what <- name
                   selfEnv <- as.environment(x)
-                  envRefSetField(x, what, refObjectClass(x), selfEnv, value)
+                  envRefSetField(x, what, selfEnv[[".refClassDef"]] %||% refObjectClass(x), selfEnv, value)
                   invisible(x)
               } , where = envir)
 }
