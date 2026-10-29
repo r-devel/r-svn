@@ -47,9 +47,8 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(is(def, "externalMethodDef") || !is(def, "refMethodDef")) {
-        ## Don't process either an external method (not needed),
-        ## or a special object in the class refMethods
+    if(!inherits(def, "refMethodDef")) {
+        ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
         return(def)
@@ -60,7 +59,9 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
     done <- names(selfEnv)
-    notDone <- setdiff(depends, done)
+    ## setdiff(depends, done), which costs 5 times as much (mostly its
+    ## argument compatibility checks), once per method in every object
+    notDone <- unique(depends[!depends %in% done])
     superCase <- match("callSuper", notDone, 0)
     if(superCase > 0) {
         if(nzchar(def@superClassMethod))
@@ -87,12 +88,22 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     def
    }
 
-..hasCodeTools <- FALSE
+## Whether the codetools package is available, found out once per
+## session: it is not yet installed when the methods package is built,
+## so the value saved then is not reused (see ..onLoad).  Probing again
+## on every call, as was done while the answer was FALSE, searched the
+## library paths several times for each method processed; that was there
+## for the build-time value, so a codetools installed or added to the
+## library paths later in the session is only seen after a restart.
+..hasCodeTools <- NULL
 .hasCodeTools <- function() {
-    if(!isTRUE(..hasCodeTools)) # will be FALSE when methods is built, keep checking
-        .assignOverBinding("..hasCodeTools",length(list.files(system.file(package = "codetools"))) > 0,
-                           .methodsNamespace, FALSE)
-    ..hasCodeTools
+    if(is.null(..hasCodeTools)) {
+        value <- length(find.package("codetools", quiet = TRUE)) > 0L
+        .assignOverBinding("..hasCodeTools", value, .methodsNamespace, FALSE)
+        value
+    }
+    else
+        ..hasCodeTools
 }
 
 .getGlobalFuns <- function(def) {
@@ -100,6 +111,24 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
         codetools::findGlobals(def, merge = FALSE)$functions
     else
         unique(unlist(lapply(def, all.names)))
+}
+
+## Could method def call any of the functions named in 'names'?  A cheap
+## test used to skip the code analysis in .getGlobalFuns(), by far the
+## most expensive step in processing a method, when it could not find
+## anything: every function name it reports is a symbol in the formal
+## arguments or body (or "f<-" for a replacement call f(x) <- value),
+## except inside the formal arguments of a nested function definition,
+## which all.names() does not visit.  (A string as the function name in
+## a call, "f"(x), is not visited either, but the parser turns that into
+## f(x); only a call constructed by as.call() can have one, and the
+## fallback in .getGlobalFuns() does not see it either.)  The formals and
+## body are taken apart here rather than with as.list(def), whose S3
+## dispatch fails for a closure with a class attribute.
+.mayCallAny <- function(def, names) {
+    syms <- unique(c(all.names(body(def)),
+                     unlist(lapply(formals(def), all.names))))
+    "function" %in% syms || any(c(syms, paste0(syms, "<-")) %in% names)
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
@@ -112,7 +141,10 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         def@superClassMethod <- superClassMethod
         return(def)
     }
-    depends <- .getGlobalFuns(def)
+    depends <- if(.mayCallAny(def, c(allMethods, "usingMethods")))
+                   .getGlobalFuns(def)
+               else
+                   character()
     ## find the field methods called ...
     if("usingMethods" %in% depends) { # including those declared
         declared <- .declaredMethods(def)
@@ -123,8 +155,47 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         depends <- c(declared, depends)
     }
     depends <- depends[match(depends, allMethods, 0) > 0]
-    new("refMethodDef", def, mayCall = depends, name = name,
-        refClassName = Class, superClassMethod = superClassMethod)
+    .makeRefMethodDef(def, depends, name, Class, superClassMethod)
+}
+
+## the class attributes of the objects new() creates for these classes
+.refMethodDefClass <- structure("refMethodDef", package = "methods")
+.activeBindingFunctionClass <- structure("activeBindingFunction", package = "methods")
+.defaultBindingFunctionClass <- structure("defaultBindingFunction", package = "methods")
+
+## The object new("refMethodDef", def, mayCall = mayCall, name = name, ...)
+## would return, constructed directly in the two cases that arise here: a
+## plain function (the usual method definition) gets the slots and the
+## class added to its attributes, and a refMethodDef (a method being
+## re-analysed by $methods()) gets its slots replaced.  The generic
+## initialize() and validObject() took about 100 us per method, several
+## times the rest of makeClassMethod(); the slot values here are always
+## valid.  Anything else is left to new().
+.makeRefMethodDef <- function(def, mayCall, name, refClassName, superClassMethod) {
+    if(typeof(def) == "closure" && is.character(mayCall) && is.character(name) &&
+       is.character(refClassName) &&
+       (is.character(superClassMethod) || inherits(superClassMethod, "refMethodDef"))) {
+        cl <- oldClass(def)
+        if(is.null(cl)) {
+            ## the slots last, so that they take precedence over any
+            ## attribute of the same name the function already has
+            attributes(def) <- c(attributes(def),
+                                 list(mayCall = mayCall, name = name,
+                                      refClassName = refClassName,
+                                      superClassMethod = superClassMethod,
+                                      class = .refMethodDefClass))
+            return(asS4(def))
+        }
+        if(.identC(cl, "refMethodDef")) {
+            attr(def, "mayCall") <- mayCall
+            attr(def, "name") <- name
+            attr(def, "refClassName") <- refClassName
+            attr(def, "superClassMethod") <- superClassMethod
+            return(def)
+        }
+    }
+    new("refMethodDef", def, mayCall = mayCall, name = name,
+        refClassName = refClassName, superClassMethod = superClassMethod)
 }
 
 refObjectClass <- function(object) {
@@ -172,14 +243,19 @@ envRefSetField <- function(object, field,
     fields <- names(fieldClasses)
     for(field in fields) {
         fp <- prototypes[[field]] # prototype or NULL
-        if(is(fp, "activeBindingFunction")) {
+        if(inherits(fp, "activeBindingFunction")) {
             environment(fp) <- selfEnv
             makeActiveBinding(field, fp, selfEnv)
-            if(is(fp, "defaultBindingFunction")) {
-                ## ensure an initial value
-                class <- fieldClasses[[field]]
-		value <- if(!isVirtualClass(class)) new(class) # else NULL
-                assign(.bindingMetaName(field), value, envir = selfEnv)
+            if(inherits(fp, "defaultBindingFunction")) {
+                ## ensure an initial value; .makeDefaultBinding() stored
+                ## an "uninitializedField" under the meta name when the
+                ## field class is virtual, so it need not be looked up here
+                metaName <- .bindingMetaName(field)
+                value <- if(inherits(prototypes[[metaName]], "uninitializedField"))
+                             NULL
+                         else
+                             new(fieldClasses[[field]])
+                assign(metaName, value, envir = selfEnv)
             }
         }
         else
@@ -205,7 +281,7 @@ envRefSetField <- function(object, field,
     lockBinding(".refClassDef", selfEnv)
     ## validObject was called from the S4 initialize; check that
     ## a method specified for the ref. class is satisfied, if there is one
-    if(is(classDef@validity, "function"))
+    if(is.function(classDef@validity))
         validObject(.Object)
     .Object
 }
@@ -582,8 +658,18 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## allow either name=function, ... or a single list
     if(length(methodDefs) == 1 && is.list(methodDefs[[1]]))
         methodDefs <- methodDefs[[1]]
-    ## append existing local methods, so they are re-analysed for new method names
-    methodDefs <- c(methodDefs, .thisClassMethods(methodsEnv, def@className))
+    ## append the other existing local methods that could call one of the
+    ## methods being defined or removed, so that they are re-analysed for
+    ## them; the analysis of the remaining methods could not come out
+    ## differently.  (The previous versions of the methods being defined
+    ## or removed must not be appended: a method removed by a NULL
+    ## definition was re-inserted from its previous version.)
+    touched <- names(methodDefs)
+    local <- .thisClassMethods(methodsEnv, def@className)
+    existing <- local[match(names(local), touched, 0L) == 0L]
+    existing <- existing[vapply(existing, .mayCallAny, NA,
+                                names = c(touched, "usingMethods"))]
+    methodDefs <- c(methodDefs, existing)
     mnames <- names(methodDefs)
     if(is.null(mnames) || !all(nzchar(mnames)))
         stop("arguments to methods() must be named, or one named list")
@@ -594,6 +680,20 @@ getRefSuperClasses <- function(classes, classDefs) {
         mnames <- mnames[!removeThese]
         methodDefs <- methodDefs[!removeThese]
         remove(list = rmNames, envir = methodsEnv)
+        ## a removed method that overrode an inherited one leaves the
+        ## inherited definition in force, as if it had never been defined;
+        ## removing an inherited method itself hides it from this class
+        for(what in intersect(rmNames, names(local)))
+            for(super in def@refSuperClasses) {
+                superDef <- getClassDef(super, package = def@contains[[super]]@package)
+                if(is.null(superDef))
+                    next
+                superMethods <- superDef@refMethods
+                if(exists(what, envir = superMethods, inherits = FALSE)) {
+                    assign(what, get(what, envir = superMethods), envir = methodsEnv)
+                    break
+                }
+            }
         if(length(mnames) == 0)
             return(invisible(methodsEnv))
     }
@@ -762,10 +862,17 @@ class method modifies a field.
     paste0(".->", fieldName)
 
 .makeActiveBinding <- function(thisField) {
-    if(is(thisField, "activeBindingFunction"))
-     thisField
+    if(inherits(thisField, "activeBindingFunction"))
+        thisField
+    else if(typeof(thisField) == "closure" && is.null(oldClass(thisField))) {
+        ## what new("activeBindingFunction", thisField) returns, constructed
+        ## directly (see .makeRefMethodDef)
+        attributes(thisField) <- c(attributes(thisField),
+                                   list(class = .activeBindingFunctionClass))
+        asS4(thisField)
+    }
     else
-     new("activeBindingFunction", thisField)
+        new("activeBindingFunction", thisField)
 }
 
 .makeDefaultBinding <- function(fieldName, fieldClass, readOnly = FALSE, where) {
@@ -794,8 +901,17 @@ class method modifies a field.
         }, list(dummyField = metaName, dummyClass = fieldClass,
                 thisField = fieldName, dummyFieldName = as.name(metaName))))
     environment(f) <- where ## <note> Does this matter? </note>
-    f <- new("defaultBindingFunction", f,
-             field = fieldName, className = fieldClass)
+    if(is.character(fieldName) && is.character(fieldClass)) {
+        ## what new("defaultBindingFunction", f, field = fieldName,
+        ## className = fieldClass) returns, constructed directly (see
+        ## .makeRefMethodDef); f has no attributes of its own
+        attributes(f) <- list(field = fieldName, className = fieldClass,
+                              class = .defaultBindingFunctionClass)
+        f <- asS4(f)
+    }
+    else
+        f <- new("defaultBindingFunction", f,
+                 field = fieldName, className = fieldClass)
     init <- (if(isVirtualClass(fieldClass))
                  new("uninitializedField", field = fieldName,
                      className = fieldClass)
@@ -1152,6 +1268,13 @@ showRefClassDef <- function(object, title = "Reference Class") {
 .checkFieldsInMethod <- function(methodDef, fieldNames, methodNames) {
     if(!.hasCodeTools())
         return(NA)
+    ## Nothing to report unless the body assigns to a field name or
+    ## non-locally, so skip the (expensive) code analysis otherwise.  The
+    ## target of an assignment is a symbol in the body, except when
+    ## written as a string, "f" <- value, which is not worth a walk.
+    syms <- all.names(body(methodDef))
+    if(!("<<-" %in% syms) && !any(fieldNames %in% syms))
+        return(TRUE)
     p0q <- function(x) paste0('"', x, '"', collapse = "; ")
     if(is(methodDef, "refMethodDef")) {
         methodName <- p0q(methodDef@name)
