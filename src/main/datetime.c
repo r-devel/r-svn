@@ -927,6 +927,10 @@ static void glibc_fix(stm *tm, bool *invalid)
     if(tm->tm_yday != NA_INTEGER) {
 	// since we have yday, let that take precedence over mon/mday
 	int yday = tm->tm_yday, mon = 0;
+	if (yday < 0 || yday >= days_in_year(1900 + tm->tm_year)) {
+	    *invalid = true;
+	    return;
+	}
 	while(yday >= (tmp = days_in_month(mon, tm->tm_year))) {
 	    yday -= tmp;
 	    mon++;
