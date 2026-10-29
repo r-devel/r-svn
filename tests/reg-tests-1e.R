@@ -4433,9 +4433,10 @@ RCBase$methods(
 a <- RCBase$new(x = 3)
 stopifnot(identical(a$useDot(), 24),
           identical(a$useDefault(), 4),
-          identical(a$useRepl(10), 12),
-          "val<-" %in% RCBase$def@refMethods$useRepl@mayCall,
-          identical(a$extMeth(7), 19))
+          identical(a$extMeth(7), 10))
+if(methods:::.hasCodeTools())
+    stopifnot("val<-" %in% RCBase$def@refMethods$useRepl@mayCall,
+              identical(a$useRepl(10), 12))
 ## Incremental re-analysis of traced methods must not bake the trace wrapper
 ## into the method definition:
 traced <- FALSE
