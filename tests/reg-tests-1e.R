@@ -4322,6 +4322,46 @@ local({
 ## wrote past the "counts" array: gave garbage counts or segfaulted in R <= 4.6.2
 
 
+## set operations: fast paths for plain vectors must not change results
+x <- c(a = 2, b = 2, c = 3); y <- c(d = 3, e = 3)
+f <- factor(c("a", "b", "a")); g <- factor(c("b", "b", "c"))
+d <- as.Date("2020-01-01") + 0:2
+r <- as.roman(1:3)
+stopifnot(exprs = {
+    identical(setdiff(x, y), 2)
+    identical(intersect(x, y), 3) # no names from y[0L]
+    identical(union(x, y), c(2, 3))
+    identical(intersect(1, c(a = 1)), 1)
+    identical(is.element(x, y), c(FALSE, FALSE, TRUE))
+    !setequal(x, y)
+    identical(setdiff(1:3, c(2, 3)), 1L)
+    identical(intersect(1:3, c(2, 3)), c(2, 3))
+    identical(union(1:2, c(2, 3)), c(1, 2, 3))
+    identical(setdiff(1:3, NULL), 1:3)
+    is.null(intersect(1:3, NULL))
+    is.null(setdiff(NULL, 1:3))
+    identical(setdiff(list(1, "a", 1), list(1)), list("a"))
+    identical(intersect(list(1, "a", 1), list(1)), list(1))
+    identical(setdiff(array(1:3, 3), 2L), c(1L, 3L)) # 1-d array
+    identical(setdiff(matrix(1:4, 2), 2:3), c(1L, 4L))
+    identical(setdiff(structure(c(1, 2, 2), foo = "bar"), 2), 1)
+    identical(intersect(c(TRUE, NA, TRUE), NA), NA)
+    identical(setdiff(c("b", NA, "a", "b"), NA), c("b", "a"))
+    identical(setdiff(c(1, NaN, NA, NaN), NA), c(1, NaN))
+    ## objects still go through unique(y), which may normalize y:
+    identical(setdiff(f, g), factor("a", levels = c("a", "b")))
+    identical(intersect(f, g), factor("b", levels = c("a", "b", "c")))
+    identical(union(f, g), factor(c("a", "b", "c")))
+    setequal(f, factor(c("b", "a")))
+    identical(setdiff(f, "a"), "b")
+    identical(setdiff(d, d[2]), d[-2])
+    identical(intersect(d, d[2]), d[2])
+    identical(setdiff(r, r), integer(0)) # unique() drops the class on both sides
+    identical(intersect(r, r), 1:3)
+    identical(setdiff(r, as.roman(c(2L, 2L))), c(1L, 3L))
+})
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
