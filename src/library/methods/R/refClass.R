@@ -155,8 +155,7 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         depends <- c(declared, depends)
     }
     depends <- depends[match(depends, allMethods, 0) > 0]
-    new("refMethodDef", def, mayCall = depends, name = name,
-        refClassName = Class, superClassMethod = superClassMethod)
+    .makeRefMethodDef(def, depends, name, Class, superClassMethod)
 }
 
 ## the class attributes of the objects new() creates for these classes
