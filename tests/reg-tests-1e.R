@@ -4379,6 +4379,83 @@ stopifnot(identical(RC$new()$a(), 2), identical(RC$def@refMethods$a@mayCall, "b"
 ## guards the direct construction of the method objects in makeClassMethod()
 
 
+## Reference class method installation, incremental re-analysis, and removal
+RCBase <- setRefClass("RCBase",
+    fields = list(x = "numeric"),
+    methods = list(
+        foo = function() x + 1,
+        bar = function() foo() * 2,
+        .dot = function() x + 10,
+        `val<-` = function(obj, value) { x <<- obj + value; obj }
+    ))
+RCSub <- setRefClass("RCSub", contains = "RCBase",
+    methods = list(
+        foo = function() callSuper() + 100
+    ))
+b <- RCSub$new(x = 5)
+stopifnot(identical(b$foo(), 106),
+          identical(b$bar(), 212),
+          "foo#RCBase" %in% RCSub$methods())
+## Removing an overriding local method restores the superclass method
+## and removes the mangled 'foo#RCBase' entry:
+RCSub$methods(foo = NULL)
+b2 <- RCSub$new(x = 5)
+stopifnot(identical(b2$foo(), 6),
+          identical(b2$bar(), 12),
+          !"foo#RCBase" %in% RCSub$methods(),
+          "foo" %in% RCSub$methods())
+## 3-level hierarchy: C removing a local method must not resurrect A's method
+## when B hid it with $methods(foo = NULL):
+RCSub$methods(foo = NULL) # now hidden in RCSub
+RCGrand <- setRefClass("RCGrand", contains = "RCSub",
+    methods = list(foo = function() 42))
+stopifnot(identical(RCGrand$new(x = 5)$foo(), 42))
+RCGrand$methods(foo = NULL)
+stopifnot(!"foo" %in% RCGrand$methods())
+## Dot-prefixed methods (.dot), replacement methods (`val<-`), nested function
+## default args, and externalRefMethod (first formal '.self'):
+RCBase$methods(
+    useDot = function() .dot() + 1,
+    useDefault = function(fn = function() foo()) fn(),
+    useRepl = function(v) { y <- 2; val(y) <- v; x },
+    extMeth = function(.self, k) .self$x + k
+)
+RCBase$methods(
+    .dot = function() x + 20
+)
+a <- RCBase$new(x = 3)
+stopifnot(identical(a$useDot(), 24),
+          identical(a$useDefault(), 4),
+          identical(a$useRepl(10), 12),
+          "val<-" %in% RCBase$def@refMethods$useRepl@mayCall,
+          identical(a$extMeth(7), 19))
+## Incremental re-analysis of traced methods must not bake the trace wrapper
+## into the method definition:
+traced <- FALSE
+RCBase$trace("useDot", quote(traced <<- TRUE), print = FALSE)
+stopifnot(identical(RCBase$new(x = 3)$useDot(), 24), isTRUE(traced))
+traced <- FALSE
+RCBase$methods(.dot = function() x + 30)
+a2 <- RCBase$new(x = 3)
+stopifnot(!inherits(RCBase$def@refMethods$useDot, "traceable"),
+          identical(a2$useDot(), 34),
+          isFALSE(traced))
+## Unnamed arguments to $methods() fail with a clear error:
+tools::assertError(RCBase$methods(function() 1))
+## refObjectClass() distinguishes instances from generators and plain environments:
+PlainEnvS4 <- setClass("PlainEnvS4", contains = "environment")
+pe <- PlainEnvS4()
+pe$.refClassDef <- "not_a_class_def"
+stopifnot(is(methods:::refObjectClass(a2), "refClassRepresentation"),
+          tools::assertError(methods:::refObjectClass(RCBase))[[1L]]$message != "",
+          tools::assertError(methods:::refObjectClass(new.env(parent = emptyenv())))[[1L]]$message != "",
+          tools::assertError(methods:::refObjectClass(pe))[[1L]]$message != "",
+          removeClass("PlainEnvS4"),
+          removeClass("RCGrand"),
+          removeClass("RCSub"),
+          removeClass("RCBase"))
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

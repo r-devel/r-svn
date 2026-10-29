@@ -128,16 +128,18 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 ## body are taken apart here rather than with as.list(def), whose S3
 ## dispatch fails for a closure with a class attribute.
 .mayCallAny <- function(def, names) {
-    syms <- unique(c(all.names(body(def)),
-                     unlist(lapply(formals(def), all.names))))
-    "function" %in% syms || any(c(syms, paste0(syms, "<-")) %in% names)
+    syms <- c(all.names(body(def)),
+              unlist(lapply(formals(def), all.names)))
+    any(c("function", names) %in% syms) ||
+        (any(c("<-", "=", "<<-") %in% syms) &&
+         any(endsWith(names, "<-")) &&
+         any(paste0(syms, "<-", recycle0 = TRUE) %in% names))
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
-    fargs <- formalArgs(def)
-    if(length(fargs) && identical(fargs[[1L]], ".self"))
+    if(identical(formalArgs(def)[[1L]], ".self"))
         def <- externalRefMethod(def)
-    if(is(def, "externalRefMethod")) { # either just created or passed in as argument
+    if(inherits(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
         def@name <- name
         def@refClassName <- Class
@@ -189,7 +191,7 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
                                       class = .refMethodDefClass))
             return(asS4(def))
         }
-        if(.identC(cl, "refMethodDef")) {
+        if(isS4(def) && identical(cl, .refMethodDefClass)) {
             attr(def, "mayCall") <- mayCall
             attr(def, "name") <- name
             attr(def, "refClassName") <- refClassName
@@ -202,8 +204,9 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 }
 
 refObjectClass <- function(object) {
-    if(is.environment(env <- as.environment(object)) &&
-       !is.null(classDef <- env[[".refClassDef"]]))
+    if(isS4(object) && is.environment(object) &&
+       inherits(classDef <- as.environment(object)[[".refClassDef"]],
+                "refClassRepresentation"))
         return(classDef)
     Class <- class(object)
     classDef <- getClassDef(Class)
@@ -621,7 +624,7 @@ makeEnvRefMethods <- function() {
                       what <- as.character(what)
                   else what <- name
                   selfEnv <- as.environment(x)
-                  envRefSetField(x, what, refObjectClass(x), selfEnv, value)
+                  envRefSetField(x, what, selfEnv[[".refClassDef"]] %||% refObjectClass(x), selfEnv, value)
                   invisible(x)
               } , where = envir)
 }
@@ -666,21 +669,21 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## allow either name=function, ... or a single list
     if(length(methodDefs) == 1 && is.list(methodDefs[[1]]))
         methodDefs <- methodDefs[[1]]
+    mnames <- names(methodDefs)
+    if(is.null(mnames) || !all(nzchar(mnames)))
+        stop("arguments to methods() must be named, or one named list")
     ## append the other existing local methods that could call one of the
     ## methods being defined or removed, so that they are re-analysed for
     ## them; the analysis of the remaining methods could not come out
     ## differently.  (The previous versions of the methods being defined
     ## or removed must not be appended: a method removed by a NULL
     ## definition was re-inserted from its previous version.)
-    touched <- names(methodDefs)
     local <- .thisClassMethods(methodsEnv, def@className)
-    existing <- local[match(names(local), touched, 0L) == 0L]
+    existing <- local[match(names(local), mnames, 0L) == 0L]
     existing <- existing[vapply(existing, .mayCallAny, NA,
-                                names = c(touched, "usingMethods"))]
+                                names = c(mnames, "usingMethods"))]
     methodDefs <- c(methodDefs, existing)
     mnames <- names(methodDefs)
-    if(is.null(mnames) || !all(nzchar(mnames)))
-        stop("arguments to methods() must be named, or one named list")
     ## look for methods to remove (new definition is NULL)
     removeThese <- vapply(methodDefs, is.null, NA)
     if(any(removeThese)) {
@@ -691,21 +694,18 @@ getRefSuperClasses <- function(classes, classDefs) {
         ## a removed method that overrode an inherited one leaves the
         ## inherited definition in force, as if it had never been defined;
         ## removing an inherited method itself hides it from this class
-        for(what in intersect(rmNames, names(local)))
-            for(super in def@refSuperClasses) {
-                superDef <- getClassDef(super, package = def@contains[[super]]@package)
-                if(is.null(superDef))
-                    next
-                superMethods <- superDef@refMethods
-                if(exists(what, envir = superMethods, inherits = FALSE)) {
-                    assign(what, get(what, envir = superMethods), envir = methodsEnv)
-                    break
-                }
+        for(what in intersect(rmNames, names(local))) {
+            superMethod <- local[[what]]@superClassMethod
+            if(nzchar(superMethod) && !identical(superMethod, "initFields") &&
+               exists(superMethod, envir = methodsEnv, inherits = FALSE)) {
+                assign(what, get(superMethod, envir = methodsEnv), envir = methodsEnv)
+                remove(list = superMethod, envir = methodsEnv)
             }
+        }
         if(length(mnames) == 0)
             return(invisible(methodsEnv))
     }
-    allMethods <- as.list(methodsEnv)
+    allMethods <- as.list(methodsEnv, all.names = TRUE)
     ## get a list of processed methods, plus any
     ## overridden superclass methods
     newMethods <- insertClassMethods(allMethods, className, methodDefs, names(def@fieldClasses), FALSE)
@@ -1517,8 +1517,8 @@ getMethodsAndAccessors <- function(Class) {
     value <- list()
     for(what in names(methodsEnv)) {
         def <- get(what, envir = methodsEnv)
-        if(is(def, "refMethodDef") && def@refClassName == className)
-            value[[what]] <- def@.Data # the function only
+        if(inherits(def, "refMethodDef") && def@refClassName == className)
+            value[[what]] <- if(inherits(def, "traceable")) .untracedFunction(def) else def
     }
     value
 }
