@@ -102,27 +102,51 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
         unique(unlist(lapply(def, all.names)))
 }
 
+## Could method def call any of the functions named in 'names'?  A cheap
+## test used to skip the code analysis in .getGlobalFuns(), by far the
+## most expensive step in processing a method, when it could not find
+## anything: every function name it reports is a symbol in the formal
+## arguments or body (or "f<-" for a replacement call f(x) <- value),
+## except inside the formal arguments of a nested function definition,
+## which all.names() does not visit.  (A string as the function name in
+## a call, "f"(x), is not visited either, but the parser turns that into
+## f(x); only a call constructed by as.call() can have one, and the
+## fallback in .getGlobalFuns() does not see it either.)  The formals and
+## body are taken apart here rather than with as.list(def), whose S3
+## dispatch fails for a closure with a class attribute.
+.mayCallAny <- function(def, names) {
+    syms <- c(all.names(body(def)),
+              unlist(lapply(formals(def), all.names)))
+    any(c("function", names) %in% syms) ||
+        (any(c("<-", "=", "<<-") %in% syms) &&
+         any(endsWith(names, "<-")) &&
+         any(paste0(syms, "<-", recycle0 = TRUE) %in% names))
+}
+
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
-    if(identical(formalArgs(def)[[1]], ".self"))
+    if(identical(formalArgs(def)[[1L]], ".self"))
         def <- externalRefMethod(def)
-    if(is(def, "externalRefMethod")) { # either just created or passed in as argument
+    if(inherits(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
         def@name <- name
         def@refClassName <- Class
         def@superClassMethod <- superClassMethod
         return(def)
     }
-    depends <- .getGlobalFuns(def)
-    ## find the field methods called ...
-    if("usingMethods" %in% depends) { # including those declared
-        declared <- .declaredMethods(def)
-        ## look for invalid declared methods
-        if(length(declared) && any(! declared %in% allMethods))
-            warning(gettextf("methods declared in usingMethods() but not found: %s",
-                paste0(declared[! declared %in% allMethods], collapse = ", ")))
-        depends <- c(declared, depends)
-    }
-    depends <- depends[match(depends, allMethods, 0) > 0]
+    if(.mayCallAny(def, c(allMethods, "usingMethods"))) {
+        depends <- .getGlobalFuns(def)
+        ## find the field methods called ...
+        if("usingMethods" %in% depends) { # including those declared
+            declared <- .declaredMethods(def)
+            ## look for invalid declared methods
+            if(length(declared) && any(! declared %in% allMethods))
+                warning(gettextf("methods declared in usingMethods() but not found: %s",
+                    paste0(declared[! declared %in% allMethods], collapse = ", ")))
+            depends <- c(declared, depends)
+        }
+        depends <- depends[match(depends, allMethods, 0L) > 0L]
+    } else
+        depends <- character()
     new("refMethodDef", def, mayCall = depends, name = name,
         refClassName = Class, superClassMethod = superClassMethod)
 }
@@ -582,11 +606,21 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## allow either name=function, ... or a single list
     if(length(methodDefs) == 1 && is.list(methodDefs[[1]]))
         methodDefs <- methodDefs[[1]]
-    ## append existing local methods, so they are re-analysed for new method names
-    methodDefs <- c(methodDefs, .thisClassMethods(methodsEnv, def@className))
     mnames <- names(methodDefs)
     if(is.null(mnames) || !all(nzchar(mnames)))
         stop("arguments to methods() must be named, or one named list")
+    ## append the other existing local methods that could call one of the
+    ## methods being defined or removed, so that they are re-analysed for
+    ## them; the analysis of the remaining methods could not come out
+    ## differently.  (The previous versions of the methods being defined
+    ## or removed must not be appended: a method removed by a NULL
+    ## definition was re-inserted from its previous version.)
+    local <- .thisClassMethods(methodsEnv, def@className)
+    existing <- local[match(names(local), mnames, 0L) == 0L]
+    existing <- existing[vapply(existing, .mayCallAny, NA,
+                                names = c(mnames, "usingMethods"))]
+    methodDefs <- c(methodDefs, existing)
+    mnames <- names(methodDefs)
     ## look for methods to remove (new definition is NULL)
     removeThese <- vapply(methodDefs, is.null, NA)
     if(any(removeThese)) {
@@ -594,10 +628,21 @@ getRefSuperClasses <- function(classes, classDefs) {
         mnames <- mnames[!removeThese]
         methodDefs <- methodDefs[!removeThese]
         remove(list = rmNames, envir = methodsEnv)
+        ## a removed method that overrode an inherited one leaves the
+        ## inherited definition in force, as if it had never been defined;
+        ## removing an inherited method itself hides it from this class
+        for(what in intersect(rmNames, names(local))) {
+            superMethod <- local[[what]]@superClassMethod
+            if(nzchar(superMethod) && !identical(superMethod, "initFields") &&
+               exists(superMethod, envir = methodsEnv, inherits = FALSE)) {
+                assign(what, get(superMethod, envir = methodsEnv), envir = methodsEnv)
+                remove(list = superMethod, envir = methodsEnv)
+            }
+        }
         if(length(mnames) == 0)
             return(invisible(methodsEnv))
     }
-    allMethods <- as.list(methodsEnv)
+    allMethods <- as.list(methodsEnv, all.names = TRUE)
     ## get a list of processed methods, plus any
     ## overridden superclass methods
     newMethods <- insertClassMethods(allMethods, className, methodDefs, names(def@fieldClasses), FALSE)
@@ -1152,6 +1197,14 @@ showRefClassDef <- function(object, title = "Reference Class") {
 .checkFieldsInMethod <- function(methodDef, fieldNames, methodNames) {
     if(!.hasCodeTools())
         return(NA)
+    ## Nothing to report unless the body assigns to a field name or
+    ## non-locally, so skip the (expensive) code analysis otherwise.  The
+    ## target of an assignment is a symbol in the body, except when
+    ## written as a string, "f" <- value, which is not worth a walk.
+    syms <- all.names(body(methodDef))
+    if(!("<<-" %in% syms) &&
+       (!any(c("<-", "=") %in% syms) || !any(fieldNames %in% syms)))
+        return(TRUE)
     p0q <- function(x) paste0('"', x, '"', collapse = "; ")
     if(is(methodDef, "refMethodDef")) {
         methodName <- p0q(methodDef@name)
@@ -1385,8 +1438,8 @@ getMethodsAndAccessors <- function(Class) {
     value <- list()
     for(what in names(methodsEnv)) {
         def <- get(what, envir = methodsEnv)
-        if(is(def, "refMethodDef") && def@refClassName == className)
-            value[[what]] <- def@.Data # the function only
+        if(inherits(def, "refMethodDef") && def@refClassName == className)
+            value[[what]] <- if(inherits(def, "traceable")) .untracedFunction(def) else def
     }
     value
 }
