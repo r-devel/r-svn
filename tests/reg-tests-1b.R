@@ -1731,6 +1731,32 @@ stopifnot(identical(input, res))
 unlink("serial")
 ## Just a test for possible regressions.
 
+## Reject invalid bytecode repetition types and indices during unserialization.
+expr <- quote(x + y)
+bc <- .Internal(mkCode(as.integer(.Internal(bcVersion())), list(expr, expr)))
+stream <- rawToChar(serialize(bc, NULL, ascii=TRUE))
+stopifnot(typeof(unserialize(charToRaw(stream))) == "bytecode")
+malformedBC <- function(old, new) {
+    altered <- sub(old, new, stream, fixed=TRUE)
+    stopifnot(!identical(altered, stream))
+    charToRaw(altered)
+}
+assertError(unserialize(malformedBC("\n244\n0\n6\n", "\n244\n0\n13\n")))
+assertError(unserialize(malformedBC("\n244\n0\n6\n", "\n244\n2\n6\n")))
+assertError(unserialize(malformedBC("\n243\n0\n", "\n243\n2\n")))
+## The repetition count written ahead of the slots is only a hint, so a
+## stream claiming 2^31-1 of them must not allocate them up front, and
+## the slots grow past the initial allocation when a stream needs more.
+bc2 <- unserialize(malformedBC("\n21\n2\n", "\n21\n2147483647\n"))
+stopifnot(identical(.Internal(disassemble(bc2)), .Internal(disassemble(bc))))
+assertError(unserialize(malformedBC("\n21\n2\n", "\n21\n-1\n")))
+calls <- lapply(seq_len(1100), function(i) call("f", i))
+big <- .Internal(mkCode(as.integer(.Internal(bcVersion())), c(calls, calls)))
+rt <- unserialize(serialize(big, NULL))
+stopifnot(identical(.Internal(disassemble(rt)), .Internal(disassemble(big))),
+          identical(.Internal(disassemble(rt))[[3]][[1]],
+                    .Internal(disassemble(rt))[[3]][[1101]]))
+
 
 ## mis-PROTECT()ion in printarray C code:
 df <- data.frame(a=1:2080, b=1001:2040, c=letters, d=LETTERS, e=1:1040)
