@@ -290,16 +290,12 @@ loadMethod <- function(method, fname, envir) method
     ## functions in the group) if a class is loaded that extends
     ## one of the classes in `needed` (other classes than "structure" now
     ## also require generics for some primitives).
-    if(!exists(".NeedPrimitiveMethods", where))
-      needed <- list()
-    else
-      needed <- get(".NeedPrimitiveMethods", where)
-    needed <- c(needed, list(structure = "Ops", vector = "Ops",
-          array = "Ops", nonStructure = "Ops"),
-          array = "[", structure = "[", nonStructure = "[",
-          structure = "Math", nonStructure = "Math",
-          refClass = "$", refClass = "$<-", data.frame = "$<-"
-                )
+    needed <- get0(".NeedPrimitiveMethods", where, ifnotfound = character())
+    needed <- c(needed,
+                structure = "Ops", vector = "Ops", array = "Ops", nonStructure = "Ops",
+                array = "[", structure = "[", nonStructure = "[",
+                structure = "Math", nonStructure = "Math",
+                refClass = "$", refClass = "$<-", data.frame = "$<-")
     assign(".NeedPrimitiveMethods", needed, where)
     setMethod("Ops", c("structure", "vector"), where = where,
               function(e1, e2) {
