@@ -138,20 +138,19 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         def@superClassMethod <- superClassMethod
         return(def)
     }
-    if(.mayCallAny(def, c(allMethods, "usingMethods"))) {
-        depends <- .getGlobalFuns(def)
-        ## find the field methods called ...
-        if("usingMethods" %in% depends) { # including those declared
-            declared <- .declaredMethods(def)
-            ## look for invalid declared methods
-            if(!all(declared %in% allMethods))
-                warning(gettextf("methods declared in usingMethods() but not found: %s",
-                                 toString(declared[! declared %in% allMethods])))
-            depends <- c(declared, depends)
-        }
-        depends <- depends[depends %in% allMethods]
-    } else
-        depends <- character()
+    if(!.mayCallAny(def, c(allMethods, "usingMethods")))
+        return(new("refMethodDef", def, mayCall = character(), name = name, refClassName = Class, superClassMethod = superClassMethod))
+    depends <- .getGlobalFuns(def)
+    ## find the field methods called ...
+    if("usingMethods" %in% depends) { # including those declared
+        declared <- .declaredMethods(def)
+        ## look for invalid declared methods
+        if(!all(declared %in% allMethods))
+            warning(gettextf("methods declared in usingMethods() but not found: %s",
+                                toString(declared[! declared %in% allMethods])))
+        depends <- c(declared, depends)
+    }
+    depends <- depends[depends %in% allMethods]
     new("refMethodDef", def, mayCall = depends, name = name,
         refClassName = Class, superClassMethod = superClassMethod)
 }
