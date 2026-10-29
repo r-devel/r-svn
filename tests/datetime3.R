@@ -1049,6 +1049,17 @@ stopifnot(chltU[,1] == "2026", chltU[,2] == "01",
           identical(chltU[-(1:3),], chlt[-(1:2),]))
 ## indeed, the first fixes were not ok in R <= 4.6.1
 
+## Week zero can specify a weekday before January 1; reject it before
+## converting the resulting negative yday to a month and day.
+oldLCctype <- Sys.getlocale("LC_CTYPE")
+for (lc in c("C", "C.UTF-8")) {
+    if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", lc))))
+        stopifnot(is.na(strptime("2026 0 0", "%Y %U %w", tz = "UTC")),
+                  is.na(strptime("2026 0 1", "%Y %W %w", tz = "UTC")))
+}
+Sys.setlocale("LC_CTYPE", oldLCctype)
+## ASan reported an out-of-bounds read in R-devel r90605 through r90783.
+
 
 
 ## keep at end
