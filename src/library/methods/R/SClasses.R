@@ -260,7 +260,7 @@ getClassDef <-
         if (is.environment(package)) {
             value <- get0(cname, package, inherits = inherits)
         }
-	if(is.null(value))
+	if(is.null(value) && is.environment(where))
 	    value <- get0(cname, where, inherits = inherits) # NULL if not existing
     }
     value
