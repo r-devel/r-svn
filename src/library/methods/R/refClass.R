@@ -47,9 +47,8 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(is(def, "externalMethodDef") || !is(def, "refMethodDef")) {
-        ## Don't process either an external method (not needed),
-        ## or a special object in the class refMethods
+    if(!is(def, "refMethodDef")) {
+        ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
         return(def)
@@ -59,8 +58,13 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     assign(me, def, envir = selfEnv)
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
+    if(!length(depends)) {
+        return(def)
+    }
     done <- names(selfEnv)
-    notDone <- setdiff(depends, done)
+    ## setdiff(depends, done), which costs 5 times as much (mostly its
+    ## argument compatibility checks), once per method in every object
+    notDone <- unique(depends[!depends %in% done])
     superCase <- match("callSuper", notDone, 0)
     if(superCase > 0) {
         if(nzchar(def@superClassMethod))
