@@ -47,7 +47,7 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(!is(def, "refMethodDef")) {
+    if(!inherits(def, "refMethodDef")) {
         ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
@@ -145,7 +145,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
     if(identical(formalArgs(def)[[1L]], ".self"))
         def <- externalRefMethod(def)
-    if(is(def, "externalRefMethod")) { # either just created or passed in as argument
+    if(inherits(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
         def@name <- name
         def@refClassName <- Class
@@ -184,7 +184,7 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 .makeRefMethodDef <- function(def, mayCall, name, refClassName, superClassMethod) {
     if (typeof(def) != "closure" || !is.character(mayCall) || !is.character(name) || !is.character(refClassName))
       return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
-    if (!is.character(superClassMethod) && !is(superClassMethod, "refMethodDef"))
+    if (!is.character(superClassMethod) && !inherits(superClassMethod, "refMethodDef"))
       return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
     cl <- oldClass(def)
     if (is.null(cl)) {
@@ -211,8 +211,8 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 refObjectClass <- function(object) {
     Class <- class(object)
     if(isS4(object) && is.environment(object) &&
-       is(classDef <- as.environment(object)[[".refClassDef"]],
-          "refClassRepresentation") &&
+       inherits(classDef <- as.environment(object)[[".refClassDef"]],
+                "refClassRepresentation") &&
        identical(classDef@className, Class))
         return(classDef)
     classDef <- getClassDef(Class)
@@ -258,15 +258,15 @@ envRefSetField <- function(object, field,
     fields <- names(fieldClasses)
     for(field in fields) {
         fp <- prototypes[[field]] # prototype or NULL
-        if(is(fp, "activeBindingFunction")) {
+        if(inherits(fp, "activeBindingFunction")) {
             environment(fp) <- selfEnv
             makeActiveBinding(field, fp, selfEnv)
-            if(is(fp, "defaultBindingFunction")) {
+            if(inherits(fp, "defaultBindingFunction")) {
                 ## ensure an initial value; .makeDefaultBinding() stored
                 ## an "uninitializedField" under the meta name when the
                 ## field class is virtual, so it need not be looked up here
                 metaName <- .bindingMetaName(field)
-                value <- if(!is(prototypes[[metaName]], "uninitializedField"))
+                value <- if(!inherits(prototypes[[metaName]], "uninitializedField"))
                              new(fieldClasses[[field]])
                 assign(metaName, value, envir = selfEnv)
             }
@@ -342,7 +342,7 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     if(exists(what, envir = selfEnv, inherits = FALSE))
         ## either a field or previously cached method
         get(what, envir = selfEnv)
-    else if(is(thisClass <- selfEnv[[".refClassDef"]], "refClassRepresentation") &&
+    else if(inherits(thisClass <- selfEnv[[".refClassDef"]], "refClassRepresentation") &&
             identical(thisClass@className, class(x)))
         envRefInferField(x, what, thisClass, selfEnv)
     else if(is(x, "envRefClass"))
@@ -875,7 +875,7 @@ class method modifies a field.
     paste0(".->", fieldName)
 
 .makeActiveBinding <- function(thisField) {
-    if(is(thisField, "activeBindingFunction"))
+    if(inherits(thisField, "activeBindingFunction"))
         thisField
     else if(typeof(thisField) == "closure" && is.null(oldClass(thisField))) {
         ## what new("activeBindingFunction", thisField) returns, constructed
@@ -1522,8 +1522,8 @@ getMethodsAndAccessors <- function(Class) {
     value <- list()
     for(what in names(methodsEnv)) {
         def <- get(what, envir = methodsEnv)
-        if(is(def, "refMethodDef") && def@refClassName == className)
-            value[[what]] <- if(is(def, "traceable")) .untracedFunction(def) else def
+        if(inherits(def, "refMethodDef") && def@refClassName == className)
+            value[[what]] <- if(inherits(def, "traceable")) .untracedFunction(def) else def
     }
     value
 }
