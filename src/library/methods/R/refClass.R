@@ -129,7 +129,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
-    if(identical(formalArgs(def)[[1L]], ".self"))
+    if(identical(formalArgs(def)[[1]], ".self"))
         def <- externalRefMethod(def)
     if(inherits(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
@@ -145,12 +145,12 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
     if("usingMethods" %in% depends) { # including those declared
         declared <- .declaredMethods(def)
         ## look for invalid declared methods
-        if(!all(declared %in% allMethods))
+        if(length(declared) && any(! declared %in% allMethods))
             warning(gettextf("methods declared in usingMethods() but not found: %s",
-                                toString(declared[! declared %in% allMethods])))
+                paste0(declared[! declared %in% allMethods], collapse = ", ")))
         depends <- c(declared, depends)
     }
-    depends <- depends[depends %in% allMethods]
+    depends <- depends[match(depends, allMethods, 0) > 0]
     new("refMethodDef", def, mayCall = depends, name = name,
         refClassName = Class, superClassMethod = superClassMethod)
 }
