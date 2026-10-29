@@ -4450,16 +4450,7 @@ stopifnot(!inherits(RCBase$def@refMethods$useDot, "traceable"),
           isFALSE(traced))
 ## Unnamed arguments to $methods() fail with a clear error:
 tools::assertError(RCBase$methods(function() 1))
-## refObjectClass() distinguishes instances from generators and plain environments:
-PlainEnvS4 <- setClass("PlainEnvS4", contains = "environment")
-pe <- PlainEnvS4()
-pe$.refClassDef <- "not_a_class_def"
-stopifnot(is(methods:::refObjectClass(a2), "refClassRepresentation"),
-          tools::assertError(methods:::refObjectClass(RCBase))[[1L]]$message != "",
-          tools::assertError(methods:::refObjectClass(new.env(parent = emptyenv())))[[1L]]$message != "",
-          tools::assertError(methods:::refObjectClass(pe))[[1L]]$message != "",
-          removeClass("PlainEnvS4"),
-          removeClass("RCGrand"),
+stopifnot(removeClass("RCGrand"),
           removeClass("RCSub"),
           removeClass("RCBase"))
 

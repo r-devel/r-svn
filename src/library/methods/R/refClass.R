@@ -160,10 +160,6 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 }
 
 refObjectClass <- function(object) {
-    if(isS4(object) && is.environment(object) &&
-       is(classDef <- as.environment(object)[[".refClassDef"]],
-          "refClassRepresentation"))
-        return(classDef)
     Class <- class(object)
     classDef <- getClassDef(Class)
     if(is(classDef, "refClassRepresentation"))
@@ -289,8 +285,6 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     if(exists(what, envir = selfEnv, inherits = FALSE))
         ## either a field or previously cached method
         get(what, envir = selfEnv)
-    else if(!is.null(thisClass <- selfEnv[[".refClassDef"]]))
-        envRefInferField(x, what, thisClass, selfEnv)
     else if(is(x, "envRefClass"))
         ## infer (usually) the method, cache it and return it
         envRefInferField(x, what, getClass(class(x)), selfEnv)
@@ -307,7 +301,7 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     else
         what <- name
     selfEnv <- as.environment(x)
-    envRefSetField(x, what, selfEnv[[".refClassDef"]] %||% refObjectClass(x), selfEnv, value)
+    envRefSetField(x, what, refObjectClass(x), selfEnv, value)
     invisible(x)
 }
 
@@ -575,7 +569,7 @@ makeEnvRefMethods <- function() {
                       what <- as.character(what)
                   else what <- name
                   selfEnv <- as.environment(x)
-                  envRefSetField(x, what, selfEnv[[".refClassDef"]] %||% refObjectClass(x), selfEnv, value)
+                  envRefSetField(x, what, refObjectClass(x), selfEnv, value)
                   invisible(x)
               } , where = envir)
 }
