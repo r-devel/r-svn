@@ -58,34 +58,35 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     assign(me, def, envir = selfEnv)
     ## process those that are not in the instance environment, now that
     ## this method has been assigned.
-    if(length(depends)) {
-        done <- names(selfEnv)
-        ## setdiff(depends, done), which costs 5 times as much (mostly its
-        ## argument compatibility checks), once per method in every object
-        notDone <- unique(depends[!depends %in% done])
-        superCase <- match("callSuper", notDone, 0L)
-        if(superCase > 0L) {
-            if(nzchar(def@superClassMethod))
-                notDone[[superCase]] <- def@superClassMethod
-            else
-                stop(gettextf("a call to superClass() is in the method %s but there is no superclass definition of this method for class %s",
-                              sQuote(me),
-                              dQuote(thisClass@className)),
-                     domain = NA)
-        }
-        for(what in notDone)
-            installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
-        if(superCase > 0L) {
-            ## provide an environment with the correct callSuper() definition,
-            ## with selfEnv as its parent (can't override the definition of "callSuper"
-            ## in selfEnv--there may  be other methods with a callSuper() in them
-            newEnv <- new.env(FALSE, parent = selfEnv)
-            assign("callSuper", get(def@superClassMethod, envir = selfEnv),
-                   envir = newEnv)
-            environment(def) <- newEnv
-            assign(me, def, envir = selfEnv)
-            ## the callSuper() inside def now goes to the right method
-        }
+    if(!length(depends)) {
+        return(def)
+    }
+    done <- names(selfEnv)
+    ## setdiff(depends, done), which costs 5 times as much (mostly its
+    ## argument compatibility checks), once per method in every object
+    notDone <- unique(depends[!depends %in% done])
+    superCase <- match("callSuper", notDone, 0L)
+    if(superCase > 0L) {
+        if(nzchar(def@superClassMethod))
+            notDone[[superCase]] <- def@superClassMethod
+        else
+            stop(gettextf("a call to superClass() is in the method %s but there is no superclass definition of this method for class %s",
+                            sQuote(me),
+                            dQuote(thisClass@className)),
+                    domain = NA)
+    }
+    for(what in notDone)
+        installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
+    if(superCase > 0L) {
+        ## provide an environment with the correct callSuper() definition,
+        ## with selfEnv as its parent (can't override the definition of "callSuper"
+        ## in selfEnv--there may  be other methods with a callSuper() in them
+        newEnv <- new.env(FALSE, parent = selfEnv)
+        assign("callSuper", get(def@superClassMethod, envir = selfEnv),
+                envir = newEnv)
+        environment(def) <- newEnv
+        assign(me, def, envir = selfEnv)
+        ## the callSuper() inside def now goes to the right method
     }
     def
    }
