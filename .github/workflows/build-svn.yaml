@@ -10,6 +10,7 @@ name: Build
 concurrency:
   group: ${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
+
 jobs:
   build:
     name: Build R from SVN mirror
