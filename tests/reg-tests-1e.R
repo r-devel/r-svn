@@ -4353,6 +4353,107 @@ unlink(td, recursive = TRUE)
 ## no NOTE in R <= 4.6.2
 
 
+## $methods(name = NULL) on a reference class generator must remove the method -- PR#19244
+RC <- suppressMessages(setRefClass("rmMeth", methods = list(a = function() 1, b = function() 2)))
+suppressMessages(RC$methods(b = NULL))
+stopifnot(!("b" %in% RC$methods()), identical(RC$new()$a(), 1),
+          inherits(tryCatch(RC$new()$b(), error = identity), "error"))
+## removing an overriding method leaves the inherited one in force
+RC2 <- suppressMessages(setRefClass("rmMeth2", contains = "rmMeth",
+                                    methods = list(a = function() 2)))
+stopifnot(identical(RC2$new()$a(), 2))
+suppressMessages(RC2$methods(a = NULL))
+stopifnot(identical(RC2$new()$a(), 1), "a" %in% RC2$methods())
+## removing an inherited method hides it from the subclass
+suppressMessages(RC2$methods(a = NULL))
+stopifnot(!("a" %in% RC2$methods()),
+          inherits(tryCatch(RC2$new()$a(), error = identity), "error"))
+## the method was put back from its previous definition in R <= 4.6.1
+
+
+## $methods() must re-analyse the existing methods for a method added or removed later
+RC <- suppressMessages(setRefClass("mayCallUpd", methods = list(
+    kA = function() mcA(),
+    kB = function() { f <- function(y = mcB()) y; f() })))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()))
+suppressMessages(RC$methods(mcA = function() 2, mcB = function() 3))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, "mcA"), identical(RC$new()$kA(), 2))
+if(methods:::.hasCodeTools()) # the call in a nested default argument needs codetools
+    stopifnot(identical(RC$def@refMethods$kB@mayCall, "mcB"), identical(RC$new()$kB(), 3))
+suppressMessages(RC$methods(mcA = NULL))
+stopifnot(identical(RC$def@refMethods$kA@mayCall, character()),
+          inherits(tryCatch(RC$new()$kA(), error = identity), "error"))
+## guards the narrowed re-analysis in $methods()
+
+
+## Reference class method installation, incremental re-analysis, and removal
+RCBase <- setRefClass("RCBase",
+    fields = list(x = "numeric"),
+    methods = list(
+        foo = function() x + 1,
+        bar = function() foo() * 2,
+        .dot = function() x + 10,
+        `val<-` = function(obj, value) { x <<- obj + value; obj }
+    ))
+RCSub <- setRefClass("RCSub", contains = "RCBase",
+    methods = list(
+        foo = function() callSuper() + 100
+    ))
+b <- RCSub$new(x = 5)
+stopifnot(identical(b$foo(), 106),
+          identical(b$bar(), 212),
+          "foo#RCBase" %in% RCSub$methods())
+## Removing an overriding local method restores the superclass method
+## and removes the mangled 'foo#RCBase' entry:
+RCSub$methods(foo = NULL)
+b2 <- RCSub$new(x = 5)
+stopifnot(identical(b2$foo(), 6),
+          identical(b2$bar(), 12),
+          !"foo#RCBase" %in% RCSub$methods(),
+          "foo" %in% RCSub$methods())
+## 3-level hierarchy: C removing a local method must not resurrect A's method
+## when B hid it with $methods(foo = NULL):
+RCSub$methods(foo = NULL) # now hidden in RCSub
+RCGrand <- setRefClass("RCGrand", contains = "RCSub",
+    methods = list(foo = function() 42))
+stopifnot(identical(RCGrand$new(x = 5)$foo(), 42))
+RCGrand$methods(foo = NULL)
+stopifnot(!"foo" %in% RCGrand$methods())
+## Dot-prefixed methods (.dot), replacement methods (`val<-`), nested function
+## default args, and externalRefMethod (first formal '.self'):
+RCBase$methods(
+    useDot = function() .dot() + 1,
+    useDefault = function(fn = function() foo()) fn(),
+    useRepl = function(v) { y <- 2; val(y) <- v; x },
+    extMeth = function(.self, k) .self$x + k
+)
+RCBase$methods(
+    .dot = function() x + 20
+)
+a <- RCBase$new(x = 3)
+stopifnot(identical(a$useDot(), 24),
+          identical(a$useDefault(), 4),
+          identical(a$useRepl(10), 12),
+          "val<-" %in% RCBase$def@refMethods$useRepl@mayCall,
+          identical(a$extMeth(7), 19))
+## Incremental re-analysis of traced methods must not bake the trace wrapper
+## into the method definition:
+traced <- FALSE
+RCBase$trace("useDot", quote(traced <<- TRUE), print = FALSE)
+stopifnot(identical(RCBase$new(x = 3)$useDot(), 24), isTRUE(traced))
+traced <- FALSE
+RCBase$methods(.dot = function() x + 30)
+a2 <- RCBase$new(x = 3)
+stopifnot(!inherits(RCBase$def@refMethods$useDot, "traceable"),
+          identical(a2$useDot(), 34),
+          isFALSE(traced))
+## Unnamed arguments to $methods() fail with a clear error:
+tools::assertError(RCBase$methods(function() 1))
+stopifnot(removeClass("RCGrand"),
+          removeClass("RCSub"),
+          removeClass("RCBase"))
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
