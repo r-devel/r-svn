@@ -173,7 +173,7 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 .makeRefMethodDef <- function(def, mayCall, name, refClassName, superClassMethod) {
     if (typeof(def) != "closure" || !is.character(mayCall) || !is.character(name) || !is.character(refClassName))
       return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
-    if (!is.character(superClassMethod) && !inherits(superClassMethod, "refMethodDef"))
+    if (!is.character(superClassMethod) && !is(superClassMethod, "refMethodDef"))
       return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
     cl <- oldClass(def)
     if (is.null(cl)) {
