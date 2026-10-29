@@ -266,9 +266,7 @@ envRefSetField <- function(object, field,
                 ## an "uninitializedField" under the meta name when the
                 ## field class is virtual, so it need not be looked up here
                 metaName <- .bindingMetaName(field)
-                value <- if(is(prototypes[[metaName]], "uninitializedField"))
-                             NULL
-                         else
+                value <- if(!is(prototypes[[metaName]], "uninitializedField"))
                              new(fieldClasses[[field]])
                 assign(metaName, value, envir = selfEnv)
             }
