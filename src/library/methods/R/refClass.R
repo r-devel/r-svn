@@ -342,7 +342,7 @@ initRefFields <- function(.Object, classDef, selfEnv, args) {
     if(exists(what, envir = selfEnv, inherits = FALSE))
         ## either a field or previously cached method
         get(what, envir = selfEnv)
-    else if(is(thisClass <- selfEnv[[".refClassDef"]], "refClassRepresentation") &&
+    else if(inherits(thisClass <- selfEnv[[".refClassDef"]], "refClassRepresentation") &&
             identical(thisClass@className, class(x)))
         envRefInferField(x, what, thisClass, selfEnv)
     else if(is(x, "envRefClass"))
