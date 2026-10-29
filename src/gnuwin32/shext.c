@@ -33,12 +33,38 @@ static char *ShellGetPersonalDirectory(void)
     /* CSIDL_PERSONAL */
     if (SHGetKnownFolderPath(&FOLDERID_Documents, KF_FLAG_CREATE, NULL,
                              &wpath) == S_OK) {
-	int needed = WideCharToMultiByte(CP_ACP, 0, wpath, -1, NULL, 0, NULL, NULL);
-	if (needed != -1) {
-	    result = (char *)malloc(needed + 1);
-	    if (result)
-		/* NOTE: some characters may not be representable */
-		WideCharToMultiByte(CP_ACP, 0, wpath, -1, result, needed+1, NULL, NULL);
+	UINT cp;
+	DWORD flags;
+	BOOL usedDefaultChar = FALSE;
+	BOOL *pUsedDefaultChar;
+
+	/* Options are set with the goal of falling back to the next
+	   candidate rather than returning something lossy. */
+	if (GetACP() == CP_UTF8) {
+	    /* CP_UTF8 doesn't support lpUsedDefaultChar. Instead use
+	       WC_ERR_INVALID_CHARS to cause 0 to be returned on lone
+	       surrogates. */
+	    cp = CP_UTF8;
+	    flags = WC_ERR_INVALID_CHARS;
+	    pUsedDefaultChar = NULL;
+	} else {
+	    /* Otherwise, let WC_NO_BEST_FIT_CHARS set lpUsedDefaultChar
+	       rather than filling in a lossy best fit approximation. */
+	    cp = CP_ACP;
+	    flags = WC_NO_BEST_FIT_CHARS;
+	    pUsedDefaultChar = &usedDefaultChar;
+	}
+
+	int needed = WideCharToMultiByte(cp, flags, wpath, -1, NULL, 0, NULL, pUsedDefaultChar);
+
+	if (needed > 0 && !usedDefaultChar) {
+	    result = (char *)malloc(needed);
+	    if (result) {
+		if (!WideCharToMultiByte(cp, flags, wpath, -1, result, needed, NULL, NULL)) {
+		    free(result);
+		    result = NULL;
+		}
+	    }
 	}
     }
     CoTaskMemFree(wpath);
