@@ -65,8 +65,8 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## setdiff(depends, done), which costs 5 times as much (mostly its
     ## argument compatibility checks), once per method in every object
     notDone <- unique(depends[!depends %in% done])
-    superCase <- match("callSuper", notDone, 0)
-    if(superCase > 0) {
+    superCase <- match("callSuper", notDone, 0L)
+    if(superCase > 0L) {
         if(nzchar(def@superClassMethod))
             notDone[[superCase]] <- def@superClassMethod
         else
@@ -77,7 +77,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     }
     for(what in notDone)
         installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
-    if(superCase > 0) {
+    if(superCase > 0L) {
         ## provide an environment with the correct callSuper() definition,
         ## with selfEnv as its parent (can't override the definition of "callSuper"
         ## in selfEnv--there may  be other methods with a callSuper() in them
@@ -91,12 +91,22 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     def
    }
 
+## Whether the codetools package is available, found out once per
+## session: it is not yet installed when the methods package is built,
+## so the value saved then is not reused (see ..onLoad).  Probing again
+## on every call, as was done while the answer was FALSE, searched the
+## library paths several times for each method processed; that was there
+## for the build-time value, so a codetools installed or added to the
+## library paths later in the session is only seen after a restart.
 ..hasCodeTools <- FALSE
 .hasCodeTools <- function() {
-    if(!isTRUE(..hasCodeTools)) # will be FALSE when methods is built, keep checking
-        .assignOverBinding("..hasCodeTools",length(list.files(system.file(package = "codetools"))) > 0,
-                           .methodsNamespace, FALSE)
-    ..hasCodeTools
+    if(is.null(..hasCodeTools)) {
+        value <- length(find.package("codetools", quiet = TRUE)) > 0L
+        .assignOverBinding("..hasCodeTools", value, .methodsNamespace, FALSE)
+        value
+    }
+    else
+        ..hasCodeTools
 }
 
 .getGlobalFuns <- function(def) {
@@ -133,7 +143,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
-    if(identical(formalArgs(def)[[1]], ".self"))
+    if(identical(formalArgs(def)[[1L]], ".self"))
         def <- externalRefMethod(def)
     if(is(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
@@ -149,17 +159,19 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
     if("usingMethods" %in% depends) { # including those declared
         declared <- .declaredMethods(def)
         ## look for invalid declared methods
-        if(length(declared) && any(! declared %in% allMethods))
+        if(!all(declared %in% allMethods))
             warning(gettextf("methods declared in usingMethods() but not found: %s",
-                paste0(declared[! declared %in% allMethods], collapse = ", ")))
+                             toString(declared[! declared %in% allMethods])))
         depends <- c(declared, depends)
     }
-    depends <- depends[match(depends, allMethods, 0) > 0]
+    depends <- depends[depends %in% allMethods]
     .makeRefMethodDef(def, depends, name, Class, superClassMethod)
 }
 
 ## the class attributes of the objects new() creates for these classes
 .refMethodDefClass <- structure("refMethodDef", package = "methods")
+.activeBindingFunctionClass <- structure("activeBindingFunction", package = "methods")
+.defaultBindingFunctionClass <- structure("defaultBindingFunction", package = "methods")
 
 ## The object new("refMethodDef", def, mayCall = mayCall, name = name, ...)
 ## would return, constructed directly in the two cases that arise here: a
@@ -228,7 +240,7 @@ envRefSetField <- function(object, field,
 
 .initForEnvRefClass <- function(.Object, ...) {
     Class <- class(.Object)
-    classDef <- getClass(Class)
+    classDef <- getClassDef(Class) %||% getClass(Class)
     objectParent <- classDef@refMethods$.objectParent
     if(is.null(objectParent)) {
         ## This warning would be reasonable if we required re-installing packages for R 3.3.0
@@ -250,10 +262,13 @@ envRefSetField <- function(object, field,
             environment(fp) <- selfEnv
             makeActiveBinding(field, fp, selfEnv)
             if(is(fp, "defaultBindingFunction")) {
-                ## ensure an initial value
-                class <- fieldClasses[[field]]
-		value <- if(!isVirtualClass(class)) new(class) # else NULL
-                assign(.bindingMetaName(field), value, envir = selfEnv)
+                ## ensure an initial value; .makeDefaultBinding() stored
+                ## an "uninitializedField" under the meta name when the
+                ## field class is virtual, so it need not be looked up here
+                metaName <- .bindingMetaName(field)
+                value <- if(!is(prototypes[[metaName]], "uninitializedField"))
+                             new(fieldClasses[[field]])
+                assign(metaName, value, envir = selfEnv)
             }
         }
         else
@@ -279,7 +294,7 @@ envRefSetField <- function(object, field,
     lockBinding(".refClassDef", selfEnv)
     ## validObject was called from the S4 initialize; check that
     ## a method specified for the ref. class is satisfied, if there is one
-    if(is(classDef@validity, "function"))
+    if(is.function(classDef@validity))
         validObject(.Object)
     .Object
 }
@@ -861,9 +876,16 @@ class method modifies a field.
 
 .makeActiveBinding <- function(thisField) {
     if(is(thisField, "activeBindingFunction"))
-     thisField
+        thisField
+    else if(typeof(thisField) == "closure" && is.null(oldClass(thisField))) {
+        ## what new("activeBindingFunction", thisField) returns, constructed
+        ## directly (see .makeRefMethodDef)
+        attributes(thisField) <- c(attributes(thisField),
+                                   list(class = .activeBindingFunctionClass))
+        asS4(thisField)
+    }
     else
-     new("activeBindingFunction", thisField)
+        new("activeBindingFunction", thisField)
 }
 
 .makeDefaultBinding <- function(fieldName, fieldClass, readOnly = FALSE, where) {
@@ -892,8 +914,17 @@ class method modifies a field.
         }, list(dummyField = metaName, dummyClass = fieldClass,
                 thisField = fieldName, dummyFieldName = as.name(metaName))))
     environment(f) <- where ## <note> Does this matter? </note>
-    f <- new("defaultBindingFunction", f,
-             field = fieldName, className = fieldClass)
+    if(is.character(fieldName) && is.character(fieldClass)) {
+        ## what new("defaultBindingFunction", f, field = fieldName,
+        ## className = fieldClass) returns, constructed directly (see
+        ## .makeRefMethodDef); f has no attributes of its own
+        attributes(f) <- list(field = fieldName, className = fieldClass,
+                              class = .defaultBindingFunctionClass)
+        f <- asS4(f)
+    }
+    else
+        f <- new("defaultBindingFunction", f,
+                 field = fieldName, className = fieldClass)
     init <- (if(isVirtualClass(fieldClass))
                  new("uninitializedField", field = fieldName,
                      className = fieldClass)
