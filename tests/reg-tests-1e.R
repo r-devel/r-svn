@@ -4322,6 +4322,14 @@ local({
 ## wrote past the "counts" array: gave garbage counts or segfaulted in R <= 4.6.2
 
 
+## textConnection() treated a 0xff byte as end of file where char is signed
+con <- textConnection(rawToChar(as.raw(c(0x61, 0xff, 0x62))), encoding = "bytes")
+res <- readLines(con, warn = FALSE)
+close(con)
+stopifnot(identical(charToRaw(res), as.raw(c(0x61, 0xff, 0x62))))
+## gave character(0) in R <= 4.6.1
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
