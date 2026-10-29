@@ -131,7 +131,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
     if(identical(formalArgs(def)[[1]], ".self"))
         def <- externalRefMethod(def)
-    if(inherits(def, "externalRefMethod")) { # either just created or passed in as argument
+    if(is(def, "externalRefMethod")) { # either just created or passed in as argument
         ## the method just passes .self and its arguments to the actual method function
         def@name <- name
         def@refClassName <- Class
@@ -1442,8 +1442,8 @@ getMethodsAndAccessors <- function(Class) {
     value <- list()
     for(what in names(methodsEnv)) {
         def <- get(what, envir = methodsEnv)
-        if(inherits(def, "refMethodDef") && def@refClassName == className)
-            value[[what]] <- if(inherits(def, "traceable")) .untracedFunction(def) else def
+        if(is(def, "refMethodDef") && def@refClassName == className)
+            value[[what]] <- if(is(def, "traceable")) .untracedFunction(def) else def
     }
     value
 }
