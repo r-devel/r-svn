@@ -117,10 +117,15 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
 .mayCallAny <- function(def, names) {
     syms <- c(all.names(body(def)),
               unlist(lapply(formals(def), all.names)))
-    any(c("function", names) %in% syms) ||
-        (any(c("<-", "=", "<<-") %in% syms) &&
-         any(endsWith(names, "<-")) &&
-         any(paste0(syms, "<-", recycle0 = TRUE) %in% names))
+    if (!length(syms))
+      return(FALSE)
+    if (any(c("function", names) %in% syms))
+      return(TRUE)
+    if (!any(c("<-", "=", "<<-") %in% syms))
+      return(FALSE)
+    if (!any(endsWith(names, "<-")))
+      return(FALSE)
+    any(paste0(syms, "<-") %in% names)
 }
 
 makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods) {
@@ -139,12 +144,12 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
         if("usingMethods" %in% depends) { # including those declared
             declared <- .declaredMethods(def)
             ## look for invalid declared methods
-            if(length(declared) && any(! declared %in% allMethods))
+            if(!all(declared %in% allMethods))
                 warning(gettextf("methods declared in usingMethods() but not found: %s",
-                    paste0(declared[! declared %in% allMethods], collapse = ", ")))
+                                 toString(declared[! declared %in% allMethods])))
             depends <- c(declared, depends)
         }
-        depends <- depends[match(depends, allMethods, 0L) > 0L]
+        depends <- depends[depends %in% allMethods]
     } else
         depends <- character()
     new("refMethodDef", def, mayCall = depends, name = name,
@@ -616,7 +621,7 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## or removed must not be appended: a method removed by a NULL
     ## definition was re-inserted from its previous version.)
     local <- .thisClassMethods(methodsEnv, def@className)
-    existing <- local[match(names(local), mnames, 0L) == 0L]
+    existing <- local[names(local) %notin% mnames]
     existing <- existing[vapply(existing, .mayCallAny, NA,
                                 names = c(mnames, "usingMethods"))]
     methodDefs <- c(methodDefs, existing)
@@ -633,9 +638,9 @@ getRefSuperClasses <- function(classes, classDefs) {
         ## removing an inherited method itself hides it from this class
         for(what in intersect(rmNames, names(local))) {
             superMethod <- local[[what]]@superClassMethod
-            if(nzchar(superMethod) && !identical(superMethod, "initFields") &&
-               exists(superMethod, envir = methodsEnv, inherits = FALSE)) {
-                assign(what, get(superMethod, envir = methodsEnv), envir = methodsEnv)
+            if (superMethod %in% c("", "initFields")) next
+            if (!is.null(superMethodVal <- get0(superMethod, envir = methodsEnv, inherits = FALSE))) {
+                assign(what, superMethodVal, envir = methodsEnv)
                 remove(list = superMethod, envir = methodsEnv)
             }
         }
