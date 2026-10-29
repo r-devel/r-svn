@@ -1678,11 +1678,20 @@ as the garbage collector marks everything that can be reached from that
 location.  When a vector is @I{@code{R_alloc}ated}, its @code{ATTRIB}
 pointer is set to the current @code{R_VStack}, and @code{R_VStack} is
 set to the latest allocation.  Thus @code{R_VStack} is a single-linked
-chain of the vectors currently allocated via @code{R_alloc}.  Function
-@code{vmaxset} resets the location @code{R_VStack}, and should be to a
-value that has previously be obtained @emph{via} @code{vmaxget}:
+chain of the vectors currently allocated via @code{R_alloc}.  A vector
+allocated by @code{R_realloc} is instead held in the @code{CAR} of a
+pairlist node on the chain (whose @code{CDR} continues it), and its
+@code{ATTRIB} points back to that node.  @code{R_realloc} replaces the
+vector in the node, leaving the node in place so that saved stack
+positions remain valid.
+Function @code{vmaxset} resets the location @code{R_VStack}, and should be to a
+value that has previously been obtained @emph{via} @code{vmaxget}:
 allocations after the value was obtained will no longer be protected and
-hence available for garbage collection.
+hence available for garbage collection.  When @code{PROTECTCHECK} is
+defined (as it is by @option{--enable-strict-barrier}), @code{vmaxset}
+checks that the value is on the chain and empties the released
+@code{R_realloc} nodes, so that a later attempt to resize a released
+block is an error rather than a use of collectable memory.
 
 
 @node Internal use of global and base environments
