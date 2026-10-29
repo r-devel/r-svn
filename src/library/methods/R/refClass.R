@@ -171,27 +171,27 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 ## times the rest of makeClassMethod(); the slot values here are always
 ## valid.  Anything else is left to new().
 .makeRefMethodDef <- function(def, mayCall, name, refClassName, superClassMethod) {
-    if(typeof(def) == "closure" && is.character(mayCall) && is.character(name) &&
-       is.character(refClassName) &&
-       (is.character(superClassMethod) || inherits(superClassMethod, "refMethodDef"))) {
-        cl <- oldClass(def)
-        if(is.null(cl)) {
-            ## the slots last, so that they take precedence over any
-            ## attribute of the same name the function already has
-            attributes(def) <- c(attributes(def),
-                                 list(mayCall = mayCall, name = name,
-                                      refClassName = refClassName,
-                                      superClassMethod = superClassMethod,
-                                      class = .refMethodDefClass))
-            return(asS4(def))
-        }
-        if(isS4(def) && identical(cl, .refMethodDefClass)) {
-            attr(def, "mayCall") <- mayCall
-            attr(def, "name") <- name
-            attr(def, "refClassName") <- refClassName
-            attr(def, "superClassMethod") <- superClassMethod
-            return(def)
-        }
+    if (typeof(def) != "closure" || !is.character(mayCall) || !is.character(name) || !is.character(refClassName))
+      return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
+    if (!is.character(superClassMethod) && !inherits(superClassMethod, "refMethodDef"))
+      return(new("refMethodDef", def, mayCall = mayCall, name = name, refClassName = refClassName, superClassMethod = superClassMethod))
+    cl <- oldClass(def)
+    if (is.null(cl)) {
+        ## the slots last, so that they take precedence over any
+        ## attribute of the same name the function already has
+        attributes(def) <- c(attributes(def),
+                             list(mayCall = mayCall, name = name,
+                                  refClassName = refClassName,
+                                  superClassMethod = superClassMethod,
+                                  class = .refMethodDefClass))
+        return(asS4(def))
+    }
+    if(isS4(def) && identical(cl, .refMethodDefClass)) {
+        attr(def, "mayCall") <- mayCall
+        attr(def, "name") <- name
+        attr(def, "refClassName") <- refClassName
+        attr(def, "superClassMethod") <- superClassMethod
+        return(def)
     }
     new("refMethodDef", def, mayCall = mayCall, name = name,
         refClassName = refClassName, superClassMethod = superClassMethod)
