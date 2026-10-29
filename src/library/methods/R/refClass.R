@@ -582,11 +582,17 @@ getRefSuperClasses <- function(classes, classDefs) {
     ## allow either name=function, ... or a single list
     if(length(methodDefs) == 1 && is.list(methodDefs[[1]]))
         methodDefs <- methodDefs[[1]]
-    ## append existing local methods, so they are re-analysed for new method names
-    methodDefs <- c(methodDefs, .thisClassMethods(methodsEnv, def@className))
     mnames <- names(methodDefs)
     if(is.null(mnames) || !all(nzchar(mnames)))
         stop("arguments to methods() must be named, or one named list")
+    ## append the other existing local methods, so they are re-analysed for
+    ## new method names (the previous versions of the methods being defined
+    ## or removed must not be appended: a method removed by a NULL
+    ## definition was re-inserted from its previous version)
+    local <- .thisClassMethods(methodsEnv, def@className)
+    existing <- local[names(local) %notin% mnames]
+    methodDefs <- c(methodDefs, existing)
+    mnames <- names(methodDefs)
     ## look for methods to remove (new definition is NULL)
     removeThese <- vapply(methodDefs, is.null, NA)
     if(any(removeThese)) {
@@ -594,10 +600,21 @@ getRefSuperClasses <- function(classes, classDefs) {
         mnames <- mnames[!removeThese]
         methodDefs <- methodDefs[!removeThese]
         remove(list = rmNames, envir = methodsEnv)
+        ## a removed method that overrode an inherited one leaves the
+        ## inherited definition in force, as if it had never been defined;
+        ## removing an inherited method itself hides it from this class
+        for(what in intersect(rmNames, names(local))) {
+            superMethod <- local[[what]]@superClassMethod
+            if (superMethod %in% c("", "initFields")) next
+            if (!is.null(superMethodVal <- get0(superMethod, envir = methodsEnv, inherits = FALSE))) {
+                assign(what, superMethodVal, envir = methodsEnv)
+                remove(list = superMethod, envir = methodsEnv)
+            }
+        }
         if(length(mnames) == 0)
             return(invisible(methodsEnv))
     }
-    allMethods <- as.list(methodsEnv)
+    allMethods <- as.list(methodsEnv, all.names = TRUE)
     ## get a list of processed methods, plus any
     ## overridden superclass methods
     newMethods <- insertClassMethods(allMethods, className, methodDefs, names(def@fieldClasses), FALSE)
@@ -1386,7 +1403,7 @@ getMethodsAndAccessors <- function(Class) {
     for(what in names(methodsEnv)) {
         def <- get(what, envir = methodsEnv)
         if(is(def, "refMethodDef") && def@refClassName == className)
-            value[[what]] <- def@.Data # the function only
+            value[[what]] <- if(is(def, "traceable")) .untracedFunction(def) else def
     }
     value
 }
