@@ -382,4 +382,29 @@ stopifnot(identical(h1, 1), identical(n, 1),
           identical(attr(h, "label"), "kept"),
           identical(h(2), 2), identical(n, 1)) # h no longer traced
 
+## .recacheSubclasses() & .checkSubclasses() preserve shortest @distance and @contains order:
+setClassUnion("U1", c("factor", "numeric"))
+setClassUnion("U2", c("numeric", "factor"))
+setGeneric("fU", \(x) standardGeneric("fU"))
+setMethod("fU", "U1", \(x) "U1")
+setMethod("fU", "numeric", \(x) "numeric")
+stopifnot(identical(getClassDef("ordered")@contains[["U1"]]@distance, 2),
+          identical(getClassDef("ordered")@contains[["U2"]]@distance, 2),
+          identical(fU(ordered("a")), "U1"),
+          removeGeneric("fU"), removeClass("U1"), removeClass("U2"))
+
+setClass("S0", contains = "VIRTUAL")
+setClass("S1", contains = c("S0", "VIRTUAL"))
+setClass("B", contains = "S1")
+setClass("C", contains = "B")
+setClass("X")
+setClassUnion("U", c("B", "X"))
+setGeneric("fPick", \(x) standardGeneric("fPick"))
+setMethod("fPick", "S0", \(x) "S0")
+setMethod("fPick", "U", \(x) "U")
+stopifnot(!is.unsorted(vapply(getClassDef("C")@contains, \(cl) cl@distance, 1)),
+          identical(fPick(new("C")), "U"),
+          removeGeneric("fPick"))
+for(cl in c("U", "X", "C", "B", "S1", "S0")) removeClass(cl)
+
 cat('Time elapsed: ', proc.time(),'\n')
