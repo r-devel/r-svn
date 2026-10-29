@@ -1201,6 +1201,14 @@ showRefClassDef <- function(object, title = "Reference Class") {
 .checkFieldsInMethod <- function(methodDef, fieldNames, methodNames) {
     if(!.hasCodeTools())
         return(NA)
+    ## Nothing to report unless the body assigns to a field name or
+    ## non-locally, so skip the (expensive) code analysis otherwise.  The
+    ## target of an assignment is a symbol in the body, except when
+    ## written as a string, "f" <- value, which is not worth a walk.
+    syms <- all.names(body(methodDef))
+    if(!("<<-" %in% syms) &&
+       (!any(c("<-", "=") %in% syms) || !any(fieldNames %in% syms)))
+        return(TRUE)
     p0q <- function(x) paste0('"', x, '"', collapse = "; ")
     if(is(methodDef, "refMethodDef")) {
         methodName <- p0q(methodDef@name)
