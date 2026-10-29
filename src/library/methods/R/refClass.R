@@ -65,8 +65,8 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     ## setdiff(depends, done), which costs 5 times as much (mostly its
     ## argument compatibility checks), once per method in every object
     notDone <- unique(depends[!depends %in% done])
-    superCase <- match("callSuper", notDone, 0)
-    if(superCase > 0) {
+    superCase <- match("callSuper", notDone, 0L)
+    if(superCase > 0L) {
         if(nzchar(def@superClassMethod))
             notDone[[superCase]] <- def@superClassMethod
         else
@@ -77,7 +77,7 @@ installClassMethod <- function(def, self, me, selfEnv, thisClass) {
     }
     for(what in notDone)
         installClassMethod(get(what, envir = thisClass@refMethods), self, what, selfEnv, thisClass)
-    if(superCase > 0) {
+    if(superCase > 0L) {
         ## provide an environment with the correct callSuper() definition,
         ## with selfEnv as its parent (can't override the definition of "callSuper"
         ## in selfEnv--there may  be other methods with a callSuper() in them
