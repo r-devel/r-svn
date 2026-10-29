@@ -47,7 +47,7 @@ self from reference class thisClass.'
 }
 
 installClassMethod <- function(def, self, me, selfEnv, thisClass) {
-    if(!inherits(def, "refMethodDef")) {
+    if(!is(def, "refMethodDef")) {
         ## Don't process a special object in the class refMethods
         ## environment (will cause an error).  Assign it unchanged.
         assign(me, def, envir = thisClass@refMethods)
@@ -161,8 +161,8 @@ makeClassMethod <- function(def, name, Class, superClassMethod = "", allMethods)
 
 refObjectClass <- function(object) {
     if(isS4(object) && is.environment(object) &&
-       inherits(classDef <- as.environment(object)[[".refClassDef"]],
-                "refClassRepresentation"))
+       is(classDef <- as.environment(object)[[".refClassDef"]],
+          "refClassRepresentation"))
         return(classDef)
     Class <- class(object)
     classDef <- getClassDef(Class)
