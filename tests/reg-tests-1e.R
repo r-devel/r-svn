@@ -4386,6 +4386,13 @@ stopifnot(identical(RC$def@refMethods$kA@mayCall, character()),
 ## guards the narrowed re-analysis in $methods()
 
 
+## a reference method's slots take precedence over the function's own attributes -- PR#19244
+RC <- suppressMessages(setRefClass("attrMeth", methods = list(
+    a = structure(function() b(), mayCall = character()), b = function() 2)))
+stopifnot(identical(RC$new()$a(), 2), identical(RC$def@refMethods$a@mayCall, "b"))
+## guards the direct construction of the method objects in makeClassMethod()
+
+
 ## Reference class method installation, incremental re-analysis, and removal
 RCBase <- setRefClass("RCBase",
     fields = list(x = "numeric"),
