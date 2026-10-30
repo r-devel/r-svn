@@ -2683,7 +2683,9 @@ static int NumericValue(int c)
     /* Make certain that things are okay. */
     if(c == 'L') {
 	double a = R_atof(yytext);
-	int b = (int) a;
+	/* (int) a is undefined outside the int range; NA_INTEGER cannot be
+	   the value of a literal, so it fails the check below. */
+	int b = (a >= INT_MIN && a <= INT_MAX) ? (int) a : NA_INTEGER;
 	/* We are asked to create an integer via the L, so we check that the
 	   double and int values are the same. If not, this is a problem and we
 	   will not lose information and so use the numeric value.
