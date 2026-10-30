@@ -4421,6 +4421,26 @@ stopifnot(exprs = {
 
 
 
+## chartr() with a large translation table
+if (l10n_info()[["UTF-8"]]) {
+    ## two ranges of equal length (0x61..0x1F600 and 0x41..0x1F5E0), twice
+    old <- paste0("a-", intToUtf8(0x1F600L)); old <- paste0(old, old)
+    new <- paste0("A-", intToUtf8(0x1F5E0L)); new <- paste0(new, new)
+    stopifnot(identical(chartr(old, new, "abc"), "ABC"),
+              identical(chartr("aa", "bc", "a"), "c"), # last mapping wins
+              identical(chartr("a-ca", "x-zq", "abc"), "qyz"),
+              identical(chartr(paste0(old, "a-c"), paste0(new, "x-z"), "abc"),
+                        "xyz"))
+}
+## sorted the ~257000 entries by insertion sort, taking tens of seconds in R <= 4.6.x
+
+
+## chartr() with a withdrawn 5-byte UTF-8 form as a range end
+old <- ")-\xfb\x9f\xbf\xbf\x9a"; Encoding(old) <- "UTF-8"
+tools::assertError(chartr(old, old, "abc"))
+## expanded the range to a 58-million-entry table in R <= 4.6.x
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
