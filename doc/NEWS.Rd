@@ -590,10 +590,10 @@
   \subsection{Bug Fixes (Windows)}{
     \itemize{
       \item \code{path.expand("~")} and similar now should work correctly
-      on Windows when the user name is not in ASCII and neither
-      \env{\%HOME\%} nor \env{\%USER\%} environment variables are set,
-      fixing \PR{18949} thanks to the report and patch from \I{Ivan Krylov}
-      and \I{Mauricio Vargas}'s \I{R Dev Day} work.
+      on Windows when the Documents folder path is not ASCII and neither
+      \env{R_USER} nor \env{HOME} are set, fixing \PR{18949} thanks to
+      the report and patch from \I{Ivan Krylov} and \I{Mauricio Vargas}'s
+      \I{R Dev Day} work.
 
       \item \code{file.copy(*, date=TRUE)} no longer opens files for
       exclusive access when copying the file time.  Consequently, the time
