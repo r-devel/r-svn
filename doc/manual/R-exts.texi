@@ -15202,6 +15202,20 @@ be needed and may be removed.  The type and contents of the value
 returned by @code{ALTREP_CLASS} are subject to change.
 @eapifun ALTREP_CLASS
 
+@I{ALTREP} class methods are called from @R{}'s own C code, often on
+objects that are not protected.  Only the @code{Dataptr} method and the
+@code{Elt} and @code{Set_elt} methods of string and list classes are
+called with garbage collection suspended.  The @code{Elt},
+@code{Get_region}, @code{Is_sorted} and @code{No_NA} methods of the
+other vector classes, the @code{Is_sorted} and @code{No_NA} methods of
+string classes, and @code{Dataptr_or_null} methods are called from code
+that assumes the corresponding accessors (@code{INTEGER_ELT},
+@code{INTEGER_GET_REGION}, @code{INTEGER_NO_NA}, @code{asInteger} and
+so on) neither allocate nor signal an error.  These methods should
+therefore not allocate @R{} objects, either directly or by evaluating
+@R{} code, and should not signal errors.  A class that needs to allocate
+to produce its data can do so in its @code{Dataptr} method.
+
 For some objects it may be possible to very efficiently determine
 whether the object is sorted or contains no @code{NA} values. These
 functions can be used to query this information:
