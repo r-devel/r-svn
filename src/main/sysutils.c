@@ -1713,6 +1713,11 @@ static void truncateForMessage(char dest[256], const char *src)
     }
 }
 
+static int reEncode(const char *x, R_StringBuffer *cbuff,
+		    cetype_t ce_in, cetype_t ce_out, int subst);
+static int reEncodeIconv(const char *x, R_StringBuffer *cbuff,
+			 const char *fromcode, const char *tocode, int subst);
+
 /* Translates string in "ans" to native encoding returning it in string
    buffer "cbuff".  Returns non-zero if some of it could not be translated
    (and was escaped instead); with mustWork == 2 that is also warned about,
@@ -2002,15 +2007,19 @@ next_char:
     *outbuf = '\0';
     Riconv_close(obj);
     if (mustWork && failed) {
-	const void *vmax = vmaxget();
-	const char *native_buf = reEnc(cbuff->data, CE_UTF8, CE_NATIVE, 2);
-
-	/* Release the buffer before signalling: options(warn = 2) turns
-	   the warning into an error, and the unwind would leak it. */
+	/* Escape the string for the message into a second buffer rather
+	   than R_alloc() it with reEnc(): an allocation error there would
+	   unwind past both buffers.  Release them before signalling, as
+	   options(warn = 2) turns the warning into an error. */
+	R_StringBuffer ebuff = {NULL, 0, MAXELTSIZE};
 	char err_buff[256];
-	truncateForMessage(err_buff, native_buf);
-	vmaxset(vmax);
+	if (reEncode(cbuff->data, &ebuff, CE_UTF8, CE_NATIVE, 2))
+	    truncateForMessage(err_buff, cbuff->data);
+	else
+	    truncateForMessage(err_buff, ebuff.data);
+	R_FreeStringBuffer(&ebuff);
 	R_FreeStringBuffer(cbuff);
+
 	if (mustWork == 2) {
 	    warning(_("unable to translate '%s' to UTF-8"),
 		    err_buff);
@@ -2186,15 +2195,17 @@ next_char:
     *((wchar_t *) outbuf) = L'\0'; /* terminate wide string */
     if(ttype == NT_FROM_NATIVE) Riconv_close(obj);
     if (mustWork && failed) {
-	const void *vmax = vmaxget();
-	const char *native_buf = reEnc3(cbuff->data, TO_WCHAR, "", 2);
-
-	/* Release the buffer before signalling: options(warn = 2) turns
-	   the warning into an error, and the unwind would leak it. */
+	/* As in translateToUTF8(): no R_alloc() while the buffers are
+	   live, and release them before signalling. */
+	R_StringBuffer ebuff = {NULL, 0, MAXELTSIZE};
 	char err_buff[256];
-	truncateForMessage(err_buff, native_buf);
-	vmaxset(vmax);
+	if (reEncodeIconv(cbuff->data, &ebuff, TO_WCHAR, "", 2))
+	    truncateForMessage(err_buff, cbuff->data);
+	else
+	    truncateForMessage(err_buff, ebuff.data);
+	R_FreeStringBuffer(&ebuff);
 	R_FreeStringBuffer(cbuff);
+
 	if (mustWork == 2) {
 	    warning(_("unable to translate '%s' to a wide string"),
 	              err_buff);
