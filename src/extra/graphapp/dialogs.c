@@ -757,7 +757,7 @@ char *askstring(const char *question, const char *default_str)
 
 char *askcdstring(const char *question, const char *default_str)
 {
-    HRESULT res;
+    HRESULT res, initres;
     IFileOpenDialog *fileOpen = NULL;
     IShellItem *dirsi = NULL;
     DWORD flags = 0;
@@ -767,6 +767,13 @@ char *askcdstring(const char *question, const char *default_str)
 
     wquestion = mbstowcs_malloc(question);
     wdefault_str = mbstowcs_malloc(default_str);
+
+    /* Nothing initializes COM on this thread in Rterm/Rscript, and without
+       it CoCreateInstance fails with CO_E_NOTINITIALIZED.  RPC_E_CHANGED_MODE
+       (already initialized differently) is usable too, but only S_OK and
+       S_FALSE must be balanced by CoUninitialize. */
+    initres = CoInitializeEx(NULL,
+			     COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     res = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
                      &IID_IFileOpenDialog, (void **)&fileOpen);
@@ -805,7 +812,9 @@ char *askcdstring(const char *question, const char *default_str)
 	free(wquestion);
     if (wdefault_str)
 	free(wdefault_str);
-    return ok ? strbuf : NULL; 
+    if (initres == S_OK || initres == S_FALSE)
+	CoUninitialize();
+    return ok ? strbuf : NULL;
 }
 
 char *askpassword(const char *question, const char *default_str)
