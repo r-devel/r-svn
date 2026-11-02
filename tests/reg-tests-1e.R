@@ -4434,6 +4434,23 @@ stopifnot(identical(suppressWarnings(str2lang("4294967296L")), 4294967296),
 ## converted out-of-range doubles to int (undefined behaviour) in R <= 4.6.2
 
 
+## sample() without replacement, weights spanning many orders of magnitude
+set.seed(1)
+assertWarnV(sample.int(5L, 4L, prob = c(1, 1, 1, 1e-20, 0)))
+assertWarnV(sample.int(5L, 4L, prob = c(1, 1, 1, 1e-16, 1e-16)))
+assertWarnV(sample.int(5L, 4L, prob = exp(c(0, -1, -2, -40, -Inf))))
+noWarn <- function(expr)
+    withCallingHandlers(expr, warning = function(w)
+        stop("unexpected warning: ", conditionMessage(w)))
+set.seed(2)
+for (i in 1:20) noWarn(sample.int(1000L, 1000L, prob = runif(1000)))
+noWarn(sample.int(1000L, 100L, prob = exp(-60 * runif(1000))))
+noWarn(sample.int(5L, 2L, prob = c(1, 1, 1, 1e-20, 0)))
+## no warning when the running total of the remaining mass drifted past the
+## mass left, so that the least likely items (even a zero weight, as in the
+## first case) were drawn with the wrong probabilities, in R <= 4.6.2
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

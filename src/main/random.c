@@ -404,11 +404,22 @@ walker_ProbSampleReplace(int n, double *p, int *a, int nans, int *ans)
 
 /* Unequal probability sampling; without-replacement case */
 
+/* The running total of the remaining mass (totalmass -= p[j] below)
+   drifts by rounding.  Once the weights span enough orders of magnitude
+   for the drift to be comparable to the mass actually left, the least
+   likely items are drawn with the wrong probabilities, and a zero weight
+   can be drawn.  The draws are left as they are, so that results stay
+   reproducible, but the drift is tracked exactly (each subtraction's
+   rounding error is recovered with the 2Sum transformation) and a
+   warning is given once it reaches this fraction of the remaining mass. */
+#define SAMPLE_DRIFT_TOL 1e-3
+
 static void ProbSampleNoReplace(int n, double *p, int *perm,
 				int nans, int *ans)
 {
-    double rT, mass, totalmass;
+    double rT, mass, totalmass, drift, sum, comp;
     int i, j, k, n1;
+    bool drifted = FALSE;
 
     /* Record element identities */
     for (i = 0; i < n; i++)
@@ -418,9 +429,24 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
     /* Order element identities in parallel */
     revsort(p, perm, n);
 
+    /* drift = totalmass - exact remaining mass, initially 1 - sum(p)
+       with sum(p) by Neumaier summation (p[i] >= 0 here) */
+    sum = comp = 0;
+    for (i = 0; i < n; i++) {
+	double t = sum + p[i];
+	comp += (sum >= p[i]) ? (sum - t) + p[i] : (p[i] - t) + sum;
+	sum = t;
+    }
+    drift = (1 - sum) - comp;
+
     /* Compute the sample */
     totalmass = 1;
     for (i = 0, n1 = n-1; i < nans; i++, n1--) {
+	if (n1 > 0) {	/* a real choice remains */
+	    double remaining = totalmass - drift;
+	    if (remaining <= 0 || fabs(drift) > SAMPLE_DRIFT_TOL * remaining)
+		drifted = TRUE;
+	}
 	rT = totalmass * unif_rand();
 	mass = 0;
 	for (j = 0; j < n1; j++) {
@@ -429,12 +455,22 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
 		break;
 	}
 	ans[i] = perm[j];
-	totalmass -= p[j];
+	if (p[j] == 0)
+	    drifted = TRUE;
+	{   /* totalmass -= p[j], keeping the rounding error (2Sum) */
+	    double a = totalmass, b = -p[j], t = a + b, bb = t - a;
+	    drift -= (a - (t - bb)) + (b - bb);
+	    totalmass = t;
+	}
 	for(k = j; k < n1; k++) {
 	    p[k] = p[k + 1];
 	    perm[k] = perm[k + 1];
 	}
     }
+
+    if (drifted)
+	warning(_("weights span too many orders of magnitude: the least "
+		  "likely items were sampled with inaccurate probabilities"));
 }
 
 static void FixupProb(double *p, int n, int require_k, bool replace)
