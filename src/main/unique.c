@@ -74,6 +74,7 @@ struct _HashData {
     int nomatch;
     Rboolean useUTF8;
     Rboolean useCache;
+    Rboolean useBytes;
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
@@ -301,6 +302,15 @@ static R_INLINE int sequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     if (IS_CACHED(xi) && IS_CACHED(yj) && ENC_KNOWN(xi) == ENC_KNOWN(yj))
 	return 0;
     return Seql(xi, yj);
+}
+
+/* When every string is cached and none is marked as latin1, UTF-8 or
+   bytes, equal content means the same CHARSXP, so the headers need not
+   be read: that saves a cache miss per probe on large tables. */
+static int sequal_cached(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+    return STRING_ELT(x, i) == STRING_ELT(y, j);
 }
 
 static hlen rawhash(SEXP x, R_xlen_t indx, HashData *d)
@@ -569,6 +579,7 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
 	for(i = 0; i < n; i++) {
 	    if(IS_BYTES(STRING_ELT(x, i))) {
 		d->useUTF8 = FALSE;
+		d->useBytes = TRUE;
 		stop = TRUE;
 		break;
 	    }
@@ -637,6 +648,12 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
     duplicatedInit(x, &data);
 
+/* Only valid without incomparables, which are not covered by the scan */
+#define USE_CACHED_SEQUAL						\
+    if (TYPEOF(x) == STRSXP && data.useCache &&			\
+	!data.useUTF8 && !data.useBytes)				\
+	data.equal = sequal_cached;
+
 /* used in scan() */
 SEXP duplicated(SEXP x, Rboolean from_last)
 {
@@ -646,6 +663,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
 
     PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
@@ -840,6 +858,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     	return sorted_Duplicated(x, from_last, nmax);
     }
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
 
     PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
@@ -992,6 +1011,7 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     }
 
     DUPLICATED_INIT;
+    USE_CACHED_SEQUAL;
     PROTECT(data.HashTable);
 
     if(from_last) {
@@ -1092,6 +1112,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
 #undef IS_DUPLICATED_CHECK
 #undef DUPLICATED_INIT
+#undef USE_CACHED_SEQUAL
 
 
 /* .Internal(   duplicated(x, incomparables, fromLast, nmax))  [op=0]
@@ -1249,6 +1270,7 @@ static void UndoHashing(SEXP x, SEXP table, HashData *d)
 DEFLOOKUP(iLookup, ihash, iequal)
 DEFLOOKUP(rLookup, rhash, requal)
 DEFLOOKUP(sLookup, shash, sequal)
+DEFLOOKUP(scLookup, cshash, sequal_cached)
 
 /* definition for the general case */
 DEFLOOKUP(Lookup, d->hash, d->equal)
@@ -1273,8 +1295,12 @@ static SEXP HashLookup(SEXP table, SEXP x, HashData *d)
 	    pa[i] = rLookup(table, x, i, d);
 	break;
     case STRSXP:
-	for (i = 0; i < n; i++)
-	    pa[i] = sLookup(table, x, i, d);
+	if (d->equal == sequal_cached)
+	    for (i = 0; i < n; i++)
+		pa[i] = scLookup(table, x, i, d);
+	else
+	    for (i = 0; i < n; i++)
+		pa[i] = sLookup(table, x, i, d);
 	break;
     default:
 	for (i = 0; i < n; i++)
@@ -1307,8 +1333,9 @@ static SEXP match_transform(SEXP s, SEXP env)
 	    return r;
 	}
     }
-    /* else */
-    return duplicate(s);
+    /* else: match5 never modifies its inputs (coerceVector and asUTF8
+       allocate), so there is nothing to protect by copying */
+    return s;
 }
 
 /* assumes that x does not have any element in bytes encoding */
@@ -1500,6 +1527,8 @@ SEXP match5(SEXP itable, SEXP ix, int nmatch, SEXP incomp, SEXP env)
 	    }
 	    data.useUTF8 = useUTF8;
 	    data.useCache = useCache;
+	    if (useCache && !useUTF8 && !useBytes && !incomp)
+		data.equal = sequal_cached;
 	}
 	DoHashing(table, &data);
 	if (incomp) UndoHashing(incomp, table, &data);
