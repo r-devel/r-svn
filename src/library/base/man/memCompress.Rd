@@ -14,7 +14,7 @@
   In-memory compression or decompression for raw vectors.
 }
 \usage{
-memCompress(from, type = c("gzip", "bzip2", "xz", "zstd", "none"))
+memCompress(from, type = c("zlib", "bzip2", "xz", "zstd", "gzip","none"))
 
 memDecompress(from,
               type = c("unknown", "gzip", "bzip2", "xz", "zstd",
@@ -44,7 +44,7 @@ memDecompress(from,
   header.  If no type of compression is detected this is the same as
   \code{type = "none"} but a warning is given.
 
-  \command{gzip} compression uses whatever is the default compression
+  \command{zlib} compression uses whatever is the default compression
   level of the underlying library (usually \code{6}). This supports the
   RFC 1950 format, sometimes known as \sQuote{\I{zlib}} format, for
   compression and decompression and for decompression only RFC 1952, the
@@ -55,6 +55,9 @@ memDecompress(from,
   underlying library only supports in-memory (de)compression of up to
   \eqn{2^{31}-1}{2^31 - 1} elements.  Compression is equivalent to
   \command{bzip2 -9} (the default).
+
+  \command{gzip} compression is equivalent to \command{zlib} compression
+  but with the addition of the \sQuote{\I{gzip}} header and footer.
 
   \command{zstd} compression was introduced in \R 4.5.0: it is an
   optional part of the \R build and currently uses compression level 3
