@@ -114,13 +114,18 @@ setGeneric <-
         if(is.primitive(def) || !is.function(def))
             stop(gettextf("if the 'def' argument is supplied, it must be a function that calls standardGeneric(\"%s\") or is the default",
                           name), domain = NA)
-        nonstandardCase <- .NonstandardGenericTest(body(def), name, stdGenericBody)
+        fbody <- body(def)
+        attributes(fbody) <- NULL
+        bracedGenericBody <- call("{", stdGenericBody)
+        nonstandardCase <- .NonstandardGenericTest(fbody, name, stdGenericBody, bracedGenericBody)
         if(is.na(nonstandardCase)) {
             if(is.null(useAsDefault)) {# take this as the default
                 useAsDefault <- def
             }
             body(def, envir = as.environment(where)) <- stdGenericBody
             nonstandardCase <- FALSE
+        } else if (!nonstandardCase && identical(fbody, bracedGenericBody)) {
+            body(def, envir = as.environment(where)) <- stdGenericBody
         }
         fdef <- def
         if(is.null(genericFunction) && nonstandardCase)
