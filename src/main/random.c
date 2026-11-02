@@ -419,8 +419,14 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
     revsort(p, perm, n);
 
     /* Compute the sample */
-    totalmass = 1;
     for (i = 0, n1 = n-1; i < nans; i++, n1--) {
+	/* Sum the remaining mass afresh, in the order the search below
+	   accumulates it.  A running total (totalmass -= p[j]) drifts, and
+	   once the drift exceeds the smallest weights left the search falls
+	   through to the last item, which has zero weight if any does. */
+	totalmass = 0;
+	for (j = 0; j <= n1; j++)
+	    totalmass += p[j];
 	rT = totalmass * unif_rand();
 	mass = 0;
 	for (j = 0; j < n1; j++) {
@@ -429,7 +435,6 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
 		break;
 	}
 	ans[i] = perm[j];
-	totalmass -= p[j];
 	for(k = j; k < n1; k++) {
 	    p[k] = p[k + 1];
 	    perm[k] = perm[k + 1];
