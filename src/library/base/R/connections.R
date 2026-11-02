@@ -327,14 +327,19 @@ socketSelect <- function(socklist, write = FALSE, timeout = NULL) {
 }
 
 memCompress <-
-    function(from, type = c("gzip", "bzip2", "xz", "zstd", "none"))
+    function(from, type = c("zlib", "bzip2", "xz", "zstd", "gzip", "none"))
 {
     if(is.character(from))
         from <- charToRaw(paste(from, collapse = "\n"))
     else if(!is.raw(from)) stop("'from' must be raw or character")
-    type <- match(match.arg(type), c("none", "gzip", "bzip2", "xz", "zstd"))
+    type <- match.arg(type)
+    if (type == "gzip") {
+        .Deprecated(msg = "'gzip' is deprecated; use 'zlib' instead")
+        type <- "zlib"
+    }
+    type <- match(type, c("none", "zlib", "bzip2", "xz", "zstd"))
     .Internal(memCompress(from, type))
-}
+    }
 
 memDecompress <-
     function(from,
