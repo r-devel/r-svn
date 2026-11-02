@@ -492,12 +492,15 @@ isVirtualClass <-
   ## Is the named class a virtual class?  A class is virtual if explicitly declared to
   ## be, and also if the class is not formally defined.
   function(Class, where = topenv(parent.frame())) {
-      if(isClassDef(Class))
+      if(!is.character(Class) && isClassDef(Class))
           Class@virtual
-      else if(isClass(Class, where = where))
-          getClass(Class, where = where)@virtual
-      else
-          TRUE
+      else {
+          classDef <- getClassDef(Class, where = where)
+          if(is.null(classDef))
+              TRUE
+          else
+              classDef@virtual
+      }
   }
 
 
