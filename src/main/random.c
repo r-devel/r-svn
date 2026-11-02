@@ -418,26 +418,35 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
     /* Order element identities in parallel */
     revsort(p, perm, n);
 
+    /* totalmass is the remaining mass summed in the order the search
+       below accumulates it, so the target can never exceed the mass the
+       search reaches by the last positive weight.  A running total
+       (totalmass -= p[j]) drifts, and once the drift exceeds the smallest
+       weights left the search falls through to the last item, which has
+       zero weight if any does.  Rather than re-summing before each draw,
+       the search keeps the prefix before p[j] and the shift adds the
+       rest, which is the same left fold. */
+    totalmass = 0;
+    for (j = 0; j < n; j++)
+	totalmass += p[j];
+
     /* Compute the sample */
     for (i = 0, n1 = n-1; i < nans; i++, n1--) {
-	/* Sum the remaining mass afresh, in the order the search below
-	   accumulates it.  A running total (totalmass -= p[j]) drifts, and
-	   once the drift exceeds the smallest weights left the search falls
-	   through to the last item, which has zero weight if any does. */
-	totalmass = 0;
-	for (j = 0; j <= n1; j++)
-	    totalmass += p[j];
 	rT = totalmass * unif_rand();
 	mass = 0;
 	for (j = 0; j < n1; j++) {
+	    totalmass = mass;	/* sum of p[0..j-1] */
 	    mass += p[j];
 	    if (rT <= mass)
 		break;
 	}
+	if (j == n1)
+	    totalmass = mass;	/* fell through: p[n1] is the one removed */
 	ans[i] = perm[j];
 	for(k = j; k < n1; k++) {
 	    p[k] = p[k + 1];
 	    perm[k] = perm[k + 1];
+	    totalmass += p[k];
 	}
     }
 }
