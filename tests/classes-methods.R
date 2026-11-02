@@ -382,4 +382,45 @@ stopifnot(identical(h1, 1), identical(n, 1),
           identical(attr(h, "label"), "kept"),
           identical(h(2), 2), identical(n, 1)) # h no longer traced
 
+## is() fast paths & registered S3 classes extending S4 classes / class unions:
+setOldClass(c("myS3ForIs", "numeric"))
+setClass("FooForIs", representation("VIRTUAL"))
+setIs("myS3ForIs", "FooForIs")
+eForIs <- new.env()
+setClass("FooForIs", representation(z = "numeric"), where = eForIs)
+xS3ForIs <- structure(1, class = "myS3ForIs")
+zS4ForIs <- new(getClassDef("FooForIs", eForIs), z = 1)
+setClassUnion("UnionForS3Is", "myS3ForIs")
+setClassUnion("CondUnionForS3Is", "numeric")
+suppressWarnings(setIs("myS3ForIs", "CondUnionForS3Is",
+                       test = \(object) object > 0))
+stopifnot(
+    is(xS3ForIs, "FooForIs"),
+    is(xS3ForIs, getClassDef("FooForIs", eForIs)),
+    is(xS3ForIs, getClassDef("myS3ForIs")),
+    is(zS4ForIs, getClassDef("FooForIs", eForIs)),
+    is(zS4ForIs, "ANY"),
+    is(1L, "ANY"),
+    !is(xS3ForIs, "ANY"),
+    is(xS3ForIs, "UnionForS3Is"),
+    is(xS3ForIs, "CondUnionForS3Is"),
+    !is(structure(-1, class = "myS3ForIs"), "CondUnionForS3Is")
+)
+setClass("FooForIs", representation("VIRTUAL")) # resets FooForIs@subclasses
+stopifnot(extends("myS3ForIs", "FooForIs"), is(xS3ForIs, "FooForIs"))
+removeClass("FooForIs", where = eForIs)
+for(cl in c("CondUnionForS3Is", "UnionForS3Is", "myS3ForIs", "FooForIs"))
+    removeClass(cl)
+
+setClass("VirtVecS4ForIs", contains = c("numeric", "VIRTUAL"))
+setClass("s3WithVirtS4ForIs", contains = "VirtVecS4ForIs",
+         slots = c(w = "character"))
+setOldClass(c("s3WithVirtS4ForIs", "VirtVecS4ForIs"),
+            S4Class = "s3WithVirtS4ForIs")
+xVirtForIs <- structure(1:3, class = "s3WithVirtS4ForIs")
+stopifnot(extends("s3WithVirtS4ForIs", "VirtVecS4ForIs"),
+          is(xVirtForIs, "VirtVecS4ForIs"))
+removeClass("s3WithVirtS4ForIs")
+removeClass("VirtVecS4ForIs")
+
 cat('Time elapsed: ', proc.time(),'\n')

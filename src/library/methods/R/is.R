@@ -28,41 +28,41 @@ is <- function(object, class2)
         class1 <- class1[[1L]]
     if(missing(class2))
         return(extends(class1))
-    stopifnot(length(class2) == 1L)
-    class1Def <- getClassDef(class1)
+    if(length(class2) != 1L)
+        stop("length(class2) == 1L is not TRUE")
     class2Def <- NULL
     if(!is.character(class2)) {
         class2Def <- class2
         class2 <- class2Def@className
     }
+    S3Case <- S3Case || (is.object(object) && !isS4(object))
+    if(.identC(class1, class2) || (!S3Case && .identC(class2, "ANY")))
+        return(TRUE)
+    class1Def <- getClassDef(class1)
     if(is.null(class1Def)) # an unregistered S3 class
         return(inherits(object, class2))
+    if(!S3Case && !is.null(contained <- class1Def@contains[[class2]]))
+        return(contained@simple || contained@test(object))
     if(is.null(class2Def)) {
         class2Def <- getClassDef(class2, .classDefEnv(class1Def),
                                  packageSlot(class2) %||% getPackageName(topenv(parent.frame())))
     }
     ## S3 inheritance is applied if the object is not S4 and class2 is either
     ## a basic class or an S3 class (registered or not)
-    S3Case <- S3Case || (is.object(object) && !isS4(object))
-    S3Case <- S3Case && (is.null(class2Def) || class2 %in% .BasicClasses ||
-                         extends(class2Def, "oldClass"))
-    if(S3Case)
+    if(S3Case && (is.null(class2Def) || class2 %in% .BasicClasses ||
+                  extends(class2Def, "oldClass")))
         inherits(object, class2)
-    else if(.identC(class1, class2) || .identC(class2, "ANY"))
-        TRUE
-    else { ## look for class1 in the known subclasses of class2
-        if(!is.null(contained <- class1Def@contains[[class2]]))
-            contained@simple || contained@test(object)
-        else if (is.null(class2Def))
-            FALSE
-        else if(!.identC(class(class2Def), "classRepresentation") &&
-                isClassUnion(class2Def))
-            any(c(class1, names(class1Def@contains)) %in%
-                names(class2Def@subclasses))
-        else {
-            ext <- class2Def@subclasses[[class1]]
-            !is.null(ext) && (ext@simple || ext@test(object))
-        }
+    else if(S3Case && !is.null(contained <- class1Def@contains[[class2]]))
+        contained@simple || contained@test(object)
+    else if (is.null(class2Def))
+        FALSE
+    else if(!.identC(class(class2Def), "classRepresentation") &&
+            isClassUnion(class2Def))
+        any(c(class1, names(class1Def@contains)) %in%
+            names(class2Def@subclasses))
+    else {
+        ext <- class2Def@subclasses[[class1]]
+        !is.null(ext) && (ext@simple || ext@test(object))
     }
 }
 
@@ -102,9 +102,9 @@ extends <-
 	## the [[1L]] below handles old-style classes & throws away package attributes
 	if(.identC(class1[[1L]], class2) || .identC(class2, "ANY"))
           return(TRUE)
-        if(!is.null(classDef1) && class2 %in% names(classDef1@contains))
+        if(!is.null(classDef1))
 	    value <- classDef1@contains[[class2]]
-        else
+        if(is.null(value))
           classDef2 <- getClassDef(class2)
     }
     else if(is(class2, "classRepresentation")) {
