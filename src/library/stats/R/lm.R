@@ -96,6 +96,7 @@ lm <- function (formula, data, subset, weights, na.action,
 	cl$formula <- ff
     }
     z$call <- cl
+	z$call[[2]] <- eval(z$call[[2]])
     z$terms <- mt
     if (model)
 	z$model <- mf
