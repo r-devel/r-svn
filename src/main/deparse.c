@@ -656,6 +656,15 @@ static bool needsparens(PPinfo mainop, SEXP arg, unsigned int left,
 	    return true;
 	}
     }
+    else if (ATTRIB(arg) == R_NilValue && length(arg) == 1 &&
+	     ((TYPEOF(arg) == REALSXP && REAL(arg)[0] < 0) ||
+	      (TYPEOF(arg) == INTSXP && INTEGER(arg)[0] != NA_INTEGER &&
+	       INTEGER(arg)[0] < 0))) {
+	/* a negative constant deparses with a unary minus, so it binds
+	   like one: call("^", -2, 2) must become (-2)^2, not -2^2 */
+	return (left && mainop.precedence > PREC_SIGN)
+	    || (deepLeft && deepLeft > PREC_SIGN);
+    }
     return false;
 }
 
