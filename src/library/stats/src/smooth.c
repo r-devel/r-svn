@@ -170,12 +170,12 @@ static bool sm_split3(double *x, double *y, R_xlen_t n, bool do_ends)
 	    /* at left : */
 	    if(-1 < (j = imed3(x[i ], x[i-1], 3*x[i-1] - 2*x[i-2]))) {
 		y[i]   = /* med3(.) = */ (j == 0)? x[i-1] : 3*x[i-1] - 2*x[i-2];
-		chg = y[i] != x[i];
+		chg = chg || y[i] != x[i];
 	    }
 	    /* at right : */
 	    if(-1 < (j = imed3(x[i+1], x[i+2], 3*x[i+2] - 2*x[i+3]))) {
 		y[i+1] = /* med3(.) = */ (j == 0)? x[i+2] : 3*x[i+2] - 2*x[i+3];
-		chg = y[i+1] != x[i+1];
+		chg = chg || y[i+1] != x[i+1];
 	    }
 	}
     if(do_ends && sptest(x, n-3)) {

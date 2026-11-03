@@ -4478,6 +4478,16 @@ local({
 ## overflowed a heap buffer, typically aborting, in R <= 4.6.2
 
 
+## smooth(*, "S") reported no change when the last plateau it split was
+## unchanged on its right side, so "3RS3R" and "3RSS" skipped the S step
+x <- c(0.5, 1, 3, 3, 1, 0)
+sS <- smooth(x, "S")
+stopifnot(attr(sS, "changed"), !identical(c(sS), x),
+          identical(c(smooth(x)), c(smooth(smooth(smooth(x, "3R"), "S"), "3R"))),
+          identical(c(smooth(x, "3RSS")), c(smooth(smooth(smooth(x, "3R"), "S"), "S"))))
+## smooth(x) was identical to x and sS said "NOT changed", in R <= 4.6.2
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
