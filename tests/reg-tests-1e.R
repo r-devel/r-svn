@@ -4498,7 +4498,7 @@ local({
     writeLines(c(paste0(nms, ": ", seq_len(n)), "", "F0001: x"), tf)
     d <- read.dcf(tf)
     stopifnot(identical(dim(d), c(2L, n)), identical(colnames(d), nms),
-              identical(d[1L, n], as.character(n)),
+              identical(unname(d[1L, n]), as.character(n)),
               identical(unname(d[2L, 1:2]), c("x", NA)))
     unlink(tf)
 })
