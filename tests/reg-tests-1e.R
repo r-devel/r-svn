@@ -4478,6 +4478,17 @@ local({
 ## overflowed a heap buffer, typically aborting, in R <= 4.6.2
 
 
+## contourLines() and contour() with all-negative z: zmax was initialized to
+## DBL_MIN, so the level perturbation used |min(z)| instead of the range
+z <- -1000 + matrix(c(0, 0.5, 1, 0.5, 1, 1.5, 1, 1.5, 2), 3)
+cl <- contourLines(1:3, 1:3, z, levels = -999)
+stopifnot(length(cl) == 1L, all.equal(cl[[1]]$x, c(3, 2, 2, 1)),
+          all.equal(cl[[1]]$y, c(1, 2, 2, 3)))
+tools::assertWarning(contourLines(matrix(-1, 3, 3)), verbose = TRUE)
+## the contour missed the grid points and no "all z values are equal"
+## warning was given, in R <= 4.6.2
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
