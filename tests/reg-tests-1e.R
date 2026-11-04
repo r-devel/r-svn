@@ -4489,7 +4489,9 @@ stopifnot(identical(deparse(e), "(-2)^2"),
           identical(deparse(call("^", 2, -2)), "2^-2"),
           identical(deparse(call("*", -1, 2)), "-1 * 2"),
           identical(deparse(call("-", -1)), "--1"),
-          identical(deparse(call(":", -1, 2)), "-1:2"))
+          identical(deparse(call(":", -1, 2)), "-1:2"),
+          identical(deparse(call("^", NA_integer_, 2)), "NA_integer_^2"),
+          identical(deparse(call("^", NA_real_, 2)), "NA_real_^2"))
 ## gave "-2^2", which re-parses as -(2^2), in R <= 4.6.2
 
 

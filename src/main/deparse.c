@@ -661,7 +661,9 @@ static bool needsparens(PPinfo mainop, SEXP arg, unsigned int left,
 	      (TYPEOF(arg) == INTSXP && INTEGER(arg)[0] != NA_INTEGER &&
 	       INTEGER(arg)[0] < 0))) {
 	/* a negative constant deparses with a unary minus, so it binds
-	   like one: call("^", -2, 2) must become (-2)^2, not -2^2 */
+	   like one: call("^", -2, 2) must become (-2)^2, not -2^2.
+	   NA_INTEGER is INT_MIN and must be excluded explicitly; NA_real_
+	   and NaN already fail the < 0 test. */
 	return (left && mainop.precedence > PREC_SIGN)
 	    || (deepLeft && deepLeft > PREC_SIGN);
     }
