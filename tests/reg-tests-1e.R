@@ -3725,7 +3725,8 @@ altrepStream <- function(cls, type, state)
       as.raw(c(0, 0, 0, 238)), # ALTREP_SXP
       item(pairlist(as.name(cls), as.name("base"), type)),
       item(state), item(NULL))
-states <- list(wrap_integer = 1:5, wrap_integer = pairlist(1:3, 1L),
+states <- list(wrap_integer = 1:5, wrap_integer = c(2L, 7L, 9L),
+               wrap_integer = pairlist(1:3, 1L),
                deferred_string = 1:3, deferred_string = pairlist(1.5),
                mmap_integer = 1:3, mmap_integer = pairlist("x", 1, 13L))
 types <- c(wrap_integer = 13L, deferred_string = 16L, mmap_integer = 13L)
