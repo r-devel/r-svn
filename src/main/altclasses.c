@@ -671,6 +671,14 @@ static SEXP deferred_string_Serialized_state(SEXP x)
 
 static SEXP deferred_string_Unserialize(SEXP class, SEXP state)
 {
+    /* state is CONS(arg, info) with info an integer vector holding
+       scipen, but a crafted serialized stream can supply any object.
+       R_deferred_coerceToString checks the type of arg. */
+    if (TYPEOF(state) != LISTSXP ||
+	TYPEOF(DEFERRED_STRING_STATE_INFO(state)) != INTSXP ||
+	XLENGTH(DEFERRED_STRING_STATE_INFO(state)) < 1)
+	error("invalid deferred string serialized state");
+
     SEXP arg = DEFERRED_STRING_STATE_ARG(state);
     SEXP info = DEFERRED_STRING_STATE_INFO(state);
     return R_deferred_coerceToString(arg, info);
@@ -1122,6 +1130,17 @@ static SEXP mmap_file(SEXP, int, Rboolean, Rboolean, Rboolean, Rboolean);
 
 static SEXP mmap_Unserialize(SEXP class, SEXP state)
 {
+    /* state is list3(file, sizes, info) (see make_mmap_state), but a
+       crafted serialized stream can supply any object. */
+    if (TYPEOF(state) != LISTSXP ||
+	TYPEOF(CDR(state)) != LISTSXP ||
+	TYPEOF(CDDR(state)) != LISTSXP ||
+	TYPEOF(MMAP_STATE_FILE(state)) != STRSXP ||
+	XLENGTH(MMAP_STATE_FILE(state)) < 1 ||
+	TYPEOF(CADDR(state)) != INTSXP ||
+	XLENGTH(CADDR(state)) < 4)
+	error("invalid mmap serialized state");
+
     SEXP file = MMAP_STATE_FILE(state);
     int type = MMAP_STATE_TYPE(state);
     Rboolean ptrOK = (Rboolean) MMAP_STATE_PTROK(state);
@@ -1529,6 +1548,14 @@ static SEXP make_wrapper(SEXP, SEXP);
 
 static SEXP wrapper_Unserialize(SEXP class, SEXP state)
 {
+    /* state is CONS(wrapped, meta) with meta an integer vector of length
+       NMETA, but a crafted serialized stream can supply any object: CAR
+       of an external pointer is its (NULL) address, and CAR of a vector
+       is its length.  make_wrapper checks the type of the wrapped value. */
+    if (TYPEOF(state) != LISTSXP || TYPEOF(CDR(state)) != INTSXP ||
+	XLENGTH(CDR(state)) < NMETA)
+	error("invalid wrapper serialized state");
+
     return make_wrapper(CAR(state), CDR(state));
 }
 
