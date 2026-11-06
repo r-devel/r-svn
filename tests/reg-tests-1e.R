@@ -4501,6 +4501,15 @@ stopifnot(exprs = {
 ## smooth(x) was identical to x and sS said "NOT changed", in R <= 4.6.2
 
 
+## readChar() on a raw vector holding 6-byte UTF-8 lead bytes
+if (l10n_info()[["UTF-8"]]) {
+    s <- readChar(as.raw(rep(0xff, 6 * 64)), 64L)
+    invisible(gc())
+    stopifnot(identical(nchar(s, "bytes"), 384L))
+}
+## wrote past its buffer where MB_CUR_MAX is 4 (macOS), seg.faulting, in R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
