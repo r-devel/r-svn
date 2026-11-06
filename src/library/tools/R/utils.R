@@ -2969,7 +2969,8 @@ function(f, verbose = FALSE)
 ### ** rsync
 
 rsync <-
-function(src, dst, ...){
+function(src, dst, ...)
+{
     ## needs rsync. On Wndows, the RTools version of rsync needs 
     ## special path treatment as in an msys shell,
     ## i.e. write /c/to/path rather than c:\to\path
@@ -2980,6 +2981,23 @@ function(src, dst, ...){
         dst <- gsub("^([A-Za-z]):", "/\\1", 
                 normalizePath(dst, winslash="/", mustWork=FALSE))
     system2("rsync", c(src, dst, ...))
+}
+
+### ** base64_encode
+
+base64_encode <-
+function(file, x = readBin(file, 'raw', file.size(file)))
+{
+    if (!missing(file) && !missing(x)) 
+        stop("'file' and 'x' are mutually exclusive")
+     if (!is.raw(x)) {
+        if (is.character(x) && length(x) == 1L)
+            x <- charToRaw(x)
+        else
+            stop("'x' must be a raw vector or a (scalar) character string")
+    }
+    if(length(x) == 0L) return("")
+    .Call(C_Rbase64_encode, x)
 }
 
 

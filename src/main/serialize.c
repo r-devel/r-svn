@@ -514,8 +514,15 @@ static void InString(R_inpstream_t stream, char *buf, int length)
 		;
 	    UngetChar(&iss, c);
 	    for (i = 0; i < length; i++) {
-		if ((c =  GetChar(&iss)) == '\\') {
-		    switch(c = GetChar(&iss)) {
+		/* fgetc() and text connections return EOF without an
+		   error: stop here rather than fill the rest of the
+		   string with EOF bytes */
+		if ((c = GetChar(&iss)) == EOF)
+		    error(_("read error"));
+		if (c == '\\') {
+		    if ((c = GetChar(&iss)) == EOF)
+			error(_("read error"));
+		    switch(c) {
 		    case 'n' : buf[i] = '\n'; break;
 		    case 't' : buf[i] = '\t'; break;
 		    case 'v' : buf[i] = '\v'; break;
@@ -2002,7 +2009,10 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    {
 		/* These are all short strings */
 		length = InInteger(stream);
-		if (length < 0)
+		/* Primitive names come from R_FunTab.  An implausible
+		   length from the stream must not become a large
+		   stack allocation. */
+		if (length < 0 || length > 255)
 		    error(_("invalid length"));
 		R_CheckStack2(length+1);
 		char cbuf[length+1];
@@ -2251,6 +2261,22 @@ static void DecodeVersion(int packed, int *v, int *p, int *s)
     *s = packed;
 }
 
+/* ReadChar opens iconv descriptors lazily and caches them in the stream;
+   close them both when unserialization finishes and when an error unwinds
+   out of it */
+static void CloseInStreamConverters(void *data)
+{
+    R_inpstream_t stream = data;
+    if (stream->nat2nat_obj && stream->nat2nat_obj != (void *)-1) {
+	Riconv_close(stream->nat2nat_obj);
+	stream->nat2nat_obj = NULL;
+    }
+    if (stream->nat2utf8_obj && stream->nat2utf8_obj != (void *)-1) {
+	Riconv_close(stream->nat2utf8_obj);
+	stream->nat2utf8_obj = NULL;
+    }
+}
+
 SEXP R_Unserialize(R_inpstream_t stream)
 {
     int version;
@@ -2291,18 +2317,17 @@ SEXP R_Unserialize(R_inpstream_t stream)
 
     /* Read the actual object back */
     PROTECT(ref_table = MakeReadRefTable());
-    obj =  ReadItem(ref_table, stream);
 
-    if (version == 3) {
-	if (stream->nat2nat_obj && stream->nat2nat_obj != (void *)-1) {
-	    Riconv_close(stream->nat2nat_obj);
-	    stream->nat2nat_obj = NULL;
-	}
-	if (stream->nat2utf8_obj && stream->nat2utf8_obj != (void *)-1) {
-	    Riconv_close(stream->nat2utf8_obj);
-	    stream->nat2utf8_obj = NULL;
-	}
-    }
+    RCNTXT cntxt;
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &CloseInStreamConverters;
+    cntxt.cenddata = stream;
+
+    obj = ReadItem(ref_table, stream);
+
+    endcontext(&cntxt);
+    CloseInStreamConverters(stream);
     UNPROTECT(1);
 
     return obj;
@@ -3100,7 +3125,7 @@ struct fileid {
     double size, mtime, ino, dev;
 };
 
-#define NC 100
+#define NC 256
 static int used = 0;
 static char *names[NC];
 static char *ptr[NC];

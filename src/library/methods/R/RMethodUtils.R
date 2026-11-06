@@ -339,6 +339,7 @@ rematchDefinition <- function(definition, generic, mnames, fnames, signature)
     if(!added && keepsDots) {
         ## the formal args of the method must be identical to generic
         formals(definition) <- formals(generic)
+        attr(body(definition), "srcref") <- NULL
         return(definition)
     }
     dotsPos <- match("...", fnames)
@@ -855,8 +856,10 @@ cacheMetaData <-
         packages <- c(packages, attr(others, "package"))
     }
     ## check for duplicates
-    dups <- duplicated(generics) & duplicated(packages)
-    generics <- generics[!dups]
+    if (anyDuplicated(gp <- paste(generics, packages, sep = ":"))) {
+        generics <- generics[nd <- !duplicated(gp)]
+        packages <- packages[nd]
+    }
     for(i in seq_along(generics)) {
         f <- generics[[i]]
         fpkg <- packages[[i]]

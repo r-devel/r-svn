@@ -1339,7 +1339,7 @@ static Rboolean	fifo_open(Rconnection con)
 	if (strncmp(pipe_prefix, con->description, strlen(pipe_prefix)) != 0) {
 	    len += strlen(pipe_prefix);
 	    add_prefix = TRUE;
-	}	
+	}
 	hch_pipename = (char*) malloc(len+1);
 	if (!hch_pipename)
 	    error(_("allocation of fifo name failed"));
@@ -1549,7 +1549,7 @@ static void cend_con_destroy(void *data)
 {
     int ncon = *(int *)data;
     con_destroy(ncon);
-} 
+}
 
 static void checked_open(int ncon)
 {
@@ -2870,7 +2870,7 @@ static Rboolean clp_open(Rconnection con)
 	   OpenClipboard(NULL) &&
 	   (hglb = GetClipboardData(CF_UNICODETEXT)) &&
 	   (wpc = (wchar_t *)GlobalLock(hglb))) {
-	    
+
 	    int len = (int)wcslen(wpc) * sizeof(wchar_t);
 	    this->buff = (char *)malloc(len + 1);
 	    this->last = this->len = len;
@@ -3408,6 +3408,7 @@ static Rconnection newraw(const char *description, SEXP raw, const char *mode)
     new->canwrite = (mode[0] == 'w' || mode[0] == 'a');
     new->canread = mode[0] == 'r';
     if(strlen(mode) >= 2 && mode[1] == '+') new->canread = new->canwrite = TRUE;
+    new->encname[0] = '\0';
     new->open = &raw_open;
     new->close = &raw_close;
     new->destroy = &raw_destroy;
@@ -3479,8 +3480,16 @@ static Rconnection getConnectionCheck(SEXP rcon, const char *cls,
 	error(_("'%s' is not a %s"), var, cls);
     Rconnection con = getConnection(asInteger(rcon));
     /* check that the R class and internal class match */
-    if (strcmp(con->class, cls))
-	error(_("internal connection is not a %s"), cls);
+    if (strcmp(con->class, cls)) {
+	/* Allow rawConnectionValue() to unwrap the gzcon object */
+	if (con->isGzcon) {
+	    Rgzconn priv = con->private;
+	    con = priv->con;
+	    if (strcmp(con->class, cls))
+		error(_("internal gzcon connection is not a %s"), cls);
+	} else
+	    error(_("internal connection is not a %s"), cls);
+    }
     return con;
 }
 
@@ -3639,11 +3648,26 @@ static SEXP mkCharLocal(const char *s)
     return mkCharCE(s, ienc);
 }
 
+/* OutTextData[idx] is list(env, data): the environment holding the
+   target binding, and the current character vector.  The vector is
+   anchored here because the binding alone cannot keep it alive: rm()
+   or a rebinding of the name would leave this->data dangling
+   (PR#19228). */
+static SEXP outtext_env(int idx)
+{
+    return VECTOR_ELT(VECTOR_ELT(OutTextData, idx), 0);
+}
+
+static void outtext_set_data(int idx, SEXP data)
+{
+    SET_VECTOR_ELT(VECTOR_ELT(OutTextData, idx), 1, data);
+}
+
 static void outtext_close(Rconnection con)
 {
     Routtextconn this = con->private;
     int idx = ConnIndex(con);
-    SEXP tmp, env = VECTOR_ELT(OutTextData, idx);
+    SEXP tmp, env = outtext_env(idx);
 
     if(this->namesymbol && R_existsVarInFrame(env, this->namesymbol))
 	R_unLockBinding(this->namesymbol, env);
@@ -3652,6 +3676,7 @@ static void outtext_close(Rconnection con)
 	SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(this->lastline));
 	if(this->namesymbol) defineVar(this->namesymbol, tmp, env);
 	ENSURE_NAMEDMAX(tmp);
+	outtext_set_data(idx, tmp);
 	this->data = tmp;
 	UNPROTECT(1);
     }
@@ -3661,12 +3686,7 @@ static void outtext_destroy(Rconnection con)
 {
     Routtextconn this = con->private;
     int idx = ConnIndex(con);
-    /* OutTextData is preserved, and that implies that the environment
-       we are writing it and hence the character vector is protected.
-       However, this could be quite expensive.
-    */
     SET_VECTOR_ELT(OutTextData, idx, R_NilValue);
-    if(!this->namesymbol) R_ReleaseObject(this->data);
     free(this->lastline); free(this);
 }
 
@@ -3721,7 +3741,7 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 	q = Rf_strchr(p, '\n');
 	if(q) {
 	    int idx = ConnIndex(con);
-	    SEXP env = VECTOR_ELT(OutTextData, idx);
+	    SEXP env = outtext_env(idx);
 	    *q = '\0';
 	    PROTECT(tmp = xlengthgets(this->data, ++this->len));
 	    SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(p));
@@ -3730,10 +3750,8 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 		    R_unLockBinding(this->namesymbol, env);
 		defineVar(this->namesymbol, tmp, env);
 		R_LockBinding(this->namesymbol, env);
-	    } else {
-		R_ReleaseObject(this->data);
-		R_PreserveObject(tmp);
 	    }
+	    outtext_set_data(idx, tmp);
 	    this->data = tmp;
 	    ENSURE_NAMEDMAX(tmp);
 	    UNPROTECT(1);
@@ -3765,38 +3783,37 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 static void outtext_init(Rconnection con, SEXP stext, const char *mode, int idx)
 {
     Routtextconn this = con->private;
-    SEXP val;
+    SEXP val, env = outtext_env(idx);
 
     if(stext == R_NilValue) {
 	this->namesymbol = NULL;
-	    /* create variable pointed to by con->description */
 	val = allocVector(STRSXP, 0);
-	R_PreserveObject(val);
     } else {
 	this->namesymbol = install(con->description);
 	if(strcmp(mode, "w") == 0) {
 	    /* create variable pointed to by con->description */
 	    PROTECT(val = allocVector(STRSXP, 0));
-	    defineVar(this->namesymbol, val, VECTOR_ELT(OutTextData, idx));
+	    defineVar(this->namesymbol, val, env);
 	    /* Not clear if this is needed, but be conservative */
 	    ENSURE_NAMEDMAX(val);
+	    R_LockBinding(this->namesymbol, env);
 	    UNPROTECT(1);
 	} else {
 	    /* take over existing variable */
-	    val = findVar1(this->namesymbol, VECTOR_ELT(OutTextData, idx),
-			   STRSXP, FALSE);
+	    val = findVar1(this->namesymbol, env, STRSXP, FALSE);
 	    if(val == R_UnboundValue) {
 		warning(_("text connection: appending to a non-existent char vector"));
 		PROTECT(val = allocVector(STRSXP, 0));
-		defineVar(this->namesymbol, val, VECTOR_ELT(OutTextData, idx));
+		defineVar(this->namesymbol, val, env);
 		ENSURE_NAMEDMAX(val);
 		UNPROTECT(1);
 	    }
 	    PROTECT(val);
-	    R_LockBinding(this->namesymbol, VECTOR_ELT(OutTextData, idx));
+	    R_LockBinding(this->namesymbol, env);
 	    UNPROTECT(1);
 	}
     }
+    outtext_set_data(idx, val);
     this->len = LENGTH(val);
     this->data = val;
     this->lastline[0] = '\0';
@@ -3887,7 +3904,10 @@ attribute_hidden SEXP do_textconnection(SEXP call, SEXP op, SEXP args, SEXP env)
 	    OutTextData = allocVector(VECSXP, NCONNECTIONS);
 	    R_PreserveObject(OutTextData);
 	}
-	SET_VECTOR_ELT(OutTextData, ncon, venv);
+	SEXP slot = PROTECT(allocVector(VECSXP, 2));
+	SET_VECTOR_ELT(slot, 0, venv);
+	SET_VECTOR_ELT(OutTextData, ncon, slot);
+	UNPROTECT(1);
 	if(stext == R_NilValue)
 	    con = Connections[ncon] = newouttext("NULL", stext, open, ncon);
 	else if(isString(stext) && LENGTH(stext) == 1)
@@ -4094,6 +4114,9 @@ attribute_hidden SEXP do_open(SEXP call, SEXP op, SEXP args, SEXP env)
     if(block == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "blocking");
     open = CHAR(STRING_ELT(sopen, 0)); /* ASCII */
+    /* con->mode is char[5]; reject anything that would overflow it */
+    if(strlen(open) >= sizeof(con->mode))
+	error(_("invalid '%s' argument"), "open");
     if(strlen(open) > 0) strcpy(con->mode, open);
     con->blocking = block;
     success = con->open(con);
@@ -4396,6 +4419,19 @@ static void con_cleanup(void *data)
     checkClose(con);
 }
 
+typedef struct {
+    char **buf; /* address of the buffer pointer, to track reallocations */
+    Rconnection con; /* NULL unless the connection still needs closing */
+} readLines_data;
+
+static void readLines_cleanup(void *data)
+{
+    readLines_data *d = data;
+    /* Closing the connection may itself raise an error. */
+    free(*d->buf);
+    if (d->con) checkClose(d->con);
+}
+
 /* readLines(con = stdin(), n = 1, ok = TRUE, warn = TRUE) */
 #define BUF_SIZE 1000
 attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -4406,7 +4442,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     int oenc = CE_NATIVE;
     Rconnection con = NULL;
     Rboolean wasopen;
-    char *buf;
+    char *buf = NULL;
     const char *encoding;
     RCNTXT cntxt;
     R_xlen_t i, n, nn, nnn, nread;
@@ -4431,6 +4467,13 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     if(skipNul == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "skipNul");
 
+    /* Clean up the current buffer and any connection opened here on error. */
+    readLines_data data = {&buf, NULL};
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &readLines_cleanup;
+    cntxt.cenddata = &data;
+
     wasopen = con->isopen;
     if(!wasopen) {
 	char mode[5];
@@ -4439,11 +4482,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	strcpy(con->mode, "rt");
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
-	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	data.con = con;
 	if(!con->canread) error(_("cannot read from this connection"));
     } else {
 	if(!con->canread) error(_("cannot read from this connection"));
@@ -4479,10 +4518,9 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(nbuf == buf_size-1) {  /* need space for the terminator */
 		buf_size *= 2;
 		char *tmp = (char *) realloc(buf, buf_size);
-		if(!tmp) {
-		    free(buf);
+		if(!tmp)
 		    error(_("cannot allocate buffer in readLines"));
-		} else buf = tmp;
+		buf = tmp;
 	    }
 	    if(skipNul && c == '\0') continue;
 	    if(c != '\n')
@@ -4503,12 +4541,19 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	            (long long)nread + 1);
 	if(c == R_EOF) goto no_more_lines;
     }
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+	data.con = NULL; /* do not close again if closing raises an error */
+	con->close(con);
+    }
+    endcontext(&cntxt);
     UNPROTECT(1);
     free(buf);
     return ans;
 no_more_lines:
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+	data.con = NULL;
+	con->close(con);
+    }
     if(nbuf > 0) { /* incomplete last line */
 	if(con->text && !con->blocking &&
 	   (strcmp(con->class, "gzfile") != 0)) {
@@ -4522,6 +4567,7 @@ no_more_lines:
 			con->description);
 	}
     }
+    endcontext(&cntxt);
     free(buf);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
@@ -5848,6 +5894,7 @@ do_getconnection(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+// provide R level  summary(Rcon)
 attribute_hidden SEXP do_sumconnection(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, names, tmp;
@@ -6332,47 +6379,74 @@ static void putLong(Rconnection con, uLong x)
     con->write(&buf, 4, 1, con);
 }
 
+static void gzconFlush(Rconnection con, bool reopen) {
+    Rgzconn priv = con->private;
+    Rconnection icon = priv->con;
+
+    uInt len;
+    bool done = false;
+    priv->s.avail_in = 0; /* should be zero already anyway */
+    for (;;) {
+	len = Z_BUFSIZE - priv->s.avail_out;
+
+	if (len != 0) {
+	    if (icon->write(priv->buffer, 1, len, icon) != len) {
+		priv->z_err = Z_ERRNO;
+		error(_("writing error whilst flushing 'gzcon' connection"));
+	    }
+	    priv->s.next_out = priv->buffer;
+	    priv->s.avail_out = Z_BUFSIZE;
+	}
+	if (done) break;
+	priv->z_err = deflate(&(priv->s), Z_FINISH);
+
+	/* deflate has finished flushing only when it hasn't used up
+	 * all the available space in the output buffer:
+	 */
+	done = (priv->s.avail_out != 0 || priv->z_err == Z_STREAM_END);
+
+	if (priv->z_err != Z_OK && priv->z_err != Z_STREAM_END) break;
+    }
+    deflateEnd(&(priv->s));
+    /* NB: these must be little-endian */
+    putLong(icon, priv->crc);
+    putLong(icon, (uLong) (priv->s.total_in & 0xffffffff));
+    if (reopen) { // see  * write a header * above
+	deflateInit2(&(priv->s), priv->cp, Z_DEFLATED, -MAX_WBITS,
+		     8, Z_DEFAULT_STRATEGY);
+	snprintf((char *)priv->buffer, 11, "%c%c%c%c%c%c%c%c%c%c", gz_magic[0], gz_magic[1],
+	         Z_DEFLATED, 0 /*flags*/, 0,0,0,0 /*time*/, 0 /*xflags*/,
+	         OS_CODE);
+	priv->s.next_out = priv->buffer+10;
+	priv->s.avail_out = Z_BUFSIZE-10;
+	priv->crc = crc32(0L, Z_NULL, 0);
+    }
+}
+
 
 static void gzcon_close(Rconnection con)
 {
     Rgzconn priv = con->private;
     Rconnection icon = priv->con;
 
-    if(icon->canwrite) {
-	uInt len;
-	int done = 0;
-	priv->s.avail_in = 0; /* should be zero already anyway */
-	for (;;) {
-	    len = Z_BUFSIZE - priv->s.avail_out;
-
-	    if (len != 0) {
-		if (icon->write(priv->buffer, 1, len, icon) != len) {
-		    priv->z_err = Z_ERRNO;
-		    error(_("writing error whilst flushing 'gzcon' connection"));
-		}
-		priv->s.next_out = priv->buffer;
-		priv->s.avail_out = Z_BUFSIZE;
-	    }
-	    if (done) break;
-	    priv->z_err = deflate(&(priv->s), Z_FINISH);
-
-	    /* deflate has finished flushing only when it hasn't used up
-	     * all the available space in the output buffer:
-	     */
-	    done = (priv->s.avail_out != 0 || priv->z_err == Z_STREAM_END);
-
-	    if (priv->z_err != Z_OK && priv->z_err != Z_STREAM_END) break;
-	}
-	deflateEnd(&(priv->s));
-	/* NB: these must be little-endian */
-	putLong(icon, priv->crc);
-	putLong(icon, (uLong) (priv->s.total_in & 0xffffffff));
-    } else inflateEnd(&(priv->s));
+    if(icon->canwrite)
+	gzconFlush(con, false);
+    else
+	inflateEnd(&(priv->s));
 
     if(icon->isopen) icon->close(icon);
     con->isopen = FALSE;
 }
 
+static int gzcon_fflush(Rconnection con) {
+    if(con->canwrite) {
+	gzconFlush(con, true);
+	Rgzconn priv = con->private;
+	Rconnection icon = priv->con;
+	icon->fflush(icon);
+    }
+    return 0;
+}
 
 static size_t gzcon_read(void *ptr, size_t size, size_t nitems,
 			 Rconnection con)
@@ -6464,16 +6538,15 @@ static size_t gzcon_read(void *ptr, size_t size, size_t nitems,
 static size_t gzcon_write(const void *ptr, size_t size, size_t nitems,
 			  Rconnection con)
 {
-    Rgzconn priv = con->private;
-    Rconnection icon = priv->con;
-
     if ((double) size * (double) nitems > INT_MAX)
 	error(_("too large a block specified"));
+    Rgzconn priv = con->private;
     priv->s.next_in = (Bytef*) ptr;
     priv->s.avail_in = (uInt)(size*nitems);
 
     while (priv->s.avail_in != 0) {
 	if (priv->s.avail_out == 0) {
+	    Rconnection icon = priv->con;
 	    priv->s.next_out = priv->buffer;
 	    if (icon->write(priv->buffer, 1, Z_BUFSIZE, icon) != Z_BUFSIZE) {
 		priv->z_err = Z_ERRNO;
@@ -6560,6 +6633,7 @@ attribute_hidden SEXP do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
     new->fgetc = &gzcon_fgetc;
     new->read = &gzcon_read;
     new->write = &gzcon_write;
+    new->fflush = &gzcon_fflush;
     new->private = (void *) malloc(sizeof(struct gzconn));
     if(!new->private) {
 	free(new->description); free(new->class); free(new);
@@ -7300,15 +7374,20 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    opt = 16;  // force gzip format
 	}
 	while(1) {
-	    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-	    // R_uncompress is in gzio.h
+	    uLong buflen = outlen;
+	    buf = (Bytef *) R_alloc(buflen, sizeof(Bytef));
+	    // R_uncompress is in gzio.h.  It sets outlen to the number of
+	    // bytes actually produced, whatever the result.
 	    int res = R_uncompress(buf, &outlen, p, inlen, opt);
-	    if(res == Z_BUF_ERROR) {
-		if(outlen < ULONG_MAX/2) {
-		    outlen *= 2; continue;
+	    if(res == Z_BUF_ERROR && outlen == buflen) {
+		// the output buffer filled up: grow it and retry
+		if(buflen < ULONG_MAX/2) {
+		    outlen = buflen ? 2*buflen : 1; continue;
 		} else break;
 	    }
 	    if(res >= 0) break;
+	    // Z_BUF_ERROR with room left in the buffer means the input
+	    // ended prematurely, so a bigger buffer cannot help.
 	    error("internal error %d in memDecompress(%s)", res,
 		  "type = \"gzip\"");
 	}
