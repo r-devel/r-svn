@@ -4534,6 +4534,15 @@ stopifnot(identical(sum(y), s), identical(y * 2, x * 2),
 ## failed in R 4.6.2
 
 
+## reading the data of a wrapper object keeps its sortedness and no-NA metadata
+x <- sort(c(3, 1, 2))
+s <- sum(x)
+stopifnot(.Internal(sorted_fpass(x, FALSE, FALSE)))
+x[1L] <- 4 # whereas a write drops it
+stopifnot(!.Internal(sorted_fpass(x, FALSE, FALSE)), is.unsorted(x))
+## sum(x) dropped the metadata in R 4.6.2
+
+
 ## as(object, name) for informally defined class(object)[1L],
 ## with 'name' in class(object)[-1L] (PR#19023)
 x <- structure(array(0L), class = c("arraySubclass", "array"))
