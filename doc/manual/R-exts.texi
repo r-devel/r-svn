@@ -15205,14 +15205,6 @@ therefore not allocate @R{} objects, either directly or by evaluating
 @R{} code, and should not signal errors.  A class that needs to allocate
 to produce its data can do so in its @code{Dataptr} method.
 
-The @code{Unserialize} and @code{UnserializeEX} methods are called with
-the state and attributes read from a serialized stream, which may be
-corrupt or crafted: to find the class, @code{unserialize} loads the
-namespace of the package named in the stream.  The state need not be
-what the class's @code{Serialized_state} method produced, so these
-methods should check its type and length before using it and signal an
-error if it is malformed.
-
 For some objects it may be possible to very efficiently determine
 whether the object is sorted or contains no @code{NA} values. These
 functions can be used to query this information:
