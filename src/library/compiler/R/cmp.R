@@ -254,18 +254,23 @@ findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
     else NULL
 }
 
+## Walk the expressions with an explicit stack. Elements are passed on
+## without binding them to a variable, since a formal without a default
+## or an empty argument is the empty symbol.
 findLocalsList1 <- function(elist, shadowed, cntxt) {
-    todo <- elist
     vars <- new.env()
-    while(length(todo) > 0) {
-        newtodo <- list()
-        lapply(todo, function(e)
-            lapply(findLocals1(e, shadowed, cntxt, vars),
-                   function(x)
-                       if (typeof(x) == "language")
-                           newtodo <<- append(newtodo, x))
-        )
-        todo <- newtodo
+    stack <- as.list(elist)
+    n <- length(stack)
+    while (n > 0) {
+        kids <- findLocals1(stack[[n]], shadowed, cntxt, vars)
+        n <- n - 1
+        for (i in seq_along(kids))
+            if (typeof(kids[[i]]) == "language") {
+                n <- n + 1
+                if (n > length(stack))
+                    stack <- c(stack, vector("list", length(stack)))
+                stack[[n]] <- kids[[i]]
+            }
     }
     ls(vars, all.names=T)
 }
