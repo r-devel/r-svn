@@ -1050,18 +1050,20 @@ make.codeBuf <- function(expr, loc = NULL) {
             }
         }
     }
-    cb <- list(code = getcode,
-               const = getconst,
-               putcode = putcode,
+    ## `$` on a list matches the names in order, so the functions called
+    ## for every expression come first
+    cb <- list(putcode = putcode,
                putconst = putconst,
+               savecurloc = savecurloc,
+               restorecurloc = restorecurloc,
+               setcurexpr = setcurexpr,
                makelabel = makelabel,
                putlabel = putlabel,
                patchlabels = patchlabels,
-               setcurexpr = setcurexpr,
                setcurloc = setcurloc,
                commitlocs = commitlocs,
-               savecurloc = savecurloc,
-               restorecurloc = restorecurloc)
+               code = getcode,
+               const = getconst)
     cb$putconst(expr) ## insert expression as first constant.
       ## NOTE: this will also insert the srcref directly into the constant
       ## pool
@@ -1089,12 +1091,13 @@ genCode <- function(e, cntxt, gen = NULL, loc = NULL) {
 ##
 
 ## Contexts are plain lists for the same reason as compiler environments.
+## the fields read for every expression come first (see make.codeBuf)
 make.toplevelContext <- function(cenv, options = NULL)
-    list(toplevel = TRUE,
+    list(env = cenv,
          tailcall = TRUE,
-         needRETURNJMP = FALSE,
-         env = cenv,
          optimize = getCompilerOption("optimize", options),
+         toplevel = TRUE,
+         needRETURNJMP = FALSE,
          suppressAll = getCompilerOption("suppressAll", options),
          suppressNoSuperAssignVar =
              getCompilerOption("suppressNoSuperAssignVar", options),
@@ -1372,29 +1375,37 @@ cmpTag <- function(n, cb) {
     }
 }
 
+## Walk the expression with an explicit stack rather than a recursive
+## call per node (see findLocalsList1); nested functions are checked when
+## they are compiled.
 mayCallBrowser <- function(e, cntxt) {
-    if (typeof(e) == "language") {
+    stack <- list(e)
+    n <- 1L
+    while (n > 0L) {
+        e <- stack[[n]]
+        n <- n - 1L
+        if (typeof(e) != "language")
+            next
         fun <- e[[1]]
         if (typeof(fun) == "symbol") {
             fname <- as.character(fun)
             if (fname == "browser") ## not checking isBaseVar to err on the
                                     ## positive
-                TRUE
-            else if (fname == "function" && isBaseVar(fname, cntxt))
-                FALSE
-            else
-                mayCallBrowserList(e[-1], cntxt)
+                return(TRUE)
+            if (fname == "function" && isBaseVar(fname, cntxt))
+                next
+            kids <- .asList(e[-1])
         }
         else
-            mayCallBrowserList(e, cntxt)
+            kids <- .asList(e)
+        for (i in seq_along(kids))
+            if (typeof(kids[[i]]) == "language") {
+                n <- n + 1L
+                if (n > length(stack))
+                    stack <- c(stack, vector("list", length(stack)))
+                stack[[n]] <- kids[[i]]
+            }
     }
-    else FALSE
-}
-
-mayCallBrowserList <- function(elist, cntxt) {
-    for (a in .asList(elist))
-        if (! missing(a) && mayCallBrowser(a, cntxt))
-            return(TRUE)
     FALSE
 }
 
