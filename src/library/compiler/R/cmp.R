@@ -48,10 +48,10 @@ pasteExpr <- function(e, prefix = "\n    ") {
 
 ## The argument helpers and the loops over call elements below convert
 ## the call to a list first: indexing a call by position walks a
-## pairlist, which makes a loop over a long call quadratic. as.vector()
-## is used rather than the generic as.list(), which costs a dispatch.
+## pairlist, which makes a loop over a long call quadratic. The internal
+## is called directly; see the note at cenvCacheMiss.
 dots.or.missing <- function(args) {
-    args <- as.vector(args, "list")
+    args <- .Internal(as.vector(args, "list"))
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
@@ -61,7 +61,7 @@ dots.or.missing <- function(args) {
 }
 
 anyDots <- function(args) {
-    args <- as.vector(args, "list")
+    args <- .Internal(as.vector(args, "list"))
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (! missing(a) && identical(a, quote(`...`)))
@@ -79,7 +79,7 @@ is.ddsym <- function(name) {
 
 
 missingArgs <- function(args) {
-    args <- as.vector(args, "list")
+    args <- .Internal(as.vector(args, "list"))
     val <- logical(length(args))
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -249,11 +249,11 @@ findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
                               else e[1],
                    "function" = character(0),
                    "~" = character(0),
-                   "local" = if (! v %in% shadowed && length(e) == 2)
+                   "local" = if (! (match(v, shadowed, 0L) > 0L) && length(e) == 2)
                                  NULL
                              else e[-1],
                    "expression" =,
-                   "quote" = if (! v %in% shadowed)
+                   "quote" = if (! (match(v, shadowed, 0L) > 0L))
                                  NULL
                              else e[-1],
                    e[-1])
@@ -272,7 +272,7 @@ findLocalsList1 <- function(elist, shadowed, cntxt) {
     n <- length(stack)
     while (n > 0) {
         ## as a list: indexing a call by position walks a pairlist
-        kids <- as.vector(findLocals1(stack[[n]], shadowed, cntxt, vars), "list")
+        kids <- .Internal(as.vector(findLocals1(stack[[n]], shadowed, cntxt, vars), "list"))
         n <- n - 1
         for (i in seq_along(kids))
             if (typeof(kids[[i]]) == "language") {
@@ -344,11 +344,19 @@ newCenvCache <- function()
 ## marks a cache miss (a cached result may be NULL)
 cenvCacheMiss <- new.env(parent = emptyenv())
 
+## The lookup caches and the argument list conversions run for every
+## symbol and call compiled, so they call the internals directly: a call
+## to the closure wrapper (get0, assign, new.env, delayedAssign,
+## as.vector) costs about a microsecond of argument matching and frame
+## setup, which came to 7% of the time to compile a package. Membership
+## tests against the fixed symbol tables use match(), which the compiler
+## inlines, rather than %in%, which is two closure calls.
+
 ## Add vars to the top compiler environment frame
 addCenvVars <- function(cenv, vars) {
     frame <- cenv$extra[[1]]
     for (v in vars)
-        assign(v, TRUE, envir = frame)
+        .Internal(assign(v, TRUE, frame, FALSE))
     cenv$cache <- newCenvCache()
     cenv
 }
@@ -377,11 +385,10 @@ findCenvVar <- function(var, cenv) {
     if (typeof(var) == "symbol")
         var <- as.character(var)
     cache <- cenv$cache$var
-    info <- get0(var, envir = cache, inherits = FALSE,
-                 ifnotfound = cenvCacheMiss)
+    info <- .Internal(get0(var, cache, "any", FALSE, cenvCacheMiss))
     if (is.environment(info)) {
         info <- findCenvVar1(var, cenv)
-        assign(var, info, envir = cache)
+        .Internal(assign(var, info, cache, FALSE))
     }
     info
 }
@@ -396,9 +403,10 @@ findCenvVar1 <- function(var, cenv) {
     frame <- found$frame
     i <- found$index
     if (found$bound && var != "...") {
-        value <- new.env(parent = emptyenv())
-        delayedAssign("value", get(var, frame, inherits = FALSE),
-                      assign.env = value)
+        value <- .Internal(new.env(FALSE, emptyenv(), 29L))
+        .Internal(delayedAssign("value",
+                                quote(get(var, frame, inherits = FALSE)),
+                                environment(), value))
     }
     else
         value <- NULL
@@ -454,7 +462,7 @@ constModes <- c("numeric", "logical", "NULL", "complex", "character")
 constNames <- c("pi", "T", "F")
 
 checkConst <- function(e) {
-    if (mode(e) %in% constModes && length(e) <= maxConstSize)
+    if ((match(mode(e), constModes, 0L) > 0L) && length(e) <= maxConstSize)
         list(value = e)
     else
         NULL
@@ -466,7 +474,7 @@ checkConst <- function(e) {
 ## Allow local declaration of optimize, notinline declaration.
 constantFoldSym <- function(var, cntxt) {
     var <- as.character(var)
-    if (var %in% constNames && isBaseVar(var, cntxt))
+    if ((match(var, constNames, 0L) > 0L) && isBaseVar(var, cntxt))
         checkConst(get(var, .BaseNamespaceEnv))
     else NULL
 }
@@ -474,7 +482,7 @@ constantFoldSym <- function(var, cntxt) {
 ## For now assume all foldable functions are in base
 getFoldFun <- function(var, cntxt) {
     var <- as.character(var)
-    if (var %in% foldFuns && isBaseVar(var, cntxt)) {
+    if ((match(var, foldFuns, 0L) > 0L) && isBaseVar(var, cntxt)) {
         val <- get(var, .BaseNamespaceEnv)
         if (is.function(val))
             val
@@ -503,7 +511,7 @@ constantFoldCall <- function(e, cntxt) {
                 }
             }
             modes <- unlist(lapply(args, mode))
-            if (all(modes %in% constModes)) {
+            if (all((match(modes, constModes, 0L) > 0L))) {
                 tryCatch(checkConst(do.call(ffun, args)),
                          error = function(e) NULL, warning = function(w) NULL)
                 ## **** issue warning??
@@ -1256,7 +1264,7 @@ maybeNSESymbols <- c("bquote")
 cmpCallSymFun <- function(fun, args, call, cb, cntxt) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
-    nse <- as.character(fun) %in% maybeNSESymbols
+    nse <- (match(as.character(fun), maybeNSESymbols, 0L) > 0L)
     cmpCallArgs(args, cb, cntxt, nse)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
@@ -1275,7 +1283,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
 }
 
 cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
-    args <- as.vector(args, "list")
+    args <- .Internal(as.vector(args, "list"))
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1428,18 +1436,17 @@ noInlineSymbols <- c("standardGeneric")
 
 getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
     cache <- if (guardOK) cntxt$env$cache$inlineGuarded else cntxt$env$cache$inline
-    info <- get0(name, envir = cache, inherits = FALSE,
-                 ifnotfound = cenvCacheMiss)
+    info <- .Internal(get0(name, cache, "any", FALSE, cenvCacheMiss))
     if (is.environment(info)) {
         info <- getInlineInfo1(name, cntxt, guardOK)
-        assign(name, info, envir = cache)
+        .Internal(assign(name, info, cache, FALSE))
     }
     info
 }
 
 getInlineInfo1 <- function(name, cntxt, guardOK = FALSE) {
     optimize <- cntxt$optimize
-    if (optimize > 0 && ! (name %in% noInlineSymbols)) {
+    if (optimize > 0 && ! ((match(name, noInlineSymbols, 0L) > 0L))) {
         info <- findCenvVar(name, cntxt$env)
         if (is.null(info))
             NULL
@@ -1461,7 +1468,7 @@ getInlineInfo1 <- function(name, cntxt, guardOK = FALSE) {
             }
             else if (ftype == "global" &&
                      (optimize >= 3 ||
-                      (optimize >= 2 && name %in% languageFuns))) {
+                      (optimize >= 2 && (match(name, languageFuns, 0L) > 0L)))) {
                 info$package <- packFrameName(frame)
                 info$guard <- FALSE
                 info
@@ -1530,7 +1537,7 @@ setInlineHandler("{", function(e, cb, cntxt) {
     else {
         sloc <- cb$savecurloc()
         bsrefs <- attr(e, "srcref")
-        exprs <- as.vector(e, "list")
+        exprs <- .Internal(as.vector(e, "list"))
         if (n > 2) {
             ncntxt <- make.noValueContext(cntxt)
             for (i in 2 : (n - 1)) {
@@ -2397,7 +2404,7 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
 }
 
 cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
-    args <- as.vector(args, "list")
+    args <- .Internal(as.vector(args, "list"))
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -2740,7 +2747,7 @@ setInlineHandler("switch", function(e, cb, cntxt) {
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
         expr <- e[[2]]
-        cases <- as.vector(e[-c(1, 2)], "list")
+        cases <- .Internal(as.vector(e[-c(1, 2)], "list"))
 
         if (length(cases) == 0)
             notifyNoSwitchcases(cntxt, loc = cb$savecurloc())
