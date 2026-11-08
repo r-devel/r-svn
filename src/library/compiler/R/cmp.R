@@ -46,8 +46,12 @@ pasteExpr <- function(e, prefix = "\n    ") {
     else paste(prefix, deparse(e), collapse="")
 }
 
+## The argument helpers and the loops over call elements below convert
+## the call to a list first: indexing a call by position walks a
+## pairlist, which makes a loop over a long call quadratic.
 dots.or.missing <- function(args) {
-    for (i in 1:length(args)) {
+    args <- as.list(args)
+    for (i in seq_along(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
         if (identical(a, quote(`...`))) return(TRUE)
@@ -56,7 +60,8 @@ dots.or.missing <- function(args) {
 }
 
 anyDots <- function(args) {
-    for (i in 1:length(args)) {
+    args <- as.list(args)
+    for (i in seq_along(args)) {
         a <-args[[i]]
         if (! missing(a) && identical(a, quote(`...`)))
             return(TRUE)
@@ -71,6 +76,7 @@ is.ddsym <- function(name) {
 
 
 missingArgs <- function(args) {
+    args <- as.list(args)
     val <- logical(length(args))
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -1274,6 +1280,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
 }
 
 cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
+    args <- as.list(args)
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1517,16 +1524,17 @@ setInlineHandler("{", function(e, cb, cntxt) {
     else {
         sloc <- cb$savecurloc()
         bsrefs <- attr(e, "srcref")
+        exprs <- as.list(e)
         if (n > 2) {
             ncntxt <- make.noValueContext(cntxt)
             for (i in 2 : (n - 1)) {
-                subexp <- e[[i]]
+                subexp <- exprs[[i]]
                 cb$setcurloc(subexp, getBlockSrcref(bsrefs, i))
                 cmp(subexp, cb, ncntxt, setloc = FALSE)
                 cb$putcode(POP.OP)
             }
         }
-        subexp <- e[[n]]
+        subexp <- exprs[[n]]
         cb$setcurloc(subexp, getBlockSrcref(bsrefs, n))
         cmp(subexp, cb, cntxt, setloc = FALSE)
         cb$restorecurloc(sloc)
@@ -2383,6 +2391,7 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
 }
 
 cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
+    args <- as.list(args)
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -2721,9 +2730,9 @@ setInlineHandler("switch", function(e, cb, cntxt) {
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
         expr <- e[[2]]
-        cases <-e[-c(1, 2)]
+        cases <- as.list(e[-c(1, 2)])
 
-        if (is.null(cases))
+        if (length(cases) == 0)
             notifyNoSwitchcases(cntxt, loc = cb$savecurloc())
 
         miss <- missingArgs(cases)
