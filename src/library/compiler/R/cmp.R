@@ -48,9 +48,10 @@ pasteExpr <- function(e, prefix = "\n    ") {
 
 ## The argument helpers and the loops over call elements below convert
 ## the call to a list first: indexing a call by position walks a
-## pairlist, which makes a loop over a long call quadratic.
+## pairlist, which makes a loop over a long call quadratic. as.vector()
+## is used rather than the generic as.list(), which costs a dispatch.
 dots.or.missing <- function(args) {
-    args <- as.list(args)
+    args <- as.vector(args, "list")
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
@@ -60,7 +61,7 @@ dots.or.missing <- function(args) {
 }
 
 anyDots <- function(args) {
-    args <- as.list(args)
+    args <- as.vector(args, "list")
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (! missing(a) && identical(a, quote(`...`)))
@@ -70,13 +71,15 @@ anyDots <- function(args) {
 }
 
 is.ddsym <- function(name) {
-    (is.symbol(name) || is.character(name)) &&
-    length(grep("^\\.\\.[0-9]+$", as.character(name))) != 0
+    (is.symbol(name) || is.character(name)) && {
+        name <- as.character(name)
+        any(startsWith(name, "..")) && length(grep("^\\.\\.[0-9]+$", name)) != 0
+    }
 }
 
 
 missingArgs <- function(args) {
-    args <- as.list(args)
+    args <- as.vector(args, "list")
     val <- logical(length(args))
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -269,7 +272,7 @@ findLocalsList1 <- function(elist, shadowed, cntxt) {
     n <- length(stack)
     while (n > 0) {
         ## as a list: indexing a call by position walks a pairlist
-        kids <- as.list(findLocals1(stack[[n]], shadowed, cntxt, vars))
+        kids <- as.vector(findLocals1(stack[[n]], shadowed, cntxt, vars), "list")
         n <- n - 1
         for (i in seq_along(kids))
             if (typeof(kids[[i]]) == "language") {
@@ -314,7 +317,8 @@ findLocalsList <- function(elist, cntxt) {
 ## Compilation environment implementation
 ##
 
-## Create a new compiler environment
+## Create a new compiler environment (a plain list: a class attribute
+## would make every `$` access attempt method dispatch)
 ## **** need to explain the structure
 ##
 ## The variables the compiler knows will be bound in a frame (formals and
@@ -323,11 +327,10 @@ findLocalsList <- function(elist, cntxt) {
 ## results are cached per compiler environment; the cache is replaced
 ## whenever a frame is added or extended, since results may change.
 makeCenv <- function(env) {
-    structure(list(extra = list(newExtraFrame()),
-                   env = env,
-                   ftypes = frameTypes(env),
-                   cache = new.env(parent = emptyenv())),
-              class = "compiler_environment")
+    list(extra = list(newExtraFrame()),
+         env = env,
+         ftypes = frameTypes(env),
+         cache = new.env(parent = emptyenv()))
 }
 
 newExtraFrame <- function() new.env(hash = TRUE, parent = emptyenv())
@@ -1080,8 +1083,9 @@ genCode <- function(e, cntxt, gen = NULL, loc = NULL) {
 ## Compiler contexts
 ##
 
+## Contexts are plain lists for the same reason as compiler environments.
 make.toplevelContext <- function(cenv, options = NULL)
-    structure(list(toplevel = TRUE,
+    list(toplevel = TRUE,
                    tailcall = TRUE,
                    needRETURNJMP = FALSE,
                    env = cenv,
@@ -1097,8 +1101,7 @@ make.toplevelContext <- function(cenv, options = NULL)
                        stop(simpleError(addLocString(msg, loc), cntxt$call)),
                    warn = function(x, cntxt, loc = NULL)
                        cat(paste("Note:", addLocString(x, loc), "\n"))
-              ),
-              class = "compiler_context")
+              )
 
 make.callContext <- function(cntxt, call) {
     cntxt$call <- call
@@ -1281,7 +1284,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
 }
 
 cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
-    args <- as.list(args)
+    args <- as.vector(args, "list")
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1525,7 +1528,7 @@ setInlineHandler("{", function(e, cb, cntxt) {
     else {
         sloc <- cb$savecurloc()
         bsrefs <- attr(e, "srcref")
-        exprs <- as.list(e)
+        exprs <- as.vector(e, "list")
         if (n > 2) {
             ncntxt <- make.noValueContext(cntxt)
             for (i in 2 : (n - 1)) {
@@ -2392,7 +2395,7 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
 }
 
 cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
-    args <- as.list(args)
+    args <- as.vector(args, "list")
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -2735,7 +2738,7 @@ setInlineHandler("switch", function(e, cb, cntxt) {
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
         expr <- e[[2]]
-        cases <- as.list(e[-c(1, 2)])
+        cases <- as.vector(e[-c(1, 2)], "list")
 
         if (length(cases) == 0)
             notifyNoSwitchcases(cntxt, loc = cb$savecurloc())
