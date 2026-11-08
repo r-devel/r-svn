@@ -9317,8 +9317,10 @@ static unsigned int const_hash(SEXP x, int depth)
     }
     case LANGSXP:
     case LISTSXP: {
+	/* the length is counted up to a bound: a long call is hashed by
+	   every promise compiled for one of its arguments */
 	int n = 0;
-	for (SEXP p = x; p != R_NilValue; p = CDR(p))
+	for (SEXP p = x; p != R_NilValue && n < 8; p = CDR(p))
 	    n++;
 	h = hash_mix(h, (unsigned int) n);
 	if (depth > 0) {
