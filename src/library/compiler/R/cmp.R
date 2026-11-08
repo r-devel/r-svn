@@ -1086,22 +1086,22 @@ genCode <- function(e, cntxt, gen = NULL, loc = NULL) {
 ## Contexts are plain lists for the same reason as compiler environments.
 make.toplevelContext <- function(cenv, options = NULL)
     list(toplevel = TRUE,
-                   tailcall = TRUE,
-                   needRETURNJMP = FALSE,
-                   env = cenv,
-                   optimize = getCompilerOption("optimize", options),
-                   suppressAll = getCompilerOption("suppressAll", options),
-                   suppressNoSuperAssignVar =
-                       getCompilerOption("suppressNoSuperAssignVar", options),
-                   suppressUndefined = getCompilerOption("suppressUndefined",
-                                                         options),
-                   call = NULL,
-                   foldState = new.env(parent = emptyenv()),
-                   stop = function(msg, cntxt, loc = NULL)
-                       stop(simpleError(addLocString(msg, loc), cntxt$call)),
-                   warn = function(x, cntxt, loc = NULL)
-                       cat(paste("Note:", addLocString(x, loc), "\n"))
-              )
+         tailcall = TRUE,
+         needRETURNJMP = FALSE,
+         env = cenv,
+         optimize = getCompilerOption("optimize", options),
+         suppressAll = getCompilerOption("suppressAll", options),
+         suppressNoSuperAssignVar =
+             getCompilerOption("suppressNoSuperAssignVar", options),
+         suppressUndefined = getCompilerOption("suppressUndefined",
+                                     options),
+         call = NULL,
+         foldState = new.env(parent = emptyenv()),
+         stop = function(msg, cntxt, loc = NULL)
+             stop(simpleError(addLocString(msg, loc), cntxt$call)),
+         warn = function(x, cntxt, loc = NULL)
+             cat(paste("Note:", addLocString(x, loc), "\n"))
+    )
 
 make.callContext <- function(cntxt, call) {
     cntxt$call <- call

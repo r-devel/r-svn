@@ -9263,21 +9263,21 @@ static unsigned int const_hash(SEXP x, int depth)
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
 	for (R_xlen_t i = 0; i < n && i < 4; i++)
-	    h = hash_mix(h, (unsigned int) LOGICAL(x)[i]);
+	    h = hash_mix(h, (unsigned int) LOGICAL_ELT(x, i));
 	break;
     }
     case INTSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
 	for (R_xlen_t i = 0; i < n && i < 4; i++)
-	    h = hash_mix(h, (unsigned int) INTEGER(x)[i]);
+	    h = hash_mix(h, (unsigned int) INTEGER_ELT(x, i));
 	break;
     }
     case REALSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
 	for (R_xlen_t i = 0; i < n && i < 4; i++) {
-	    double d = REAL(x)[i];
+	    double d = REAL_ELT(x, i);
 	    unsigned int v;
 	    if (d == 0)
 		v = 0; /* 0 and -0 are identical */
