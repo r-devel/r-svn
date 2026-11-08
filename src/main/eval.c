@@ -9223,10 +9223,158 @@ attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+/* The constant pool is deduplicated: putconst() returns the index of an
+   existing entry identical to the new constant when there is one.
+   Scanning the pool with R_compute_identical() made adding a constant
+   cost time linear in the pool size, and compiling a large function
+   quadratic. The pool is therefore indexed by a hash table kept in a
+   hidden attribute of the buffer. The table is an integer vector of nb
+   bucket heads followed by one chain link per buffer slot, both holding
+   1-based pool indices with 0 for none. growconst() returns a fresh
+   buffer without the attribute, so the table is rebuilt after a grow. */
+
+#define CONST_HASH_DEPTH 3
+
+static R_INLINE unsigned int hash_mix(unsigned int h, unsigned int v)
+{
+    return (h ^ v) * 0x9e3779b1u;
+}
+
+/* Constants that R_compute_identical(x, y, 16) considers identical must
+   hash alike, so only what it compares exactly is hashed: attributes,
+   argument tags, non-ASCII strings and NaN payloads are left out. */
+static unsigned int const_hash(SEXP x, int depth)
+{
+    unsigned int h = hash_mix(2166136261u, (unsigned int) TYPEOF(x));
+    if (OBJECT(x))
+	h = hash_mix(h, 1);
+
+    switch (TYPEOF(x)) {
+    case SYMSXP:
+    case ENVSXP:
+    case WEAKREFSXP:
+	h = hash_mix(h, (unsigned int) ((uintptr_t) x >> 4));
+	break;
+    case SPECIALSXP:
+    case BUILTINSXP:
+	h = hash_mix(h, (unsigned int) PRIMOFFSET(x));
+	break;
+    case LGLSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < 4; i++)
+	    h = hash_mix(h, (unsigned int) LOGICAL(x)[i]);
+	break;
+    }
+    case INTSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < 4; i++)
+	    h = hash_mix(h, (unsigned int) INTEGER(x)[i]);
+	break;
+    }
+    case REALSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < 4; i++) {
+	    double d = REAL(x)[i];
+	    unsigned int v;
+	    if (d == 0)
+		v = 0; /* 0 and -0 are identical */
+	    else if (R_IsNA(d))
+		v = 1;
+	    else if (ISNAN(d))
+		v = 2;
+	    else {
+		uint64_t bits;
+		memcpy(&bits, &d, sizeof bits);
+		v = (unsigned int) (bits ^ (bits >> 32));
+	    }
+	    h = hash_mix(h, v);
+	}
+	break;
+    }
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < 4; i++) {
+	    SEXP s = STRING_ELT(x, i);
+	    if (s == NA_STRING)
+		h = hash_mix(h, 1);
+	    else if (IS_ASCII(s))
+		h = hash_mix(h, (unsigned int) R_Newhashpjw(CHAR(s)));
+	}
+	break;
+    }
+    case VECSXP:
+    case EXPRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	if (depth > 0)
+	    for (R_xlen_t i = 0; i < n && i < 4; i++)
+		h = hash_mix(h, const_hash(VECTOR_ELT(x, i), depth - 1));
+	break;
+    }
+    case LANGSXP:
+    case LISTSXP: {
+	int n = 0;
+	for (SEXP p = x; p != R_NilValue; p = CDR(p))
+	    n++;
+	h = hash_mix(h, (unsigned int) n);
+	if (depth > 0) {
+	    int i = 0;
+	    for (SEXP p = x; p != R_NilValue && i < 4; p = CDR(p), i++)
+		h = hash_mix(h, const_hash(CAR(p), depth - 1));
+	}
+	break;
+    }
+    case BCODESXP:
+	if (depth > 0) {
+	    h = hash_mix(h, const_hash(BCODE_CODE(x), depth - 1));
+	    h = hash_mix(h, const_hash(BCODE_CONSTS(x), depth - 1));
+	}
+	break;
+    default:
+	break;
+    }
+    return h;
+}
+
+static SEXP ConstIndexSymbol = NULL;
+
+/* Return the hash table for constBuf, building it when the buffer has
+   none (a new or grown buffer) over the constCount entries in use. */
+static SEXP const_index(SEXP constBuf, int constCount)
+{
+    if (ConstIndexSymbol == NULL)
+	ConstIndexSymbol = install(".constIndex");
+
+    int cap = LENGTH(constBuf);
+    SEXP idx = getAttrib(constBuf, ConstIndexSymbol);
+    if (TYPEOF(idx) == INTSXP && LENGTH(idx) > cap)
+	return idx;
+
+    int nb = 16;
+    while (nb < 2 * cap)
+	nb *= 2;
+    idx = PROTECT(allocVector(INTSXP, nb + cap));
+    int *tab = INTEGER(idx);
+    memset(tab, 0, (nb + cap) * sizeof(int));
+    for (int i = 0; i < constCount; i++) {
+	unsigned int b = const_hash(VECTOR_ELT(constBuf, i), CONST_HASH_DEPTH)
+	    & (unsigned int) (nb - 1);
+	tab[nb + i] = tab[b];
+	tab[b] = i + 1;
+    }
+    setAttrib(constBuf, ConstIndexSymbol, idx);
+    UNPROTECT(1);
+    return idx;
+}
+
 attribute_hidden SEXP do_putconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, x;
-    int i, constCount;
+    int constCount;
 
     checkArity(op, args);
 
@@ -9240,19 +9388,26 @@ attribute_hidden SEXP do_putconst(SEXP call, SEXP op, SEXP args, SEXP env)
 
     x = CADDR(args);
 
+    SEXP idx = const_index(constBuf, constCount);
+    int *tab = INTEGER(idx);
+    int nb = LENGTH(idx) - LENGTH(constBuf);
+    unsigned int b = const_hash(x, CONST_HASH_DEPTH) & (unsigned int) (nb - 1);
+
     /* check for a match and return index if one is found */
-    for (i = 0; i < constCount; i++) {
-	SEXP y = VECTOR_ELT(constBuf, i);
+    for (int j = tab[b]; j != 0; j = tab[nb + j - 1]) {
+	SEXP y = VECTOR_ELT(constBuf, j - 1);
 	/* 16 - take closure environments into account, this is necessary
 	        as closures (closure literals) can get into the AST when
 	        the AST is generated by a program (e.g. distr package)
 	*/
 	if (x == y || R_compute_identical(x, y, 16))
-	    return ScalarInteger(i);
+	    return ScalarInteger(j - 1);
     }
 
     /* otherwise insert the constant and return index */
     SET_VECTOR_ELT(constBuf, constCount, x);
+    tab[nb + constCount] = tab[b];
+    tab[b] = constCount + 1;
     return ScalarInteger(constCount);
 }
 
