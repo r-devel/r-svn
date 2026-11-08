@@ -1094,7 +1094,7 @@ make.toplevelContext <- function(cenv, options = NULL)
          suppressNoSuperAssignVar =
              getCompilerOption("suppressNoSuperAssignVar", options),
          suppressUndefined = getCompilerOption("suppressUndefined",
-                                     options),
+                                               options),
          call = NULL,
          foldState = new.env(parent = emptyenv()),
          stop = function(msg, cntxt, loc = NULL)
