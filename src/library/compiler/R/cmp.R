@@ -304,24 +304,37 @@ findLocalsList <- function(elist, cntxt) {
 
 ## Create a new compiler environment
 ## **** need to explain the structure
+##
+## The variables the compiler knows will be bound in a frame (formals and
+## assigned locals) are kept in hashed environments, one per frame, so
+## that looking one up does not scan a vector of all locals. Lookup
+## results are cached per compiler environment; the cache is replaced
+## whenever a frame is added or extended, since results may change.
 makeCenv <- function(env) {
-    structure(list(extra = list(character(0)),
+    structure(list(extra = list(newExtraFrame()),
                    env = env,
-                   ftypes = frameTypes(env)),
+                   ftypes = frameTypes(env),
+                   cache = new.env(parent = emptyenv())),
               class = "compiler_environment")
 }
 
+newExtraFrame <- function() new.env(hash = TRUE, parent = emptyenv())
+
 ## Add vars to the top compiler environment frame
 addCenvVars <- function(cenv, vars) {
-    cenv$extra[[1]] <- union(cenv$extra[[1]], vars)
+    frame <- cenv$extra[[1]]
+    for (v in vars)
+        assign(v, TRUE, envir = frame)
+    cenv$cache <- new.env(parent = emptyenv())
     cenv
 }
 
 ## Add a new frame to a compiler environment
 addCenvFrame <- function(cenv, vars) {
-    cenv$extra <- c(list(character(0)), cenv$extra)
+    cenv$extra <- c(list(newExtraFrame()), cenv$extra)
     cenv$env <- new.env(parent = cenv$env)
     cenv$ftypes <- c("local", cenv$ftypes)
+    cenv$cache <- new.env(parent = emptyenv())
     if (missing(vars))
         cenv
     else
@@ -339,11 +352,21 @@ addCenvFrame <- function(cenv, vars) {
 findCenvVar <- function(var, cenv) {
     if (typeof(var) == "symbol")
         var <- as.character(var)
+    cache <- cenv$cache
+    if (exists(var, cache, inherits = FALSE))
+        return(get(var, cache, inherits = FALSE))
+    info <- findCenvVar1(var, cenv)
+    assign(var, info, envir = cache)
+    info
+}
+
+findCenvVar1 <- function(var, cenv) {
     extra <- cenv$extra
     env <- cenv$env
     frame <- NULL
     for (i in seq_along(cenv$extra)) {
-        if (var %in% extra[[i]] || exists(var, env, inherits = FALSE)) {
+        if (exists(var, extra[[i]], inherits = FALSE) ||
+            exists(var, env, inherits = FALSE)) {
             frame <- env
             break
         }
