@@ -859,6 +859,7 @@ FUNTAB R_FunTab[] =
 {"isDDSym",	do_isddsym,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"growconst", do_growconst,     0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"putconst", do_putconst,       0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
+{"putcode", do_putcode,         0,      11,     7,      {PP_FUNCALL, PREC_FN, 0}},
 {"getconst", do_getconst,       0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},
 {"enableJIT",    do_enablejit,  0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"compilePKGS", do_compilepkgs, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},

@@ -910,8 +910,14 @@ make.codeBuf <- function(expr, loc = NULL) {
         ##   smaller
         srcrefTrackingOn <- FALSE
 
-    exprBuf <- NA   ## exprBuf will have the same length as codeBuf
-    srcrefBuf <- NA ## srcrefBuf will have the same length as codeBuf
+    ## The code buffer and the parallel buffers of expression and srcref
+    ## indices are filled in place by .Internal(putcode()), so they are
+    ## always fresh vectors, grown by doubling and kept the same length.
+    codeBuf <- vector("list", 32L)
+    codeBuf[[1L]] <- .Internal(bcVersion())
+    codeCount <- 1L
+    exprBuf <- rep(NA_integer_, 32L)
+    srcrefBuf <- rep(NA_integer_, 32L)
 
     if (!exprTrackingOn) {
         curExpr <- NULL
@@ -981,8 +987,6 @@ make.codeBuf <- function(expr, loc = NULL) {
             curSrcrefIdx <<- saved$srcrefIdx
         }
     }
-    codeBuf <- list(.Internal(bcVersion()))
-    codeCount <- 1
     putcode <- function(...) {
         new <- list(...)
         newLen <- length(new)
@@ -993,21 +997,13 @@ make.codeBuf <- function(expr, loc = NULL) {
             if (srcrefTrackingOn)
                 srcrefBuf <<- c(srcrefBuf, vector("integer", length(srcrefBuf)))
         }
-        codeRange <- (codeCount + 1) : (codeCount + newLen)
-        codeBuf[codeRange] <<- new
-
-        if (exprTrackingOn) {   ## put current expression into the constant pool
-            if (is.null(curExprIdx))
-                curExprIdx <<- putconst(curExpr)
-            exprBuf[codeRange] <<- curExprIdx
-        }
-        if (srcrefTrackingOn) { ## put current srcref into the constant pool
-            if (is.null(curSrcrefIdx))
-                curSrcrefIdx <<- putconst(curSrcref)
-            srcrefBuf[codeRange] <<- curSrcrefIdx
-        }
-
-        codeCount <<- codeCount + newLen
+        ## put the current expression and srcref into the constant pool
+        if (exprTrackingOn && is.null(curExprIdx))
+            curExprIdx <<- putconst(curExpr)
+        if (srcrefTrackingOn && is.null(curSrcrefIdx))
+            curSrcrefIdx <<- putconst(curSrcref)
+        codeCount <<- .Internal(putcode(codeBuf, codeCount, new, exprBuf,
+                                        curExprIdx, srcrefBuf, curSrcrefIdx))
     }
     getcode <- function() as.integer(codeBuf[1 : codeCount])
     constBuf <- vector("list", 1)

@@ -9474,6 +9474,49 @@ attribute_hidden SEXP do_putconst(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarInteger(constCount);
 }
 
+/* The code buffer: append the words in 'new' after the 'count' words
+   already in codeBuf, and record the index of the current expression
+   and srcref for each of them in the parallel buffers (NULL when that
+   tracking is off). The buffers are modified in place; the compiler
+   grows them before calling. Returns the new count. */
+attribute_hidden SEXP do_putcode(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP codeBuf = CAR(args); args = CDR(args);
+    int count = asInteger(CAR(args)); args = CDR(args);
+    SEXP new = CAR(args); args = CDR(args);
+    SEXP exprBuf = CAR(args); args = CDR(args);
+    SEXP exprIdx = CAR(args); args = CDR(args);
+    SEXP srcrefBuf = CAR(args); args = CDR(args);
+    SEXP srcrefIdx = CAR(args);
+
+    if (TYPEOF(codeBuf) != VECSXP || TYPEOF(new) != VECSXP)
+	error(_("code buffer must be a generic vector"));
+    int n = LENGTH(new);
+    if (count < 0 || count + n > LENGTH(codeBuf))
+	error("bad codeCount value");
+    for (int i = 0; i < n; i++)
+	SET_VECTOR_ELT(codeBuf, count + i, VECTOR_ELT(new, i));
+
+    if (exprBuf != R_NilValue) {
+	if (TYPEOF(exprBuf) != INTSXP || LENGTH(exprBuf) < count + n)
+	    error(_("invalid '%s' argument"), "exprBuf");
+	int idx = asInteger(exprIdx);
+	int *p = INTEGER(exprBuf);
+	for (int i = 0; i < n; i++)
+	    p[count + i] = idx;
+    }
+    if (srcrefBuf != R_NilValue) {
+	if (TYPEOF(srcrefBuf) != INTSXP || LENGTH(srcrefBuf) < count + n)
+	    error(_("invalid '%s' argument"), "srcrefBuf");
+	int idx = asInteger(srcrefIdx);
+	int *p = INTEGER(srcrefBuf);
+	for (int i = 0; i < n; i++)
+	    p[count + i] = idx;
+    }
+    return ScalarInteger(count + n);
+}
+
 attribute_hidden SEXP do_getconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, ans;
