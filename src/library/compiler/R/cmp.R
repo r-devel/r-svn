@@ -1020,15 +1020,16 @@ make.codeBuf <- function(expr, loc = NULL) {
     getconst <- function()
         .Internal(getconst(constBuf, constCount))
     idx <- 0
-    labels <- vector("list")
+    labels <- new.env(hash = TRUE, parent = emptyenv())
     makelabel <- function() { idx <<- idx + 1; paste0("L", idx) }
-    putlabel <- function(name) labels[[name]] <<- codeCount
+    putlabel <- function(name) assign(name, codeCount, envir = labels)
     patchlabels <- function(cntxt) {
         offset <- function(lbl) {
-            if (is.null(labels[[lbl]]))
+            off <- get0(lbl, envir = labels, inherits = FALSE)
+            if (is.null(off))
                 cntxt$stop(gettextf("no offset recorded for label \"%s\"", lbl),
                            cntxt)
-            labels[[lbl]]
+            off
         }
         for (i in 1 : codeCount) {
             v <- codeBuf[[i]]
@@ -2718,10 +2719,14 @@ for (i in safeStatsInternals) setInlineHandler(i,  cmpSimpleInternal, "stats")
 ## Inline handler for switch
 ##
 
-findActionIndex <- function(name, nm, miss) {
-    start <- match(name, nm)
-    aidx <- c(which(! miss), length(nm) + 1)
-    min(aidx[aidx >= start])
+## For each name, the index of the alternative that acts for it: the
+## first non-empty one at or after the first alternative with that name,
+## or one past the end. Computed for all names at once.
+findActionIndex <- function(names, nm, miss) {
+    n <- length(nm)
+    act <- ifelse(miss, n + 1L, seq_len(n))
+    nxt <- rev(cummin(rev(act)))
+    nxt[match(names, nm)]
 }
 
 setInlineHandler("switch", function(e, cb, cntxt) {
@@ -2783,7 +2788,7 @@ setInlineHandler("switch", function(e, cb, cntxt) {
             unm <- unique(nm[nm != ""])
             if (haveCharDflt)
                 unm <- c(unm, "")
-            nlabels <- labels[unlist(lapply(unm, findActionIndex, nm, miss))]
+            nlabels <- labels[findActionIndex(unm, nm, miss)]
             ## if there is no unnamed case to act as a default for a
             ## character switch then the numeric default becomes the
             ## character default as well.
