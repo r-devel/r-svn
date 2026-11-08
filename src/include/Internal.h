@@ -493,6 +493,7 @@ SEXP do_disassemble(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bcversion(SEXP, SEXP, SEXP, SEXP);
 SEXP do_loadfile(SEXP, SEXP, SEXP, SEXP);
 SEXP do_savefile(SEXP, SEXP, SEXP, SEXP);
+SEXP do_findcenvframe(SEXP, SEXP, SEXP, SEXP);
 SEXP do_growconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_putconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_getconst(SEXP, SEXP, SEXP, SEXP);

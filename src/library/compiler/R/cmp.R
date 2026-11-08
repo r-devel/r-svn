@@ -375,43 +375,23 @@ findCenvVar <- function(var, cenv) {
     info
 }
 
+## The walk over the environment chain and the extra frames is done in
+## C (do_findcenvframe in eval.c): one call instead of an exists() per
+## frame, which for a base function seen from a package is ten frames.
 findCenvVar1 <- function(var, cenv) {
-    extra <- cenv$extra
-    env <- cenv$env
-    frame <- NULL
-    for (i in seq_along(cenv$extra)) {
-        if (exists(var, extra[[i]], inherits = FALSE) ||
-            exists(var, env, inherits = FALSE)) {
-            frame <- env
-            break
-        }
-        else
-            env <- parent.env(env)
-    }
-    if (is.null(frame)) {
-        empty <- emptyenv()
-        while (! identical(env, empty)) {
-            i <- i + 1
-            if (exists(var, env, inherits = FALSE)) {
-                frame <- env
-                break
-            }
-            else
-                env <- parent.env(env)
-        }
-    }
-    if (! is.null(frame)) {
-        if (exists(var, frame, inherits = FALSE) && var != "...") {
-            value <- new.env(parent = emptyenv())
-            delayedAssign("value", get(var, frame, inherits = FALSE),
-                          assign.env = value)
-        }
-        else
-            value <- NULL
-        list(frame = frame, ftype = cenv$ftypes[i], value = value, index = i)
+    found <- .Internal(findCenvFrame(var, cenv$env, cenv$extra))
+    if (is.null(found))
+        return(NULL)
+    frame <- found$frame
+    i <- found$index
+    if (found$bound && var != "...") {
+        value <- new.env(parent = emptyenv())
+        delayedAssign("value", get(var, frame, inherits = FALSE),
+                      assign.env = value)
     }
     else
-        NULL
+        value <- NULL
+    list(frame = frame, ftype = cenv$ftypes[i], value = value, index = i)
 }
 
 isBaseVar <- function(var, cntxt) {

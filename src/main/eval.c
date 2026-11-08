@@ -9205,6 +9205,53 @@ FILE *R_OpenCompiledFile(char *fname, char *buf, size_t bsize)
 }
 #endif
 
+/* For the compiler: find the frame that binds a variable, walking the
+   environment chain from env together with the compiler's list of the
+   variables it knows will be bound in each of the first frames (extra:
+   one hashed environment per frame). Returns NULL, or a list of the
+   frame, its 1-based position in the chain, and whether the frame
+   itself (rather than the extra list) binds the variable. One call
+   replaces a loop of exists() calls per frame in findCenvVar(). */
+attribute_hidden SEXP do_findcenvframe(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP name = CAR(args), rho = CADR(args), extra = CADDR(args);
+    if (! isString(name) || LENGTH(name) != 1)
+	error(_("invalid '%s' argument"), "name");
+    if (TYPEOF(rho) != ENVSXP)
+	error(_("invalid '%s' argument"), "env");
+    if (TYPEOF(extra) != VECSXP)
+	error(_("invalid '%s' argument"), "extra");
+
+    SEXP sym = installTrChar(STRING_ELT(name, 0));
+    int nextra = LENGTH(extra);
+    for (int i = 0; rho != R_EmptyEnv; rho = ENCLOS(rho), i++) {
+	Rboolean bound = R_existsVarInFrame(rho, sym);
+	if (! bound) {
+	    if (i >= nextra)
+		continue;
+	    SEXP ex = VECTOR_ELT(extra, i);
+	    if (TYPEOF(ex) != ENVSXP)
+		error(_("invalid '%s' argument"), "extra");
+	    if (! R_existsVarInFrame(ex, sym))
+		continue;
+	}
+
+	SEXP ans = PROTECT(allocVector(VECSXP, 3));
+	SET_VECTOR_ELT(ans, 0, rho);
+	SET_VECTOR_ELT(ans, 1, ScalarInteger(i + 1));
+	SET_VECTOR_ELT(ans, 2, ScalarLogical(bound));
+	SEXP nms = PROTECT(allocVector(STRSXP, 3));
+	SET_STRING_ELT(nms, 0, mkChar("frame"));
+	SET_STRING_ELT(nms, 1, mkChar("index"));
+	SET_STRING_ELT(nms, 2, mkChar("bound"));
+	setAttrib(ans, R_NamesSymbol, nms);
+	UNPROTECT(2);
+	return ans;
+    }
+    return R_NilValue;
+}
+
 attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, ans;
