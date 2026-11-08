@@ -1438,14 +1438,19 @@ haveInlineHandler <- function(name, package = "base") {
 
 noInlineSymbols <- c("standardGeneric")
 
+## The result also depends on the optimize level, which is fixed while
+## a function is compiled but may vary between calls with the same
+## compiler environment, so an entry records the level it was made for.
 getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
     cache <- if (guardOK) cntxt$env$cache$inlineGuarded else cntxt$env$cache$inline
-    info <- .get0(name, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
-    if (is.environment(info)) {
-        info <- getInlineInfo1(name, cntxt, guardOK)
-        .assign(name, info, cache)
+    optimize <- cntxt$optimize
+    entry <- .get0(name, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
+    if (is.environment(entry) || entry$optimize != optimize) {
+        entry <- list(optimize = optimize,
+                      info = getInlineInfo1(name, cntxt, guardOK))
+        .assign(name, entry, cache)
     }
-    info
+    entry$info
 }
 
 getInlineInfo1 <- function(name, cntxt, guardOK = FALSE) {
