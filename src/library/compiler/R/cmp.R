@@ -262,7 +262,8 @@ findLocalsList1 <- function(elist, shadowed, cntxt) {
     stack <- as.list(elist)
     n <- length(stack)
     while (n > 0) {
-        kids <- findLocals1(stack[[n]], shadowed, cntxt, vars)
+        ## as a list: indexing a call by position walks a pairlist
+        kids <- as.list(findLocals1(stack[[n]], shadowed, cntxt, vars))
         n <- n - 1
         for (i in seq_along(kids))
             if (typeof(kids[[i]]) == "language") {
