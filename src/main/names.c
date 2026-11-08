@@ -856,6 +856,7 @@ FUNTAB R_FunTab[] =
 {"load.from.file", do_loadfile, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"save.to.file", do_savefile,   0,      11,     4,      {PP_FUNCALL, PREC_FN, 0}},
 {"findCenvFrame", do_findcenvframe, 0,  11,     3,      {PP_FUNCALL, PREC_FN, 0}},
+{"isDDSym",	do_isddsym,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"growconst", do_growconst,     0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"putconst", do_putconst,       0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
 {"getconst", do_getconst,       0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},

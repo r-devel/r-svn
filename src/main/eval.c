@@ -9252,6 +9252,20 @@ attribute_hidden SEXP do_findcenvframe(SEXP call, SEXP op, SEXP args, SEXP env)
     return R_NilValue;
 }
 
+/* is.ddsym() in the compiler: ..N symbols carry the DDVAL mark from
+   mkSYMSXP, so the test is a bit check rather than a regular expression
+   match on the name. */
+attribute_hidden SEXP do_isddsym(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP x = CAR(args);
+    if (TYPEOF(x) == SYMSXP)
+	return ScalarLogical(DDVAL(x));
+    if (isString(x) && LENGTH(x) == 1)
+	return ScalarLogical(DDVAL(installTrChar(STRING_ELT(x, 0))));
+    return ScalarLogical(FALSE);
+}
+
 attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, ans;
