@@ -209,7 +209,7 @@ getAssignedVar <- function(e, cntxt) {
     v <- e[[2]]
     if (missing(v))
         cntxt$stop(gettextf("bad assignment: %s", pasteExpr(e)), cntxt)
-    else if (typeof(v) %in% c("symbol", "character"))
+    else if (typeof(v) == "symbol" || typeof(v) == "character")
         as.character(v)
     else {
         while (typeof(v) == "language") {
@@ -228,7 +228,8 @@ getAssignedVar <- function(e, cntxt) {
 addVar <- function(v, vars) .assign(v, 1, vars)
 findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
     if (typeof(e) == "language") {
-        if (typeof(e[[1]]) %in% c("symbol", "character")) {
+        ftype <- typeof(e[[1]])
+        if (ftype == "symbol" || ftype == "character") {
             v <- as.character(e[[1]])
             switch(v,
                    "=" =,
@@ -265,7 +266,7 @@ findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
 ## or an empty argument is the empty symbol.
 findLocalsList1 <- function(elist, shadowed, cntxt) {
     vars <- new.env()
-    stack <- as.list(elist)
+    stack <- .asList(elist)
     n <- length(stack)
     while (n > 0) {
         ## as a list: indexing a call by position walks a pairlist
@@ -506,7 +507,7 @@ constantFoldCall <- function(e, cntxt) {
     if (typeof(fun) == "symbol") {
         ffun <- getFoldFun(fun, cntxt)
         if (! is.null(ffun)) {
-            args <- as.list(e[-1])
+            args <- .asList(e[-1])
             for (i in seq_along(args)) {
                 a <- args[[i]]
                 if (missing(a))
@@ -1395,7 +1396,7 @@ mayCallBrowser <- function(e, cntxt) {
 }
 
 mayCallBrowserList <- function(elist, cntxt) {
-    for (a in as.list(elist))
+    for (a in .asList(elist))
         if (! missing(a) && mayCallBrowser(a, cntxt))
             return(TRUE)
     FALSE
@@ -2044,7 +2045,7 @@ isLoopTopFun <- function(fname, cntxt)
      isBaseVar(fname, cntxt))
 
 checkSkipLoopCntxtList <- function(elist, cntxt, breakOK) {
-    for (a in as.list(elist))
+    for (a in .asList(elist))
         if (! missing(a) && ! checkSkipLoopCntxt(a, cntxt, breakOK))
             return(FALSE)
     TRUE
@@ -2638,7 +2639,7 @@ simpleFormals <- function(def) {
 }
 
 simpleArgs <- function(icall, fnames) {
-    for (a in as.list(icall[-1])) {
+    for (a in .asList(icall[-1])) {
         if (missing(a))
             return(FALSE)
         else if (typeof(a) == "symbol") {
@@ -2684,7 +2685,7 @@ inlineSimpleInternalCall <- function(e, def) {
         cenv <- c(as.list(match.call(def, e, F))[-1], defaults)
         subst <- function(n)
             if (typeof(n) == "symbol") cenv[[as.character(n)]] else n
-        args <- lapply(as.list(icall[-1]), subst)
+        args <- lapply(.asList(icall[-1]), subst)
         as.call(list(quote(.Internal), as.call(c(icall[[1]], args))))
     }
     else NULL
