@@ -51,7 +51,7 @@ pasteExpr <- function(e, prefix = "\n    ") {
 ## pairlist, which makes a loop over a long call quadratic. The internal
 ## is called directly; see the note at cenvCacheMiss.
 dots.or.missing <- function(args) {
-    args <- .Internal(as.vector(args, "list"))
+    args <- .asList(args)
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
@@ -61,7 +61,7 @@ dots.or.missing <- function(args) {
 }
 
 anyDots <- function(args) {
-    args <- .Internal(as.vector(args, "list"))
+    args <- .asList(args)
     for (i in seq_along(args)) {
         a <-args[[i]]
         if (! missing(a) && identical(a, quote(`...`)))
@@ -79,7 +79,7 @@ is.ddsym <- function(name) {
 
 
 missingArgs <- function(args) {
-    args <- .Internal(as.vector(args, "list"))
+    args <- .asList(args)
     val <- logical(length(args))
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -228,7 +228,7 @@ getAssignedVar <- function(e, cntxt) {
     }
 }
 
-addVar <- function(v, vars) assign(v, 1, envir = vars)
+addVar <- function(v, vars) .assign(v, 1, vars)
 findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
     if (typeof(e) == "language") {
         if (typeof(e[[1]]) %in% c("symbol", "character")) {
@@ -272,7 +272,7 @@ findLocalsList1 <- function(elist, shadowed, cntxt) {
     n <- length(stack)
     while (n > 0) {
         ## as a list: indexing a call by position walks a pairlist
-        kids <- .Internal(as.vector(findLocals1(stack[[n]], shadowed, cntxt, vars), "list"))
+        kids <- .asList(findLocals1(stack[[n]], shadowed, cntxt, vars))
         n <- n - 1
         for (i in seq_along(kids))
             if (typeof(kids[[i]]) == "language") {
@@ -344,19 +344,32 @@ newCenvCache <- function()
 ## marks a cache miss (a cached result may be NULL)
 cenvCacheMiss <- new.env(parent = emptyenv())
 
-## The lookup caches and the argument list conversions run for every
-## symbol and call compiled, so they call the internals directly: a call
-## to the closure wrapper (get0, assign, new.env, delayedAssign,
-## as.vector) costs about a microsecond of argument matching and frame
-## setup, which came to 7% of the time to compile a package. Membership
-## tests against the fixed symbol tables use match(), which the compiler
+## Variants of the environment accessors and of as.vector() for use in
+## this file. The lookup caches and the argument list conversions run
+## for every symbol and call compiled, and a call to the closure wrapper
+## (get0, assign, new.env, delayedAssign, as.vector) costs about a
+## microsecond of argument matching and frame setup, which came to 7% of
+## the time to compile a package. The base functions cannot be inlined
+## because some of their defaults are calls; these take the environment
+## as a required argument and are registered with cmpSimpleInternal
+## below, so a call compiles to the internal directly. Membership tests
+## against the fixed symbol tables use match(), which the compiler
 ## inlines, rather than %in%, which is two closure calls.
+.get0 <- function(x, envir, mode = "any", inherits = TRUE, ifnotfound = NULL)
+    .Internal(get0(x, envir, mode, inherits, ifnotfound))
+.assign <- function(x, value, envir, inherits = FALSE)
+    .Internal(assign(x, value, envir, inherits))
+.newEnv <- function(parent, hash = TRUE, size = 29L)
+    .Internal(new.env(hash, parent, size))
+.delayedAssign <- function(x, expr, eval.env, assign.env)
+    .Internal(delayedAssign(x, expr, eval.env, assign.env))
+.asList <- function(x) .Internal(as.vector(x, "list"))
 
 ## Add vars to the top compiler environment frame
 addCenvVars <- function(cenv, vars) {
     frame <- cenv$extra[[1]]
     for (v in vars)
-        .Internal(assign(v, TRUE, frame, FALSE))
+        .assign(v, TRUE, frame)
     cenv$cache <- newCenvCache()
     cenv
 }
@@ -385,10 +398,10 @@ findCenvVar <- function(var, cenv) {
     if (typeof(var) == "symbol")
         var <- as.character(var)
     cache <- cenv$cache$var
-    info <- .Internal(get0(var, cache, "any", FALSE, cenvCacheMiss))
+    info <- .get0(var, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
     if (is.environment(info)) {
         info <- findCenvVar1(var, cenv)
-        .Internal(assign(var, info, cache, FALSE))
+        .assign(var, info, cache)
     }
     info
 }
@@ -403,10 +416,9 @@ findCenvVar1 <- function(var, cenv) {
     frame <- found$frame
     i <- found$index
     if (found$bound && var != "...") {
-        value <- .Internal(new.env(FALSE, emptyenv(), 29L))
-        .Internal(delayedAssign("value",
-                                quote(get(var, frame, inherits = FALSE)),
-                                environment(), value))
+        value <- .newEnv(emptyenv(), hash = FALSE)
+        .delayedAssign("value", quote(get(var, frame, inherits = FALSE)),
+                       environment(), value)
     }
     else
         value <- NULL
@@ -475,7 +487,7 @@ checkConst <- function(e) {
 constantFoldSym <- function(var, cntxt) {
     var <- as.character(var)
     if ((match(var, constNames, 0L) > 0L) && isBaseVar(var, cntxt))
-        checkConst(get(var, .BaseNamespaceEnv))
+        checkConst(.get0(var, .BaseNamespaceEnv, inherits = FALSE))
     else NULL
 }
 
@@ -483,7 +495,7 @@ constantFoldSym <- function(var, cntxt) {
 getFoldFun <- function(var, cntxt) {
     var <- as.character(var)
     if ((match(var, foldFuns, 0L) > 0L) && isBaseVar(var, cntxt)) {
-        val <- get(var, .BaseNamespaceEnv)
+        val <- .get0(var, .BaseNamespaceEnv, inherits = FALSE)
         if (is.function(val))
             val
         else
@@ -1024,10 +1036,10 @@ make.codeBuf <- function(expr, loc = NULL) {
     idx <- 0
     labels <- new.env(hash = TRUE, parent = emptyenv())
     makelabel <- function() { idx <<- idx + 1; paste0("L", idx) }
-    putlabel <- function(name) assign(name, codeCount, envir = labels)
+    putlabel <- function(name) .assign(name, codeCount, labels)
     patchlabels <- function(cntxt) {
         offset <- function(lbl) {
-            off <- get0(lbl, envir = labels, inherits = FALSE)
+            off <- .get0(lbl, labels, inherits = FALSE)
             if (is.null(off))
                 cntxt$stop(gettextf("no offset recorded for label \"%s\"", lbl),
                            cntxt)
@@ -1283,7 +1295,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
 }
 
 cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
-    args <- .Internal(as.vector(args, "list"))
+    args <- .asList(args)
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1411,21 +1423,15 @@ setInlineHandler <- function(name, h, package = "base") {
 }
 
 getInlineHandler <- function(name, package = "base") {
-    if (exists(name, inlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, inlineHandlers)
-        if (hinfo$package == package)
-            hinfo$handler
-        else NULL
-    }
+    hinfo <- .get0(name, inlineHandlers, inherits = FALSE)
+    if (! is.null(hinfo) && hinfo$package == package)
+        hinfo$handler
     else NULL
 }
 
 haveInlineHandler <- function(name, package = "base") {
-    if (exists(name, inlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, inlineHandlers)
-        package == hinfo$package
-    }
-    else FALSE
+    hinfo <- .get0(name, inlineHandlers, inherits = FALSE)
+    ! is.null(hinfo) && package == hinfo$package
 }
 
 ## tryInline implements the rule permitting inlining as they stand now:
@@ -1436,10 +1442,10 @@ noInlineSymbols <- c("standardGeneric")
 
 getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
     cache <- if (guardOK) cntxt$env$cache$inlineGuarded else cntxt$env$cache$inline
-    info <- .Internal(get0(name, cache, "any", FALSE, cenvCacheMiss))
+    info <- .get0(name, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
     if (is.environment(info)) {
         info <- getInlineInfo1(name, cntxt, guardOK)
-        .Internal(assign(name, info, cache, FALSE))
+        .assign(name, info, cache)
     }
     info
 }
@@ -1537,7 +1543,7 @@ setInlineHandler("{", function(e, cb, cntxt) {
     else {
         sloc <- cb$savecurloc()
         bsrefs <- attr(e, "srcref")
-        exprs <- .Internal(as.vector(e, "list"))
+        exprs <- .asList(e)
         if (n > 2) {
             ncntxt <- make.noValueContext(cntxt)
             for (i in 2 : (n - 1)) {
@@ -1658,12 +1664,9 @@ setSetterInlineHandler <- function(name, h, package = "base") {
 }
 
 getSetterInlineHandler <- function(name, package = "base") {
-    if (exists(name, setterInlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, setterInlineHandlers)
-        if (hinfo$package == package)
-            hinfo$handler
-        else NULL
-    }
+    hinfo <- .get0(name, setterInlineHandlers, inherits = FALSE)
+    if (! is.null(hinfo) && hinfo$package == package)
+        hinfo$handler
     else NULL
 }
 
@@ -2404,7 +2407,7 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
 }
 
 cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
-    args <- .Internal(as.vector(args, "list"))
+    args <- .asList(args)
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -2726,6 +2729,10 @@ safeStatsInternals <- c("dbinom", "dcauchy", "dgeom", "dhyper", "dlnorm",
 
 for (i in safeStatsInternals) setInlineHandler(i,  cmpSimpleInternal, "stats")
 
+## the compiler's own accessor variants (see .get0)
+for (i in c(".get0", ".assign", ".newEnv", ".delayedAssign", ".asList"))
+    setInlineHandler(i, cmpSimpleInternal, "compiler")
+
 
 ##
 ## Inline handler for switch
@@ -2747,7 +2754,7 @@ setInlineHandler("switch", function(e, cb, cntxt) {
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
         expr <- e[[2]]
-        cases <- .Internal(as.vector(e[-c(1, 2)], "list"))
+        cases <- .asList(e[-c(1, 2)])
 
         if (length(cases) == 0)
             notifyNoSwitchcases(cntxt, loc = cb$savecurloc())
