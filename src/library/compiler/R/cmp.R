@@ -468,7 +468,10 @@ constantFoldCall <- function(e, cntxt) {
                 val <- constantFold(a, cntxt)
                 if (! is.null(val))
                     args[i] <- list(val$value) ## **** in case value is NULL
-                else return(NULL)
+                else {
+                    pushFoldFailure(e, cntxt)
+                    return(NULL)
+                }
             }
             modes <- unlist(lapply(args, mode))
             if (all(modes %in% constModes)) {
@@ -497,6 +500,28 @@ constantFold <- function(e, cntxt, loc = NULL) {
         cntxt$stop(gettext("cannot constant fold literal bytecode objects"),
                    cntxt, loc = loc)
     else checkConst(e)
+}
+
+## Folding a call walks its arguments and gives up at the first one that
+## does not fold. Compiling the call then compiles that argument, which
+## folds it again, so a left-nested chain such as x1 + x2 + ... + xn costs
+## time quadratic in n. To fold each node once, calls that fail to fold
+## are pushed on a per-function stack as the failure unwinds (deepest
+## first), and cmp() pops a call it finds on top instead of folding it.
+pushFoldFailure <- function(e, cntxt) {
+    fs <- cntxt$foldState
+    fs$failed[[length(fs$failed) + 1L]] <- e
+}
+
+## TRUE, and pop, if e is the call on top of the stack
+popFoldFailure <- function(e, cntxt) {
+    fs <- cntxt$foldState
+    n <- length(fs$failed)
+    if (n > 0L && identical(fs$failed[[n]], e)) {
+        fs$failed[[n]] <- NULL
+        TRUE
+    }
+    else FALSE
 }
 
 foldFuns <- c("+", "-", "*", "/", "^", "(",
@@ -1006,6 +1031,7 @@ make.toplevelContext <- function(cenv, options = NULL)
                    suppressUndefined = getCompilerOption("suppressUndefined",
                                                          options),
                    call = NULL,
+                   foldState = new.env(parent = emptyenv()),
                    stop = function(msg, cntxt, loc = NULL)
                        stop(simpleError(addLocString(msg, loc), cntxt$call)),
                    warn = function(x, cntxt, loc = NULL)
@@ -1071,7 +1097,13 @@ cmp <- function(e, cb, cntxt, missingOK = FALSE, setloc = TRUE) {
         sloc <- cb$savecurloc()
         cb$setcurexpr(e)
     }
-    ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+    if (popFoldFailure(e, cntxt))
+        ce <- NULL
+    else {
+        ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+        if (is.null(ce))
+            popFoldFailure(e, cntxt) ## drop the entry for e itself
+    }
     if (is.null(ce)) {
         if (typeof(e) == "language")
             cmpCall(e, cb, cntxt)
