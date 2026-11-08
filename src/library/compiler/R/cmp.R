@@ -324,23 +324,32 @@ findLocalsList <- function(elist, cntxt) {
 ## The variables the compiler knows will be bound in a frame (formals and
 ## assigned locals) are kept in hashed environments, one per frame, so
 ## that looking one up does not scan a vector of all locals. Lookup
-## results are cached per compiler environment; the cache is replaced
-## whenever a frame is added or extended, since results may change.
+## results (findCenvVar, and getInlineInfo with and without a guard) are
+## cached per compiler environment; the caches are replaced whenever a
+## frame is added or extended, since results may change.
 makeCenv <- function(env) {
     list(extra = list(newExtraFrame()),
          env = env,
          ftypes = frameTypes(env),
-         cache = new.env(parent = emptyenv()))
+         cache = newCenvCache())
 }
 
 newExtraFrame <- function() new.env(hash = TRUE, parent = emptyenv())
+
+newCenvCache <- function()
+    list(var = new.env(hash = TRUE, parent = emptyenv()),
+         inline = new.env(hash = TRUE, parent = emptyenv()),
+         inlineGuarded = new.env(hash = TRUE, parent = emptyenv()))
+
+## marks a cache miss (a cached result may be NULL)
+cenvCacheMiss <- new.env(parent = emptyenv())
 
 ## Add vars to the top compiler environment frame
 addCenvVars <- function(cenv, vars) {
     frame <- cenv$extra[[1]]
     for (v in vars)
         assign(v, TRUE, envir = frame)
-    cenv$cache <- new.env(parent = emptyenv())
+    cenv$cache <- newCenvCache()
     cenv
 }
 
@@ -349,7 +358,7 @@ addCenvFrame <- function(cenv, vars) {
     cenv$extra <- c(list(newExtraFrame()), cenv$extra)
     cenv$env <- new.env(parent = cenv$env)
     cenv$ftypes <- c("local", cenv$ftypes)
-    cenv$cache <- new.env(parent = emptyenv())
+    cenv$cache <- newCenvCache()
     if (missing(vars))
         cenv
     else
@@ -367,11 +376,13 @@ addCenvFrame <- function(cenv, vars) {
 findCenvVar <- function(var, cenv) {
     if (typeof(var) == "symbol")
         var <- as.character(var)
-    cache <- cenv$cache
-    if (exists(var, cache, inherits = FALSE))
-        return(get(var, cache, inherits = FALSE))
-    info <- findCenvVar1(var, cenv)
-    assign(var, info, envir = cache)
+    cache <- cenv$cache$var
+    info <- get0(var, envir = cache, inherits = FALSE,
+                 ifnotfound = cenvCacheMiss)
+    if (is.environment(info)) {
+        info <- findCenvVar1(var, cenv)
+        assign(var, info, envir = cache)
+    }
     info
 }
 
@@ -1416,6 +1427,17 @@ haveInlineHandler <- function(name, package = "base") {
 noInlineSymbols <- c("standardGeneric")
 
 getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
+    cache <- if (guardOK) cntxt$env$cache$inlineGuarded else cntxt$env$cache$inline
+    info <- get0(name, envir = cache, inherits = FALSE,
+                 ifnotfound = cenvCacheMiss)
+    if (is.environment(info)) {
+        info <- getInlineInfo1(name, cntxt, guardOK)
+        assign(name, info, envir = cache)
+    }
+    info
+}
+
+getInlineInfo1 <- function(name, cntxt, guardOK = FALSE) {
     optimize <- cntxt$optimize
     if (optimize > 0 && ! (name %in% noInlineSymbols)) {
         info <- findCenvVar(name, cntxt$env)
