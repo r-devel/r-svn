@@ -3,19 +3,35 @@
 ## operators and a switch() with many alternatives each took time
 ## quadratic in their size (constant folding redone at every nesting
 ## level, a linear scan of the constant pool per instruction, positional
-## indexing of pairlists). Compare the time for 4n with the time for n:
-## linear growth gives a ratio near 4, quadratic growth near 16. Very
-## short times are floored so that the check is robust on fast machines.
+## indexing of pairlists). Compare the time for 4n with the time for n,
+## both the smallest of three measurements over the same number of
+## repetitions, chosen so that the n measurement takes at least 0.2 s:
+## linear growth gives a ratio near 4, quadratic growth near 16. The
+## bound of 8 catches a restored quadratic path with room for noise on a
+## busy machine; the chain is kept short because the depth of the
+## compiler's recursion on it has a cost of its own.
 library(compiler)
 opts <- list(suppressAll = TRUE)
 
-tm <- function(expr) {
+timeReps <- function(f, x, k) {
     gc()
-    system.time(expr)[["elapsed"]]
+    system.time(for (i in seq_len(k)) f(x))[["elapsed"]]
 }
-check <- function(what, t1, t4) {
-    cat(sprintf("%-12s n: %6.2f s   4n: %6.2f s\n", what, t1, t4))
-    stopifnot(t4 < 8 * max(t1, 0.1))
+minTime <- function(f, x, k)
+    min(timeReps(f, x, k), timeReps(f, x, k), timeReps(f, x, k))
+check <- function(what, f, x1, x4) {
+    k <- 1L
+    repeat {
+        t1 <- timeReps(f, x1, k)
+        if (t1 >= 0.2)
+            break
+        k <- 2L * k
+    }
+    t1 <- min(t1, minTime(f, x1, k))
+    t4 <- minTime(f, x4, k)
+    cat(sprintf("%-12s n: %6.2f s   4n: %6.2f s   (%d repetitions)\n",
+                what, t1, t4, k))
+    stopifnot(t4 < 8 * t1)
 }
 
 mkflat <- function(n) {
@@ -38,17 +54,13 @@ mkswitch <- function(n) {
                keep.source = FALSE)[[1]])
 }
 
-f1 <- mkflat(1000); f4 <- mkflat(4000)
-check("statements", tm(cmpfun(f1, opts)), tm(cmpfun(f4, opts)))
+cmpClosure <- function(f) cmpfun(f, opts)
+cmpExpr <- function(x) compile(x, new.env(), opts)
 
-c1 <- mkchain(100); c4 <- mkchain(400)
-check("chain", tm(compile(c1, new.env(), opts)),
-      tm(compile(c4, new.env(), opts)))
+check("statements", cmpClosure, mkflat(1000), mkflat(4000))
+check("chain", cmpExpr, mkchain(25), mkchain(100))
+check("arguments", cmpExpr, mkcall(2000), mkcall(8000))
+check("switch", cmpClosure, mkswitch(1000), mkswitch(4000))
 
-a1 <- mkcall(2000); a4 <- mkcall(8000)
-check("arguments", tm(compile(a1, new.env(), opts)),
-      tm(compile(a4, new.env(), opts)))
-
-s1 <- mkswitch(1000); s4 <- mkswitch(4000)
-check("switch", tm(cmpfun(s1, opts)), tm(sw <- cmpfun(s4, opts)))
+sw <- cmpfun(mkswitch(4000), opts)
 stopifnot(sw("k2000") == 2000, sw("k4000") == 4000, sw("zz") == 0)
