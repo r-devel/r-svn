@@ -14,6 +14,12 @@ cmpfunC <- function(f, options = NULL) .Internal(bcCmpfun(f, options))
 compileC <- function(e, env = .GlobalEnv, options = NULL, srcref = NULL)
     .Internal(bcCompile(e, env, options, srcref))
 
+## setting up the C compiler's handler table on its first use must not
+## force the lazily loaded bindings of base
+invisible(cmpfunC(function(x) x))
+stopifnot(identical(.Internal(getBindingType(as.name(".TAOCP1997init"),
+                                             baseenv())), "delayed"))
+
 ## compare two byte code objects, descending into nested ones
 bcEqual <- function(a, b) {
     if (typeof(a) == "bytecode" && typeof(b) == "bytecode") {

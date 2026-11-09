@@ -414,14 +414,15 @@ static void bc_init(void)
     set_handler("is.object", H_IS, PKG_BASE, ISOBJECT_OP);
     set_handler("is.symbol", H_IS, PKG_BASE, ISSYMBOL_OP);
 
-    /* default handlers for the BUILTINs and SPECIALs of base */
+    /* default handlers for the BUILTINs and SPECIALs of base; the
+       primitives are bound directly when R starts, so a lazy-load
+       promise is never one of them and is left unforced (forcing them
+       all would load every R-level object of base here) */
     {
 	SEXP names = PROTECT(R_lsInternal3(R_BaseEnv, TRUE, FALSE));
 	for (R_xlen_t i = 0; i < XLENGTH(names); i++) {
 	    SEXP sym = Rf_installTrChar(STRING_ELT(names, i));
 	    SEXP val = Rf_findVarInFrame3(R_BaseEnv, sym, TRUE);
-	    if (TYPEOF(val) == PROMSXP)
-		val = Rf_eval(val, R_BaseEnv);
 	    int h = TYPEOF(val) == SPECIALSXP ? H_SPECIAL :
 		TYPEOF(val) == BUILTINSXP ? H_BUILTIN : H_NONE;
 	    if (h != H_NONE) {
