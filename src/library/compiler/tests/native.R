@@ -141,3 +141,36 @@ for (nm in ls(env)) {
             stop("different code for ", nm, " with options ",
                  deparse(opt, nlines = 1))
 }
+
+## a deeply nested expression leaves both compilers with an error
+## (the C compiler checks the stack in its recursive scans)
+e <- quote(x)
+for (i in 1:100000) e <- call("identity", e)
+deep <- function(x) NULL
+body(deep) <- e
+stopifnot(inherits(tryCatch(cmpfun(deep), error = function(e) e), "error"),
+          inherits(tryCatch(cmpfunC(deep), error = function(e) e), "error"))
+
+## constant folding dispatches S3 methods visible from the global
+## environment, as the R compiler's do.call() does
+Ops.foo <- function(e1, e2) 99
+s3fold <- function() NULL
+body(s3fold) <- call("+", structure(1, class = "foo"), 2)
+stopifnot(checkFun(s3fold), cmpfunC(s3fold)() == 99)
+rm(Ops.foo)
+
+## partial argument matching in an inlined .Internal call honors
+## warnPartialMatchArgs as match.call() does: a warning, or with
+## warn = 2 an error that leaves the call uninlined
+pm <- function(x) nchar(x, t = "bytes")
+op <- options(warnPartialMatchArgs = TRUE, warn = 2)
+stopifnot(checkFun(pm))
+options(warn = 0)
+stopifnot(suppressWarnings(checkFun(pm)))
+options(op)
+
+## an ALTREP constant is hashed without being expanded (the R compiler
+## expands it in c(forms, body), so only the small one is compared)
+stopifnot(checkFun(as.function(list(1:1000000))))
+big <- as.function(list(1:1000000000))
+stopifnot(system.time(cmpfunC(big))[["elapsed"]] < 5)

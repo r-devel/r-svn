@@ -53,6 +53,9 @@
    through .Internal() calls below, and messages are not translated */
 # undef _
 # define _(String) (String)
+/* the inlined COMPLEX_ELT() calls a hidden ALTREP accessor */
+# undef COMPLEX_ELT
+# define COMPLEX_ELT(x, i) (COMPLEX(x)[i])
 #endif
 
 /* opcodes; the values must match the enum in eval.c */
@@ -1320,28 +1323,28 @@ static unsigned const_hash(SEXP x, int depth)
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
 	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
-	    h = hash_mix(h, (unsigned) LOGICAL(x)[i]);
+	    h = hash_mix(h, (unsigned) LOGICAL_ELT(x, i));
 	break;
     }
     case INTSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
 	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
-	    h = hash_mix(h, (unsigned) INTEGER(x)[i]);
+	    h = hash_mix(h, (unsigned) INTEGER_ELT(x, i));
 	break;
     }
     case REALSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
 	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
-	    h = hash_mix(h, hash_double(REAL(x)[i]));
+	    h = hash_mix(h, hash_double(REAL_ELT(x, i)));
 	break;
     }
     case CPLXSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
 	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++) {
-	    Rcomplex z = COMPLEX(x)[i];
+	    Rcomplex z = COMPLEX_ELT(x, i);
 	    h = hash_mix(h, hash_double(z.r));
 	    h = hash_mix(h, hash_double(z.i));
 	}
@@ -1358,7 +1361,7 @@ static unsigned const_hash(SEXP x, int depth)
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
 	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
-	    h = hash_mix(h, RAW(x)[i]);
+	    h = hash_mix(h, RAW_ELT(x, i));
 	break;
     }
     case VECSXP:
@@ -1794,10 +1797,13 @@ typedef struct {
     int failed;
 } FoldData;
 
+/* The R compiler evaluates the folded call in a frame of the compiler
+   namespace, from which S3 methods in the global environment and on
+   the search path are visible; the base namespace sees the same. */
 static SEXP fold_body(void *data)
 {
     FoldData *fd = (FoldData *) data;
-    return Rf_eval(fd->call, R_BaseEnv);
+    return Rf_eval(fd->call, R_BaseNamespace);
 }
 
 static SEXP fold_handler(SEXP cond, void *data)
@@ -1812,6 +1818,7 @@ static int constant_fold(SEXP e, Cntxt *cntxt, SEXP *value);
 /* constantFoldCall */
 static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
 {
+    R_CheckStack();
     SEXP fun = CAR(e);
     if (TYPEOF(fun) != SYMSXP)
 	return FALSE;
@@ -2143,6 +2150,7 @@ static int may_call_browser(SEXP e, Cntxt *cntxt)
 {
     if (TYPEOF(e) != LANGSXP)
 	return FALSE;
+    R_CheckStack();
     SEXP fun = CAR(e);
     if (TYPEOF(fun) == SYMSXP) {
 	if (fun == s_browser)
@@ -2171,6 +2179,7 @@ static int check_skip_loop_cntxt(SEXP e, Cntxt *cntxt, int breakOK)
 {
     if (TYPEOF(e) != LANGSXP)
 	return TRUE;
+    R_CheckStack();
     SEXP fun = CAR(e);
     if (TYPEOF(fun) == SYMSXP) {
 	unsigned flags = sym_flags(fun);
@@ -3347,6 +3356,12 @@ static SEXP simple_internal_call(SEXP def, Cntxt *cntxt)
    formal's supplied argument or NULL. */
 static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 {
+    /* match.call() warns about partial matches when the option
+       warnPartialMatchArgs is set; with warn >= 2 the warning is an
+       error, which checkCall() turns into not inlining the call */
+    int warnPartial = Rf_asLogical(Rf_GetOption1(Rf_install("warnPartialMatchArgs"))) == TRUE;
+    int warnLevel = warnPartial ? Rf_asInteger(Rf_GetOption1(Rf_install("warn"))) : 0;
+
     int nf = lang_length(forms);
     int ns = lang_length(CDR(call));
     SEXP *supplied = (SEXP *) R_alloc(ns > 0 ? ns : 1, sizeof(SEXP));
@@ -3396,6 +3411,20 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 		    return FALSE; /* matches multiple formal arguments */
 		if (fused[fi] == 1)
 		    return FALSE; /* matched by multiple actual arguments */
+		if (warnPartial) {
+		    if (warnLevel >= 2)
+			return FALSE;
+#ifdef BCCOMPILE_STANDALONE
+		    Rf_warningcall(call,
+				   _("partial argument match of '%s' to '%s'"),
+				   tag, fname);
+#else
+		    SEXP cond = PROTECT(R_makePartialArgumentMatchWarningCondition(
+					    call, stags[si], ftags[fi]));
+		    R_signalWarningCondition(cond);
+		    UNPROTECT(1);
+#endif
+		}
 		sused[si] = 1;
 		fused[fi] = 1;
 		matched[fi] = supplied[si];
