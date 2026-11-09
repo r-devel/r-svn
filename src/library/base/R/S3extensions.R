@@ -24,3 +24,9 @@ chooseOpsMethod <- function(x, y, mx, my, cl, reverse)
     UseMethod("chooseOpsMethod")
 
 chooseOpsMethod.default <- function(x, y, mx, my, cl, reverse) FALSE
+
+as.iterable <- function(x) UseMethod("as.iterable")
+
+as.iterable.factor <- function(x) as.character(x)
+
+as.iterable.default <- function(x) x
