@@ -98,6 +98,10 @@ substr("abcdef", 2, 4)
 substring("abcdef", 1:6, 1:6)
 ## strsplit() is more efficient ...
 
+## Extraction behavior from zero-length strings and empty strings
+substr(character(0), 1, 2)        # returns character(0)
+substring(c("abc", ""), 2)        # returns "bc" and ""
+
 substr(rep("abcdef", 4), 1:4, 4:5)
 x <- c("asfef", "qwerty", "yuiop[", "b", "stuff.blah.yech")
 substr(x, 2, 5)
