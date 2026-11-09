@@ -53,6 +53,7 @@ HEADERS = \
 	RBufferUtils.h Rcomplex.h Rstrptime.h \
 	arithmetic.h \
 	basedecl.h \
+	bcopcodes.h \
 	contour-common.h \
 	datetime.h \
 	duplicate.h \

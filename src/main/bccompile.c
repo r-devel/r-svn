@@ -67,50 +67,7 @@
 # define RAW_ELT(x, i) (RAW(x)[i])
 #endif
 
-/* opcodes; the values must match the enum in eval.c */
-enum {
-    BCMISMATCH_OP, RETURN_OP, GOTO_OP, BRIFNOT_OP, POP_OP, DUP_OP,
-    PRINTVALUE_OP, STARTLOOPCNTXT_OP, ENDLOOPCNTXT_OP, DOLOOPNEXT_OP,
-    DOLOOPBREAK_OP, STARTFOR_OP, STEPFOR_OP, ENDFOR_OP, SETLOOPVAL_OP,
-    INVISIBLE_OP, LDCONST_OP, LDNULL_OP, LDTRUE_OP, LDFALSE_OP, GETVAR_OP,
-    DDVAL_OP, SETVAR_OP, GETFUN_OP, GETGLOBFUN_OP, GETSYMFUN_OP,
-    GETBUILTIN_OP, GETINTLBUILTIN_OP, CHECKFUN_OP, MAKEPROM_OP,
-    DOMISSING_OP, SETTAG_OP, DODOTS_OP, PUSHARG_OP, PUSHCONSTARG_OP,
-    PUSHNULLARG_OP, PUSHTRUEARG_OP, PUSHFALSEARG_OP, CALL_OP,
-    CALLBUILTIN_OP, CALLSPECIAL_OP, MAKECLOSURE_OP, UMINUS_OP, UPLUS_OP,
-    ADD_OP, SUB_OP, MUL_OP, DIV_OP, EXPT_OP, SQRT_OP, EXP_OP, EQ_OP, NE_OP,
-    LT_OP, LE_OP, GE_OP, GT_OP, AND_OP, OR_OP, NOT_OP, DOTSERR_OP,
-    STARTASSIGN_OP, ENDASSIGN_OP, STARTSUBSET_OP, DFLTSUBSET_OP,
-    STARTSUBASSIGN_OP, DFLTSUBASSIGN_OP, STARTC_OP, DFLTC_OP,
-    STARTSUBSET2_OP, DFLTSUBSET2_OP, STARTSUBASSIGN2_OP, DFLTSUBASSIGN2_OP,
-    DOLLAR_OP, DOLLARGETS_OP, ISNULL_OP, ISLOGICAL_OP, ISINTEGER_OP,
-    ISDOUBLE_OP, ISCOMPLEX_OP, ISCHARACTER_OP, ISSYMBOL_OP, ISOBJECT_OP,
-    ISNUMERIC_OP, VECSUBSET_OP, MATSUBSET_OP, VECSUBASSIGN_OP,
-    MATSUBASSIGN_OP, AND1ST_OP, AND2ND_OP, OR1ST_OP, OR2ND_OP,
-    GETVAR_MISSOK_OP, DDVAL_MISSOK_OP, VISIBLE_OP, SETVAR2_OP,
-    STARTASSIGN2_OP, ENDASSIGN2_OP, SETTER_CALL_OP, GETTER_CALL_OP, SWAP_OP,
-    DUP2ND_OP, SWITCH_OP, RETURNJMP_OP, STARTSUBSET_N_OP,
-    STARTSUBASSIGN_N_OP, VECSUBSET2_OP, MATSUBSET2_OP, VECSUBASSIGN2_OP,
-    MATSUBASSIGN2_OP, STARTSUBSET2_N_OP, STARTSUBASSIGN2_N_OP, SUBSET_N_OP,
-    SUBSET2_N_OP, SUBASSIGN_N_OP, SUBASSIGN2_N_OP, LOG_OP, LOGBASE_OP,
-    MATH1_OP, DOTCALL_OP, COLON_OP, SEQALONG_OP, SEQLEN_OP, BASEGUARD_OP,
-    INCLNK_OP, DECLNK_OP, DECLNK_N_OP, INCLNKSTK_OP, DECLNKSTK_OP,
-    BC_OPCOUNT
-};
-
-/* inline handlers (setInlineHandler) */
-enum {
-    H_NONE = 0, H_FUNCTION, H_BRACE, H_IF, H_AND, H_OR, H_ASSIGN, H_BREAK,
-    H_NEXT, H_REPEAT, H_WHILE, H_FOR, H_PLUS, H_MINUS, H_PRIM2, H_PRIM1,
-    H_LOG, H_MATH1, H_PAREN, H_BUILTIN, H_SPECIAL, H_DOTINTERNAL, H_DOLLAR,
-    H_LOCAL, H_RETURN, H_IS, H_SIMPLEINTERNAL, H_SWITCH, H_DOTCALL,
-    H_MULTICOLON, H_SUPPRESSUNDEF, H_SUBSET, H_SUBSET2
-};
-
-/* setter (setSetterInlineHandler) and getter (setGetterInlineHandler)
-   handlers */
-enum { S_NONE = 0, S_DOLLAR, S_AT, S_SUBASSIGN, S_SUBASSIGN2 };
-enum { G_NONE = 0, G_DOLLAR, G_SUBSET, G_SUBSET2 };
+#include "bcopcodes.h"
 
 /* handler packages */
 enum { PKG_NONE = 0, PKG_BASE, PKG_STATS };
@@ -128,11 +85,27 @@ enum { PKG_NONE = 0, PKG_BASE, PKG_STATS };
 #define SI_SPECIALSYNTAX 0x0200	/* ~, <-, =, for, function */
 #define SI_NSE		0x0400	/* maybeNSESymbols: bquote */
 
+typedef struct CodeBuf CodeBuf;
+typedef struct Cntxt Cntxt;
+
+/* An inline handler compiles the call e and returns TRUE, or returns
+   FALSE to have it compiled as an ordinary call; op is the handler's
+   word in the table (an opcode, or the index of a math1 function). A
+   setter handler compiles the `fun<-`(*tmp*, ..., value) call of a
+   complex assignment, a getter handler the fun(*tmp*, ...) call. */
+typedef int (*InlineHandler)(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op);
+typedef int (*SetterHandler)(SEXP place, SEXP origplace, SEXP call,
+			     CodeBuf *cb, Cntxt *cntxt);
+typedef int (*GetterHandler)(SEXP call, CodeBuf *cb, Cntxt *cntxt);
+
 typedef struct {
     SEXP sym;
     unsigned flags;
-    unsigned char handler, handlerPkg, setter, getter;
-    signed char op;	    /* opcode for H_PRIM1/H_PRIM2/H_IS, index for H_MATH1 */
+    InlineHandler handler;	/* NULL when there is none */
+    int handlerPkg;
+    int op;
+    SetterHandler setter;
+    GetterHandler getter;
     signed char builtinInternal; /* -1 unknown, 0 no, 1 yes */
 } SymInfo;
 
@@ -200,14 +173,6 @@ static void set_flags(const char *name, unsigned flags)
     si->flags |= flags;
 }
 
-static void set_handler(const char *name, int handler, int pkg, int op)
-{
-    SymInfo *si = symtab_lookup(Rf_install(name), TRUE);
-    si->handler = (unsigned char) handler;
-    si->handlerPkg = (unsigned char) pkg;
-    si->op = (signed char) op;
-}
-
 /* symbols */
 static SEXP s_dotInternal, s_break, s_next, s_tmp, s_vtmp, s_value,
     s_NAMESPACE, s_imports, s_exports, s_spec, s_stop, s_local, s_bquote,
@@ -221,252 +186,6 @@ static int bc_version = 0;
 static int bc_initialized = FALSE;
 
 
-static const char *math1funs[] = {
-    "floor", "ceiling", "sign", "expm1", "log1p",
-    "cos", "sin", "tan", "acos", "asin", "atan",
-    "cosh", "sinh", "tanh", "acosh", "asinh", "atanh",
-    "lgamma", "gamma", "digamma", "trigamma",
-    "cospi", "sinpi", "tanpi", NULL
-};
-
-static const char *foldFuns[] = {
-    "+", "-", "*", "/", "^", "(",
-    ">", ">=", "==", "!=", "<", "<=", "||", "&&", "!",
-    "|", "&", "%%",
-    "c", "rep", ":",
-    "abs", "acos", "acosh", "asin", "asinh", "atan", "atan2",
-    "atanh", "ceiling", "choose", "cos", "cosh", "exp", "expm1",
-    "floor", "gamma", "lbeta", "lchoose", "lgamma", "log", "log10",
-    "log1p", "log2", "max", "min", "prod", "range", "round",
-    "seq_along", "seq.int", "seq_len", "sign", "signif",
-    "sin", "sinh", "sqrt", "sum", "tan", "tanh", "trunc",
-    "baseenv", "emptyenv", "globalenv",
-    "Arg", "Conj", "Im", "Mod", "Re", NULL
-};
-
-static const char *languageFuns[] = {
-    "^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
-    "|", "||", "-", ":", "!", "!=", "/", "(", "[", "[<-", "[[",
-    "[[<-", "{", "@", "$", "$<-", "*", "&", "&&", "%/%", "%*%",
-    "%%", "+",
-    "::", ":::", "@<-",
-    "break", "for", "function", "if", "next", "repeat", "while",
-    "local", "return", "switch", NULL
-};
-
-static const char *safeBaseInternals[] = {
-    "atan2", "besselY", "beta", "choose",
-    "drop", "inherits", "is.vector", "lbeta", "lchoose",
-    "nchar", "polyroot", "typeof", "vector", "which.max",
-    "which.min", "is.loaded", "identical",
-    "match", "rep.int", "rep_len", NULL
-};
-
-static const char *safeStatsInternals[] = {
-    "dbinom", "dcauchy", "dgeom", "dhyper", "dlnorm",
-    "dlogis", "dnorm", "dpois", "dunif", "dweibull",
-    "fft", "mvfft", "pbinom", "pcauchy",
-    "pgeom", "phyper", "plnorm", "plogis", "pnorm",
-    "ppois", "punif", "pweibull", "qbinom", "qcauchy",
-    "qgeom", "qhyper", "qlnorm", "qlogis", "qnorm",
-    "qpois", "qunif", "qweibull", "rbinom", "rcauchy",
-    "rgeom", "rhyper", "rlnorm", "rlogis", "rnorm",
-    "rpois", "rsignrank",  "runif", "rweibull",
-    "rwilcox", "ptukey", "qtukey", NULL
-};
-
-static void set_setter(const char *name, int setter)
-{
-    SymInfo *si = symtab_lookup(Rf_install(name), TRUE);
-    si->setter = (unsigned char) setter;
-}
-
-static void set_getter(const char *name, int getter)
-{
-    SymInfo *si = symtab_lookup(Rf_install(name), TRUE);
-    si->getter = (unsigned char) getter;
-}
-
-static SEXP eval_internal(SEXP call);
-
-static void bc_init(void)
-{
-    if (bc_initialized)
-	return;
-    bc_initialized = TRUE;
-
-    s_dotInternal = Rf_install(".Internal");
-    s_break = Rf_install("break");
-    s_next = Rf_install("next");
-    s_tmp = Rf_install("*tmp*");
-    s_vtmp = Rf_install("*vtmp*");
-    s_value = Rf_install("value");
-    s_NAMESPACE = Rf_install(".__NAMESPACE__.");
-    s_imports = Rf_install("imports");
-    s_exports = Rf_install("exports");
-    s_spec = Rf_install("spec");
-    s_stop = Rf_install("stop");
-    s_local = Rf_install("local");
-    s_bquote = Rf_install("bquote");
-    s_standardGeneric = Rf_install("standardGeneric");
-    s_browser = Rf_install("browser");
-    s_srcref = Rf_install("srcref");
-    s_srcfile = Rf_install("srcfile");
-    s_filename = Rf_install("filename");
-    s_compilerOptions = Rf_install("compilerOptions");
-    s_optimize = Rf_install("optimize");
-    s_suppressAll = Rf_install("suppressAll");
-    s_suppressNoSuperAssignVar = Rf_install("suppressNoSuperAssignVar");
-    s_suppressUndefined = Rf_install("suppressUndefined");
-    s_compiler = Rf_install("compiler");
-
-    emptySwitchCall = Rf_lang2(s_stop,
-			       Rf_mkString("empty alternative in numeric switch"));
-    R_PreserveObject(emptySwitchCall);
-    foldConditions = Rf_allocVector(STRSXP, 2);
-    R_PreserveObject(foldConditions);
-    SET_STRING_ELT(foldConditions, 0, Rf_mkChar("error"));
-    SET_STRING_ELT(foldConditions, 1, Rf_mkChar("warning"));
-
-#ifdef BCCOMPILE_STANDALONE
-    {
-	SEXP call = PROTECT(Rf_lang1(Rf_install("bcVersion")));
-	bc_version = Rf_asInteger(eval_internal(call));
-	UNPROTECT(1);
-    }
-#else
-    bc_version = R_bcVersionNumber();
-#endif
-
-    for (int i = 0; foldFuns[i]; i++)
-	set_flags(foldFuns[i], SI_FOLDFUN);
-    for (int i = 0; languageFuns[i]; i++)
-	set_flags(languageFuns[i], SI_LANGFUN);
-    set_flags("pi", SI_CONSTNAME);
-    set_flags("T", SI_CONSTNAME);
-    set_flags("F", SI_CONSTNAME);
-    set_flags("standardGeneric", SI_NOINLINE);
-    set_flags("function", SI_LOOPSTOP | SI_SPECIALSYNTAX);
-    set_flags("for", SI_LOOPSTOP | SI_SPECIALSYNTAX);
-    set_flags("while", SI_LOOPSTOP);
-    set_flags("repeat", SI_LOOPSTOP);
-    set_flags("(", SI_LOOPTOP);
-    set_flags("{", SI_LOOPTOP);
-    set_flags("if", SI_LOOPTOP);
-    set_flags("eval", SI_EVALFUN);
-    set_flags("evalq", SI_EVALFUN);
-    set_flags("source", SI_EVALFUN);
-    set_flags("break", SI_BREAKNEXT);
-    set_flags("next", SI_BREAKNEXT);
-    set_flags("expression", SI_INITSHADOW);
-    set_flags("local", SI_INITSHADOW);
-    set_flags("quote", SI_INITSHADOW);
-    set_flags("~", SI_SPECIALSYNTAX);
-    set_flags("<-", SI_SPECIALSYNTAX);
-    set_flags("=", SI_SPECIALSYNTAX);
-    set_flags("bquote", SI_NSE);
-
-    /* explicit handlers, in the order of cmp.R */
-    set_handler("function", H_FUNCTION, PKG_BASE, 0);
-    set_handler("{", H_BRACE, PKG_BASE, 0);
-    set_handler("if", H_IF, PKG_BASE, 0);
-    set_handler("&&", H_AND, PKG_BASE, 0);
-    set_handler("||", H_OR, PKG_BASE, 0);
-    set_handler("<-", H_ASSIGN, PKG_BASE, 0);
-    set_handler("=", H_ASSIGN, PKG_BASE, 0);
-    set_handler("<<-", H_ASSIGN, PKG_BASE, 0);
-    set_handler("break", H_BREAK, PKG_BASE, 0);
-    set_handler("next", H_NEXT, PKG_BASE, 0);
-    set_handler("repeat", H_REPEAT, PKG_BASE, 0);
-    set_handler("while", H_WHILE, PKG_BASE, 0);
-    set_handler("for", H_FOR, PKG_BASE, 0);
-    set_handler("+", H_PLUS, PKG_BASE, 0);
-    set_handler("-", H_MINUS, PKG_BASE, 0);
-    set_handler("*", H_PRIM2, PKG_BASE, MUL_OP);
-    set_handler("/", H_PRIM2, PKG_BASE, DIV_OP);
-    set_handler("^", H_PRIM2, PKG_BASE, EXPT_OP);
-    set_handler("exp", H_PRIM1, PKG_BASE, EXP_OP);
-    set_handler("sqrt", H_PRIM1, PKG_BASE, SQRT_OP);
-    set_handler("log", H_LOG, PKG_BASE, 0);
-    for (int i = 0; math1funs[i]; i++)
-	set_handler(math1funs[i], H_MATH1, PKG_BASE, i);
-    set_handler("==", H_PRIM2, PKG_BASE, EQ_OP);
-    set_handler("!=", H_PRIM2, PKG_BASE, NE_OP);
-    set_handler("<", H_PRIM2, PKG_BASE, LT_OP);
-    set_handler("<=", H_PRIM2, PKG_BASE, LE_OP);
-    set_handler(">=", H_PRIM2, PKG_BASE, GE_OP);
-    set_handler(">", H_PRIM2, PKG_BASE, GT_OP);
-    set_handler("&", H_PRIM2, PKG_BASE, AND_OP);
-    set_handler("|", H_PRIM2, PKG_BASE, OR_OP);
-    set_handler("!", H_PRIM1, PKG_BASE, NOT_OP);
-    set_handler("(", H_PAREN, PKG_BASE, 0);
-    set_handler(".Internal", H_DOTINTERNAL, PKG_BASE, 0);
-    set_handler("$", H_DOLLAR, PKG_BASE, 0);
-    set_handler("local", H_LOCAL, PKG_BASE, 0);
-    set_handler("return", H_RETURN, PKG_BASE, 0);
-    set_handler("is.character", H_IS, PKG_BASE, ISCHARACTER_OP);
-    set_handler("is.complex", H_IS, PKG_BASE, ISCOMPLEX_OP);
-    set_handler("is.double", H_IS, PKG_BASE, ISDOUBLE_OP);
-    set_handler("is.integer", H_IS, PKG_BASE, ISINTEGER_OP);
-    set_handler("is.logical", H_IS, PKG_BASE, ISLOGICAL_OP);
-    set_handler("is.name", H_IS, PKG_BASE, ISSYMBOL_OP);
-    set_handler("is.null", H_IS, PKG_BASE, ISNULL_OP);
-    set_handler("is.object", H_IS, PKG_BASE, ISOBJECT_OP);
-    set_handler("is.symbol", H_IS, PKG_BASE, ISSYMBOL_OP);
-
-    /* default handlers for the BUILTINs and SPECIALs of base; the
-       primitives are bound directly when R starts, so a lazy-load
-       promise is never one of them and is left unforced (forcing them
-       all would load every R-level object of base here) */
-    {
-	SEXP names = PROTECT(R_lsInternal3(R_BaseEnv, TRUE, FALSE));
-	for (R_xlen_t i = 0; i < XLENGTH(names); i++) {
-	    SEXP sym = Rf_installTrChar(STRING_ELT(names, i));
-	    SEXP val = Rf_findVarInFrame3(R_BaseEnv, sym, TRUE);
-	    int h = TYPEOF(val) == SPECIALSXP ? H_SPECIAL :
-		TYPEOF(val) == BUILTINSXP ? H_BUILTIN : H_NONE;
-	    if (h != H_NONE) {
-		SymInfo *si = symtab_lookup(sym, TRUE);
-		if (si->handler == H_NONE) {
-		    si->handler = (unsigned char) h;
-		    si->handlerPkg = PKG_BASE;
-		}
-	    }
-	}
-	UNPROTECT(1);
-    }
-
-    for (int i = 0; safeBaseInternals[i]; i++)
-	set_handler(safeBaseInternals[i], H_SIMPLEINTERNAL, PKG_BASE, 0);
-    for (int i = 0; safeStatsInternals[i]; i++)
-	set_handler(safeStatsInternals[i], H_SIMPLEINTERNAL, PKG_STATS, 0);
-    set_handler("switch", H_SWITCH, PKG_BASE, 0);
-    set_handler(".Call", H_DOTCALL, PKG_BASE, 0);
-    set_handler(":", H_PRIM2, PKG_BASE, COLON_OP);
-    set_handler("seq_along", H_PRIM1, PKG_BASE, SEQALONG_OP);
-    set_handler("seq_len", H_PRIM1, PKG_BASE, SEQLEN_OP);
-    set_handler("::", H_MULTICOLON, PKG_BASE, 0);
-    set_handler(":::", H_MULTICOLON, PKG_BASE, 0);
-    set_handler("with", H_SUPPRESSUNDEF, PKG_BASE, 0);
-    set_handler("require", H_SUPPRESSUNDEF, PKG_BASE, 0);
-    set_handler("[", H_SUBSET, PKG_BASE, 0);
-    set_handler("[[", H_SUBSET2, PKG_BASE, 0);
-
-    set_setter("$<-", S_DOLLAR);
-    set_setter("@<-", S_AT);
-    set_setter("[<-", S_SUBASSIGN);
-    set_setter("[[<-", S_SUBASSIGN2);
-    set_getter("$", G_DOLLAR);
-    set_getter("[", G_SUBSET);
-    set_getter("[[", G_SUBSET2);
-}
-
-/* In cmp.R the compiler package's defaults for the base functions were
-   computed when the package was built; the explicit handlers above are
-   registered first and the defaults do not override them, as in
-   setInlineHandler(). The safe internals and later handlers override
-   the defaults as in cmp.R, where they are registered after the
-   defaults. */
 
 
 /*
@@ -1020,7 +739,7 @@ static int package_code(const char *name)
  * Compiler contexts
  */
 
-typedef struct {
+struct Cntxt {
     int toplevel;
     int tailcall;
     int needRETURNJMP;
@@ -1032,7 +751,7 @@ typedef struct {
     SEXP call;
     int hasLoop;
     int loopLabel, endLabel, gotoOK;
-} Cntxt;
+};
 
 static SEXP compiler_option(const char *name, SEXP options);
 
@@ -1317,7 +1036,7 @@ static R_INLINE SEXP expr_srcref(SEXP e)
 #define WK_LABEL 1
 #define WK_LABELLIST 2
 
-typedef struct {
+struct CodeBuf {
     int *code;
     unsigned char *kind;
     int *exprbuf;
@@ -1341,7 +1060,7 @@ typedef struct {
     int **lists;
     int *listlen;
     int nlists, listcap;
-} CodeBuf;
+};
 
 typedef struct {
     SEXP expr, srcref;
@@ -2821,8 +2540,6 @@ static SEXP gen_code(SEXP e, Cntxt *cntxt, const Loc *loc)
  * Inlining
  */
 
-static int call_handler(int h, int op, SEXP e, CodeBuf *cb, Cntxt *cntxt);
-
 /* tryInline(e, cb, cntxt) */
 static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
@@ -2830,9 +2547,10 @@ static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     /* the table entry is copied: get_inline_info() may run R code, and a
        nested compilation can grow the table */
     SymInfo *si = symtab_lookup(name, FALSE);
-    if (si == NULL || si->handler == H_NONE)
+    if (si == NULL || si->handler == NULL)
 	return FALSE; /* no handler for any package */
-    int handler = si->handler, handlerPkg = si->handlerPkg, op = si->op;
+    InlineHandler handler = si->handler;
+    int handlerPkg = si->handlerPkg, op = si->op;
     InlineInfo info = get_inline_info(name, cntxt, TRUE);
     if (! info.found)
 	return FALSE;
@@ -2846,7 +2564,7 @@ static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 	int expridx = putconst(cb, e);
 	int endlabel = makelabel(cb);
 	put1L(cb, BASEGUARD_OP, expridx, endlabel);
-	if (! call_handler(handler, op, e, cb, &gcntxt))
+	if (! handler(e, cb, &gcntxt, op))
 	    cmp_call(e, cb, &gcntxt, FALSE);
 	putlabel(cb, endlabel);
 	if (tailcall)
@@ -2854,7 +2572,7 @@ static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 	return TRUE;
     }
     else {
-	return call_handler(handler, op, e, cb, cntxt);
+	return handler(e, cb, cntxt, op);
     }
 }
 
@@ -2867,7 +2585,7 @@ static int try_getter_inline(SEXP call, CodeBuf *cb, Cntxt *cntxt);
  * Inline handlers for some SPECIAL functions
  */
 
-static int h_function(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_function(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 3)
 	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
@@ -2891,7 +2609,7 @@ static int h_function(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
-static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
     if (n == 1) {
@@ -2918,7 +2636,7 @@ static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
-static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
     if (n < 3)
@@ -2999,6 +2717,16 @@ static int h_andor(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op1, int op2)
     return TRUE;
 }
 
+static int h_and(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return h_andor(e, cb, cntxt, AND1ST_OP, AND2ND_OP);
+}
+
+static int h_or(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return h_andor(e, cb, cntxt, OR1ST_OP, OR2ND_OP);
+}
+
 
 /*
  * Inline handlers for loops
@@ -3019,6 +2747,16 @@ static int h_break_next(SEXP e, CodeBuf *cb, Cntxt *cntxt, int isBreak)
     }
 }
 
+static int h_break(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return h_break_next(e, cb, cntxt, TRUE);
+}
+
+static int h_next(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return h_break_next(e, cb, cntxt, FALSE);
+}
+
 static void cmp_repeat_body(SEXP body, CodeBuf *cb, Cntxt *cntxt)
 {
     int loop_label = makelabel(cb);
@@ -3031,7 +2769,7 @@ static void cmp_repeat_body(SEXP body, CodeBuf *cb, Cntxt *cntxt)
     putlabel(cb, end_label);
 }
 
-static int h_repeat(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_repeat(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 2)
 	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
@@ -3072,7 +2810,7 @@ static void cmp_while_body(SEXP call, SEXP cond, SEXP body, CodeBuf *cb,
     putlabel(cb, end_label);
 }
 
-static int h_while(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_while(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 3)
 	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
@@ -3118,7 +2856,7 @@ static void cmp_for_body(int callidx, SEXP body, int ci, CodeBuf *cb,
     putlabel(cb, end_label);
 }
 
-static int h_for(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_for(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 4)
 	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
@@ -3160,7 +2898,7 @@ static int h_for(SEXP e, CodeBuf *cb, Cntxt *cntxt)
  * Inline handlers for one and two argument primitives
  */
 
-static int cmp_prim1(SEXP e, CodeBuf *cb, int op, Cntxt *cntxt)
+static int cmp_prim1(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (dots_or_missing(CDR(e))) {
 	return cmp_builtin(e, cb, cntxt, FALSE);
@@ -3182,7 +2920,7 @@ static int cmp_prim1(SEXP e, CodeBuf *cb, int op, Cntxt *cntxt)
 
 /* checkNeedsInc() in cmp.R always returns FALSE, so no INCLNK/DECLNK
    instructions are generated around the second operand */
-static int cmp_prim2(SEXP e, CodeBuf *cb, int op, Cntxt *cntxt)
+static int cmp_prim2(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (dots_or_missing(CDR(e))) {
 	return cmp_builtin(e, cb, cntxt, FALSE);
@@ -3204,7 +2942,20 @@ static int cmp_prim2(SEXP e, CodeBuf *cb, int op, Cntxt *cntxt)
     }
 }
 
-static int h_log(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+/* `+` and `-` are unary or binary */
+static int h_plus(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return lang_length(e) == 3 ? cmp_prim2(e, cb, cntxt, ADD_OP) :
+	cmp_prim1(e, cb, cntxt, UPLUS_OP);
+}
+
+static int h_minus(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return lang_length(e) == 3 ? cmp_prim2(e, cb, cntxt, SUB_OP) :
+	cmp_prim1(e, cb, cntxt, UMINUS_OP);
+}
+
+static int h_log(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
     if (dots_or_missing(e) || has_tags(e) || n < 2 || n > 3)
@@ -3225,7 +2976,7 @@ static int h_log(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
-static int cmp_math1(SEXP e, CodeBuf *cb, int idx, Cntxt *cntxt)
+static int cmp_math1(SEXP e, CodeBuf *cb, Cntxt *cntxt, int idx)
 {
     if (dots_or_missing(CDR(e))) {
 	return cmp_builtin(e, cb, cntxt, FALSE);
@@ -3245,7 +2996,7 @@ static int cmp_math1(SEXP e, CodeBuf *cb, int idx, Cntxt *cntxt)
     }
 }
 
-static int h_paren(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_paren(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e))
 	return cmp_builtin(e, cb, cntxt, FALSE); /* punt */
@@ -3343,6 +3094,17 @@ static int cmp_special(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
+/* the default handlers of the BUILTINs and SPECIALs of base */
+static int h_builtin(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return cmp_builtin(e, cb, cntxt, FALSE);
+}
+
+static int h_special(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return cmp_special(e, cb, cntxt);
+}
+
 static int cmp_dot_internal_call(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     if (CDR(e) == R_NilValue)
@@ -3358,6 +3120,11 @@ static int cmp_dot_internal_call(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 	return cmp_builtin(ee, cb, cntxt, TRUE);
     else
 	return cmp_special(e, cb, cntxt);
+}
+
+static int h_dotinternal(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return cmp_dot_internal_call(e, cb, cntxt);
 }
 
 
@@ -3398,7 +3165,7 @@ static SEXP dollar_member(SEXP x)
     return x;
 }
 
-static int h_dollar(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_dollar(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e) || lang_length(e) != 3)
 	return cmp_special(e, cb, cntxt);
@@ -3423,7 +3190,7 @@ static int h_dollar(SEXP e, CodeBuf *cb, Cntxt *cntxt)
  * Inline handler for local() and return() functions
  */
 
-static int h_local(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_local(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) == 2) {
 	/* (function() <body>)() */
@@ -3439,7 +3206,7 @@ static int h_local(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     }
 }
 
-static int h_return(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_return(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (dots_or_missing(e) || lang_length(e) > 2)
 	return cmp_special(e, cb, cntxt); /* punt for now */
@@ -3455,7 +3222,7 @@ static int h_return(SEXP e, CodeBuf *cb, Cntxt *cntxt)
  * Inline handlers for the family of is.xyz primitives
  */
 
-static int cmp_is(int op, SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int cmp_is(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e) || lang_length(e) != 2)
 	return cmp_builtin(e, cb, cntxt, FALSE);
@@ -3665,7 +3432,7 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
     return TRUE;
 }
 
-static int cmp_simple_internal(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int cmp_simple_internal(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e))
 	return FALSE;
@@ -3720,9 +3487,7 @@ static int cmp_simple_internal(SEXP e, CodeBuf *cb, Cntxt *cntxt)
  * Inline handler for .Call
  */
 
-#define DOTCALL_MAX 16 /* should match DOTCALL_MAX in eval.c */
-
-static int h_dotcall(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_dotcall(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
     if (dots_or_missing(CDR(e)) || has_tags(e) || n < 2 || n > DOTCALL_MAX + 2)
@@ -3752,7 +3517,7 @@ static int good_multicolon_arg(SEXP a)
     return TYPEOF(a) == SYMSXP || (TYPEOF(a) == STRSXP && XLENGTH(a) == 1);
 }
 
-static int cmp_multicolon(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int cmp_multicolon(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (! dots_or_missing(e) && lang_length(e) == 3) {
 	SEXP fun = CAR(e);
@@ -3777,7 +3542,7 @@ static int cmp_multicolon(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     }
 }
 
-static int h_suppress_undef(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_suppress_undef(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     Cntxt ncntxt = *cntxt;
     ncntxt.suppressUndefined = R_TrueValue;
@@ -4007,7 +3772,7 @@ static int cmp_complex_assign(SEXP symbol, SEXP lhs, SEXP value, int superAssign
     return TRUE;
 }
 
-static int cmp_assign(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int cmp_assign(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (! check_assign(e, cntxt, cb))
 	return cmp_special(e, cb, cntxt);
@@ -4073,7 +3838,8 @@ static SEXP member_symbol(SEXP sym, Cntxt *cntxt)
     return sym;
 }
 
-static int s_dollar(SEXP place, SEXP call, CodeBuf *cb, Cntxt *cntxt)
+static int s_dollar(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
+		    Cntxt *cntxt)
 {
     if (any_dots(place) || lang_length(place) != 3)
 	return FALSE;
@@ -4102,22 +3868,38 @@ static int s_at(SEXP place, SEXP origplace, SEXP acall, CodeBuf *cb,
     return FALSE;
 }
 
-/* the default instruction for 1, 2 or n indices; *rank set when the
-   instruction takes the number of indices */
-static int subset_dflt_op(int nidx, int op1, int op2, int opn, int *rank)
+/* The instructions of `[` and `[[`, and of `[<-` and `[[<-`: the general
+   dispatch pair, and the instructions of the improved handlers for one,
+   two or n indices. */
+typedef struct {
+    int start, dflt;	/* STARTSUBSET_OP, DFLTSUBSET_OP */
+    int startN;		/* STARTSUBSET_N_OP */
+    int vec, mat, n;	/* VECSUBSET_OP, MATSUBSET_OP, SUBSET_N_OP */
+} SubsetOps;
+
+static const SubsetOps subsetOps = {
+    STARTSUBSET_OP, DFLTSUBSET_OP, STARTSUBSET_N_OP,
+    VECSUBSET_OP, MATSUBSET_OP, SUBSET_N_OP
+};
+static const SubsetOps subset2Ops = {
+    STARTSUBSET2_OP, DFLTSUBSET2_OP, STARTSUBSET2_N_OP,
+    VECSUBSET2_OP, MATSUBSET2_OP, SUBSET2_N_OP
+};
+static const SubsetOps subassignOps = {
+    STARTSUBASSIGN_OP, DFLTSUBASSIGN_OP, STARTSUBASSIGN_N_OP,
+    VECSUBASSIGN_OP, MATSUBASSIGN_OP, SUBASSIGN_N_OP
+};
+static const SubsetOps subassign2Ops = {
+    STARTSUBASSIGN2_OP, DFLTSUBASSIGN2_OP, STARTSUBASSIGN2_N_OP,
+    VECSUBASSIGN2_OP, MATSUBASSIGN2_OP, SUBASSIGN2_N_OP
+};
+
+/* the default instruction for the number of indices; *rank is set when
+   the instruction takes the number of indices as an operand */
+static int subset_dflt_op(const SubsetOps *ops, int nidx, int *rank)
 {
-    if (nidx == 1) {
-	*rank = FALSE;
-	return op1;
-    }
-    else if (nidx == 2) {
-	*rank = FALSE;
-	return op2;
-    }
-    else {
-	*rank = TRUE;
-	return opn;
-    }
+    *rank = nidx > 2;
+    return nidx == 1 ? ops->vec : nidx == 2 ? ops->mat : ops->n;
 }
 
 /* cmpIndices(indices, cb, cntxt); checkNeedsInc() is always FALSE */
@@ -4144,49 +3926,42 @@ static int cmp_subassign_dispatch(int start_op, int dflt_op, int rank,
     return TRUE;
 }
 
-static int s_subassign(SEXP place, SEXP call, CodeBuf *cb, Cntxt *cntxt,
-		       int which2)
+static int cmp_subassign(SEXP place, SEXP call, CodeBuf *cb, Cntxt *cntxt,
+			 const SubsetOps *ops)
 {
     if (dots_or_missing(place) || has_tags(place) || lang_length(place) < 3)
-	return which2 ?
-	    cmp_setter_dispatch(STARTSUBASSIGN2_OP, DFLTSUBASSIGN2_OP, place,
-				call, cb, cntxt) :
-	    cmp_setter_dispatch(STARTSUBASSIGN_OP, DFLTSUBASSIGN_OP, place,
-				call, cb, cntxt);
+	return cmp_setter_dispatch(ops->start, ops->dflt, place, call, cb,
+				   cntxt);
     int nidx = lang_length(place) - 2;
     int rank;
-    int dflt_op = which2 ?
-	subset_dflt_op(nidx, VECSUBASSIGN2_OP, MATSUBASSIGN2_OP,
-		       SUBASSIGN2_N_OP, &rank) :
-	subset_dflt_op(nidx, VECSUBASSIGN_OP, MATSUBASSIGN_OP,
-		       SUBASSIGN_N_OP, &rank);
-    return cmp_subassign_dispatch(which2 ? STARTSUBASSIGN2_N_OP :
-				  STARTSUBASSIGN_N_OP,
-				  dflt_op, rank, place, call, cb, cntxt);
+    int dflt_op = subset_dflt_op(ops, nidx, &rank);
+    return cmp_subassign_dispatch(ops->startN, dflt_op, rank, place, call,
+				  cb, cntxt);
+}
+
+static int s_subassign(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
+		       Cntxt *cntxt)
+{
+    return cmp_subassign(place, call, cb, cntxt, &subassignOps);
+}
+
+static int s_subassign2(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
+			Cntxt *cntxt)
+{
+    return cmp_subassign(place, call, cb, cntxt, &subassign2Ops);
 }
 
 static int try_setter_inline(SEXP afun, SEXP place, SEXP origplace, SEXP call,
 			     CodeBuf *cb, Cntxt *cntxt)
 {
     SymInfo *si = symtab_lookup(afun, FALSE);
-    if (si == NULL || si->setter == S_NONE)
+    if (si == NULL || si->setter == NULL)
 	return FALSE;
-    int setter = si->setter; /* see try_inline() */
+    SetterHandler setter = si->setter; /* see try_inline() */
     InlineInfo info = get_inline_info(afun, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
-    switch (setter) {
-    case S_DOLLAR:
-	return s_dollar(place, call, cb, cntxt);
-    case S_AT:
-	return s_at(place, origplace, call, cb, cntxt);
-    case S_SUBASSIGN:
-	return s_subassign(place, call, cb, cntxt, FALSE);
-    case S_SUBASSIGN2:
-	return s_subassign(place, call, cb, cntxt, TRUE);
-    default:
-	return FALSE;
-    }
+    return setter(place, origplace, call, cb, cntxt);
 }
 
 static int g_dollar(SEXP call, CodeBuf *cb, Cntxt *cntxt)
@@ -4223,42 +3998,39 @@ static int cmp_subset_getter_dispatch(int start_op, int dflt_op, int rank,
     return TRUE;
 }
 
-static int g_subset(SEXP call, CodeBuf *cb, Cntxt *cntxt, int which2)
+static int cmp_subset_getter(SEXP call, CodeBuf *cb, Cntxt *cntxt,
+			     const SubsetOps *ops)
 {
     if (dots_or_missing(call) || has_tags(call) || lang_length(call) < 3)
-	return which2 ?
-	    cmp_getter_dispatch(STARTSUBSET2_OP, DFLTSUBSET2_OP, call, cb, cntxt) :
-	    cmp_getter_dispatch(STARTSUBSET_OP, DFLTSUBSET_OP, call, cb, cntxt);
+	return cmp_getter_dispatch(ops->start, ops->dflt, call, cb, cntxt);
     int nidx = lang_length(call) - 2;
     int rank;
-    int dflt_op = which2 ?
-	subset_dflt_op(nidx, VECSUBSET2_OP, MATSUBSET2_OP, SUBSET2_N_OP, &rank) :
-	subset_dflt_op(nidx, VECSUBSET_OP, MATSUBSET_OP, SUBSET_N_OP, &rank);
-    return cmp_subset_getter_dispatch(which2 ? STARTSUBSET2_N_OP :
-				      STARTSUBSET_N_OP,
-				      dflt_op, rank, call, cb, cntxt);
+    int dflt_op = subset_dflt_op(ops, nidx, &rank);
+    return cmp_subset_getter_dispatch(ops->startN, dflt_op, rank, call, cb,
+				      cntxt);
+}
+
+static int g_subset(SEXP call, CodeBuf *cb, Cntxt *cntxt)
+{
+    return cmp_subset_getter(call, cb, cntxt, &subsetOps);
+}
+
+static int g_subset2(SEXP call, CodeBuf *cb, Cntxt *cntxt)
+{
+    return cmp_subset_getter(call, cb, cntxt, &subset2Ops);
 }
 
 static int try_getter_inline(SEXP call, CodeBuf *cb, Cntxt *cntxt)
 {
     SEXP name = CAR(call);
     SymInfo *si = symtab_lookup(name, FALSE);
-    if (si == NULL || si->getter == G_NONE)
+    if (si == NULL || si->getter == NULL)
 	return FALSE;
-    int getter = si->getter; /* see try_inline() */
+    GetterHandler getter = si->getter; /* see try_inline() */
     InlineInfo info = get_inline_info(name, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
-    switch (getter) {
-    case G_DOLLAR:
-	return g_dollar(call, cb, cntxt);
-    case G_SUBSET:
-	return g_subset(call, cb, cntxt, FALSE);
-    case G_SUBSET2:
-	return g_subset(call, cb, cntxt, TRUE);
-    default:
-	return FALSE;
-    }
+    return getter(call, cb, cntxt);
 }
 
 
@@ -4289,19 +4061,24 @@ static int cmp_subset_dispatch(int start_op, int dflt_op, int rank, SEXP e,
     return TRUE;
 }
 
-static int h_subset(SEXP e, CodeBuf *cb, Cntxt *cntxt, int which2)
+static int cmp_subset(SEXP e, CodeBuf *cb, Cntxt *cntxt, const SubsetOps *ops)
 {
     if (dots_or_missing(e) || has_tags(e) || lang_length(e) < 3)
-	return which2 ?
-	    cmp_dispatch(STARTSUBSET2_OP, DFLTSUBSET2_OP, e, cb, cntxt, TRUE) :
-	    cmp_dispatch(STARTSUBSET_OP, DFLTSUBSET_OP, e, cb, cntxt, TRUE);
+	return cmp_dispatch(ops->start, ops->dflt, e, cb, cntxt, TRUE);
     int nidx = lang_length(e) - 2;
     int rank;
-    int dflt_op = which2 ?
-	subset_dflt_op(nidx, VECSUBSET2_OP, MATSUBSET2_OP, SUBSET2_N_OP, &rank) :
-	subset_dflt_op(nidx, VECSUBSET_OP, MATSUBSET_OP, SUBSET_N_OP, &rank);
-    return cmp_subset_dispatch(which2 ? STARTSUBSET2_N_OP : STARTSUBSET_N_OP,
-			       dflt_op, rank, e, cb, cntxt);
+    int dflt_op = subset_dflt_op(ops, nidx, &rank);
+    return cmp_subset_dispatch(ops->startN, dflt_op, rank, e, cb, cntxt);
+}
+
+static int h_subset(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return cmp_subset(e, cb, cntxt, &subsetOps);
+}
+
+static int h_subset2(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
+{
+    return cmp_subset(e, cb, cntxt, &subset2Ops);
 }
 
 
@@ -4342,7 +4119,7 @@ static int name_index_add(NameIndex *ni, SEXP name, int i)
     return -1;
 }
 
-static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt)
+static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 2 || any_dots(e))
 	return cmp_special(e, cb, cntxt);
@@ -4508,50 +4285,284 @@ static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 
 
 /*
- * Handler dispatch
+ * The handler table
+ *
+ * The inline handlers are the setInlineHandler(), setSetterInlineHandler()
+ * and setGetterInlineHandler() registrations of cmp.R, and the symbol
+ * flags its character vectors (foldFuns, languageFuns, ...). The
+ * BUILTINs and SPECIALs of base get the default handlers first and the
+ * entries below override them, as the explicit registrations do in
+ * cmp.R.
+ *
+ * To add an inline handler: write a function with the InlineHandler
+ * signature, add a row to inlineHandlers[] (and the setInlineHandler()
+ * call to cmp.R), and add a case to tests/native.R.
  */
 
-static int call_handler(int h, int op, SEXP e, CodeBuf *cb, Cntxt *cntxt)
+typedef struct {
+    const char *name;
+    InlineHandler fn;
+    int pkg;
+    int op;	/* the opcode of a prim1, prim2 or is handler */
+} HandlerEntry;
+
+static const HandlerEntry inlineHandlers[] = {
+    { "function", h_function, PKG_BASE, 0 },
+    { "{", h_brace, PKG_BASE, 0 },
+    { "if", h_if, PKG_BASE, 0 },
+    { "&&", h_and, PKG_BASE, 0 },
+    { "||", h_or, PKG_BASE, 0 },
+    { "<-", cmp_assign, PKG_BASE, 0 },
+    { "=", cmp_assign, PKG_BASE, 0 },
+    { "<<-", cmp_assign, PKG_BASE, 0 },
+    { "break", h_break, PKG_BASE, 0 },
+    { "next", h_next, PKG_BASE, 0 },
+    { "repeat", h_repeat, PKG_BASE, 0 },
+    { "while", h_while, PKG_BASE, 0 },
+    { "for", h_for, PKG_BASE, 0 },
+    { "+", h_plus, PKG_BASE, 0 },
+    { "-", h_minus, PKG_BASE, 0 },
+    { "*", cmp_prim2, PKG_BASE, MUL_OP },
+    { "/", cmp_prim2, PKG_BASE, DIV_OP },
+    { "^", cmp_prim2, PKG_BASE, EXPT_OP },
+    { "exp", cmp_prim1, PKG_BASE, EXP_OP },
+    { "sqrt", cmp_prim1, PKG_BASE, SQRT_OP },
+    { "log", h_log, PKG_BASE, 0 },
+    /* the math1 functions are registered from math1funs[] */
+    { "==", cmp_prim2, PKG_BASE, EQ_OP },
+    { "!=", cmp_prim2, PKG_BASE, NE_OP },
+    { "<", cmp_prim2, PKG_BASE, LT_OP },
+    { "<=", cmp_prim2, PKG_BASE, LE_OP },
+    { ">=", cmp_prim2, PKG_BASE, GE_OP },
+    { ">", cmp_prim2, PKG_BASE, GT_OP },
+    { "&", cmp_prim2, PKG_BASE, AND_OP },
+    { "|", cmp_prim2, PKG_BASE, OR_OP },
+    { "!", cmp_prim1, PKG_BASE, NOT_OP },
+    { "(", h_paren, PKG_BASE, 0 },
+    { ".Internal", h_dotinternal, PKG_BASE, 0 },
+    { "$", h_dollar, PKG_BASE, 0 },
+    { "local", h_local, PKG_BASE, 0 },
+    { "return", h_return, PKG_BASE, 0 },
+    { "is.character", cmp_is, PKG_BASE, ISCHARACTER_OP },
+    { "is.complex", cmp_is, PKG_BASE, ISCOMPLEX_OP },
+    { "is.double", cmp_is, PKG_BASE, ISDOUBLE_OP },
+    { "is.integer", cmp_is, PKG_BASE, ISINTEGER_OP },
+    { "is.logical", cmp_is, PKG_BASE, ISLOGICAL_OP },
+    { "is.name", cmp_is, PKG_BASE, ISSYMBOL_OP },
+    { "is.null", cmp_is, PKG_BASE, ISNULL_OP },
+    { "is.object", cmp_is, PKG_BASE, ISOBJECT_OP },
+    { "is.symbol", cmp_is, PKG_BASE, ISSYMBOL_OP },
+    /* the safe .Internal functions are registered from
+       safeBaseInternals[] and safeStatsInternals[] */
+    { "switch", h_switch, PKG_BASE, 0 },
+    { ".Call", h_dotcall, PKG_BASE, 0 },
+    { ":", cmp_prim2, PKG_BASE, COLON_OP },
+    { "seq_along", cmp_prim1, PKG_BASE, SEQALONG_OP },
+    { "seq_len", cmp_prim1, PKG_BASE, SEQLEN_OP },
+    { "::", cmp_multicolon, PKG_BASE, 0 },
+    { ":::", cmp_multicolon, PKG_BASE, 0 },
+    { "with", h_suppress_undef, PKG_BASE, 0 },
+    { "require", h_suppress_undef, PKG_BASE, 0 },
+    { "[", h_subset, PKG_BASE, 0 },
+    { "[[", h_subset2, PKG_BASE, 0 },
+    { NULL, NULL, 0, 0 }
+};
+
+static const struct { const char *name; SetterHandler fn; } setterHandlers[] = {
+    { "$<-", s_dollar },
+    { "@<-", s_at },
+    { "[<-", s_subassign },
+    { "[[<-", s_subassign2 },
+    { NULL, NULL }
+};
+
+static const struct { const char *name; GetterHandler fn; } getterHandlers[] = {
+    { "$", g_dollar },
+    { "[", g_subset },
+    { "[[", g_subset2 },
+    { NULL, NULL }
+};
+
+/* the math1 functions, in the order of the MATH1 instruction's table in
+   eval.c: the index is the instruction's operand */
+static const char *math1funs[] = {
+    "floor", "ceiling", "sign", "expm1", "log1p",
+    "cos", "sin", "tan", "acos", "asin", "atan",
+    "cosh", "sinh", "tanh", "acosh", "asinh", "atanh",
+    "lgamma", "gamma", "digamma", "trigamma",
+    "cospi", "sinpi", "tanpi", NULL
+};
+
+static const char *foldFuns[] = {
+    "+", "-", "*", "/", "^", "(",
+    ">", ">=", "==", "!=", "<", "<=", "||", "&&", "!",
+    "|", "&", "%%",
+    "c", "rep", ":",
+    "abs", "acos", "acosh", "asin", "asinh", "atan", "atan2",
+    "atanh", "ceiling", "choose", "cos", "cosh", "exp", "expm1",
+    "floor", "gamma", "lbeta", "lchoose", "lgamma", "log", "log10",
+    "log1p", "log2", "max", "min", "prod", "range", "round",
+    "seq_along", "seq.int", "seq_len", "sign", "signif",
+    "sin", "sinh", "sqrt", "sum", "tan", "tanh", "trunc",
+    "baseenv", "emptyenv", "globalenv",
+    "Arg", "Conj", "Im", "Mod", "Re", NULL
+};
+
+static const char *languageFuns[] = {
+    "^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
+    "|", "||", "-", ":", "!", "!=", "/", "(", "[", "[<-", "[[",
+    "[[<-", "{", "@", "$", "$<-", "*", "&", "&&", "%/%", "%*%",
+    "%%", "+",
+    "::", ":::", "@<-",
+    "break", "for", "function", "if", "next", "repeat", "while",
+    "local", "return", "switch", NULL
+};
+
+static const char *safeBaseInternals[] = {
+    "atan2", "besselY", "beta", "choose",
+    "drop", "inherits", "is.vector", "lbeta", "lchoose",
+    "nchar", "polyroot", "typeof", "vector", "which.max",
+    "which.min", "is.loaded", "identical",
+    "match", "rep.int", "rep_len", NULL
+};
+
+static const char *safeStatsInternals[] = {
+    "dbinom", "dcauchy", "dgeom", "dhyper", "dlnorm",
+    "dlogis", "dnorm", "dpois", "dunif", "dweibull",
+    "fft", "mvfft", "pbinom", "pcauchy",
+    "pgeom", "phyper", "plnorm", "plogis", "pnorm",
+    "ppois", "punif", "pweibull", "qbinom", "qcauchy",
+    "qgeom", "qhyper", "qlnorm", "qlogis", "qnorm",
+    "qpois", "qunif", "qweibull", "rbinom", "rcauchy",
+    "rgeom", "rhyper", "rlnorm", "rlogis", "rnorm",
+    "rpois", "rsignrank",  "runif", "rweibull",
+    "rwilcox", "ptukey", "qtukey", NULL
+};
+
+
+/* the symbol classifications beyond foldFuns and languageFuns */
+static const struct { const char *name; unsigned flags; } symbolFlags[] = {
+    { "pi", SI_CONSTNAME },
+    { "T", SI_CONSTNAME },
+    { "F", SI_CONSTNAME },
+    { "standardGeneric", SI_NOINLINE },
+    { "function", SI_LOOPSTOP | SI_SPECIALSYNTAX },
+    { "for", SI_LOOPSTOP | SI_SPECIALSYNTAX },
+    { "while", SI_LOOPSTOP },
+    { "repeat", SI_LOOPSTOP },
+    { "(", SI_LOOPTOP },
+    { "{", SI_LOOPTOP },
+    { "if", SI_LOOPTOP },
+    { "eval", SI_EVALFUN },
+    { "evalq", SI_EVALFUN },
+    { "source", SI_EVALFUN },
+    { "break", SI_BREAKNEXT },
+    { "next", SI_BREAKNEXT },
+    { "expression", SI_INITSHADOW },
+    { "local", SI_INITSHADOW },
+    { "quote", SI_INITSHADOW },
+    { "~", SI_SPECIALSYNTAX },
+    { "<-", SI_SPECIALSYNTAX },
+    { "=", SI_SPECIALSYNTAX },
+    { "bquote", SI_NSE },
+    { NULL, 0 }
+};
+
+static void set_handler(const char *name, InlineHandler fn, int pkg, int op)
 {
-    switch (h) {
-    case H_FUNCTION: return h_function(e, cb, cntxt);
-    case H_BRACE: return h_brace(e, cb, cntxt);
-    case H_IF: return h_if(e, cb, cntxt);
-    case H_AND: return h_andor(e, cb, cntxt, AND1ST_OP, AND2ND_OP);
-    case H_OR: return h_andor(e, cb, cntxt, OR1ST_OP, OR2ND_OP);
-    case H_ASSIGN: return cmp_assign(e, cb, cntxt);
-    case H_BREAK: return h_break_next(e, cb, cntxt, TRUE);
-    case H_NEXT: return h_break_next(e, cb, cntxt, FALSE);
-    case H_REPEAT: return h_repeat(e, cb, cntxt);
-    case H_WHILE: return h_while(e, cb, cntxt);
-    case H_FOR: return h_for(e, cb, cntxt);
-    case H_PLUS:
-	return lang_length(e) == 3 ? cmp_prim2(e, cb, ADD_OP, cntxt) :
-	    cmp_prim1(e, cb, UPLUS_OP, cntxt);
-    case H_MINUS:
-	return lang_length(e) == 3 ? cmp_prim2(e, cb, SUB_OP, cntxt) :
-	    cmp_prim1(e, cb, UMINUS_OP, cntxt);
-    case H_PRIM2: return cmp_prim2(e, cb, op, cntxt);
-    case H_PRIM1: return cmp_prim1(e, cb, op, cntxt);
-    case H_LOG: return h_log(e, cb, cntxt);
-    case H_MATH1: return cmp_math1(e, cb, op, cntxt);
-    case H_PAREN: return h_paren(e, cb, cntxt);
-    case H_BUILTIN: return cmp_builtin(e, cb, cntxt, FALSE);
-    case H_SPECIAL: return cmp_special(e, cb, cntxt);
-    case H_DOTINTERNAL: return cmp_dot_internal_call(e, cb, cntxt);
-    case H_DOLLAR: return h_dollar(e, cb, cntxt);
-    case H_LOCAL: return h_local(e, cb, cntxt);
-    case H_RETURN: return h_return(e, cb, cntxt);
-    case H_IS: return cmp_is(op, e, cb, cntxt);
-    case H_SIMPLEINTERNAL: return cmp_simple_internal(e, cb, cntxt);
-    case H_SWITCH: return h_switch(e, cb, cntxt);
-    case H_DOTCALL: return h_dotcall(e, cb, cntxt);
-    case H_MULTICOLON: return cmp_multicolon(e, cb, cntxt);
-    case H_SUPPRESSUNDEF: return h_suppress_undef(e, cb, cntxt);
-    case H_SUBSET: return h_subset(e, cb, cntxt, FALSE);
-    case H_SUBSET2: return h_subset(e, cb, cntxt, TRUE);
-    default: return FALSE;
+    SymInfo *si = symtab_lookup(Rf_install(name), TRUE);
+    si->handler = fn;
+    si->handlerPkg = pkg;
+    si->op = op;
+}
+
+static void bc_init(void)
+{
+    if (bc_initialized)
+	return;
+    bc_initialized = TRUE;
+
+    s_dotInternal = Rf_install(".Internal");
+    s_break = Rf_install("break");
+    s_next = Rf_install("next");
+    s_tmp = Rf_install("*tmp*");
+    s_vtmp = Rf_install("*vtmp*");
+    s_value = Rf_install("value");
+    s_NAMESPACE = Rf_install(".__NAMESPACE__.");
+    s_imports = Rf_install("imports");
+    s_exports = Rf_install("exports");
+    s_spec = Rf_install("spec");
+    s_stop = Rf_install("stop");
+    s_local = Rf_install("local");
+    s_bquote = Rf_install("bquote");
+    s_standardGeneric = Rf_install("standardGeneric");
+    s_browser = Rf_install("browser");
+    s_srcref = Rf_install("srcref");
+    s_srcfile = Rf_install("srcfile");
+    s_filename = Rf_install("filename");
+    s_compilerOptions = Rf_install("compilerOptions");
+    s_optimize = Rf_install("optimize");
+    s_suppressAll = Rf_install("suppressAll");
+    s_suppressNoSuperAssignVar = Rf_install("suppressNoSuperAssignVar");
+    s_suppressUndefined = Rf_install("suppressUndefined");
+    s_compiler = Rf_install("compiler");
+
+    emptySwitchCall = Rf_lang2(s_stop,
+			       Rf_mkString("empty alternative in numeric switch"));
+    R_PreserveObject(emptySwitchCall);
+    foldConditions = Rf_allocVector(STRSXP, 2);
+    R_PreserveObject(foldConditions);
+    SET_STRING_ELT(foldConditions, 0, Rf_mkChar("error"));
+    SET_STRING_ELT(foldConditions, 1, Rf_mkChar("warning"));
+
+#ifdef BCCOMPILE_STANDALONE
+    {
+	SEXP call = PROTECT(Rf_lang1(Rf_install("bcVersion")));
+	bc_version = Rf_asInteger(eval_internal(call));
+	UNPROTECT(1);
     }
+#else
+    bc_version = R_bcVersionNumber();
+#endif
+
+    for (int i = 0; foldFuns[i]; i++)
+	set_flags(foldFuns[i], SI_FOLDFUN);
+    for (int i = 0; languageFuns[i]; i++)
+	set_flags(languageFuns[i], SI_LANGFUN);
+    for (int i = 0; symbolFlags[i].name; i++)
+	set_flags(symbolFlags[i].name, symbolFlags[i].flags);
+
+    /* default handlers for the BUILTINs and SPECIALs of base; the
+       primitives are bound directly when R starts, so a lazy-load
+       promise is never one of them and is left unforced (forcing them
+       all would load every R-level object of base here) */
+    SEXP names = PROTECT(R_lsInternal3(R_BaseEnv, TRUE, FALSE));
+    for (R_xlen_t i = 0; i < XLENGTH(names); i++) {
+	SEXP sym = Rf_installTrChar(STRING_ELT(names, i));
+	SEXP val = Rf_findVarInFrame3(R_BaseEnv, sym, TRUE);
+	if (TYPEOF(val) == SPECIALSXP || TYPEOF(val) == BUILTINSXP) {
+	    SymInfo *si = symtab_lookup(sym, TRUE);
+	    si->handler = TYPEOF(val) == SPECIALSXP ? h_special : h_builtin;
+	    si->handlerPkg = PKG_BASE;
+	}
+    }
+    UNPROTECT(1);
+
+    for (int i = 0; inlineHandlers[i].name; i++)
+	set_handler(inlineHandlers[i].name, inlineHandlers[i].fn,
+		    inlineHandlers[i].pkg, inlineHandlers[i].op);
+    for (int i = 0; math1funs[i]; i++)
+	set_handler(math1funs[i], cmp_math1, PKG_BASE, i);
+    for (int i = 0; safeBaseInternals[i]; i++)
+	set_handler(safeBaseInternals[i], cmp_simple_internal, PKG_BASE, 0);
+    for (int i = 0; safeStatsInternals[i]; i++)
+	set_handler(safeStatsInternals[i], cmp_simple_internal, PKG_STATS, 0);
+    for (int i = 0; setterHandlers[i].name; i++)
+	symtab_lookup(Rf_install(setterHandlers[i].name), TRUE)->setter =
+	    setterHandlers[i].fn;
+    for (int i = 0; getterHandlers[i].name; i++)
+	symtab_lookup(Rf_install(getterHandlers[i].name), TRUE)->getter =
+	    getterHandlers[i].fn;
 }
 
 
