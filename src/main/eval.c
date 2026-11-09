@@ -9348,8 +9348,16 @@ static unsigned int const_hash(SEXP x, int depth)
 	    SEXP s = STRING_ELT(x, i);
 	    if (s == NA_STRING)
 		h = hash_mix(h, 1);
-	    else if (IS_ASCII(s))
-		h = hash_mix(h, (unsigned int) R_Newhashpjw(CHAR(s)));
+	    else if (IS_ASCII(s)) {
+		/* the hash of the string is cached on the CHARSXP, as
+		   the environment code does, so a long constant is not
+		   hashed again for every instruction that refers to it */
+		if (! HASHASH(s)) {
+		    SET_HASHVALUE(s, R_Newhashpjw(CHAR(s)));
+		    SET_HASHASH(s, 1);
+		}
+		h = hash_mix(h, (unsigned int) HASHVALUE(s));
+	    }
 	}
 	break;
     }
@@ -9386,6 +9394,16 @@ static unsigned int const_hash(SEXP x, int depth)
     default:
 	break;
     }
+
+    /* The multiplications above only move bits upward, and the bucket
+       is taken from the low bits: without a final mix, values whose low
+       bits agree, such as the doubles 1, 2, ..., 1000, would share a
+       bucket. */
+    h ^= h >> 16;
+    h *= 0x85ebca6bu;
+    h ^= h >> 13;
+    h *= 0xc2b2ae35u;
+    h ^= h >> 16;
     return h;
 }
 

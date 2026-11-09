@@ -228,15 +228,20 @@ getAssignedVar <- function(e, cntxt) {
     }
 }
 
-## Record a variable assigned at a node; 'region' names the quote(),
-## expression() and single-argument local() calls enclosing the node
-## (see findLocalsList).
+## Record a variable assigned at a node; 'region' is a bit mask of the
+## kinds of call (quote(), expression(), single-argument local()) that
+## enclose the node (see findLocalsList). A tagged variable keeps the
+## distinct masks it was seen with, at most eight.
+regionBits <- c(expression = 1L, local = 2L, quote = 4L)
+
 addVar <- function(v, region, vars) {
-    if (length(region) == 0L)
+    if (region == 0L)
         .assign(v, TRUE, vars$plain)
-    else
-        .assign(v, c(.get0(v, vars$tagged, inherits = FALSE), list(region)),
-                vars$tagged)
+    else {
+        masks <- .get0(v, vars$tagged, inherits = FALSE)
+        if (! (match(region, masks, 0L) > 0L))
+            .assign(v, c(masks, region), vars$tagged)
+    }
 }
 
 ## Walk the expressions with an explicit stack, recording the assigned
@@ -244,11 +249,11 @@ addVar <- function(v, region, vars) {
 ## variable first, since a formal without a default or an empty argument
 ## is the empty symbol. Variables assigned outside any quote(),
 ## expression() or local(x) call go in 'plain'; the others go in
-## 'tagged' with the names of the enclosing calls of those kinds.
+## 'tagged' with the kinds of enclosing call.
 findLocalsList1 <- function(elist, cntxt) {
     vars <- list(plain = new.env(), tagged = new.env())
     stack <- .asList(elist)
-    regions <- vector("list", length(stack))
+    regions <- integer(length(stack))
     n <- length(stack)
     while (n > 0L) {
         if (typeof(stack[[n]]) != "language") {
@@ -256,7 +261,7 @@ findLocalsList1 <- function(elist, cntxt) {
             next
         }
         e <- stack[[n]]
-        region <- regions[[n]]
+        region <- regions[n]
         n <- n - 1L
 
         kidRegion <- region
@@ -285,12 +290,12 @@ findLocalsList1 <- function(elist, cntxt) {
                            "~" = character(0),
                            "local" = {
                                if (length(e) == 2)
-                                   kidRegion <- c(region, v)
+                                   kidRegion <- bitwOr(region, regionBits[[v]])
                                e[-1]
                            },
                            "expression" =,
                            "quote" = {
-                               kidRegion <- c(region, v)
+                               kidRegion <- bitwOr(region, regionBits[[v]])
                                e[-1]
                            },
                            e[-1])
@@ -305,25 +310,24 @@ findLocalsList1 <- function(elist, cntxt) {
                 n <- n + 1L
                 if (n > length(stack)) {
                     stack <- c(stack, vector("list", length(stack)))
-                    regions <- c(regions, vector("list", length(regions)))
+                    regions <- c(regions, integer(length(regions)))
                 }
                 stack[[n]] <- kids[[i]]
-                regions[n] <- list(kidRegion)
+                regions[n] <- kidRegion
             }
     }
     vars
 }
 
 ## the tagged variables with an occurrence whose enclosing calls are all
-## shadowed
+## shadowed, i.e. whose mask is within the mask of the shadowed functions
 taggedLocals <- function(tagged, names, sf) {
+    sfMask <- sum(regionBits[sf])
     keep <- logical(length(names))
-    for (i in seq_along(names))
-        for (r in tagged[[names[i]]])
-            if (all(match(r, sf, 0L) > 0L)) {
-                keep[i] <- TRUE
-                break
-            }
+    for (i in seq_along(names)) {
+        masks <- tagged[[names[i]]]
+        keep[i] <- any(bitwAnd(masks, sfMask) == masks)
+    }
     names[keep]
 }
 
