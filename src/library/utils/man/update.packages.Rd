@@ -72,9 +72,10 @@ new.packages(lib.loc = NULL, repos = getOption("repos"),
     makes an internal call to \code{available.packages}.
     Incompatible with \code{type = "both"}.
   }
-  \item{checkBuilt}{If \code{TRUE}, a package built under an earlier
-    major.minor version of \R (e.g., \code{3.4}) is considered to be
-    \sQuote{old}.}
+  \item{checkBuilt}{If \code{TRUE}, also consult the \code{"Built"}
+    field to consider a package \sQuote{old} if it was built for an
+    older version of \R, or with an older timestamp than the
+    repository's copy.}
   \item{oldPkgs}{
     if specified as non-NULL, \code{update.packages()} only considers
     these packages for updating. This may be a character vector
@@ -102,13 +103,10 @@ new.packages(lib.loc = NULL, repos = getOption("repos"),
   \code{\link{available.packages}} with that from \code{instPkgs} (computed by
   \code{\link{installed.packages}} by default) and reports installed
   packages that have newer versions on the repositories or, if
-  \code{checkBuilt = TRUE}, that were built under an earlier minor
-  version of \R (for example built under 3.3.x when running \R 3.4.0).
-  In either case, for binary package types the timestamp of the
-  \code{"Built"} field is also used and a package is considered new if
-  the built timestamp in the repository is more recent than the one in
-  the installed package. Timestamps not in ISO format are silently
-  ignored.
+  \code{checkBuilt = TRUE}, an older \code{"Built"} field (for example
+  built under 3.3.x when running \R 3.4.0, or built with an older
+  timestamp than the repository's copy of the same \code{Version}).
+  Timestamps not in ISO format are silently ignored.
   (For binary package types there is no check that the version on the
   repository was built under the current minor version of \R,
   but it is advertised as being suitable for this version.)
