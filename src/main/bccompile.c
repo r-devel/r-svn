@@ -1828,18 +1828,15 @@ static SEXP codebuf_code(CodeBuf *cb, Cntxt *cntxt)
 
 #define MAX_CONST_SIZE 10
 
-/* The R compiler's tests on a constant, such as length(e) <= 10, call
-   generics that dispatch on an object, and the results then pass through
-   `&&`: evaluate the test in R and apply the checks of `&&`. */
+/* The R compiler's tests on a constant, such as
+   mode(e) %in% constModes && length(e) <= 10, call generics that
+   dispatch on an object, with `&&` combining the results: evaluate the
+   whole predicate in R, so that its three-valued logic and its checks
+   on the operands apply, and treat NA as if() would. */
 static int eval_object_test(SEXP call)
 {
     PROTECT(call);
     SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
-    if (! Rf_isNumber(val)) /* as && does: a factor is not a number */
-	Rf_error(_("invalid 'y' type in 'x && y'"));
-    if (XLENGTH(val) != 1)
-	Rf_error(_("'length = %lld' in coercion to '%s'"),
-		 (long long) XLENGTH(val), "logical(1)");
     int ans = Rf_asLogical(val);
     if (ans == NA_LOGICAL)
 	Rf_error(_("missing value where TRUE/FALSE needed"));
@@ -1847,14 +1844,45 @@ static int eval_object_test(SEXP call)
     return ans;
 }
 
-/* length(e) <= MAX_CONST_SIZE, resp. length(e) == 1 */
-static int const_length_test(SEXP e, const char *op, int n)
+static SEXP s_andand, s_length, s_isna, s_not, s_le, s_eq;
+
+static void init_test_symbols(void)
+{
+    if (s_andand == NULL) {
+	s_andand = Rf_install("&&");
+	s_length = Rf_install("length");
+	s_isna = Rf_install("is.na");
+	s_not = Rf_install("!");
+	s_le = Rf_install("<=");
+	s_eq = Rf_install("==");
+    }
+}
+
+/* TRUE && length(e) <= MAX_CONST_SIZE for an object */
+static int const_size_test(SEXP e)
 {
     if (! OBJECT(e))
-	return strcmp(op, "<=") == 0 ? XLENGTH(e) <= n : XLENGTH(e) == n;
-    SEXP len = PROTECT(Rf_lang2(Rf_install("length"), e));
-    SEXP call = Rf_lang3(Rf_install(op), len, Rf_ScalarReal(n));
-    UNPROTECT(1);
+	return XLENGTH(e) <= MAX_CONST_SIZE;
+    init_test_symbols();
+    SEXP len = PROTECT(Rf_lang2(s_length, e));
+    SEXP test = PROTECT(Rf_lang3(s_le, len, Rf_ScalarReal(MAX_CONST_SIZE)));
+    SEXP call = Rf_lang3(s_andand, R_TrueValue, test);
+    UNPROTECT(2);
+    return eval_object_test(call);
+}
+
+/* length(ct) == 1 && !is.na(ct) for an object (the if() handler) */
+static int const_scalar_test(SEXP ct)
+{
+    if (! OBJECT(ct))
+	return XLENGTH(ct) == 1 && LOGICAL(ct)[0] != NA_LOGICAL;
+    init_test_symbols();
+    SEXP len = PROTECT(Rf_lang2(s_length, ct));
+    SEXP t1 = PROTECT(Rf_lang3(s_eq, len, Rf_ScalarReal(1)));
+    SEXP isna = PROTECT(Rf_lang2(s_isna, ct));
+    SEXP t2 = PROTECT(Rf_lang2(s_not, isna));
+    SEXP call = Rf_lang3(s_andand, t1, t2);
+    UNPROTECT(4);
     return eval_object_test(call);
 }
 
@@ -1869,7 +1897,7 @@ static int check_const(SEXP e)
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
-	return const_length_test(e, "<=", MAX_CONST_SIZE);
+	return const_size_test(e);
     default:
 	return FALSE;
     }
@@ -2874,18 +2902,6 @@ static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
-/* !is.na(ct) for a logical constant of length one, dispatched for an
-   object as in the R compiler's test */
-static int const_not_na(SEXP ct)
-{
-    if (! OBJECT(ct))
-	return LOGICAL(ct)[0] != NA_LOGICAL;
-    SEXP isna = PROTECT(Rf_lang2(Rf_install("is.na"), ct));
-    SEXP call = Rf_lang2(Rf_install("!"), isna);
-    UNPROTECT(1);
-    return eval_object_test(call);
-}
-
 static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     int n = lang_length(e);
@@ -2897,7 +2913,7 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     SEXP else_expr = have_else ? CADDDR(e) : R_NilValue;
     SEXP ct;
     if (constant_fold(test, cntxt, &ct) && TYPEOF(ct) == LGLSXP &&
-	const_length_test(ct, "==", 1) && const_not_na(ct)) {
+	const_scalar_test(ct)) {
 	/* if (ct$value): the evaluator's own checks on the value */
 	if (XLENGTH(ct) != 1)
 	    Rf_errorcall(cntxt->call, _("the condition has length > 1"));

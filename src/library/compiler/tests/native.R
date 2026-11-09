@@ -200,6 +200,14 @@ bothError <- function(f) {
 }
 stopifnot(bothError(naif))
 rm(is.na.foo)
+## ... with the three-valued logic of &&: NA && FALSE is FALSE, so the
+## test fails quietly and the if() is left unfolded in both compilers
+length.foo <- function(x) structure(1L, class = "bar")
+Ops.bar <- function(e1, e2) if (.Generic == "==") NA else TRUE
+is.na.foo <- function(x) TRUE
+body(naif) <- call("if", structure(FALSE, class = "foo"), 1, 2)
+stopifnot(checkFun(naif))
+rm(is.na.foo, length.foo, Ops.bar)
 ## a classed length() result is compared by its own method
 length.foo <- function(x) structure(1L, class = "bar")
 Ops.bar <- function(e1, e2) FALSE
