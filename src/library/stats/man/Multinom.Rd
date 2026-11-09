@@ -62,8 +62,7 @@ dmultinom(x, size = NULL, prob, log = FALSE)
 }
 \seealso{
   \link{Distributions} for standard distributions, including
-  \code{\link{dbinom}} which is a special case conceptually.
-%% but does not return 2-vectors
+  \code{\link{dbinom}} which is a special case conceptually that does not return 2-vectors
 }
 \examples{
 rmultinom(10, size = 12, prob = c(0.1,0.2,0.8))
