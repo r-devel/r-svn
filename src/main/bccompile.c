@@ -1796,6 +1796,23 @@ static SEXP codebuf_code(CodeBuf *cb, Cntxt *cntxt)
 
 #define MAX_CONST_SIZE 10
 
+/* length(e) as the R compiler computes it: dispatched for an object */
+static R_xlen_t const_length(SEXP e)
+{
+    if (! OBJECT(e))
+	return XLENGTH(e);
+    SEXP call = PROTECT(Rf_lang2(Rf_install("length"), e));
+    SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
+    R_xlen_t n;
+    if ((TYPEOF(val) == INTSXP || TYPEOF(val) == REALSXP) &&
+	XLENGTH(val) == 1 && ! ISNAN(Rf_asReal(val)))
+	n = (R_xlen_t) Rf_asReal(val);
+    else
+	Rf_error(_("invalid 'length' value"));
+    UNPROTECT(2);
+    return n;
+}
+
 /* checkConst(e): a constant that may be folded into the code */
 static int check_const(SEXP e)
 {
@@ -1807,7 +1824,7 @@ static int check_const(SEXP e)
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
-	return XLENGTH(e) <= MAX_CONST_SIZE;
+	return const_length(e) <= MAX_CONST_SIZE;
     default:
 	return FALSE;
     }
@@ -1852,15 +1869,21 @@ static SEXP get_fold_fun(SEXP sym, Cntxt *cntxt)
 typedef struct {
     SEXP call;
     int failed;
+    int isConst;
 } FoldData;
 
-/* The R compiler evaluates the folded call in a frame of the compiler
-   namespace, from which S3 methods in the global environment and on
-   the search path are visible; the base namespace sees the same. */
+/* checkConst(do.call(ffun, args)): the R compiler evaluates the folded
+   call in a frame of the compiler namespace, from which S3 methods in
+   the global environment and on the search path are visible; the base
+   namespace sees the same. The length of an object result is
+   dispatched too, so the check runs under the same handlers. */
 static SEXP fold_body(void *data)
 {
     FoldData *fd = (FoldData *) data;
-    return Rf_eval(fd->call, R_BaseNamespace);
+    SEXP val = PROTECT(Rf_eval(fd->call, R_BaseNamespace));
+    fd->isConst = check_const(val);
+    UNPROTECT(1);
+    return val;
 }
 
 static SEXP fold_handler(SEXP cond, void *data)
@@ -1908,10 +1931,11 @@ static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
     FoldData fd;
     fd.call = PROTECT(LCONS(ffun, args));
     fd.failed = FALSE;
+    fd.isConst = FALSE;
     SEXP val = R_tryCatch(fold_body, &fd, foldConditions, fold_handler, &fd,
 			  NULL, NULL);
     UNPROTECT(2);
-    if (fd.failed || ! check_const(val))
+    if (fd.failed || ! fd.isConst)
 	return FALSE;
     *value = val;
     return TRUE;
@@ -2793,6 +2817,21 @@ static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
+/* is.na(ct) for a logical constant of length one, dispatched for an
+   object as in the R compiler's test */
+static int const_is_na(SEXP ct)
+{
+    if (! OBJECT(ct))
+	return LOGICAL(ct)[0] == NA_LOGICAL;
+    SEXP call = PROTECT(Rf_lang2(Rf_install("is.na"), ct));
+    SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
+    int ans = Rf_asLogical(val);
+    UNPROTECT(2);
+    if (ans == NA_LOGICAL)
+	Rf_error(_("missing value where TRUE/FALSE needed"));
+    return ans;
+}
+
 static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     int n = lang_length(e);
@@ -2804,7 +2843,7 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     SEXP else_expr = have_else ? CADDDR(e) : R_NilValue;
     SEXP ct;
     if (constant_fold(test, cntxt, &ct) && TYPEOF(ct) == LGLSXP &&
-	XLENGTH(ct) == 1 && LOGICAL(ct)[0] != NA_LOGICAL) {
+	const_length(ct) == 1 && ! const_is_na(ct)) {
 	if (LOGICAL(ct)[0]) {
 	    cmp(then_expr, cb, cntxt, FALSE, TRUE);
 	}

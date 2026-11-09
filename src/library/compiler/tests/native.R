@@ -157,7 +157,17 @@ Ops.foo <- function(e1, e2) 99
 s3fold <- function() NULL
 body(s3fold) <- call("+", structure(1, class = "foo"), 2)
 stopifnot(checkFun(s3fold), cmpfunC(s3fold)() == 99)
-rm(Ops.foo)
+## the size test on the folded constant dispatches length() as well, so
+## a method making the constant large prevents folding in both compilers
+## and the state the method reads is observed at run time
+length.foo <- function(x) 100L
+counter <- 0
+Ops.foo <- function(e1, e2) counter <<- counter + 1
+stopifnot(checkFun(s3fold))
+cf <- cmpfunC(s3fold)
+invisible(cf()); invisible(cf())
+stopifnot(counter == 2)
+rm(Ops.foo, length.foo)
 
 ## partial argument matching in an inlined .Internal call honors
 ## warnPartialMatchArgs as match.call() does: a warning, or with
