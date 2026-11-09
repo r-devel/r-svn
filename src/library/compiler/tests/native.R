@@ -176,8 +176,8 @@ Ops.foo <- function(e1, e2) calls
 r <- cmpfun(s3fold)
 rcalls <- calls
 calls <- 0
-c <- cmpfunC(s3fold)
-stopifnot(calls == rcalls, closEqual(r, c), c() == rcalls)
+cf2 <- cmpfunC(s3fold)
+stopifnot(calls == rcalls, closEqual(r, cf2), cf2() == rcalls)
 rm(Ops.foo, length.foo)
 ## the dispatched length is compared as a number, not truncated
 length.foo <- function(x) 10.5

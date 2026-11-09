@@ -491,15 +491,18 @@ static int is_builtin_internal(SEXP sym)
 {
     SymInfo *si = symtab_lookup(sym, TRUE);
     if (si->builtinInternal < 0) {
+	signed char val;
 #ifdef BCCOMPILE_STANDALONE
 	SEXP qsym = PROTECT(Rf_lang2(R_QuoteSymbol, sym));
 	SEXP call = PROTECT(Rf_lang2(Rf_install("is.builtin.internal"), qsym));
-	si->builtinInternal = Rf_asLogical(eval_internal(call)) == TRUE;
+	val = Rf_asLogical(eval_internal(call)) == TRUE;
 	UNPROTECT(2);
+	si = symtab_lookup(sym, TRUE); /* the table may have grown */
 #else
 	SEXP i = INTERNAL(sym);
-	si->builtinInternal = (i != R_NilValue && TYPEOF(i) == BUILTINSXP);
+	val = (i != R_NilValue && TYPEOF(i) == BUILTINSXP);
 #endif
+	si->builtinInternal = val;
     }
     return si->builtinInternal;
 }
@@ -2814,13 +2817,16 @@ static int call_handler(int h, int op, SEXP e, CodeBuf *cb, Cntxt *cntxt);
 static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     SEXP name = CAR(e);
+    /* the table entry is copied: get_inline_info() may run R code, and a
+       nested compilation can grow the table */
     SymInfo *si = symtab_lookup(name, FALSE);
     if (si == NULL || si->handler == H_NONE)
 	return FALSE; /* no handler for any package */
+    int handler = si->handler, handlerPkg = si->handlerPkg, op = si->op;
     InlineInfo info = get_inline_info(name, cntxt, TRUE);
     if (! info.found)
 	return FALSE;
-    if (si->handlerPkg != info.package)
+    if (handlerPkg != info.package)
 	return FALSE;
     if (info.guard) {
 	int tailcall = cntxt->tailcall;
@@ -2830,7 +2836,7 @@ static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 	int expridx = putconst(cb, e);
 	int endlabel = makelabel(cb);
 	put1L(cb, BASEGUARD_OP, expridx, endlabel);
-	if (! call_handler(si->handler, si->op, e, cb, &gcntxt))
+	if (! call_handler(handler, op, e, cb, &gcntxt))
 	    cmp_call(e, cb, &gcntxt, FALSE);
 	putlabel(cb, endlabel);
 	if (tailcall)
@@ -2838,7 +2844,7 @@ static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 	return TRUE;
     }
     else {
-	return call_handler(si->handler, si->op, e, cb, cntxt);
+	return call_handler(handler, op, e, cb, cntxt);
     }
 }
 
@@ -4155,10 +4161,11 @@ static int try_setter_inline(SEXP afun, SEXP place, SEXP origplace, SEXP call,
     SymInfo *si = symtab_lookup(afun, FALSE);
     if (si == NULL || si->setter == S_NONE)
 	return FALSE;
+    int setter = si->setter; /* see try_inline() */
     InlineInfo info = get_inline_info(afun, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
-    switch (si->setter) {
+    switch (setter) {
     case S_DOLLAR:
 	return s_dollar(place, call, cb, cntxt);
     case S_AT:
@@ -4228,10 +4235,11 @@ static int try_getter_inline(SEXP call, CodeBuf *cb, Cntxt *cntxt)
     SymInfo *si = symtab_lookup(name, FALSE);
     if (si == NULL || si->getter == G_NONE)
 	return FALSE;
+    int getter = si->getter; /* see try_inline() */
     InlineInfo info = get_inline_info(name, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
-    switch (si->getter) {
+    switch (getter) {
     case G_DOLLAR:
 	return g_dollar(call, cb, cntxt);
     case G_SUBSET:
