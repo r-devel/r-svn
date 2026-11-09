@@ -37,6 +37,15 @@
 
   \subsection{New Features}{
     \itemize{
+      \item The byte code compiler has a C implementation
+      (\file{src/main/bccompile.c}) which generates the same code as the
+      \pkg{compiler} package and is used by the JIT by default; it
+      compiles functions around 80 times faster.  Setting the
+      environment variable \env{R_BYTECODE_COMPILER} to \code{"R"}
+      selects the \pkg{compiler} package instead.  The C compiler can
+      be called directly via \code{.Internal(bcCmpfun(f, options))} and
+      \code{.Internal(bcCompile(e, env, options, srcref))}.
+
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}
       suppresses warnings about \dQuote{notches outside hinges}.
 

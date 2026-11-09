@@ -487,6 +487,8 @@ SEXP do_vhash(SEXP, SEXP, SEXP, SEXP);
 
 /* bytecode */
 SEXP do_mkcode(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bccmpfun(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bccompile(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bcclose(SEXP, SEXP, SEXP, SEXP);
 SEXP do_is_builtin_internal(SEXP, SEXP, SEXP, SEXP);
 SEXP do_disassemble(SEXP, SEXP, SEXP, SEXP);

@@ -850,6 +850,8 @@ FUNTAB R_FunTab[] =
 
 {"mkCode",     do_mkcode,       0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},
 {"bcClose",    do_bcclose,      0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
+{"bcCmpfun",   do_bccmpfun,     0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},
+{"bcCompile",  do_bccompile,    0,      11,     4,      {PP_FUNCALL, PREC_FN, 0}},
 {"is.builtin.internal", do_is_builtin_internal, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"disassemble", do_disassemble, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"bcVersion", do_bcversion,     0,      11,     0,      {PP_FUNCALL, PREC_FN, 0}},

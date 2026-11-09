@@ -1444,6 +1444,11 @@ static R_exprhash_t JIT_cache_hashes[JIT_CACHE_SIZE];
 
 /**** allow MIN_JIT_SCORE, or both, to be changed by environment variables? */
 static int MIN_JIT_SCORE = 50;
+
+/* The JIT uses the C implementation of the byte code compiler
+   (bccompile.c) unless R_BYTECODE_COMPILER is set to "R", in which
+   case the compiler package is used. Both generate the same code. */
+static int R_use_native_compiler = TRUE;
 #define LOOP_JIT_SCORE MIN_JIT_SCORE
 
 static struct { unsigned long count, envcount, bdcount; } jit_info = {0, 0, 0};
@@ -1464,6 +1469,10 @@ attribute_hidden void R_init_jit_enabled(void)
 	checkCompilerOptions(val);
     }
     R_jit_enabled = val;
+
+    const char *cmp = getenv("R_BYTECODE_COMPILER");
+    if (cmp != NULL && (strcmp(cmp, "R") == 0 || strcmp(cmp, "r") == 0))
+	R_use_native_compiler = FALSE;
 
     if (R_compile_pkgs <= 0) {
 	char *compile = getenv("_R_COMPILE_PKGS_");
@@ -1822,6 +1831,15 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, call, fcall, val;
 
+    if (R_use_native_compiler) {
+	PROTECT(val = R_bcTryCmpfun(fun));
+	if (TYPEOF(BODY(val)) != BCODESXP)
+	    R_gc(); /* see below */
+	UNPROTECT(1);
+	R_Visible = old_visible;
+	return val;
+    }
+
     packsym = install("compiler");
     funsym = install("tryCmpfun");
 
@@ -1908,6 +1926,12 @@ static SEXP R_compileExpr(SEXP expr, SEXP rho)
     Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, quotesym;
     SEXP qexpr, call, fcall, val;
+
+    if (R_use_native_compiler) {
+	val = R_bcTryCompile(expr, rho, R_getCurrentSrcref());
+	R_Visible = old_visible;
+	return val;
+    }
 
     packsym = install("compiler");
     funsym = install("tryCompile");
@@ -4541,6 +4565,11 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 /* start of bytecode section */
 static int R_bcVersion = 12;
 static int R_bcMinVersion = 9;
+
+attribute_hidden int R_bcVersionNumber(void)
+{
+    return R_bcVersion;
+}
 
 static SEXP R_AddSym = NULL;
 static SEXP R_SubSym = NULL;
