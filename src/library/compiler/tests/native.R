@@ -179,6 +179,11 @@ calls <- 0
 c <- cmpfunC(s3fold)
 stopifnot(calls == rcalls, closEqual(r, c), c() == rcalls)
 rm(Ops.foo, length.foo)
+## the dispatched length is compared as a number, not truncated
+length.foo <- function(x) 10.5
+Ops.foo <- function(e1, e2) counter
+stopifnot(checkFun(s3fold))
+rm(Ops.foo, length.foo)
 ## a classed NA condition whose is.na() method says otherwise still
 ## fails the evaluator's check when the if() is folded
 is.na.foo <- function(x) FALSE

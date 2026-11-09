@@ -211,17 +211,6 @@ static SEXP checkCallFun = NULL; /* R closure used for call checking notes */
 static int bc_version = 0;
 static int bc_initialized = FALSE;
 
-/* The compiler runs in C for the whole of a function, so interrupts are
-   polled every so many expressions visited, as the evaluator does. */
-static int bc_tick_count = 0;
-
-static R_INLINE void bc_tick(void)
-{
-    if (++bc_tick_count >= 1000) {
-	bc_tick_count = 0;
-	R_CheckUserInterrupt();
-    }
-}
 
 static const char *math1funs[] = {
     "floor", "ceiling", "sign", "expm1", "log1p",
@@ -520,11 +509,25 @@ static int is_builtin_internal(SEXP sym)
  * Small utilities on language objects
  */
 
+/* The compiler runs in C for the whole of a function, so interrupts are
+   polled every so many expressions visited, as the evaluator does. */
+static int bc_tick_count = 0;
+
+static R_INLINE void bc_tick(void)
+{
+    if (++bc_tick_count >= 1000) {
+	bc_tick_count = 0;
+	R_CheckUserInterrupt();
+    }
+}
+
 static R_INLINE int lang_length(SEXP e)
 {
     int n = 0;
-    for (; e != R_NilValue; e = CDR(e))
+    for (; e != R_NilValue; e = CDR(e)) {
+	bc_tick();
 	n++;
+    }
     return n;
 }
 
@@ -538,27 +541,33 @@ static R_INLINE SEXP lang_elt(SEXP e, int i) /* 0-based */
 /* dots.or.missing(args) */
 static int dots_or_missing(SEXP args)
 {
-    for (SEXP p = args; p != R_NilValue; p = CDR(p))
+    for (SEXP p = args; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	if (CAR(p) == R_MissingArg || CAR(p) == R_DotsSymbol)
 	    return TRUE;
+    }
     return FALSE;
 }
 
 /* anyDots(args) */
 static int any_dots(SEXP args)
 {
-    for (SEXP p = args; p != R_NilValue; p = CDR(p))
+    for (SEXP p = args; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	if (CAR(p) == R_DotsSymbol)
 	    return TRUE;
+    }
     return FALSE;
 }
 
 /* ! is.null(names(e)) */
 static int has_tags(SEXP e)
 {
-    for (SEXP p = e; p != R_NilValue; p = CDR(p))
+    for (SEXP p = e; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	if (TAG(p) != R_NilValue)
 	    return TRUE;
+    }
     return FALSE;
 }
 
@@ -1796,17 +1805,18 @@ static SEXP codebuf_code(CodeBuf *cb, Cntxt *cntxt)
 
 #define MAX_CONST_SIZE 10
 
-/* length(e) as the R compiler computes it: dispatched for an object */
-static R_xlen_t const_length(SEXP e)
+/* length(e) as the R compiler computes it: dispatched for an object,
+   whose method may return any number */
+static double const_length(SEXP e)
 {
     if (! OBJECT(e))
-	return XLENGTH(e);
+	return (double) XLENGTH(e);
     SEXP call = PROTECT(Rf_lang2(Rf_install("length"), e));
     SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
-    R_xlen_t n;
+    double n;
     if ((TYPEOF(val) == INTSXP || TYPEOF(val) == REALSXP) &&
 	XLENGTH(val) == 1 && ! ISNAN(Rf_asReal(val)))
-	n = (R_xlen_t) Rf_asReal(val);
+	n = Rf_asReal(val);
     else
 	Rf_error(_("invalid 'length' value"));
     UNPROTECT(2);
@@ -1909,6 +1919,7 @@ static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
     /* every argument must fold to a constant */
     SEXP args = PROTECT(copy_call(CDR(e)));
     for (SEXP p = args; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	if (CAR(p) == R_MissingArg) {
 	    UNPROTECT(1);
 	    return FALSE;
@@ -2605,6 +2616,7 @@ static void cmp_call_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int nse)
 {
     Cntxt pcntxt = make_promise_context(cntxt);
     for (SEXP p = args; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	SEXP a = CAR(p);
 	SEXP n = TAG(p);
 	if (a == R_MissingArg) {
@@ -3210,6 +3222,7 @@ static void cmp_builtin_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int missingOK
 {
     Cntxt ncntxt = make_arg_context(cntxt);
     for (SEXP p = args; p != R_NilValue; p = CDR(p)) {
+	bc_tick();
 	SEXP a = CAR(p);
 	SEXP n = TAG(p);
 	if (a == R_MissingArg) {
