@@ -935,28 +935,20 @@ make.codeBuf <- function(expr, loc = NULL) {
     ## also update the srcref according to expr, if expr has srcref attribute
     ##   (note: never clears current srcref)
     setcurexpr <- function(expr) {
-        if (exprTrackingOn) {
+        if (exprTrackingOn)
             curExpr <<- expr
-            curExprIdx <<- NULL
-        }
         if (srcrefTrackingOn) {
             sref <- getExprSrcref(expr)
-            if (!is.null(sref) && srcrefTrackingOn) {
+            if (!is.null(sref) && srcrefTrackingOn)
                 curSrcref <<- sref
-                curSrcrefIdx <<- NULL
-            }
-         }
+        }
     }
     ## unconditionally sets the current expression and srcrefs
     setcurloc <- function(expr, sref) {
-        if (exprTrackingOn) {
+        if (exprTrackingOn)
             curExpr <<- expr
-            curExprIdx <<- NULL
-        }
-        if (srcrefTrackingOn) {
+        if (srcrefTrackingOn)
             curSrcref <<- sref
-            curSrcrefIdx <<- NULL
-        }
     }
     ## add location information (current expressions, srcrefs) to the constant pool
     commitlocs <- function() {
@@ -977,18 +969,13 @@ make.codeBuf <- function(expr, loc = NULL) {
         NULL
     }
     savecurloc <- function() {
-        list(expr = curExpr, srcref = curSrcref,
-             exprIdx = curExprIdx, srcrefIdx = curSrcrefIdx)
+        list(expr = curExpr, srcref = curSrcref)
     }
     restorecurloc <- function(saved) {
-        if (exprTrackingOn) {
+        if (exprTrackingOn)
             curExpr <<- saved$expr
-            curExprIdx <<- saved$exprIdx
-        }
-        if (srcrefTrackingOn) {
+        if (srcrefTrackingOn)
             curSrcref <<- saved$srcref
-            curSrcrefIdx <<- saved$srcrefIdx
-        }
     }
     putcode <- function(...) {
         new <- list(...)
@@ -1001,26 +988,16 @@ make.codeBuf <- function(expr, loc = NULL) {
                 srcrefBuf <<- c(srcrefBuf, vector("integer", length(srcrefBuf)))
         }
         ## put the current expression and srcref into the constant pool
-        if (exprTrackingOn && is.null(curExprIdx))
-            curExprIdx <<- putconst(curExpr)
-        if (srcrefTrackingOn && is.null(curSrcrefIdx))
-            curSrcrefIdx <<- putconst(curSrcref)
+        ## (a hashed lookup when they are already there)
+        exprIdx <- if (exprTrackingOn) putconst(curExpr) else NULL
+        srcrefIdx <- if (srcrefTrackingOn) putconst(curSrcref) else NULL
         codeCount <<- .Internal(putcode(codeBuf, codeCount, new, exprBuf,
-                                        curExprIdx, srcrefBuf, curSrcrefIdx))
+                                        exprIdx, srcrefBuf, srcrefIdx))
     }
     getcode <- function() as.integer(codeBuf[1 : codeCount])
     constBuf <- vector("list", 1)
     constCount <- 0
-    ## Adding a constant scans the pool for an identical entry, so the
-    ## index of the current expression and srcref, which every emitted
-    ## instruction records, is remembered until the location changes.
-    ## Inline handlers also put the call they compile, which is usually
-    ## the current expression, so that is checked before scanning.
-    curExprIdx <- NULL
-    curSrcrefIdx <- NULL
     putconst <- function(x) {
-        if (! is.null(curExprIdx) && identical(x, curExpr))
-            return(curExprIdx)
         if (constCount == length(constBuf))
             constBuf <<- .Internal(growconst(constBuf))
         i <- .Internal(putconst(constBuf, constCount, x))
