@@ -1064,21 +1064,30 @@ make.codeBuf <- function(expr, loc = NULL) {
     }
     getconst <- function()
         .Internal(getconst(constBuf, constCount))
-    idx <- 0
-    labels <- new.env(hash = TRUE, parent = emptyenv())
-    makelabel <- function() { idx <<- idx + 1; paste0("L", idx) }
-    putlabel <- function(name) .assign(name, codeCount, labels)
+    ## Labels are negative integers (opcodes and constant indices are not
+    ## negative), with their offsets in a vector indexed by label number.
+    ## Naming them would intern a symbol for every label of every function
+    ## compiled, and symbols are never freed.
+    idx <- 0L
+    offsets <- rep(NA_integer_, 32L)
+    makelabel <- function() {
+        idx <<- idx + 1L
+        if (idx > length(offsets))
+            offsets <<- c(offsets, rep(NA_integer_, length(offsets)))
+        -idx
+    }
+    putlabel <- function(label) offsets[-label] <<- codeCount
     patchlabels <- function(cntxt) {
         offset <- function(lbl) {
-            off <- .get0(lbl, labels, inherits = FALSE)
-            if (is.null(off))
+            off <- offsets[-lbl]
+            if (is.na(off))
                 cntxt$stop(gettextf("no offset recorded for label \"%s\"", lbl),
                            cntxt)
             off
         }
         for (i in 1 : codeCount) {
             v <- codeBuf[[i]]
-            if (is.character(v))
+            if (is.integer(v) && length(v) == 1L && v < 0L)
                 codeBuf[[i]] <<- offset(v)
             else if (typeof(v) == "list") {
                 off <- as.integer(lapply(v, offset))

@@ -1051,15 +1051,28 @@ restorecurloc <- function(saved) {
 
 Labels are used for identifying targets for branching instruction.  The
 label management interface creates new labels with [[makelabel]] as
-character strings that are unique within the buffer.  These labels can
-then be included as operands in branching instructions. The
-[[putlabel]] function records the current code position as the value
-of the label.
+negative integers that are unique within the buffer; opcodes and
+constant indices are never negative, so a label can be told apart from
+them in the instruction stream.  These labels can then be included as
+operands in branching instructions. The [[putlabel]] function records
+the current code position as the value of the label, in a vector
+indexed by label number.  (Character labels looked up in an
+environment would intern a symbol for every label of every function
+compiled, and symbols are never freed.)
 <<label management interface>>=
-idx <- 0
-labels <- new.env(hash = TRUE, parent = emptyenv())
-makelabel <- function() { idx <<- idx + 1; paste0("L", idx) }
-putlabel <- function(name) .assign(name, codeCount, labels)
+## Labels are negative integers (opcodes and constant indices are not
+## negative), with their offsets in a vector indexed by label number.
+## Naming them would intern a symbol for every label of every function
+## compiled, and symbols are never freed.
+idx <- 0L
+offsets <- rep(NA_integer_, 32L)
+makelabel <- function() {
+    idx <<- idx + 1L
+    if (idx > length(offsets))
+        offsets <<- c(offsets, rep(NA_integer_, length(offsets)))
+    -idx
+}
+putlabel <- function(label) offsets[-label] <<- codeCount
 @ 
 
 Once code generation is complete the symbolic labels in the code
@@ -1070,15 +1083,15 @@ this is used for the [[SWITCH]] instruction.
 <<label management interface>>=
 patchlabels <- function(cntxt) {
     offset <- function(lbl) {
-        off <- .get0(lbl, labels, inherits = FALSE)
-        if (is.null(off))
+        off <- offsets[-lbl]
+        if (is.na(off))
             cntxt$stop(gettextf("no offset recorded for label \"%s\"", lbl),
                        cntxt)
         off
     }
     for (i in 1 : codeCount) {
         v <- codeBuf[[i]]
-        if (is.character(v))
+        if (is.integer(v) && length(v) == 1L && v < 0L)
             codeBuf[[i]] <<- offset(v)
         else if (typeof(v) == "list") {
             off <- as.integer(lapply(v, offset))
