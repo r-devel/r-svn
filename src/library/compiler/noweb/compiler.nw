@@ -5085,17 +5085,22 @@ constantFold <- function(e, cntxt, loc = NULL) {
 ## time quadratic in n. To fold each node once, calls that fail to fold
 ## are pushed on a per-function stack as the failure unwinds (deepest
 ## first), and cmp() pops a call it finds on top instead of folding it.
+## The stack is a chain of two-element lists in the fold state
+## environment, assigned with .assign(): a complex assignment such as
+## fs$failed[[n]] <- e checks the value for reference cycles, which for a
+## call means walking its whole subtree, so pushing the levels of a long
+## chain one by one would again take time quadratic in its length.
 pushFoldFailure <- function(e, cntxt) {
     fs <- cntxt$foldState
-    fs$failed[[length(fs$failed) + 1L]] <- e
+    .assign("failed", list(e, fs$failed), fs)
 }
 
 ## TRUE, and pop, if e is the call on top of the stack
 popFoldFailure <- function(e, cntxt) {
     fs <- cntxt$foldState
-    n <- length(fs$failed)
-    if (n > 0L && identical(fs$failed[[n]], e)) {
-        fs$failed[[n]] <- NULL
+    top <- fs$failed
+    if (! is.null(top) && identical(top[[1L]], e)) {
+        .assign("failed", top[[2L]], fs)
         TRUE
     }
     else FALSE
