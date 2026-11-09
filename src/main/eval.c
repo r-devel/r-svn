@@ -9281,10 +9281,31 @@ attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
    buffer without the attribute, so the table is rebuilt after a grow. */
 
 #define CONST_HASH_DEPTH 3
+/* elements of a vector or call that are hashed; calls differing only
+   further along collide, so the bound trades the cost of hashing a wide
+   constant against the cost of comparing colliding ones */
+#define CONST_HASH_WIDTH 8
 
 static R_INLINE unsigned int hash_mix(unsigned int h, unsigned int v)
 {
     return (h ^ v) * 0x9e3779b1u;
+}
+
+/* consistent with the num.eq comparison of identical(): 0 and -0 agree,
+   as do all NaN payloads other than NA */
+static R_INLINE unsigned int hash_double(double d)
+{
+    if (d == 0)
+	return 0;
+    else if (R_IsNA(d))
+	return 1;
+    else if (ISNAN(d))
+	return 2;
+    else {
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof bits);
+	return (unsigned int) (bits ^ (bits >> 32));
+    }
 }
 
 /* Constants that R_compute_identical(x, y, 16) considers identical must
@@ -9309,42 +9330,38 @@ static unsigned int const_hash(SEXP x, int depth)
     case LGLSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
-	for (R_xlen_t i = 0; i < n && i < 4; i++)
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
 	    h = hash_mix(h, (unsigned int) LOGICAL_ELT(x, i));
 	break;
     }
     case INTSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
-	for (R_xlen_t i = 0; i < n && i < 4; i++)
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
 	    h = hash_mix(h, (unsigned int) INTEGER_ELT(x, i));
 	break;
     }
     case REALSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
-	for (R_xlen_t i = 0; i < n && i < 4; i++) {
-	    double d = REAL_ELT(x, i);
-	    unsigned int v;
-	    if (d == 0)
-		v = 0; /* 0 and -0 are identical */
-	    else if (R_IsNA(d))
-		v = 1;
-	    else if (ISNAN(d))
-		v = 2;
-	    else {
-		uint64_t bits;
-		memcpy(&bits, &d, sizeof bits);
-		v = (unsigned int) (bits ^ (bits >> 32));
-	    }
-	    h = hash_mix(h, v);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+	    h = hash_mix(h, hash_double(REAL_ELT(x, i)));
+	break;
+    }
+    case CPLXSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++) {
+	    Rcomplex z = COMPLEX_ELT(x, i);
+	    h = hash_mix(h, hash_double(z.r));
+	    h = hash_mix(h, hash_double(z.i));
 	}
 	break;
     }
     case STRSXP: {
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
-	for (R_xlen_t i = 0; i < n && i < 4; i++) {
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++) {
 	    SEXP s = STRING_ELT(x, i);
 	    if (s == NA_STRING)
 		h = hash_mix(h, 1);
@@ -9366,7 +9383,7 @@ static unsigned int const_hash(SEXP x, int depth)
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned int) n);
 	if (depth > 0)
-	    for (R_xlen_t i = 0; i < n && i < 4; i++)
+	    for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
 		h = hash_mix(h, const_hash(VECTOR_ELT(x, i), depth - 1));
 	break;
     }
@@ -9380,7 +9397,8 @@ static unsigned int const_hash(SEXP x, int depth)
 	h = hash_mix(h, (unsigned int) n);
 	if (depth > 0) {
 	    int i = 0;
-	    for (SEXP p = x; p != R_NilValue && i < 4; p = CDR(p), i++)
+	    for (SEXP p = x; p != R_NilValue && i < CONST_HASH_WIDTH;
+		 p = CDR(p), i++)
 		h = hash_mix(h, const_hash(CAR(p), depth - 1));
 	}
 	break;
