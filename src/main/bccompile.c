@@ -4147,17 +4147,37 @@ static int h_subset(SEXP e, CodeBuf *cb, Cntxt *cntxt, int which2)
  * Inline handler for switch
  */
 
-/* findActionIndex(name, nm, miss): 0-based */
-static int find_action_index(const char *name, SEXP *names, int *miss, int n)
+/* The alternative names of a switch are the CHARSXPs of the tags, so
+   equal names are the same pointer. A small open addressing table maps
+   each distinct name to the first alternative with it. */
+typedef struct {
+    SEXP *keys;
+    int *first;
+    int size;
+} NameIndex;
+
+static void name_index_init(NameIndex *ni, int n)
 {
-    int start = 0;
-    for (; start < n; start++)
-	if (names[start] != NULL && strcmp(CHAR(names[start]), name) == 0)
-	    break;
-    for (int i = start; i < n; i++)
-	if (! miss[i])
-	    return i;
-    return n;
+    ni->size = 16;
+    while (ni->size < 2 * (n + 1))
+	ni->size *= 2;
+    ni->keys = (SEXP *) R_alloc(ni->size, sizeof(SEXP));
+    ni->first = (int *) R_alloc(ni->size, sizeof(int));
+    memset(ni->keys, 0, ni->size * sizeof(SEXP));
+}
+
+/* returns the first index recorded for the name, or -1 and records i */
+static int name_index_add(NameIndex *ni, SEXP name, int i)
+{
+    unsigned h = ptr_hash(name) & (ni->size - 1);
+    while (ni->keys[h] != NULL) {
+	if (ni->keys[h] == name)
+	    return ni->first[h];
+	h = (h + 1) & (ni->size - 1);
+    }
+    ni->keys[h] = name;
+    ni->first[h] = i;
+    return -1;
 }
 
 static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt)
@@ -4177,6 +4197,7 @@ static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     {
 	int i = 0;
 	for (SEXP p = cases; p != R_NilValue; p = CDR(p), i++) {
+	    bc_tick();
 	    miss[i] = CAR(p) == R_MissingArg;
 	    nm[i] = TAG(p) == R_NilValue ? R_BlankString : PRINTNAME(TAG(p));
 	}
@@ -4214,27 +4235,43 @@ static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     labels[n] = dfltLabel;
     int endLabel = cntxt->tailcall ? -1 : makelabel(cb);
 
-    /* the map from names to labels for a character switch */
+    /* the map from names to labels for a character switch: each
+       distinct name (unique(nm[nm != ""])) acts through the first
+       non-empty alternative at or after its first occurrence
+       (findActionIndex) */
     SEXP unm = R_NilValue;
     int *nlabels = NULL;
     int nunm = 0;
     if (haveNames) {
+	int *nextAction = (int *) R_alloc(n + 1, sizeof(int));
+	nextAction[n] = n;
+	for (int i = n - 1; i >= 0; i--)
+	    nextAction[i] = miss[i] ? nextAction[i + 1] : i;
+	NameIndex ni;
+	name_index_init(&ni, n);
 	SEXP *unames = (SEXP *) R_alloc(n + 1, sizeof(SEXP));
+	int *ufirst = (int *) R_alloc(n + 1, sizeof(int));
 	for (int i = 0; i < n; i++) {
+	    bc_tick();
 	    if (CHAR(nm[i])[0] == '\0')
 		continue;
-	    int dup = FALSE;
-	    for (int j = 0; j < nunm; j++)
-		if (strcmp(CHAR(unames[j]), CHAR(nm[i])) == 0)
-		    dup = TRUE;
-	    if (! dup)
-		unames[nunm++] = nm[i];
+	    if (name_index_add(&ni, nm[i], i) < 0) {
+		unames[nunm] = nm[i];
+		ufirst[nunm] = i;
+		nunm++;
+	    }
 	}
-	if (haveCharDflt)
-	    unames[nunm++] = R_BlankString;
+	if (haveCharDflt) {
+	    unames[nunm] = R_BlankString;
+	    int i = 0;
+	    while (CHAR(nm[i])[0] != '\0')
+		i++;
+	    ufirst[nunm] = i;
+	    nunm++;
+	}
 	nlabels = (int *) R_alloc(nunm + 1, sizeof(int));
 	for (int j = 0; j < nunm; j++)
-	    nlabels[j] = labels[find_action_index(CHAR(unames[j]), nm, miss, n)];
+	    nlabels[j] = labels[nextAction[ufirst[j]]];
 	/* if there is no unnamed case to act as a default for a
 	   character switch then the numeric default becomes the
 	   character default as well */
@@ -4367,6 +4404,9 @@ attribute_hidden SEXP R_bcCompile(SEXP e, SEXP env, SEXP options, SEXP srcref)
     const void *vmax = vmaxget();
     CEnv *cenv = make_cenv(env);
     Cntxt cntxt = make_toplevel_context(cenv, options);
+    /* R code run while folding constants may reset the compiler options
+       and free the old values */
+    PROTECT(cntxt.suppressUndefined);
     find_locals_list(&e, 1, &cntxt, &cenv->vars);
     SEXP ans;
     if (may_call_browser(e, &cntxt)) {
@@ -4380,6 +4420,7 @@ attribute_hidden SEXP R_bcCompile(SEXP e, SEXP env, SEXP options, SEXP srcref)
 	Loc loc = { e, srcref };
 	ans = gen_code(e, &cntxt, &loc);
     }
+    UNPROTECT(1);
     vmaxset(vmax);
     return ans;
 }
@@ -4402,8 +4443,10 @@ attribute_hidden SEXP R_bcCmpfun(SEXP f, SEXP options)
     SEXP body = R_ClosureExpr(f);
     SEXP env = CLOENV(f);
     Cntxt cntxt = make_toplevel_context(make_cenv(env), options);
+    PROTECT(cntxt.suppressUndefined); /* see R_bcCompile */
     Cntxt ncntxt = make_function_context(&cntxt, forms, body);
     if (may_call_browser(body, &ncntxt)) {
+	UNPROTECT(1);
 	vmaxset(vmax);
 	return f;
     }
@@ -4421,7 +4464,7 @@ attribute_hidden SEXP R_bcCmpfun(SEXP f, SEXP options)
 	SHALLOW_DUPLICATE_ATTRIB(val, f);
     if (IS_S4_OBJECT(f))
 	SET_S4_OBJECT(val);
-    UNPROTECT(2);
+    UNPROTECT(3);
     vmaxset(vmax);
     return val;
 }
