@@ -72,15 +72,15 @@ mkRbase:
 	  else \
 	    cat $(RSRC) > "$${f}"; \
 	  fi; \
-	  f2=$${TMPDIR:-/tmp}/R2$$$$; \
-	  sed -e "s:@WHICH@:${WHICH}:" "$${f}" > "$${f2}"; \
-	  rm -f "$${f}"; \
-	  $(SHELL) $(top_srcdir)/tools/move-if-change "$${f2}" all.R)
+	  $(SHELL) $(top_srcdir)/tools/move-if-change "$${f}" all.R)
 	@if ! test -f $(top_builddir)/library/$(pkg)/R/$(pkg); then \
 	  $(INSTALL_DATA) all.R $(top_builddir)/library/$(pkg)/R/$(pkg); \
 	else if test all.R -nt $(top_builddir)/library/$(pkg)/R/$(pkg); then \
 	  $(INSTALL_DATA) all.R $(top_builddir)/library/$(pkg)/R/$(pkg); \
 	  fi \
+	fi
+	@if ! test -f $(top_builddir)/library/$(pkg)/R/which; then \
+	  cd $(top_builddir)/library/$(pkg)/R/ && $(LN_S) $(WHICH) which; \
 	fi
 
 mkdesc:
