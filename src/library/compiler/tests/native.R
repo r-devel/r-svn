@@ -205,6 +205,9 @@ length.foo <- function(x) structure(1L, class = "bar")
 Ops.bar <- function(e1, e2) FALSE
 Ops.foo <- function(e1, e2) counter
 stopifnot(checkFun(s3fold))
+## ... and a non-numeric comparison result is an error in both
+Ops.bar <- function(e1, e2) "TRUE"
+stopifnot(bothError(s3fold))
 rm(Ops.foo, Ops.bar, length.foo)
 
 ## function literals built by code need not have pairlist formals

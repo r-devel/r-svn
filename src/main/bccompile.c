@@ -1835,6 +1835,12 @@ static int eval_object_test(SEXP call)
 {
     PROTECT(call);
     SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
+    switch (TYPEOF(val)) {
+    case LGLSXP: case INTSXP: case REALSXP: case CPLXSXP:
+	break;
+    default:
+	Rf_error(_("invalid 'y' type in 'x && y'"));
+    }
     if (XLENGTH(val) != 1)
 	Rf_error(_("'length = %lld' in coercion to '%s'"),
 		 (long long) XLENGTH(val), "logical(1)");
