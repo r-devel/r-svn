@@ -1476,7 +1476,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
     if (mbcslocale || use_WC == TRUE) {
 	int j, nb, nc;
 	xtable_t *xtable, *tbl;
-	int xtable_cnt;
+	R_xlen_t xtable_cnt;
 	struct wtr_spec *trs_cnt, **trs_cnt_ptr;
 	wchar_t c_old, c_new, *wc;
 	const char *xi, *s;
@@ -1547,6 +1547,10 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	*trs_cnt_ptr = trs_cnt->next;
 	for (xtable_cnt = 0 ; wtr_get_next_char_from_spec(trs_cnt_ptr);
 	      xtable_cnt++) ;
+	/* the table is indexed with int below; counted in int, 2^32
+	   entries wrapped to 0 and the table was written past its end */
+	if (xtable_cnt > INT_MAX)
+	    error(_("'old' expands to too many characters"));
 	xtable = (xtable_t *) R_alloc(xtable_cnt+1, sizeof(xtable_t));
 
 	trs_old_ptr = (struct wtr_spec **) R_alloc(1, sizeof(struct wtr_spec *));
@@ -1603,9 +1607,13 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    wcstoutf8(cbuf, wc, nb);
 		    SET_STRING_ELT(y, i, mkCharCE(cbuf, CE_UTF8));
 		} else {
-		    nb = (int) wcstombs(NULL, wc, 0);
-		    cbuf = CallocCharBuf(nb);
-		    wcstombs(cbuf, wc, nb + 1);
+		    size_t nbytes = wcstombs(NULL, wc, 0);
+		    if (nbytes == (size_t)-1)
+			error(_("translated string is not representable in the current locale"));
+		    if (nbytes > INT_MAX)
+			error(_("R character strings are limited to 2^31-1 bytes"));
+		    cbuf = CallocCharBuf(nbytes);
+		    wcstombs(cbuf, wc, nbytes + 1);
 		    SET_STRING_ELT(y, i, markKnown(cbuf, el));
 		}
 		R_Free(cbuf);

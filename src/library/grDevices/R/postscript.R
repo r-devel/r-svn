@@ -29,7 +29,7 @@ check.options <-
     lnew <- length(new)
     if(lnew != length(newnames <- names(new)))
 	stop(gettextf("invalid arguments in '%s' (need named args)",
-                      deparse(sys.call(sys.parent()))), domain = NA)
+                      deparse1(sys.call(sys.parent()))), domain = NA)
     if(!is.character(name.opt))
 	stop("'name.opt' must be character, name of an existing list")
     if(reset) {
@@ -52,7 +52,7 @@ check.options <-
                                  "invalid argument names %s in '%s'"),
                          paste(sQuote(newnames[is.na(matches)]),
                                collapse=", "),
-                         deparse(sys.call(sys.parent()))),
+                         deparse1(sys.call(sys.parent()))),
                  domain = NA)
 	else { #- match(es) found:  substitute if appropriate
 	    i.match <- oldnames[matches]
@@ -60,8 +60,8 @@ check.options <-
 	    doubt <- rep.int(FALSE, length(prev))
 	    for(fn in check.attributes)
 		if(any(ii <- sapply(prev, fn) != sapply(new, fn))) {
-                    ## skip 'fonts';
-                    ii <- ii & (names(prev) != "fonts")
+                    ## skip 'fonts' and 'keys';
+                    ii <- ii & !(names(prev) %in% c("fonts", "keys"))
                     if(!any(ii)) next
 		    doubt <- doubt | ii
 		    do.keep <- ii & !override.check

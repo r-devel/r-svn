@@ -3648,11 +3648,26 @@ static SEXP mkCharLocal(const char *s)
     return mkCharCE(s, ienc);
 }
 
+/* OutTextData[idx] is list(env, data): the environment holding the
+   target binding, and the current character vector.  The vector is
+   anchored here because the binding alone cannot keep it alive: rm()
+   or a rebinding of the name would leave this->data dangling
+   (PR#19228). */
+static SEXP outtext_env(int idx)
+{
+    return VECTOR_ELT(VECTOR_ELT(OutTextData, idx), 0);
+}
+
+static void outtext_set_data(int idx, SEXP data)
+{
+    SET_VECTOR_ELT(VECTOR_ELT(OutTextData, idx), 1, data);
+}
+
 static void outtext_close(Rconnection con)
 {
     Routtextconn this = con->private;
     int idx = ConnIndex(con);
-    SEXP tmp, env = VECTOR_ELT(OutTextData, idx);
+    SEXP tmp, env = outtext_env(idx);
 
     if(this->namesymbol && R_existsVarInFrame(env, this->namesymbol))
 	R_unLockBinding(this->namesymbol, env);
@@ -3661,6 +3676,7 @@ static void outtext_close(Rconnection con)
 	SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(this->lastline));
 	if(this->namesymbol) defineVar(this->namesymbol, tmp, env);
 	ENSURE_NAMEDMAX(tmp);
+	outtext_set_data(idx, tmp);
 	this->data = tmp;
 	UNPROTECT(1);
     }
@@ -3670,12 +3686,7 @@ static void outtext_destroy(Rconnection con)
 {
     Routtextconn this = con->private;
     int idx = ConnIndex(con);
-    /* OutTextData is preserved, and that implies that the environment
-       we are writing it and hence the character vector is protected.
-       However, this could be quite expensive.
-    */
     SET_VECTOR_ELT(OutTextData, idx, R_NilValue);
-    if(!this->namesymbol) R_ReleaseObject(this->data);
     free(this->lastline); free(this);
 }
 
@@ -3730,7 +3741,7 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 	q = Rf_strchr(p, '\n');
 	if(q) {
 	    int idx = ConnIndex(con);
-	    SEXP env = VECTOR_ELT(OutTextData, idx);
+	    SEXP env = outtext_env(idx);
 	    *q = '\0';
 	    PROTECT(tmp = xlengthgets(this->data, ++this->len));
 	    SET_STRING_ELT(tmp, this->len - 1, mkCharLocal(p));
@@ -3739,10 +3750,8 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 		    R_unLockBinding(this->namesymbol, env);
 		defineVar(this->namesymbol, tmp, env);
 		R_LockBinding(this->namesymbol, env);
-	    } else {
-		R_ReleaseObject(this->data);
-		R_PreserveObject(tmp);
 	    }
+	    outtext_set_data(idx, tmp);
 	    this->data = tmp;
 	    ENSURE_NAMEDMAX(tmp);
 	    UNPROTECT(1);
@@ -3774,38 +3783,37 @@ static int text_vfprintf(Rconnection con, const char *format, va_list ap)
 static void outtext_init(Rconnection con, SEXP stext, const char *mode, int idx)
 {
     Routtextconn this = con->private;
-    SEXP val;
+    SEXP val, env = outtext_env(idx);
 
     if(stext == R_NilValue) {
 	this->namesymbol = NULL;
-	    /* create variable pointed to by con->description */
 	val = allocVector(STRSXP, 0);
-	R_PreserveObject(val);
     } else {
 	this->namesymbol = install(con->description);
 	if(strcmp(mode, "w") == 0) {
 	    /* create variable pointed to by con->description */
 	    PROTECT(val = allocVector(STRSXP, 0));
-	    defineVar(this->namesymbol, val, VECTOR_ELT(OutTextData, idx));
+	    defineVar(this->namesymbol, val, env);
 	    /* Not clear if this is needed, but be conservative */
 	    ENSURE_NAMEDMAX(val);
+	    R_LockBinding(this->namesymbol, env);
 	    UNPROTECT(1);
 	} else {
 	    /* take over existing variable */
-	    val = findVar1(this->namesymbol, VECTOR_ELT(OutTextData, idx),
-			   STRSXP, FALSE);
+	    val = findVar1(this->namesymbol, env, STRSXP, FALSE);
 	    if(val == R_UnboundValue) {
 		warning(_("text connection: appending to a non-existent char vector"));
 		PROTECT(val = allocVector(STRSXP, 0));
-		defineVar(this->namesymbol, val, VECTOR_ELT(OutTextData, idx));
+		defineVar(this->namesymbol, val, env);
 		ENSURE_NAMEDMAX(val);
 		UNPROTECT(1);
 	    }
 	    PROTECT(val);
-	    R_LockBinding(this->namesymbol, VECTOR_ELT(OutTextData, idx));
+	    R_LockBinding(this->namesymbol, env);
 	    UNPROTECT(1);
 	}
     }
+    outtext_set_data(idx, val);
     this->len = LENGTH(val);
     this->data = val;
     this->lastline[0] = '\0';
@@ -3896,7 +3904,10 @@ attribute_hidden SEXP do_textconnection(SEXP call, SEXP op, SEXP args, SEXP env)
 	    OutTextData = allocVector(VECSXP, NCONNECTIONS);
 	    R_PreserveObject(OutTextData);
 	}
-	SET_VECTOR_ELT(OutTextData, ncon, venv);
+	SEXP slot = PROTECT(allocVector(VECSXP, 2));
+	SET_VECTOR_ELT(slot, 0, venv);
+	SET_VECTOR_ELT(OutTextData, ncon, slot);
+	UNPROTECT(1);
 	if(stext == R_NilValue)
 	    con = Connections[ncon] = newouttext("NULL", stext, open, ncon);
 	else if(isString(stext) && LENGTH(stext) == 1)
@@ -4408,6 +4419,19 @@ static void con_cleanup(void *data)
     checkClose(con);
 }
 
+typedef struct {
+    char **buf; /* address of the buffer pointer, to track reallocations */
+    Rconnection con; /* NULL unless the connection still needs closing */
+} readLines_data;
+
+static void readLines_cleanup(void *data)
+{
+    readLines_data *d = data;
+    /* Closing the connection may itself raise an error. */
+    free(*d->buf);
+    if (d->con) checkClose(d->con);
+}
+
 /* readLines(con = stdin(), n = 1, ok = TRUE, warn = TRUE) */
 #define BUF_SIZE 1000
 attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -4418,7 +4442,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     int oenc = CE_NATIVE;
     Rconnection con = NULL;
     Rboolean wasopen;
-    char *buf;
+    char *buf = NULL;
     const char *encoding;
     RCNTXT cntxt;
     R_xlen_t i, n, nn, nnn, nread;
@@ -4443,6 +4467,13 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     if(skipNul == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "skipNul");
 
+    /* Clean up the current buffer and any connection opened here on error. */
+    readLines_data data = {&buf, NULL};
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &readLines_cleanup;
+    cntxt.cenddata = &data;
+
     wasopen = con->isopen;
     if(!wasopen) {
 	char mode[5];
@@ -4451,11 +4482,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	strcpy(con->mode, "rt");
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
-	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	data.con = con;
 	if(!con->canread) error(_("cannot read from this connection"));
     } else {
 	if(!con->canread) error(_("cannot read from this connection"));
@@ -4491,10 +4518,9 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(nbuf == buf_size-1) {  /* need space for the terminator */
 		buf_size *= 2;
 		char *tmp = (char *) realloc(buf, buf_size);
-		if(!tmp) {
-		    free(buf);
+		if(!tmp)
 		    error(_("cannot allocate buffer in readLines"));
-		} else buf = tmp;
+		buf = tmp;
 	    }
 	    if(skipNul && c == '\0') continue;
 	    if(c != '\n')
@@ -4515,12 +4541,19 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	            (long long)nread + 1);
 	if(c == R_EOF) goto no_more_lines;
     }
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+	data.con = NULL; /* do not close again if closing raises an error */
+	con->close(con);
+    }
+    endcontext(&cntxt);
     UNPROTECT(1);
     free(buf);
     return ans;
 no_more_lines:
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+	data.con = NULL;
+	con->close(con);
+    }
     if(nbuf > 0) { /* incomplete last line */
 	if(con->text && !con->blocking &&
 	   (strcmp(con->class, "gzfile") != 0)) {
@@ -4534,6 +4567,7 @@ no_more_lines:
 			con->description);
 	}
     }
+    endcontext(&cntxt);
     free(buf);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
