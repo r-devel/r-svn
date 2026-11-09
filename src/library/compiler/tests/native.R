@@ -6,6 +6,10 @@
 
 library(compiler)
 
+## cmpfun() and compile() hand the work to the C compiler unless it is
+## switched off; here they must be the R implementation, the reference
+.Internal(nativeCompiler(FALSE))
+
 cmpfunC <- function(f, options = NULL) .Internal(bcCmpfun(f, options))
 compileC <- function(e, env = .GlobalEnv, options = NULL, srcref = NULL)
     .Internal(bcCompile(e, env, options, srcref))
@@ -252,3 +256,14 @@ stopifnot(system.time(cmpfunC(big))[["elapsed"]] < 5)
 stopifnot(checkFun(as.function(list(as.character(1:100000)))))
 bigs <- as.function(list(as.call(list(quote(length), as.character(1:1000000000)))))
 stopifnot(system.time(cmpfunC(bigs))[["elapsed"]] < 5)
+
+## with the C compiler selected, cmpfun() and compile() hand the work
+## to it; the switch returns the previous setting
+stopifnot(identical(.Internal(nativeCompiler(TRUE)), FALSE),
+          identical(.Internal(nativeCompiler(NA)), TRUE))
+wired <- function(x, y) { z <- x + y * 2; if (z > 3) z else -z }
+stopifnot(closEqual(cmpfun(wired), cmpfunC(wired)),
+          bcEqual(compile(quote(x + 1)), compileC(quote(x + 1))),
+          identical(cmpfun(sum), sum),
+          bothError(1))
+stopifnot(identical(.Internal(nativeCompiler(FALSE)), TRUE))

@@ -61,6 +61,12 @@ setCompilerOptions(...)
   \code{compile} compiles an expression into a byte code object; the
   object can then be evaluated with \code{eval}.
 
+  The compiler has two implementations which generate the same code:
+  one in \R, in this package, and one in C, which is used by default
+  because it is much faster.  Starting \R with the environment variable
+  \env{R_BYTECODE_COMPILER} set to \code{"R"} makes \code{cmpfun},
+  \code{compile} and the \abbr{JIT} use the \R implementation.
+
   \code{cmpfile} parses the expressions in \code{infile}, compiles
   them, and writes the compiled expressions to \code{outfile}.  If
   \code{outfile} is not provided, it is formed from \code{infile} by

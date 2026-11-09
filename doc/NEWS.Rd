@@ -39,11 +39,14 @@
     \itemize{
       \item The byte code compiler has a C implementation
       (\file{src/main/bccompile.c}) which generates the same code as the
-      \pkg{compiler} package and is used by the JIT by default; it
-      compiles functions around 80 times faster.  Setting the
-      environment variable \env{R_BYTECODE_COMPILER} to \code{"R"}
-      selects the \pkg{compiler} package instead.  The C compiler can
-      be called directly via \code{.Internal(bcCmpfun(f, options))} and
+      R implementation in the \pkg{compiler} package and compiles
+      functions around 80 times faster.  It is used by default, by the
+      JIT, when packages are byte-compiled at installation, and by
+      \code{compiler::cmpfun()} and \code{compile()}.  Starting \R with
+      the environment variable \env{R_BYTECODE_COMPILER} set to
+      \code{"R"}, or calling \code{.Internal(nativeCompiler(FALSE))},
+      selects the R implementation instead.  The C compiler can also be
+      called directly via \code{.Internal(bcCmpfun(f, options))} and
       \code{.Internal(bcCompile(e, env, options, srcref))}.
 
       \item \code{boxplot()}: when \code{notch=TRUE}, new option \code{warnN=FALSE}

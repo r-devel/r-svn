@@ -2962,6 +2962,8 @@ notifyCompilerError <- function(msg)
 ##
 
 compile <- function(e, env = .GlobalEnv, options = NULL, srcref = NULL) {
+    if (.Internal(nativeCompiler(NA)))
+        return(.Internal(bcCompile(e, env, options, srcref)))
     cenv <- makeCenv(env)
     cntxt <- make.toplevelContext(cenv, options)
     cntxt$env <- addCenvVars(cenv, findLocals(e, cntxt))
@@ -2975,6 +2977,8 @@ compile <- function(e, env = .GlobalEnv, options = NULL, srcref = NULL) {
 }
 
 cmpfun <- function(f, options = NULL) {
+    if (.Internal(nativeCompiler(NA)))
+        return(.Internal(bcCmpfun(f, options)))
     type <- typeof(f)
     if (type == "closure") {
         cntxt <- make.toplevelContext(makeCenv(environment(f)), options)

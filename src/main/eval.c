@@ -1987,6 +1987,18 @@ attribute_hidden SEXP do_enablejit(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ScalarInteger(old);
 }
 
+/* Select the C or the R implementation of the compiler for the JIT and
+   for compiler::cmpfun()/compile(); NA just returns the current setting. */
+attribute_hidden SEXP do_nativecompiler(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int old = R_use_native_compiler;
+    int enable = asLogical(CAR(args));
+    if (enable != NA_LOGICAL)
+	R_use_native_compiler = enable;
+    return ScalarLogical(old);
+}
+
 attribute_hidden SEXP do_compilepkgs(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int old = R_compile_pkgs, new;

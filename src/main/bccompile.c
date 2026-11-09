@@ -4654,8 +4654,8 @@ attribute_hidden SEXP do_bccompile(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
     SEXP env = CADR(args);
-    if (TYPEOF(env) != ENVSXP)
-	Rf_error(_("invalid '%s' argument"), "env");
+    if (TYPEOF(env) != ENVSXP) /* the message the R implementation gives */
+	Rf_error(_("argument is not an environment"));
     return R_bcCompile(CAR(args), env, CADDR(args), CADDDR(args));
 }
 
