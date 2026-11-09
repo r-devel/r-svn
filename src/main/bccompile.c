@@ -30,9 +30,19 @@
  * and call matching and constant folding call into R only where the R
  * compiler does.
  *
- * With BCCOMPILE_STANDALONE defined the file builds as a shared library
- * against the public API (R CMD SHLIB); the few internals it needs are
- * reached through .Internal() calls.  Otherwise it is part of libR.
+ * The compiler calls into R to fold constants, to dispatch length() and
+ * is.na() on classed constants, to match calls for the notes and to read
+ * the compiler options, and that R code can trigger the JIT and so
+ * re-enter the compiler.  The state shared between activations is
+ * read-only once bc_init() has built it: the symbol table, the interned
+ * symbols and checkCallFun.  Everything else belongs to one activation,
+ * in its CodeBuf and Cntxt and in R_alloc memory released per code
+ * object, with the constant pool protected by its CodeBuf.  The
+ * interrupt counter bc_tick_count is shared and only approximate.
+ *
+ * With BCCOMPILE_CHECK_HASH defined, as it is in --enable-strict-barrier
+ * builds, every constant pool lookup is checked against a linear scan of
+ * the pool.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -43,29 +53,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include <Defn.h>
 #include <Internal.h>
 #include <Rinternals.h>
-
-#ifdef BCCOMPILE_STANDALONE
-/* built as a shared library: the internals hidden in libR are reached
-   through .Internal() calls below, and messages are not translated */
-# undef _
-# define _(String) (String)
-/* the inlined element accessors call hidden ALTREP accessors, so this
-   build reads through the data pointer (and so expands ALTREP constants) */
-# undef LOGICAL_ELT
-# define LOGICAL_ELT(x, i) (LOGICAL(x)[i])
-# undef INTEGER_ELT
-# define INTEGER_ELT(x, i) (INTEGER(x)[i])
-# undef REAL_ELT
-# define REAL_ELT(x, i) (REAL(x)[i])
-# undef COMPLEX_ELT
-# define COMPLEX_ELT(x, i) (COMPLEX(x)[i])
-# undef RAW_ELT
-# define RAW_ELT(x, i) (RAW(x)[i])
-#endif
 
 #include "bcopcodes.h"
 
@@ -106,10 +98,11 @@ typedef struct {
     int op;
     SetterHandler setter;
     GetterHandler getter;
-    signed char builtinInternal; /* -1 unknown, 0 no, 1 yes */
 } SymInfo;
 
-/* open addressing table keyed by symbol address */
+/* open addressing table keyed by symbol address; built by bc_init() and
+   read-only afterwards, so an entry can be held by pointer while R code
+   runs (a nested compilation cannot grow the table) */
 static SymInfo *symtab = NULL;
 static int symtab_size = 0;	/* power of two */
 static int symtab_count = 0;
@@ -156,7 +149,6 @@ static SymInfo *symtab_lookup(SEXP sym, int create)
     if (! create)
 	return NULL;
     symtab[h].sym = sym;
-    symtab[h].builtinInternal = -1;
     symtab_count++;
     return &symtab[h];
 }
@@ -188,52 +180,26 @@ static int bc_initialized = FALSE;
 
 
 
-/*
- * Internals reached through .Internal() in a standalone build
- */
 
-static SEXP eval_internal(SEXP call)
-{
-    SEXP icall = PROTECT(Rf_lang2(s_dotInternal, call));
-    SEXP val = Rf_eval(icall, R_BaseEnv);
-    UNPROTECT(1);
-    return val;
-}
+
+/*
+ * Byte code objects (mkCode) and the test of .Internal functions
+ */
 
 static SEXP bc_mkcode(SEXP bytes, SEXP consts)
 {
-#ifdef BCCOMPILE_STANDALONE
-    SEXP call = PROTECT(Rf_lang3(Rf_install("mkCode"), bytes, consts));
-    SEXP val = eval_internal(call);
-    UNPROTECT(1);
-    return val;
-#else
     SEXP ans = PROTECT(CONS(R_bcEncode(bytes), consts));
     SET_TYPEOF(ans, BCODESXP);
     R_registerBC(bytes, ans);
     UNPROTECT(1);
     return ans;
-#endif
 }
 
+/* is.builtin.internal(sym) */
 static int is_builtin_internal(SEXP sym)
 {
-    SymInfo *si = symtab_lookup(sym, TRUE);
-    if (si->builtinInternal < 0) {
-	signed char val;
-#ifdef BCCOMPILE_STANDALONE
-	SEXP qsym = PROTECT(Rf_lang2(R_QuoteSymbol, sym));
-	SEXP call = PROTECT(Rf_lang2(Rf_install("is.builtin.internal"), qsym));
-	val = Rf_asLogical(eval_internal(call)) == TRUE;
-	UNPROTECT(2);
-	si = symtab_lookup(sym, TRUE); /* the table may have grown */
-#else
-	SEXP i = INTERNAL(sym);
-	val = (i != R_NilValue && TYPEOF(i) == BUILTINSXP);
-#endif
-	si->builtinInternal = val;
-    }
-    return si->builtinInternal;
+    SEXP i = INTERNAL(sym);
+    return i != R_NilValue && TYPEOF(i) == BUILTINSXP;
 }
 
 
@@ -753,8 +719,16 @@ struct Cntxt {
     int loopLabel, endLabel, gotoOK;
 };
 
+/* the R compiler indexes a call as e[[n]]: an error for a shorter call */
+static void check_arity(SEXP e, int n, Cntxt *cntxt)
+{
+    if (lang_length(e) < n)
+	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+}
+
 static SEXP compiler_option(const char *name, SEXP options);
 
+/* make.toplevelContext(cenv, options) */
 static Cntxt make_toplevel_context(CEnv *cenv, SEXP options)
 {
     Cntxt c;
@@ -776,6 +750,7 @@ static Cntxt make_toplevel_context(CEnv *cenv, SEXP options)
     return c;
 }
 
+/* make.callContext(cntxt, call) */
 static R_INLINE Cntxt make_call_context(const Cntxt *cntxt, SEXP call)
 {
     Cntxt c = *cntxt;
@@ -783,6 +758,7 @@ static R_INLINE Cntxt make_call_context(const Cntxt *cntxt, SEXP call)
     return c;
 }
 
+/* make.promiseContext(cntxt) */
 static R_INLINE Cntxt make_promise_context(const Cntxt *cntxt)
 {
     Cntxt c = *cntxt;
@@ -794,6 +770,7 @@ static R_INLINE Cntxt make_promise_context(const Cntxt *cntxt)
     return c;
 }
 
+/* make.nonTailCallContext(cntxt) */
 static R_INLINE Cntxt make_nontailcall_context(const Cntxt *cntxt)
 {
     Cntxt c = *cntxt;
@@ -801,6 +778,7 @@ static R_INLINE Cntxt make_nontailcall_context(const Cntxt *cntxt)
     return c;
 }
 
+/* make.argContext(cntxt) */
 static R_INLINE Cntxt make_arg_context(const Cntxt *cntxt)
 {
     Cntxt c = *cntxt;
@@ -811,6 +789,7 @@ static R_INLINE Cntxt make_arg_context(const Cntxt *cntxt)
     return c;
 }
 
+/* make.noValueContext(cntxt) */
 static R_INLINE Cntxt make_novalue_context(const Cntxt *cntxt)
 {
     Cntxt c = *cntxt;
@@ -818,6 +797,7 @@ static R_INLINE Cntxt make_novalue_context(const Cntxt *cntxt)
     return c;
 }
 
+/* make.loopContext(cntxt, loop.label, end.label) */
 static R_INLINE Cntxt make_loop_context(const Cntxt *cntxt, int loopLabel,
 					int endLabel)
 {
@@ -930,6 +910,7 @@ static int env_option_optimize(void)
     return (int) lev;
 }
 
+/* getCompilerOption(name, options) */
 static SEXP compiler_option(const char *name, SEXP options)
 {
     if (TYPEOF(options) == VECSXP) {
@@ -1249,20 +1230,51 @@ static void rebuild_const_index(CodeBuf *cb)
     }
 }
 
+/* The hash lookup must find what the R compiler's putconst() finds by
+   scanning the pool with identical(x, y, 16): a constant it misses is
+   added twice, which is different code and no error. The check scans
+   the pool for every constant, so it is only on in checking builds. */
+#if defined(TESTING_WRITE_BARRIER) && ! defined(BCCOMPILE_CHECK_HASH)
+# define BCCOMPILE_CHECK_HASH
+#endif
+
+#ifdef BCCOMPILE_CHECK_HASH
+static void check_const_hash(CodeBuf *cb, SEXP x, int found)
+{
+    int scan = -1;
+    for (int j = 0; j < cb->nconst; j++)
+	if (R_compute_identical(x, VECTOR_ELT(cb->consts, j), 16)) {
+	    scan = j;
+	    break;
+	}
+    if (scan != found)
+	Rf_error("constant pool lookup found %d but a scan of the pool %d",
+		 found, scan);
+}
+#endif
+
 /* cb$putconst(x): the index of x in the constant pool, adding it if no
    identical constant is there */
 static int putconst(CodeBuf *cb, SEXP x)
 {
     unsigned h = const_hash(x, CONST_HASH_DEPTH);
     unsigned b = h & (unsigned) (cb->nbuckets - 1);
+    int found = -1;
     for (int j = cb->cheads[b]; j >= 0; j = cb->cnext[j]) {
 	SEXP y = VECTOR_ELT(cb->consts, j);
 	/* 16 - take closure environments into account, this is necessary
 	        as closures (closure literals) can get into the AST when
 	        the AST is generated by a program (e.g. distr package) */
-	if (x == y || (cb->chash[j] == h && R_compute_identical(x, y, 16)))
-	    return j;
+	if (x == y || (cb->chash[j] == h && R_compute_identical(x, y, 16))) {
+	    found = j;
+	    break;
+	}
     }
+#ifdef BCCOMPILE_CHECK_HASH
+    check_const_hash(cb, x, found);
+#endif
+    if (found >= 0)
+	return found;
 
     if (cb->nconst == cb->constcap) {
 	int ncap = 2 * cb->constcap;
@@ -2109,8 +2121,14 @@ static int check_skip_loop_cntxt_list(SEXP elist, Cntxt *cntxt, int breakOK)
  * with cat(); they are suppressed by default.
  */
 
-static void note(const char *msg, CodeBuf *cb)
+static void note(CodeBuf *cb, const char *fmt, ...)
 {
+    char msg[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    Rvsnprintf_mbcs(msg, sizeof msg, fmt, ap);
+    va_end(ap);
+
     SEXP sref = cb == NULL ? R_NilValue : cb->curSrcref;
     if (sref != R_NilValue && TYPEOF(sref) == INTSXP && XLENGTH(sref) >= 1) {
 	const char *fname = "";
@@ -2151,96 +2169,74 @@ static int suppress_undef(SEXP sym, Cntxt *cntxt)
 
 static void notify_undef_fun(SEXP fun, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! suppress_undef(fun, cntxt)) {
-	char buf[512];
-	snprintf(buf, sizeof buf,
-		 _("no visible global function definition for '%s'"),
-		 CHAR(PRINTNAME(fun)));
-	note(buf, cb);
-    }
+    if (! suppress_undef(fun, cntxt))
+	note(cb, _("no visible global function definition for '%s'"),
+	     CHAR(PRINTNAME(fun)));
 }
 
 static void notify_undef_var(SEXP var, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! suppress_undef(var, cntxt)) {
-	char buf[512];
-	snprintf(buf, sizeof buf,
-		 _("no visible binding for global variable '%s'"),
-		 CHAR(PRINTNAME(var)));
-	note(buf, cb);
-    }
+    if (! suppress_undef(var, cntxt))
+	note(cb, _("no visible binding for global variable '%s'"),
+	     CHAR(PRINTNAME(var)));
 }
 
 static void notify_no_super_assign_var(SEXP sym, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! cntxt->suppressAll && ! cntxt->suppressNoSuperAssignVar) {
-	char buf[512];
-	snprintf(buf, sizeof buf,
-		 _("no visible binding for '<<-' assignment to '%s'"),
-		 CHAR(PRINTNAME(sym)));
-	note(buf, cb);
-    }
+    if (! cntxt->suppressAll && ! cntxt->suppressNoSuperAssignVar)
+	note(cb, _("no visible binding for '<<-' assignment to '%s'"),
+	     CHAR(PRINTNAME(sym)));
 }
 
 static void notify_wrong_arg_count(const char *fun, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! cntxt->suppressAll) {
-	char buf[512];
-	snprintf(buf, sizeof buf, _("wrong number of arguments to '%s'"), fun);
-	note(buf, cb);
-    }
+    if (! cntxt->suppressAll)
+	note(cb, _("wrong number of arguments to '%s'"), fun);
 }
 
 static void notify_wrong_dots_use(const char *var, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! cntxt->suppressAll) {
-	char buf[512];
-	snprintf(buf, sizeof buf, "%s may be used in an incorrect context", var);
-	note(buf, cb);
-    }
+    if (! cntxt->suppressAll)
+	note(cb, "%s may be used in an incorrect context", var);
 }
 
 static void notify_wrong_break_next(const char *fun, Cntxt *cntxt, CodeBuf *cb)
 {
-    if (! cntxt->suppressAll) {
-	char buf[512];
-	snprintf(buf, sizeof buf, "%s used in wrong context: no loop is visible",
-		 fun);
-	note(buf, cb);
-    }
+    if (! cntxt->suppressAll)
+	note(cb, "%s used in wrong context: no loop is visible", fun);
 }
 
 static void notify_bad_assign_fun(Cntxt *cntxt, CodeBuf *cb)
 {
     if (! cntxt->suppressAll)
-	note(_("invalid function in complex assignment"), cb);
+	note(cb, _("invalid function in complex assignment"));
 }
 
 static void notify_multiple_switch_defaults(Cntxt *cntxt, CodeBuf *cb)
 {
     if (! cntxt->suppressAll)
-	note(_("more than one default provided in switch() call"), cb);
+	note(cb, _("more than one default provided in switch() call"));
 }
 
 static void notify_no_switch_cases(Cntxt *cntxt, CodeBuf *cb)
 {
     if (! cntxt->suppressAll)
-	note(_("'switch' with no alternatives"), cb);
+	note(cb, _("'switch' with no alternatives"));
 }
 
 static void notify_assign_syntactic_fun(SEXP *funs, int n, Cntxt *cntxt)
 {
     if (! cntxt->suppressAll) {
-	char buf[1024];
-	snprintf(buf, sizeof buf, "%s ",
-		 n == 1 ? _("local assignment to syntactic function: ") :
-		 _("local assignments to syntactic functions: "));
+	char names[256] = "";
 	for (int i = 0; i < n; i++) {
-	    strncat(buf, CHAR(PRINTNAME(funs[i])), sizeof buf - strlen(buf) - 1);
-	    if (i < n - 1)
-		strncat(buf, ", ", sizeof buf - strlen(buf) - 1);
+	    if (i > 0)
+		strncat(names, ", ", sizeof names - strlen(names) - 1);
+	    strncat(names, CHAR(PRINTNAME(funs[i])),
+		    sizeof names - strlen(names) - 1);
 	}
-	note(buf, NULL);
+	note(NULL, "%s %s",
+	     n == 1 ? _("local assignment to syntactic function: ") :
+	     _("local assignments to syntactic functions: "), names);
     }
 }
 
@@ -2268,7 +2264,7 @@ static void check_call_note(SEXP def, SEXP call, Cntxt *cntxt, CodeBuf *cb)
     SEXP e = PROTECT(Rf_lang3(checkCallFun, def, qcall));
     SEXP res = PROTECT(Rf_eval(e, R_BaseEnv));
     if (TYPEOF(res) == STRSXP && XLENGTH(res) == 1)
-	note(CHAR(STRING_ELT(res, 0)), cb);
+	note(cb, "%s", CHAR(STRING_ELT(res, 0)));
     UNPROTECT(3);
 }
 
@@ -2544,8 +2540,6 @@ static SEXP gen_code(SEXP e, Cntxt *cntxt, const Loc *loc)
 static int try_inline(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     SEXP name = CAR(e);
-    /* the table entry is copied: get_inline_info() may run R code, and a
-       nested compilation can grow the table */
     SymInfo *si = symtab_lookup(name, FALSE);
     if (si == NULL || si->handler == NULL)
 	return FALSE; /* no handler for any package */
@@ -2585,10 +2579,10 @@ static int try_getter_inline(SEXP call, CodeBuf *cb, Cntxt *cntxt);
  * Inline handlers for some SPECIAL functions
  */
 
+/* setInlineHandler("function") */
 static int h_function(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
-    if (lang_length(e) < 3)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 3, cntxt);
     SEXP forms = CADR(e);
     SEXP body = CADDR(e);
     SEXP sref = lang_length(e) > 3 ? CADDDR(e) : R_NilValue;
@@ -2609,6 +2603,7 @@ static int h_function(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return TRUE;
 }
 
+/* setInlineHandler("{") */
 static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
@@ -2636,11 +2631,11 @@ static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return TRUE;
 }
 
+/* setInlineHandler("if") */
 static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
+    check_arity(e, 3, cntxt);
     int n = lang_length(e);
-    if (n < 3)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
     SEXP test = CADR(e);
     SEXP then_expr = CADDR(e);
     int have_else = n == 4;
@@ -2700,10 +2695,10 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return TRUE;
 }
 
+/* setInlineHandler("&&") and setInlineHandler("||") */
 static int h_andor(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op1, int op2)
 {
-    if (lang_length(e) < 3)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 3, cntxt);
     Cntxt ncntxt = make_arg_context(cntxt);
     int callidx = putconst(cb, e);
     int label = makelabel(cb);
@@ -2732,6 +2727,7 @@ static int h_or(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
  * Inline handlers for loops
  */
 
+/* setInlineHandler("break") and setInlineHandler("next") */
 static int h_break_next(SEXP e, CodeBuf *cb, Cntxt *cntxt, int isBreak)
 {
     if (! cntxt->hasLoop) {
@@ -2757,6 +2753,7 @@ static int h_next(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return h_break_next(e, cb, cntxt, FALSE);
 }
 
+/* cmpRepeatBody(body, cb, cntxt) */
 static void cmp_repeat_body(SEXP body, CodeBuf *cb, Cntxt *cntxt)
 {
     int loop_label = makelabel(cb);
@@ -2769,10 +2766,10 @@ static void cmp_repeat_body(SEXP body, CodeBuf *cb, Cntxt *cntxt)
     putlabel(cb, end_label);
 }
 
+/* setInlineHandler("repeat") */
 static int h_repeat(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
-    if (lang_length(e) < 2)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 2, cntxt);
     SEXP body = CADR(e);
     if (check_skip_loop_cntxt(body, cntxt, TRUE)) {
 	cmp_repeat_body(body, cb, cntxt);
@@ -2794,6 +2791,7 @@ static int h_repeat(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return TRUE;
 }
 
+/* cmpWhileBody(call, cond, body, cb, cntxt) */
 static void cmp_while_body(SEXP call, SEXP cond, SEXP body, CodeBuf *cb,
 			   Cntxt *cntxt)
 {
@@ -2810,10 +2808,10 @@ static void cmp_while_body(SEXP call, SEXP cond, SEXP body, CodeBuf *cb,
     putlabel(cb, end_label);
 }
 
+/* setInlineHandler("while") */
 static int h_while(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
-    if (lang_length(e) < 3)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 3, cntxt);
     SEXP cond = CADR(e);
     SEXP body = CADDR(e);
     if (check_skip_loop_cntxt(cond, cntxt, TRUE) &&
@@ -2856,10 +2854,10 @@ static void cmp_for_body(int callidx, SEXP body, int ci, CodeBuf *cb,
     putlabel(cb, end_label);
 }
 
+/* setInlineHandler("for") */
 static int h_for(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
-    if (lang_length(e) < 4)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 4, cntxt);
     SEXP sym = CADR(e);
     SEXP seq = CADDR(e);
     SEXP body = CADDDR(e);
@@ -2955,6 +2953,7 @@ static int h_minus(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 	cmp_prim1(e, cb, cntxt, UMINUS_OP);
 }
 
+/* setInlineHandler("log") */
 static int h_log(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
@@ -2976,6 +2975,7 @@ static int h_log(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return TRUE;
 }
 
+/* cmpMath1(e, cb, idx, cntxt) */
 static int cmp_math1(SEXP e, CodeBuf *cb, Cntxt *cntxt, int idx)
 {
     if (dots_or_missing(CDR(e))) {
@@ -2996,6 +2996,7 @@ static int cmp_math1(SEXP e, CodeBuf *cb, Cntxt *cntxt, int idx)
     }
 }
 
+/* setInlineHandler("(") */
 static int h_paren(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e))
@@ -3038,6 +3039,7 @@ static int cmp_builtin(SEXP e, CodeBuf *cb, Cntxt *cntxt, int internal)
     return TRUE;
 }
 
+/* cmpBuiltinArgs(args, cb, cntxt, missingOK) */
 static void cmp_builtin_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int missingOK)
 {
     Cntxt ncntxt = make_arg_context(cntxt);
@@ -3085,6 +3087,7 @@ static void cmp_builtin_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int missingOK
     }
 }
 
+/* cmpSpecial(e, cb, cntxt) */
 static int cmp_special(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
     int ci = putconst(cb, e);
@@ -3105,10 +3108,10 @@ static int h_special(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     return cmp_special(e, cb, cntxt);
 }
 
+/* cmpDotInternalCall(e, cb, cntxt) */
 static int cmp_dot_internal_call(SEXP e, CodeBuf *cb, Cntxt *cntxt)
 {
-    if (CDR(e) == R_NilValue)
-	Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+    check_arity(e, 2, cntxt);
     SEXP ee = CADR(e);
     if (TYPEOF(ee) != LANGSXP)
 	Rf_errorcall(cntxt->call, _("object of type '%s' is not subsettable"),
@@ -3165,6 +3168,7 @@ static SEXP dollar_member(SEXP x)
     return x;
 }
 
+/* setInlineHandler("$") */
 static int h_dollar(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (any_dots(e) || lang_length(e) != 3)
@@ -3206,6 +3210,7 @@ static int h_local(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     }
 }
 
+/* setInlineHandler("return") */
 static int h_return(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (dots_or_missing(e) || lang_length(e) > 2)
@@ -3295,8 +3300,7 @@ static SEXP simple_internal_call(SEXP def, Cntxt *cntxt)
     if (TYPEOF(b) == LANGSXP && lang_length(b) == 2 && CAR(b) == R_BraceSymbol)
 	b = CADR(b);
     if (TYPEOF(b) == LANGSXP && CAR(b) == s_dotInternal) {
-	if (CDR(b) == R_NilValue)
-	    Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+	check_arity(b, 2, cntxt);
 	SEXP icall = CADR(b);
 	if (TYPEOF(icall) != LANGSXP)
 	    Rf_errorcall(cntxt->call,
@@ -3317,15 +3321,10 @@ typedef struct {
 static SEXP signal_partial_match_body(void *data)
 {
     PartialMatchData *pd = (PartialMatchData *) data;
-#ifdef BCCOMPILE_STANDALONE
-    Rf_warningcall(pd->call, _("partial argument match of '%s' to '%s'"),
-		   CHAR(PRINTNAME(pd->argument)), CHAR(PRINTNAME(pd->formal)));
-#else
     SEXP cond = PROTECT(R_makePartialArgumentMatchWarningCondition(
 			    pd->call, pd->argument, pd->formal));
     R_signalWarningCondition(cond);
     UNPROTECT(1);
-#endif
     return R_NilValue;
 }
 
@@ -3343,6 +3342,9 @@ static int signal_partial_match(SEXP call, SEXP argument, SEXP formal)
 			       signal_partial_match_handler, &pd);
     return val == R_TrueValue;
 }
+
+/* how an argument was matched */
+enum { MATCH_NONE = 0, MATCH_PARTIAL, MATCH_EXACT, MATCH_POSITIONAL };
 
 /* Match the supplied arguments of call to the formals of def as
    match.call() does for formals without `...`. Returns FALSE when
@@ -3366,13 +3368,13 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
     for (SEXP p = CDR(call); p != R_NilValue; p = CDR(p), i++) {
 	supplied[i] = CAR(p);
 	stags[i] = TAG(p);
-	sused[i] = 0;
+	sused[i] = MATCH_NONE;
     }
     SEXP *ftags = (SEXP *) R_alloc(nf > 0 ? nf : 1, sizeof(SEXP));
     i = 0;
     for (SEXP f = forms; f != R_NilValue; f = CDR(f), i++) {
 	ftags[i] = TAG(f);
-	fused[i] = 0;
+	fused[i] = MATCH_NONE;
 	matched[i] = NULL;
     }
 
@@ -3383,10 +3385,10 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 	    if (stags[si] == R_NilValue)
 		continue;
 	    if (strcmp(CHAR(PRINTNAME(stags[si])), fname) == 0) {
-		if (fused[fi] == 2)
+		if (fused[fi] == MATCH_EXACT)
 		    return FALSE; /* matched by multiple actual arguments */
-		fused[fi] = 2;
-		sused[si] = 2;
+		fused[fi] = MATCH_EXACT;
+		sused[si] = MATCH_EXACT;
 		matched[fi] = supplied[si];
 	    }
 	}
@@ -3397,19 +3399,19 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 	    continue;
 	const char *fname = CHAR(PRINTNAME(ftags[fi]));
 	for (int si = 0; si < ns; si++) {
-	    if (sused[si] == 2 || stags[si] == R_NilValue)
+	    if (sused[si] == MATCH_EXACT || stags[si] == R_NilValue)
 		continue;
 	    const char *tag = CHAR(PRINTNAME(stags[si]));
 	    if (tag[0] != '\0' && strncmp(fname, tag, strlen(tag)) == 0) {
 		if (sused[si])
 		    return FALSE; /* matches multiple formal arguments */
-		if (fused[fi] == 1)
+		if (fused[fi] == MATCH_PARTIAL)
 		    return FALSE; /* matched by multiple actual arguments */
 		if (warnPartial &&
 		    signal_partial_match(call, stags[si], ftags[fi]))
 		    return FALSE; /* the warning became an error */
-		sused[si] = 1;
-		fused[fi] = 1;
+		sused[si] = MATCH_PARTIAL;
+		fused[fi] = MATCH_PARTIAL;
 		matched[fi] = supplied[si];
 	    }
 	}
@@ -3425,7 +3427,7 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 	    fi++;
 	if (fi == nf)
 	    return FALSE; /* unused argument */
-	fused[fi] = 1;
+	fused[fi] = MATCH_POSITIONAL;
 	matched[fi] = supplied[si];
 	fi++;
     }
@@ -3487,6 +3489,7 @@ static int cmp_simple_internal(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
  * Inline handler for .Call
  */
 
+/* setInlineHandler(".Call") */
 static int h_dotcall(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     int n = lang_length(e);
@@ -3517,6 +3520,7 @@ static int good_multicolon_arg(SEXP a)
     return TYPEOF(a) == SYMSXP || (TYPEOF(a) == STRSXP && XLENGTH(a) == 1);
 }
 
+/* cmpMultiColon(e, cb, cntxt) */
 static int cmp_multicolon(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (! dots_or_missing(e) && lang_length(e) == 3) {
@@ -3542,6 +3546,7 @@ static int cmp_multicolon(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     }
 }
 
+/* setInlineHandler("with") and setInlineHandler("require") */
 static int h_suppress_undef(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     Cntxt ncntxt = *cntxt;
@@ -3573,13 +3578,13 @@ static int check_assign(SEXP e, Cntxt *cntxt, CodeBuf *cb)
 	    notify_bad_assign_fun(cntxt, cb);
 	    return FALSE;
 	}
-	if (CDR(place) == R_NilValue)
-	    Rf_errorcall(cntxt->call, _("subscript out of bounds"));
+	check_arity(place, 2, cntxt);
 	place = CADR(place);
     }
     return TYPEOF(place) == SYMSXP;
 }
 
+/* cmpSymbolAssign(symbol, value, superAssign, cb, cntxt) */
 static int cmp_symbol_assign(SEXP symbol, SEXP value, int superAssign,
 			     CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3638,6 +3643,7 @@ static SEXP make_assign_call(SEXP afun, SEXP place, SEXP vexpr)
     return ans;
 }
 
+/* cmpSetterCall(place, origplace, vexpr, cb, cntxt) */
 static void cmp_setter_call(SEXP place, SEXP origplace, SEXP vexpr, CodeBuf *cb,
 			    Cntxt *cntxt)
 {
@@ -3679,6 +3685,7 @@ static void cmp_setter_call(SEXP place, SEXP origplace, SEXP vexpr, CodeBuf *cb,
     UNPROTECT(3);
 }
 
+/* cmpGetterCall(place, origplace, cb, cntxt) */
 static void cmp_getter_call(SEXP place, SEXP origplace, CodeBuf *cb,
 			    Cntxt *cntxt)
 {
@@ -3709,6 +3716,7 @@ static void cmp_getter_call(SEXP place, SEXP origplace, CodeBuf *cb,
     restorecurloc(cb, sloc);
 }
 
+/* cmpComplexAssign(symbol, lhs, value, superAssign, cb, cntxt) */
 static int cmp_complex_assign(SEXP symbol, SEXP lhs, SEXP value, int superAssign,
 			      CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3772,6 +3780,7 @@ static int cmp_complex_assign(SEXP symbol, SEXP lhs, SEXP value, int superAssign
     return TRUE;
 }
 
+/* cmpAssign(e, cb, cntxt) */
 static int cmp_assign(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (! check_assign(e, cntxt, cb))
@@ -3790,6 +3799,7 @@ static int cmp_assign(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 	return cmp_special(e, cb, cntxt); /* punt for now */
 }
 
+/* cmpSetterDispatch(start.op, dflt.op, place, call, cb, cntxt) */
 static int cmp_setter_dispatch(int start_op, int dflt_op, SEXP place, SEXP call,
 			       CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3805,6 +3815,7 @@ static int cmp_setter_dispatch(int start_op, int dflt_op, SEXP place, SEXP call,
     return TRUE;
 }
 
+/* cmpGetterDispatch(start.op, dflt.op, call, cb, cntxt) */
 static int cmp_getter_dispatch(int start_op, int dflt_op, SEXP call,
 			       CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3838,6 +3849,7 @@ static SEXP member_symbol(SEXP sym, Cntxt *cntxt)
     return sym;
 }
 
+/* setSetterInlineHandler("$<-") */
 static int s_dollar(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
 		    Cntxt *cntxt)
 {
@@ -3853,6 +3865,7 @@ static int s_dollar(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
     return FALSE;
 }
 
+/* setSetterInlineHandler("@<-") */
 static int s_at(SEXP place, SEXP origplace, SEXP acall, CodeBuf *cb,
 		Cntxt *cntxt)
 {
@@ -3909,6 +3922,7 @@ static void cmp_indices(SEXP indices, CodeBuf *cb, Cntxt *cntxt)
 	cmp(CAR(p), cb, cntxt, TRUE, TRUE);
 }
 
+/* cmpSubassignDispatch(start.op, dflt.op, rank, place, call, cb, cntxt) */
 static int cmp_subassign_dispatch(int start_op, int dflt_op, int rank,
 				  SEXP place, SEXP call, CodeBuf *cb,
 				  Cntxt *cntxt)
@@ -3926,6 +3940,7 @@ static int cmp_subassign_dispatch(int start_op, int dflt_op, int rank,
     return TRUE;
 }
 
+/* setSetterInlineHandler("[<-") and setSetterInlineHandler("[[<-") */
 static int cmp_subassign(SEXP place, SEXP call, CodeBuf *cb, Cntxt *cntxt,
 			 const SubsetOps *ops)
 {
@@ -3951,19 +3966,21 @@ static int s_subassign2(SEXP place, SEXP origplace, SEXP call, CodeBuf *cb,
     return cmp_subassign(place, call, cb, cntxt, &subassign2Ops);
 }
 
+/* trySetterInline(afun, place, origplace, call, cb, cntxt) */
 static int try_setter_inline(SEXP afun, SEXP place, SEXP origplace, SEXP call,
 			     CodeBuf *cb, Cntxt *cntxt)
 {
     SymInfo *si = symtab_lookup(afun, FALSE);
     if (si == NULL || si->setter == NULL)
 	return FALSE;
-    SetterHandler setter = si->setter; /* see try_inline() */
+    SetterHandler setter = si->setter;
     InlineInfo info = get_inline_info(afun, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
     return setter(place, origplace, call, cb, cntxt);
 }
 
+/* setGetterInlineHandler("$") */
 static int g_dollar(SEXP call, CodeBuf *cb, Cntxt *cntxt)
 {
     if (any_dots(call) || lang_length(call) != 3)
@@ -3980,6 +3997,7 @@ static int g_dollar(SEXP call, CodeBuf *cb, Cntxt *cntxt)
     return FALSE;
 }
 
+/* cmpSubsetGetterDispatch(start.op, dflt.op, rank, call, cb, cntxt) */
 static int cmp_subset_getter_dispatch(int start_op, int dflt_op, int rank,
 				      SEXP call, CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3998,6 +4016,7 @@ static int cmp_subset_getter_dispatch(int start_op, int dflt_op, int rank,
     return TRUE;
 }
 
+/* setGetterInlineHandler("[") and setGetterInlineHandler("[[") */
 static int cmp_subset_getter(SEXP call, CodeBuf *cb, Cntxt *cntxt,
 			     const SubsetOps *ops)
 {
@@ -4020,13 +4039,14 @@ static int g_subset2(SEXP call, CodeBuf *cb, Cntxt *cntxt)
     return cmp_subset_getter(call, cb, cntxt, &subset2Ops);
 }
 
+/* tryGetterInline(call, cb, cntxt) */
 static int try_getter_inline(SEXP call, CodeBuf *cb, Cntxt *cntxt)
 {
     SEXP name = CAR(call);
     SymInfo *si = symtab_lookup(name, FALSE);
     if (si == NULL || si->getter == NULL)
 	return FALSE;
-    GetterHandler getter = si->getter; /* see try_inline() */
+    GetterHandler getter = si->getter;
     InlineInfo info = get_inline_info(name, cntxt, FALSE);
     if (! info.found || info.package != PKG_BASE)
 	return FALSE;
@@ -4061,6 +4081,7 @@ static int cmp_subset_dispatch(int start_op, int dflt_op, int rank, SEXP e,
     return TRUE;
 }
 
+/* setInlineHandler("[") and setInlineHandler("[[") */
 static int cmp_subset(SEXP e, CodeBuf *cb, Cntxt *cntxt, const SubsetOps *ops)
 {
     if (dots_or_missing(e) || has_tags(e) || lang_length(e) < 3)
@@ -4119,6 +4140,7 @@ static int name_index_add(NameIndex *ni, SEXP name, int i)
     return -1;
 }
 
+/* setInlineHandler("switch") */
 static int h_switch(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 {
     if (lang_length(e) < 2 || any_dots(e))
@@ -4515,15 +4537,7 @@ static void bc_init(void)
     SET_STRING_ELT(foldConditions, 0, Rf_mkChar("error"));
     SET_STRING_ELT(foldConditions, 1, Rf_mkChar("warning"));
 
-#ifdef BCCOMPILE_STANDALONE
-    {
-	SEXP call = PROTECT(Rf_lang1(Rf_install("bcVersion")));
-	bc_version = Rf_asInteger(eval_internal(call));
-	UNPROTECT(1);
-    }
-#else
     bc_version = R_bcVersionNumber();
-#endif
 
     for (int i = 0; foldFuns[i]; i++)
 	set_flags(foldFuns[i], SI_FOLDFUN);
@@ -4642,20 +4656,6 @@ attribute_hidden SEXP R_bcCmpfun(SEXP f, SEXP options)
     return val;
 }
 
-#ifdef BCCOMPILE_STANDALONE
-
-SEXP C_bcCmpfun(SEXP f, SEXP options)
-{
-    return R_bcCmpfun(f, options);
-}
-
-SEXP C_bcCompile(SEXP e, SEXP env, SEXP options, SEXP srcref)
-{
-    return R_bcCompile(e, env, options, srcref);
-}
-
-#else
-
 attribute_hidden SEXP do_bccmpfun(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
@@ -4733,5 +4733,3 @@ attribute_hidden SEXP R_bcTryCompile(SEXP expr, SEXP env, SEXP srcref)
     SEXP val = R_tryCatchError(try_compile_body, &td, try_handler, &td);
     return val == R_NilValue ? expr : val;
 }
-
-#endif
