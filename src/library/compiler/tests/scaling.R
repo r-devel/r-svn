@@ -64,3 +64,10 @@ check("switch", cmpClosure, mkswitch(1000), mkswitch(4000))
 
 sw <- cmpfun(mkswitch(4000), opts)
 stopifnot(sw("k2000") == 2000, sw("k4000") == 4000, sw("zz") == 0)
+
+## A left-nested operator chain used to overflow the node stack at about
+## 800 terms (the compiler recursed for every term).
+long <- eval(parse(text = sprintf("function(x) %s",
+                                  paste(c("x", rep("1", 3000)), collapse = " + ")),
+                   keep.source = FALSE)[[1]])
+stopifnot(cmpfun(long, opts)(0) == 3000)

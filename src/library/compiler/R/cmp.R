@@ -562,35 +562,62 @@ getFoldFun <- function(var, cntxt) {
     else NULL
 }
 
-constantFoldCall <- function(e, cntxt) {
-    fun <- e[[1]]
-    if (typeof(fun) == "symbol") {
-        ffun <- getFoldFun(fun, cntxt)
-        if (! is.null(ffun)) {
-            args <- .asList(e[-1])
-            for (i in seq_along(args)) {
-                a <- args[[i]]
-                if (missing(a))
-                    return(NULL)
-                val <- constantFold(a, cntxt)
-                if (! is.null(val))
-                    args[i] <- list(val$value) ## **** in case value is NULL
-                else {
-                    pushFoldFailure(e, cntxt)
-                    return(NULL)
-                }
-            }
-            modes <- unlist(lapply(args, mode))
-            if (all((match(modes, constModes, 0L) > 0L))) {
-                tryCatch(checkConst(do.call(ffun, args)),
-                         error = function(e) NULL, warning = function(w) NULL)
-                ## **** issue warning??
-            }
-            else NULL
+## Fold the arguments of e and apply ffun; 'first' is the folded first
+## argument when the caller has it already. NULL if the call does not
+## fold, with e pushed on the fold-failure stack when an argument did not
+## fold (but not when the fold itself fails).
+foldCallArgs <- function(e, ffun, first, cntxt) {
+    args <- .asList(e[-1])
+    for (i in seq_along(args)) {
+        a <- args[[i]]
+        if (missing(a))
+            return(NULL)
+        val <- if (i == 1L && ! is.null(first)) first
+               else constantFold(a, cntxt)
+        if (! is.null(val))
+            args[i] <- list(val$value) ## **** in case value is NULL
+        else {
+            pushFoldFailure(e, cntxt)
+            return(NULL)
         }
-        else NULL
+    }
+    modes <- unlist(lapply(args, mode))
+    if (all((match(modes, constModes, 0L) > 0L))) {
+        tryCatch(checkConst(do.call(ffun, args)),
+                 error = function(e) NULL, warning = function(w) NULL)
+        ## **** issue warning??
     }
     else NULL
+}
+
+## A left-nested chain x1 + x2 + ... + xn is folded with a loop over the
+## calls to the same function in first-argument position, innermost
+## first, rather than by a recursive constantFold() per level, which
+## overflows the stack for long chains; a call that does not fold makes
+## every call above it fail as the recursion would.
+constantFoldCall <- function(e, cntxt) {
+    fun <- e[[1]]
+    if (typeof(fun) != "symbol")
+        return(NULL)
+    ffun <- getFoldFun(fun, cntxt)
+    if (is.null(ffun))
+        return(NULL)
+    above <- NULL
+    while (length(e) > 1L && typeof(e[[2]]) == "language" &&
+           identical(e[[2]][[1L]], fun)) {
+        above <- list(e, above)
+        e <- e[[2]]
+    }
+    val <- foldCallArgs(e, ffun, NULL, cntxt)
+    while (! is.null(above)) {
+        e <- above[[1L]]
+        above <- above[[2L]]
+        if (is.null(val))
+            pushFoldFailure(e, cntxt)
+        else
+            val <- foldCallArgs(e, ffun, val, cntxt)
+    }
+    val
 }
 
 ## **** rewrite using switch??
@@ -2278,6 +2305,80 @@ cmpPrim1 <- function(e, cb, op, cntxt) {
 checkNeedsInc <- function(e, cntxt)
     return(FALSE)
 
+## The left operand of a binary operator is compiled by cmpPrim2Left
+## rather than by cmp() when it is a call to the same operator: a chain
+## x1 + x2 + ... + xn is left-nested, and the recursion through cmp(),
+## cmpCall(), tryInline() and cmpPrim2() for every level overflows the
+## node stack at about 800 terms and slows the compiler down well before
+## that. The loop does for each level what the recursion would (the
+## location tracking of cmp() and cmpCall(), the fold-once check, the
+## guard that tryInline() emits for global code, the contexts) and emits
+## the same code; a level that does not have the expected shape, or that
+## folds to a constant, ends the loop and is compiled as usual.
+cmpPrim2Left <- function(fun, e, cb, op, cntxt) {
+    levels <- NULL
+    repeat {
+        if (typeof(e) != "language" || length(e) != 3 ||
+            ! identical(e[[1]], fun) || dots.or.missing(e[-1]))
+            break
+        ## as in cmp()
+        sloc <- cb$savecurloc()
+        cb$setcurexpr(e)
+        if (popFoldFailure(e, cntxt))
+            ce <- NULL
+        else {
+            ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+            if (is.null(ce))
+                popFoldFailure(e, cntxt)
+        }
+        if (! is.null(ce)) {
+            cmpConst(ce$value, cb, cntxt)
+            cb$restorecurloc(sloc)
+            e <- NULL
+            break
+        }
+        ## as in cmpCall() and tryInline(); the operator resolves as it
+        ## did for the enclosing call, so the handler is this one again
+        csloc <- cb$savecurloc()
+        ccntxt <- make.callContext(cntxt, e)
+        info <- getInlineInfo(as.character(fun), ccntxt, guardOK = TRUE)
+        if (is.null(info)) {
+            cb$restorecurloc(sloc)
+            break
+        }
+        endlabel <- NULL
+        if (info$guard) {
+            ## the context is not a tail call, so no RETURN after the label
+            expridx <- cb$putconst(e)
+            endlabel <- cb$makelabel()
+            cb$putcode(BASEGUARD.OP, expridx, endlabel)
+        }
+        ## as in cmpPrim2() before its left operand
+        needInc <- checkNeedsInc(e[[3]], ccntxt)
+        levels <- list(list(e = e, cntxt = ccntxt, needInc = needInc,
+                            endlabel = endlabel, sloc = sloc, csloc = csloc),
+                       levels)
+        cntxt <- make.nonTailCallContext(ccntxt)
+        e <- e[[2]]
+    }
+    if (! is.null(e))
+        cmp(e, cb, cntxt)
+    while (! is.null(levels)) {
+        l <- levels[[1L]]
+        levels <- levels[[2L]]
+        ## as in cmpPrim2() after its left operand
+        if (l$needInc) cb$putcode(INCLNK.OP)
+        cmp(l$e[[3]], cb, make.argContext(l$cntxt))
+        if (l$needInc) cb$putcode(DECLNK.OP)
+        ci <- cb$putconst(l$e)
+        cb$putcode(op, ci)
+        if (! is.null(l$endlabel))
+            cb$putlabel(l$endlabel)
+        cb$restorecurloc(l$csloc)
+        cb$restorecurloc(l$sloc)
+    }
+}
+
 cmpPrim2 <- function(e, cb, op, cntxt) {
     if (dots.or.missing(e[-1]))
         cmpBuiltin(e, cb, cntxt)
@@ -2288,7 +2389,7 @@ cmpPrim2 <- function(e, cb, op, cntxt) {
     else {
         needInc <- checkNeedsInc(e[[3]], cntxt)
         ncntxt <- make.nonTailCallContext(cntxt)
-        cmp(e[[2]], cb, ncntxt);
+        cmpPrim2Left(e[[1]], e[[2]], cb, op, ncntxt)
         if (needInc) cb$putcode(INCLNK.OP)
         ncntxt <- make.argContext(cntxt)
         cmp(e[[3]], cb, ncntxt)
