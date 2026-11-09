@@ -53,9 +53,18 @@
    through .Internal() calls below, and messages are not translated */
 # undef _
 # define _(String) (String)
-/* the inlined COMPLEX_ELT() calls a hidden ALTREP accessor */
+/* the inlined element accessors call hidden ALTREP accessors, so this
+   build reads through the data pointer (and so expands ALTREP constants) */
+# undef LOGICAL_ELT
+# define LOGICAL_ELT(x, i) (LOGICAL(x)[i])
+# undef INTEGER_ELT
+# define INTEGER_ELT(x, i) (INTEGER(x)[i])
+# undef REAL_ELT
+# define REAL_ELT(x, i) (REAL(x)[i])
 # undef COMPLEX_ELT
 # define COMPLEX_ELT(x, i) (COMPLEX(x)[i])
+# undef RAW_ELT
+# define RAW_ELT(x, i) (RAW(x)[i])
 #endif
 
 /* opcodes; the values must match the enum in eval.c */
