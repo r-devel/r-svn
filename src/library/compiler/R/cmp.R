@@ -228,76 +228,130 @@ getAssignedVar <- function(e, cntxt) {
     }
 }
 
-addVar <- function(v, vars) .assign(v, 1, vars)
-findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
-    if (typeof(e) == "language") {
+## Record a variable assigned at a node; 'region' names the quote(),
+## expression() and single-argument local() calls enclosing the node
+## (see findLocalsList).
+addVar <- function(v, region, vars) {
+    if (length(region) == 0L)
+        .assign(v, TRUE, vars$plain)
+    else
+        .assign(v, c(.get0(v, vars$tagged, inherits = FALSE), list(region)),
+                vars$tagged)
+}
+
+## Walk the expressions with an explicit stack, recording the assigned
+## variables. Elements are tested in place rather than bound to a
+## variable first, since a formal without a default or an empty argument
+## is the empty symbol. Variables assigned outside any quote(),
+## expression() or local(x) call go in 'plain'; the others go in
+## 'tagged' with the names of the enclosing calls of those kinds.
+findLocalsList1 <- function(elist, cntxt) {
+    vars <- list(plain = new.env(), tagged = new.env())
+    stack <- .asList(elist)
+    regions <- vector("list", length(stack))
+    n <- length(stack)
+    while (n > 0L) {
+        if (typeof(stack[[n]]) != "language") {
+            n <- n - 1L
+            next
+        }
+        e <- stack[[n]]
+        region <- regions[[n]]
+        n <- n - 1L
+
+        kidRegion <- region
         ftype <- typeof(e[[1]])
         if (ftype == "symbol" || ftype == "character") {
             v <- as.character(e[[1]])
-            switch(v,
-                   "=" =,
-                   "<-" = { addVar(getAssignedVar(e, cntxt), vars); e[-1] },
-
-                   "for" = { addVar(as.character(e[2]), vars); e[-2] },
-
-                   "delayedAssign" =,
-                   "assign" = if (length(e) == 3 &&
-                                  is.character(e[[2]]) &&
-                                  length(e[[2]]) == 1) {
-
-                                  addVar(e[[2]], vars); list(e[[3]])
-                              }
-                              else e[1],
-                   "function" = character(0),
-                   "~" = character(0),
-                   "local" = if (! (match(v, shadowed, 0L) > 0L) && length(e) == 2)
-                                 NULL
-                             else e[-1],
-                   "expression" =,
-                   "quote" = if (! (match(v, shadowed, 0L) > 0L))
-                                 NULL
-                             else e[-1],
-                   e[-1])
+            kids <- switch(v,
+                           "=" =,
+                           "<-" = {
+                               addVar(getAssignedVar(e, cntxt), region, vars)
+                               e[-1]
+                           },
+                           "for" = {
+                               addVar(as.character(e[2]), region, vars)
+                               e[-2]
+                           },
+                           "delayedAssign" =,
+                           "assign" = if (length(e) == 3 &&
+                                          is.character(e[[2]]) &&
+                                          length(e[[2]]) == 1) {
+                                          addVar(e[[2]], region, vars)
+                                          list(e[[3]])
+                                      }
+                                      else e[1],
+                           "function" = character(0),
+                           "~" = character(0),
+                           "local" = {
+                               if (length(e) == 2)
+                                   kidRegion <- c(region, v)
+                               e[-1]
+                           },
+                           "expression" =,
+                           "quote" = {
+                               kidRegion <- c(region, v)
+                               e[-1]
+                           },
+                           e[-1])
         }
-        else e
-    }
-    else NULL
-}
+        else
+            kids <- e
 
-## Walk the expressions with an explicit stack. Elements are passed on
-## without binding them to a variable, since a formal without a default
-## or an empty argument is the empty symbol.
-findLocalsList1 <- function(elist, shadowed, cntxt) {
-    vars <- new.env()
-    stack <- .asList(elist)
-    n <- length(stack)
-    while (n > 0) {
         ## as a list: indexing a call by position walks a pairlist
-        kids <- .asList(findLocals1(stack[[n]], shadowed, cntxt, vars))
-        n <- n - 1
+        kids <- .asList(kids)
         for (i in seq_along(kids))
             if (typeof(kids[[i]]) == "language") {
-                n <- n + 1
-                if (n > length(stack))
+                n <- n + 1L
+                if (n > length(stack)) {
                     stack <- c(stack, vector("list", length(stack)))
+                    regions <- c(regions, vector("list", length(regions)))
+                }
                 stack[[n]] <- kids[[i]]
+                regions[n] <- list(kidRegion)
             }
     }
-    ls(vars, all.names=T)
+    vars
 }
 
+## the tagged variables with an occurrence whose enclosing calls are all
+## shadowed
+taggedLocals <- function(tagged, names, sf) {
+    keep <- logical(length(names))
+    for (i in seq_along(names))
+        for (r in tagged[[names[i]]])
+            if (all(match(r, sf, 0L) > 0L)) {
+                keep[i] <- TRUE
+                break
+            }
+    names[keep]
+}
 
 findLocals <- function(e, cntxt)
     findLocalsList(list(e), cntxt)
 
+## The arguments of quote(), expression() and single-argument local()
+## calls hold no locals unless the function is shadowed, globally or by
+## an assignment in the code itself. Every assigned variable is recorded
+## in one walk together with the enclosing calls of those kinds, and the
+## set of shadowed functions is then settled on the recorded names rather
+## than by walking again.
 findLocalsList <- function(elist, cntxt) {
     initialShadowedFuns <- c("expression", "local", "quote")
     shadowed <- Filter(function(n) ! isBaseVar(n, cntxt), initialShadowedFuns)
     specialSyntaxFuns <- c("~", "<-", "=", "for", "function")
+    found <- findLocalsList1(elist, cntxt)
+    plain <- ls(found$plain, all.names = TRUE)
+    taggedNames <- ls(found$tagged, all.names = TRUE)
     sf <- initialShadowedFuns
     nsf <- length(sf)
     repeat {
-        vals <- findLocalsList1(elist, sf, cntxt)
+        if (length(taggedNames) == 0L)
+            vals <- plain
+        else
+            vals <- sort(unique(c(plain,
+                                  taggedLocals(found$tagged, taggedNames,
+                                               sf))))
         redefined <- sf %in% vals
         last.nsf <- nsf
         sf <- unique(c(shadowed, sf[redefined]))
@@ -312,7 +366,6 @@ findLocalsList <- function(elist, cntxt) {
         }
     }
 }
-
 
 ##
 ## Compilation environment implementation
