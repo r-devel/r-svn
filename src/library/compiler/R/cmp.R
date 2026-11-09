@@ -70,9 +70,12 @@ anyDots <- function(args) {
     return(FALSE)
 }
 
-## ..N symbols are marked when they are created (see mkSYMSXP), so the
-## test is a bit check; it runs for every symbol compiled.
-is.ddsym <- function(name) .Internal(isDDSym(name))
+is.ddsym <- function(name) {
+    (is.symbol(name) || is.character(name)) && {
+        name <- as.character(name)
+        any(startsWith(name, "..")) && length(grep("^\\.\\.[0-9]+$", name)) != 0
+    }
+}
 
 
 missingArgs <- function(args) {
@@ -2739,9 +2742,8 @@ safeStatsInternals <- c("dbinom", "dcauchy", "dgeom", "dhyper", "dlnorm",
 
 for (i in safeStatsInternals) setInlineHandler(i,  cmpSimpleInternal, "stats")
 
-## the compiler's own accessor variants (see .get0) and is.ddsym
-for (i in c(".get0", ".assign", ".newEnv", ".delayedAssign", ".asList",
-            "is.ddsym"))
+## the compiler's own accessor variants (see .get0)
+for (i in c(".get0", ".assign", ".newEnv", ".delayedAssign", ".asList"))
     setInlineHandler(i, cmpSimpleInternal, "compiler")
 
 

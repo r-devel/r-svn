@@ -494,7 +494,6 @@ SEXP do_bcversion(SEXP, SEXP, SEXP, SEXP);
 SEXP do_loadfile(SEXP, SEXP, SEXP, SEXP);
 SEXP do_savefile(SEXP, SEXP, SEXP, SEXP);
 SEXP do_findcenvframe(SEXP, SEXP, SEXP, SEXP);
-SEXP do_isddsym(SEXP, SEXP, SEXP, SEXP);
 SEXP do_growconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_putconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_putcode(SEXP, SEXP, SEXP, SEXP);
