@@ -1356,6 +1356,7 @@ static R_INLINE unsigned hash_charsxp(SEXP s)
 }
 
 #define CONST_HASH_WIDTH 8
+#define CONST_HASH_MAX_STRINGS 64
 
 /* Constants that R_compute_identical(x, y, 16) considers identical must
    hash alike: attributes, argument tags and NaN payloads are left out. */
@@ -1403,10 +1404,14 @@ static unsigned const_hash(SEXP x, int depth)
 	break;
     }
     case STRSXP: {
+	/* STRING_ELT() on a deferred string (as.character() of a long
+	   sequence) expands the whole vector, so a long character vector
+	   is hashed by its length alone */
 	R_xlen_t n = XLENGTH(x);
 	h = hash_mix(h, (unsigned) n);
-	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
-	    h = hash_mix(h, hash_charsxp(STRING_ELT(x, i)));
+	if (n <= CONST_HASH_MAX_STRINGS)
+	    for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+		h = hash_mix(h, hash_charsxp(STRING_ELT(x, i)));
 	break;
     }
     case RAWSXP: {
@@ -3406,6 +3411,40 @@ static SEXP simple_internal_call(SEXP def, Cntxt *cntxt)
     return NULL;
 }
 
+typedef struct {
+    SEXP call, argument, formal;
+} PartialMatchData;
+
+static SEXP signal_partial_match_body(void *data)
+{
+    PartialMatchData *pd = (PartialMatchData *) data;
+#ifdef BCCOMPILE_STANDALONE
+    Rf_warningcall(pd->call, _("partial argument match of '%s' to '%s'"),
+		   CHAR(PRINTNAME(pd->argument)), CHAR(PRINTNAME(pd->formal)));
+#else
+    SEXP cond = PROTECT(R_makePartialArgumentMatchWarningCondition(
+			    pd->call, pd->argument, pd->formal));
+    R_signalWarningCondition(cond);
+    UNPROTECT(1);
+#endif
+    return R_NilValue;
+}
+
+static SEXP signal_partial_match_handler(SEXP cond, void *data)
+{
+    return R_TrueValue;
+}
+
+/* signal the partial argument match warning of match.call(); TRUE when
+   it was turned into an error */
+static int signal_partial_match(SEXP call, SEXP argument, SEXP formal)
+{
+    PartialMatchData pd = { call, argument, formal };
+    SEXP val = R_tryCatchError(signal_partial_match_body, &pd,
+			       signal_partial_match_handler, &pd);
+    return val == R_TrueValue;
+}
+
 /* Match the supplied arguments of call to the formals of def as
    match.call() does for formals without `...`. Returns FALSE when
    match.call() would signal an error. matched[i] receives the i-th
@@ -3413,10 +3452,10 @@ static SEXP simple_internal_call(SEXP def, Cntxt *cntxt)
 static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 {
     /* match.call() warns about partial matches when the option
-       warnPartialMatchArgs is set; with warn >= 2 the warning is an
-       error, which checkCall() turns into not inlining the call */
+       warnPartialMatchArgs is set; if the warning becomes an error
+       (warn >= 2, unless a handler muffles it) checkCall() turns that
+       into not inlining the call */
     int warnPartial = Rf_asLogical(Rf_GetOption1(Rf_install("warnPartialMatchArgs"))) == TRUE;
-    int warnLevel = warnPartial ? Rf_asInteger(Rf_GetOption1(Rf_install("warn"))) : 0;
 
     int nf = lang_length(forms);
     int ns = lang_length(CDR(call));
@@ -3467,20 +3506,9 @@ static int match_simple_args(SEXP forms, SEXP call, SEXP *matched)
 		    return FALSE; /* matches multiple formal arguments */
 		if (fused[fi] == 1)
 		    return FALSE; /* matched by multiple actual arguments */
-		if (warnPartial) {
-		    if (warnLevel >= 2)
-			return FALSE;
-#ifdef BCCOMPILE_STANDALONE
-		    Rf_warningcall(call,
-				   _("partial argument match of '%s' to '%s'"),
-				   tag, fname);
-#else
-		    SEXP cond = PROTECT(R_makePartialArgumentMatchWarningCondition(
-					    call, stags[si], ftags[fi]));
-		    R_signalWarningCondition(cond);
-		    UNPROTECT(1);
-#endif
-		}
+		if (warnPartial &&
+		    signal_partial_match(call, stags[si], ftags[fi]))
+		    return FALSE; /* the warning became an error */
 		sused[si] = 1;
 		fused[fi] = 1;
 		matched[fi] = supplied[si];
