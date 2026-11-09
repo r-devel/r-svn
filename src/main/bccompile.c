@@ -1835,12 +1835,8 @@ static int eval_object_test(SEXP call)
 {
     PROTECT(call);
     SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
-    switch (TYPEOF(val)) {
-    case LGLSXP: case INTSXP: case REALSXP: case CPLXSXP:
-	break;
-    default:
+    if (! Rf_isNumber(val)) /* as && does: a factor is not a number */
 	Rf_error(_("invalid 'y' type in 'x && y'"));
-    }
     if (XLENGTH(val) != 1)
 	Rf_error(_("'length = %lld' in coercion to '%s'"),
 		 (long long) XLENGTH(val), "logical(1)");
@@ -2768,10 +2764,15 @@ static void cmp_call(SEXP call, CodeBuf *cb, Cntxt *ocntxt, int inlineOK)
 /* genCode(e, cntxt, loc) */
 static SEXP gen_code(SEXP e, Cntxt *cntxt, const Loc *loc)
 {
+    /* the buffers of a nested code object are released once it is
+       built, rather than at the end of the whole compilation */
+    const void *vmax = vmaxget();
     CodeBuf cb;
     make_codebuf(&cb, e, loc);
     cmp(e, &cb, cntxt, FALSE, FALSE);
-    return codebuf_code(&cb, cntxt);
+    SEXP ans = codebuf_code(&cb, cntxt);
+    vmaxset(vmax);
+    return ans;
 }
 
 
