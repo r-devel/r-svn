@@ -1920,8 +1920,13 @@ static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
 	}
 	SETCAR(p, val);
     }
+    /* all(modes %in% constModes): a check of the types only */
     for (SEXP p = args; p != R_NilValue; p = CDR(p))
-	if (! check_const(CAR(p)) && TYPEOF(CAR(p)) != NILSXP) {
+	switch (TYPEOF(CAR(p))) {
+	case NILSXP: case LGLSXP: case INTSXP: case REALSXP: case CPLXSXP:
+	case STRSXP:
+	    break;
+	default:
 	    UNPROTECT(1);
 	    return FALSE;
 	}
@@ -2844,6 +2849,12 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     SEXP ct;
     if (constant_fold(test, cntxt, &ct) && TYPEOF(ct) == LGLSXP &&
 	const_length(ct) == 1 && ! const_is_na(ct)) {
+	/* if (ct$value): the evaluator's own checks on the value */
+	if (XLENGTH(ct) != 1)
+	    Rf_errorcall(cntxt->call, _("the condition has length > 1"));
+	if (LOGICAL(ct)[0] == NA_LOGICAL)
+	    Rf_errorcall(cntxt->call,
+			 _("missing value where TRUE/FALSE needed"));
 	if (LOGICAL(ct)[0]) {
 	    cmp(then_expr, cb, cntxt, FALSE, TRUE);
 	}

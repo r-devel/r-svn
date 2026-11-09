@@ -168,6 +168,24 @@ cf <- cmpfunC(s3fold)
 invisible(cf()); invisible(cf())
 stopifnot(counter == 2)
 rm(Ops.foo, length.foo)
+## the arguments are size-checked once: a counting length method is
+## called the same number of times by both compilers
+calls <- 0
+length.foo <- function(x) { calls <<- calls + 1; 1L }
+Ops.foo <- function(e1, e2) calls
+r <- cmpfun(s3fold)
+rcalls <- calls
+calls <- 0
+c <- cmpfunC(s3fold)
+stopifnot(calls == rcalls, closEqual(r, c), c() == rcalls)
+rm(Ops.foo, length.foo)
+## a classed NA condition whose is.na() method says otherwise still
+## fails the evaluator's check when the if() is folded
+is.na.foo <- function(x) FALSE
+naif <- function() NULL
+body(naif) <- call("if", structure(NA, class = "foo"), 1, 2)
+stopifnot(checkFun(naif))
+rm(is.na.foo)
 
 ## partial argument matching in an inlined .Internal call honors
 ## warnPartialMatchArgs as match.call() does: a warning, or with
