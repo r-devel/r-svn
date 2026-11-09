@@ -730,6 +730,8 @@ static CEnv *make_cenv(SEXP env)
     while (e != top) {
 	if (R_IsNamespaceEnv(e))
 	    Rf_error(_("namespace found within local environments"));
+	if (e == R_EmptyEnv)
+	    Rf_error(_("the empty environment has no parent"));
 	e = ENCLOS(e);
 	nl++;
 	if (e == R_EmptyEnv)
@@ -1103,16 +1105,37 @@ static Cntxt make_function_context(const Cntxt *cntxt, SEXP forms, SEXP body)
 {
     Cntxt fcntxt = *cntxt;
     fcntxt.env = add_cenv_frame(cntxt->env);
-    for (SEXP f = forms; f != R_NilValue; f = CDR(f))
-	if (TAG(f) != R_NilValue)
-	    add_cenv_var(fcntxt.env, TAG(f));
+    /* a function literal built by code may have anything as its
+       formals (names(forms) and c(forms, body) in the R compiler) */
+    int nforms;
+    if (TYPEOF(forms) == LISTSXP || TYPEOF(forms) == LANGSXP) {
+	nforms = lang_length(forms);
+	for (SEXP f = forms; f != R_NilValue; f = CDR(f))
+	    if (TAG(f) != R_NilValue)
+		add_cenv_var(fcntxt.env, TAG(f));
+    }
+    else if (TYPEOF(forms) == VECSXP) {
+	nforms = (int) XLENGTH(forms);
+	SEXP names = Rf_getAttrib(forms, R_NamesSymbol);
+	if (TYPEOF(names) == STRSXP)
+	    for (int i = 0; i < nforms; i++)
+		if (CHAR(STRING_ELT(names, i))[0] != '\0')
+		    add_cenv_var(fcntxt.env,
+				 Rf_installTrChar(STRING_ELT(names, i)));
+    }
+    else
+	nforms = 0;
 
     /* findLocalsList(c(forms, body), cntxt) */
-    int n = lang_length(forms) + 1;
+    int n = nforms + 1;
     SEXP *elist = (SEXP *) R_alloc(n, sizeof(SEXP));
     int i = 0;
-    for (SEXP f = forms; f != R_NilValue; f = CDR(f))
-	elist[i++] = CAR(f);
+    if (TYPEOF(forms) == LISTSXP || TYPEOF(forms) == LANGSXP)
+	for (SEXP f = forms; f != R_NilValue; f = CDR(f))
+	    elist[i++] = CAR(f);
+    else if (TYPEOF(forms) == VECSXP)
+	for (; i < nforms; i++)
+	    elist[i] = VECTOR_ELT(forms, i);
     elist[i] = body;
     find_locals_list(elist, n, &fcntxt, &fcntxt.env->vars);
 
@@ -1805,22 +1828,32 @@ static SEXP codebuf_code(CodeBuf *cb, Cntxt *cntxt)
 
 #define MAX_CONST_SIZE 10
 
-/* length(e) as the R compiler computes it: dispatched for an object,
-   whose method may return any number */
-static double const_length(SEXP e)
+/* The R compiler's tests on a constant, such as length(e) <= 10, call
+   generics that dispatch on an object, and the results then pass through
+   `&&`: evaluate the test in R and apply the checks of `&&`. */
+static int eval_object_test(SEXP call)
+{
+    PROTECT(call);
+    SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
+    if (XLENGTH(val) != 1)
+	Rf_error(_("'length = %lld' in coercion to '%s'"),
+		 (long long) XLENGTH(val), "logical(1)");
+    int ans = Rf_asLogical(val);
+    if (ans == NA_LOGICAL)
+	Rf_error(_("missing value where TRUE/FALSE needed"));
+    UNPROTECT(2);
+    return ans;
+}
+
+/* length(e) <= MAX_CONST_SIZE, resp. length(e) == 1 */
+static int const_length_test(SEXP e, const char *op, int n)
 {
     if (! OBJECT(e))
-	return (double) XLENGTH(e);
-    SEXP call = PROTECT(Rf_lang2(Rf_install("length"), e));
-    SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
-    double n;
-    if ((TYPEOF(val) == INTSXP || TYPEOF(val) == REALSXP) &&
-	XLENGTH(val) == 1 && ! ISNAN(Rf_asReal(val)))
-	n = Rf_asReal(val);
-    else
-	Rf_error(_("invalid 'length' value"));
-    UNPROTECT(2);
-    return n;
+	return strcmp(op, "<=") == 0 ? XLENGTH(e) <= n : XLENGTH(e) == n;
+    SEXP len = PROTECT(Rf_lang2(Rf_install("length"), e));
+    SEXP call = Rf_lang3(Rf_install(op), len, Rf_ScalarReal(n));
+    UNPROTECT(1);
+    return eval_object_test(call);
 }
 
 /* checkConst(e): a constant that may be folded into the code */
@@ -1834,7 +1867,7 @@ static int check_const(SEXP e)
     case REALSXP:
     case CPLXSXP:
     case STRSXP:
-	return const_length(e) <= MAX_CONST_SIZE;
+	return const_length_test(e, "<=", MAX_CONST_SIZE);
     default:
 	return FALSE;
     }
@@ -2834,19 +2867,16 @@ static int h_brace(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     return TRUE;
 }
 
-/* is.na(ct) for a logical constant of length one, dispatched for an
+/* !is.na(ct) for a logical constant of length one, dispatched for an
    object as in the R compiler's test */
-static int const_is_na(SEXP ct)
+static int const_not_na(SEXP ct)
 {
     if (! OBJECT(ct))
-	return LOGICAL(ct)[0] == NA_LOGICAL;
-    SEXP call = PROTECT(Rf_lang2(Rf_install("is.na"), ct));
-    SEXP val = PROTECT(Rf_eval(call, R_BaseNamespace));
-    int ans = Rf_asLogical(val);
-    UNPROTECT(2);
-    if (ans == NA_LOGICAL)
-	Rf_error(_("missing value where TRUE/FALSE needed"));
-    return ans;
+	return LOGICAL(ct)[0] != NA_LOGICAL;
+    SEXP isna = PROTECT(Rf_lang2(Rf_install("is.na"), ct));
+    SEXP call = Rf_lang2(Rf_install("!"), isna);
+    UNPROTECT(1);
+    return eval_object_test(call);
 }
 
 static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
@@ -2860,7 +2890,7 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt)
     SEXP else_expr = have_else ? CADDDR(e) : R_NilValue;
     SEXP ct;
     if (constant_fold(test, cntxt, &ct) && TYPEOF(ct) == LGLSXP &&
-	const_length(ct) == 1 && ! const_is_na(ct)) {
+	const_length_test(ct, "==", 1) && const_not_na(ct)) {
 	/* if (ct$value): the evaluator's own checks on the value */
 	if (XLENGTH(ct) != 1)
 	    Rf_errorcall(cntxt->call, _("the condition has length > 1"));

@@ -190,7 +190,33 @@ is.na.foo <- function(x) FALSE
 naif <- function() NULL
 body(naif) <- call("if", structure(NA, class = "foo"), 1, 2)
 stopifnot(checkFun(naif))
+## ... and the tests on the constant go through `&&`: a method result of
+## length two is an error in both compilers
+is.na.foo <- function(x) c(FALSE, FALSE)
+bothError <- function(f) {
+    r <- tryCatch(cmpfun(f), error = function(e) e)
+    c <- tryCatch(cmpfunC(f), error = function(e) e)
+    inherits(r, "error") && inherits(c, "error")
+}
+stopifnot(bothError(naif))
 rm(is.na.foo)
+## a classed length() result is compared by its own method
+length.foo <- function(x) structure(1L, class = "bar")
+Ops.bar <- function(e1, e2) FALSE
+Ops.foo <- function(e1, e2) counter
+stopifnot(checkFun(s3fold))
+rm(Ops.foo, Ops.bar, length.foo)
+
+## function literals built by code need not have pairlist formals
+odd <- function() NULL
+body(odd) <- call("function", 1L, 1L)
+stopifnot(checkFun(odd))
+body(odd) <- call("function", list(a = 1, 2), quote(a))
+stopifnot(checkFun(odd))
+
+## the empty environment is rejected, not walked
+stopifnot(inherits(tryCatch(compile(1L, emptyenv()), error = function(e) e), "error"),
+          inherits(tryCatch(compileC(1L, emptyenv()), error = function(e) e), "error"))
 
 ## partial argument matching in an inlined .Internal call honors
 ## warnPartialMatchArgs as match.call() does: a warning, or with
