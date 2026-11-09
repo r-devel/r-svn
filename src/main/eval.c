@@ -1832,6 +1832,9 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     SEXP packsym, funsym, call, fcall, val;
 
     if (R_use_native_compiler) {
+	/* the compiler package's .onLoad() applies the R_COMPILER_*
+	   settings that the C compiler reads from the package */
+	loadCompilerNamespace();
 	PROTECT(val = R_bcTryCmpfun(fun));
 	if (TYPEOF(BODY(val)) != BCODESXP)
 	    R_gc(); /* see below */
@@ -1928,6 +1931,7 @@ static SEXP R_compileExpr(SEXP expr, SEXP rho)
     SEXP qexpr, call, fcall, val;
 
     if (R_use_native_compiler) {
+	loadCompilerNamespace();
 	val = R_bcTryCompile(expr, rho, R_getCurrentSrcref());
 	R_Visible = old_visible;
 	return val;

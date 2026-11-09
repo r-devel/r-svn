@@ -211,6 +211,18 @@ static SEXP checkCallFun = NULL; /* R closure used for call checking notes */
 static int bc_version = 0;
 static int bc_initialized = FALSE;
 
+/* The compiler runs in C for the whole of a function, so interrupts are
+   polled every so many expressions visited, as the evaluator does. */
+static int bc_tick_count = 0;
+
+static R_INLINE void bc_tick(void)
+{
+    if (++bc_tick_count >= 1000) {
+	bc_tick_count = 0;
+	R_CheckUserInterrupt();
+    }
+}
+
 static const char *math1funs[] = {
     "floor", "ceiling", "sign", "expm1", "log1p",
     "cos", "sin", "tan", "acos", "asin", "atan",
@@ -1124,6 +1136,36 @@ static SEXP compiler_options_env(void)
     return TYPEOF(env) == ENVSXP ? env : NULL;
 }
 
+/* the R_COMPILER_* environment variables, read as the compiler package's
+   .onLoad() reads them; -1 when unset or invalid */
+static int env_option_logical(const char *var)
+{
+    const char *val = getenv(var);
+    if (val == NULL)
+	return -1;
+    static const char *yes[] = { "1", "TRUE", "true", "True", "yes", "Yes", NULL };
+    static const char *no[] = { "0", "FALSE", "false", "False", "no", "No", NULL };
+    for (int i = 0; yes[i]; i++)
+	if (strcmp(val, yes[i]) == 0)
+	    return TRUE;
+    for (int i = 0; no[i]; i++)
+	if (strcmp(val, no[i]) == 0)
+	    return FALSE;
+    return -1;
+}
+
+static int env_option_optimize(void)
+{
+    const char *val = getenv("R_COMPILER_OPTIMIZE");
+    if (val == NULL || val[0] == '\0')
+	return -1;
+    char *end;
+    long lev = strtol(val, &end, 10);
+    if (*end != '\0' || lev < 0 || lev > 3)
+	return -1;
+    return (int) lev;
+}
+
 static SEXP compiler_option(const char *name, SEXP options)
 {
     if (TYPEOF(options) == VECSXP) {
@@ -1145,16 +1187,26 @@ static SEXP compiler_option(const char *name, SEXP options)
 	    return val;
 	}
     }
+    /* the package's defaults, and the environment variables its
+       .onLoad() applies */
     if (strcmp(name, "optimize") == 0) {
-	return Rf_ScalarInteger(2);
+	int lev = env_option_optimize();
+	return Rf_ScalarInteger(lev < 0 ? 2 : lev);
     }
     else if (strcmp(name, "suppressAll") == 0) {
-	return R_TrueValue;
+	int v = env_option_logical("R_COMPILER_SUPPRESS_ALL");
+	return v == FALSE ? R_FalseValue : R_TrueValue;
     }
     else if (strcmp(name, "suppressNoSuperAssignVar") == 0) {
-	return R_FalseValue;
+	int v = env_option_logical("R_COMPILER_SUPPRESS_NO_SUPER_ASSIGN_VAR");
+	return v == TRUE ? R_TrueValue : R_FalseValue;
     }
     else if (strcmp(name, "suppressUndefined") == 0) {
+	int v = env_option_logical("R_COMPILER_SUPPRESS_UNDEFINED");
+	if (v == TRUE)
+	    return R_TrueValue;
+	if (v == FALSE)
+	    return R_FalseValue;
 	static SEXP dflt = NULL;
 	if (dflt == NULL) {
 	    dflt = Rf_allocVector(STRSXP, 4);
@@ -2078,6 +2130,7 @@ static void find_locals_list1(SEXP *elist, int n, const SEXP *shadowed,
 	worklist_push(&todo, elist[i]);
     while (todo.n > 0) {
 	SEXP e = todo.items[--todo.n];
+	bc_tick();
 	find_locals1(e, shadowed, nshadowed, cntxt, vars, &todo);
     }
 }
@@ -2151,6 +2204,7 @@ static int may_call_browser(SEXP e, Cntxt *cntxt)
     if (TYPEOF(e) != LANGSXP)
 	return FALSE;
     R_CheckStack();
+    bc_tick();
     SEXP fun = CAR(e);
     if (TYPEOF(fun) == SYMSXP) {
 	if (fun == s_browser)
@@ -2180,6 +2234,7 @@ static int check_skip_loop_cntxt(SEXP e, Cntxt *cntxt, int breakOK)
     if (TYPEOF(e) != LANGSXP)
 	return TRUE;
     R_CheckStack();
+    bc_tick();
     SEXP fun = CAR(e);
     if (TYPEOF(fun) == SYMSXP) {
 	unsigned flags = sym_flags(fun);
@@ -2452,6 +2507,7 @@ static void cmp_sym(SEXP sym, CodeBuf *cb, Cntxt *cntxt, int missingOK)
 static void cmp(SEXP e, CodeBuf *cb, Cntxt *cntxt, int missingOK, int setloc)
 {
     R_CheckStack();
+    bc_tick();
     Loc sloc;
     if (setloc) {
 	sloc = savecurloc(cb);
