@@ -112,7 +112,7 @@ void in_Rsockconnect(int *port, char **host)
 #endif
     perr.error = perr.h_error = 0;
     *port = enter_sock(Sock_connect((Sock_port_t)*port, *host, &perr));
-//    if(perr.h_error) REprintf("host lookup error: %s\n", hstrerror(perr.h_error));
+//    if(perr.h_error) REprintf("host lookup error: %s\n", gai_strerror(perr.h_error));
     if(perr.error)
 	REprintf("socket error: %s\n", R_socket_strerror(perr.error));
 }
@@ -181,7 +181,7 @@ void in_Rsockwrite(int *sockp, char **buf, int *start, int *end, int *len)
 #include <sys/select.h>
 #endif
 
-struct hostent *R_gethostbyname(const char *name);
+int R_getaddrinfo_in4(const char *name, struct in_addr *addr);
 
 #ifdef Unix
 #define USE_BASE_R_SUPPORT
@@ -400,7 +400,6 @@ int R_SockConnect(int port, char *host, int timeout)
     int status = 0;
     double used = 0.0;
     struct sockaddr_in server;
-    struct hostent *hp;
 
     check_init();
     s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -411,9 +410,8 @@ int R_SockConnect(int port, char *host, int timeout)
     if (R_set_nonblocking(s))
 	return -1;
 
-    if (! (hp = R_gethostbyname(host))) CLOSE_N_RETURN(-1);
-
-    memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
+    memset(&server, 0, sizeof(server));
+    if (R_getaddrinfo_in4(host, &server.sin_addr)) CLOSE_N_RETURN(-1);
     server.sin_port = htons((short)port);
     server.sin_family = AF_INET;
 
@@ -691,15 +689,32 @@ ssize_t R_SockWrite(int sockp, const void *buf, size_t len, int timeout)
     return out;
 }
 
-struct hostent *R_gethostbyname(const char *name)
+/* Resolve 'name' to an IPv4 address, stored in *addr.
+   Returns 0 on success or a non-zero getaddrinfo() error code. */
+int R_getaddrinfo_in4(const char *name, struct in_addr *addr)
 {
-    struct hostent *ans = gethostbyname(name);
+    struct addrinfo hints, *res = NULL;
+    int status;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    status = getaddrinfo(name, NULL, &hints, &res);
 
     /* hard-code IPv4 address for localhost to be robust against
        misconfigured systems */
+    if (status != 0 && !strcmp(name, "localhost")) {
+	hints.ai_flags = AI_NUMERICHOST;
+	res = NULL;
+	status = getaddrinfo("127.0.0.1", NULL, &hints, &res);
+    }
+    if (status != 0) return status;
 
-    if (ans == NULL && !strcmp(name, "localhost"))
-	ans = gethostbyname("127.0.0.1");
-    return ans;
+    if (res && res->ai_family == AF_INET && res->ai_addr)
+	*addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr;
+    else
+	status = EAI_FAIL;
+    freeaddrinfo(res);
+    return status;
 }
 

@@ -1932,7 +1932,7 @@ dnl needed for Rhttpd.c but missed before R 3.2.4
      && test "${ac_cv_header_netinet_in_h}" = yes \
      && test "${ac_cv_header_sys_socket_h}" = yes \
      && test "${ac_cv_search_connect}" != no \
-     && test "${ac_cv_search_gethostbyname}" !=  no; then
+     && test "${ac_cv_search_getaddrinfo}" !=  no; then
   r_cv_bsd_networking=yes
 fi])
 if test "${r_cv_bsd_networking}" = no; then

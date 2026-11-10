@@ -169,11 +169,11 @@ int R_set_nodelay(SOCKET s)
     return setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &val, sizeof(val));
 }
 
-#if defined(__hpux)
-   extern int h_errno; /* HP-UX 9.05 forgets to declare this in netdb.h */
-#endif
+extern int R_getaddrinfo_in4(const char *name, struct in_addr *addr);
 
-extern struct hostent *R_gethostbyname(const char *name);
+#ifndef NI_MAXHOST
+# define NI_MAXHOST 1025
+#endif
 
 #define MAXBACKLOG SOMAXCONN
 
@@ -348,7 +348,6 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
     struct sockaddr_in net_client;
     R_SOCKLEN_T len = sizeof(struct sockaddr);
     int retval;
-    struct hostent *hostptr;
 
     /* callers may use cname even if accept() fails */
     if (cname != NULL && buflen > 0)
@@ -363,14 +362,16 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
     if (cname != NULL && buflen > 0) {
 	size_t nlen;
 	const char *name;
-	struct in_addr *iaddr = &(net_client.sin_addr);
-	hostptr = gethostbyaddr((char *)iaddr, sizeof(struct in_addr),
-				AF_INET);
-	name = (hostptr == NULL) ? "unknown" :  hostptr->h_name;
+	char host[NI_MAXHOST];
+	if (getnameinfo((struct sockaddr *)(&net_client), len,
+			host, sizeof(host), NULL, 0, NI_NAMEREQD) == 0)
+	    name = host;
+	else
+	    name = "unknown";
 	nlen = strlen(name);
 	if (buflen < nlen + 1)
 	    nlen = buflen - 1;
-	strncpy(cname, name, nlen);
+	memcpy(cname, name, nlen);
 	cname[nlen] = 0;
     }
     return retval;
@@ -380,22 +381,18 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
 int Sock_connect(Sock_port_t port, char *sname, Sock_error_t perr)
 {
     struct sockaddr_in server;
-    struct hostent *hp;
     SOCKET sock;
-    int retval;
+    int retval, gaierr;
 
-    if (! (hp = R_gethostbyname(sname))) 
-#ifdef Win32
-	return Sock_error(perr, R_socket_errno(), WSAGetLastError());
-#else
-	return Sock_error(perr, R_socket_errno(), h_errno);
-#endif
+    memset(&server, 0, sizeof(server));
+    if ((gaierr = R_getaddrinfo_in4(sname, &server.sin_addr)) != 0)
+	/* h_error now holds a getaddrinfo() error code (see gai_strerror) */
+	return Sock_error(perr, R_socket_errno(), gaierr);
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (R_invalid_socket(sock))
 	return Sock_error(perr, R_socket_errno(), 0);
 
-    memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
     server.sin_port = htons((short)port);
     server.sin_family = AF_INET;
 
