@@ -1141,15 +1141,17 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
     args <- call[-1]
     if (typeof(fun) == "symbol") {
         if (! (inlineOK && tryInline(call, cb, cntxt))) {
-            if (findLocVar(fun, cntxt))
-                notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
-            else {
-                def <- findFunDef(fun, cntxt)
-                if (is.null(def))
-                    notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
-                else
-                    checkCall(def, call,
-                              function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+            if (! suppressAll(cntxt)) {
+                if (findLocVar(fun, cntxt))
+                    notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
+                else {
+                    def <- findFunDef(fun, cntxt)
+                    if (is.null(def))
+                        notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
+                    else
+                        checkCall(def, call,
+                                  function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+                }
             }
             cmpCallSymFun(fun, args, call, cb, cntxt)
         }

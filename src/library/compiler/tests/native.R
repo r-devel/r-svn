@@ -263,6 +263,33 @@ stopifnot(checkFun(as.function(list(as.character(1:100000)))))
 bigs <- as.function(list(as.call(list(quote(length), as.character(1:1000000000)))))
 stopifnot(system.time(cmpfunC(bigs))[["elapsed"]] < 5)
 
+## with the notes suppressed neither compiler looks up the definitions
+## of the called functions, so a lazy binding is not forced by compiling
+## a call to it (and a binding whose forcing fails does not stop the
+## compilation)
+delayedAssign("lazyFun", stop("forced"), assign.env = environment())
+callsLazy <- function() lazyFun()
+stopifnot(checkFun(callsLazy),
+          identical(.Internal(getBindingType(as.name("lazyFun"), environment())),
+                    "delayed"))
+rm(lazyFun)
+
+## the options may be given as any named vector, as getCompilerOption()
+## reads them
+stopifnot(checkFun(wired <- function(x, y) { z <- x + y * 2; if (z > 3) z else -z },
+                   c(optimize = 0)),
+          closEqual(cmpfunC(wired, c(optimize = 0)),
+                    cmpfunC(wired, list(optimize = 0))))
+
+## compilation errors name the location of the current source reference
+bad <- eval(parse(text = "function() {\n  g()\n}", keep.source = TRUE)[[1]])
+b <- body(bad)
+b[[2]] <- as.call(list(quote(g), .Internal(mkCode(1L, list()))))
+body(bad) <- b
+rmsg <- conditionMessage(tryCatch(cmpfun(bad), error = function(e) e))
+cmsg <- conditionMessage(tryCatch(cmpfunC(bad), error = function(e) e))
+stopifnot(identical(rmsg, cmsg), endsWith(rmsg, "at <text>:2"))
+
 ## with the C compiler selected, cmpfun() and compile() hand the work
 ## to it; the switch returns the previous setting
 stopifnot(identical(.Internal(nativeCompiler(TRUE)), FALSE),

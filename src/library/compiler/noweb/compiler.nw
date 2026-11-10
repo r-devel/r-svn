@@ -600,17 +600,23 @@ optimization level permits their use.  Details of the inlining
 mechanism are given in Section \ref{sec:inlining}.
 
 In addition to the inlining mechanism, some checking of the call is
-carried out for symbol calls. The checking code is
+carried out for symbol calls.  The checks only produce compiler notes,
+so they are skipped when the notes are suppressed; this also avoids
+forcing the bindings of the called functions and matching every call
+against its definition when nothing would be reported.  The checking
+code is
 <<check the call to a symbol function>>=
-if (findLocVar(fun, cntxt))
-    notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
-else {
-    def <- findFunDef(fun, cntxt)
-    if (is.null(def))
-        notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
-    else
-        checkCall(def, call,
-                  function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+if (! suppressAll(cntxt)) {
+    if (findLocVar(fun, cntxt))
+        notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
+    else {
+        def <- findFunDef(fun, cntxt)
+        if (is.null(def))
+            notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
+        else
+            checkCall(def, call,
+                      function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+    }
 }
 @ 
 and [[checkCall]] is defined as
