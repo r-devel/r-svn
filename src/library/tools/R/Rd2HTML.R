@@ -486,15 +486,10 @@ Rd2HTML <-
             package <- package[1L]
         } else {
             dir <- dirname(package)
-            if(nzchar(dir) &&
+            if(nzchar(dir) && # isn't this always TRUE here?
                file_test("-f", dfile <- file.path(package, "DESCRIPTION"))) {
                 version <- .read_description(dfile)["Version"]
                 package <- basename(package)
-            } else {
-                ## Should we really do this?
-                ## Used when Rdconv is given a package argument.
-                version <- utils::packageDescription(package,
-                                                     fields = "Version")
             }
         }
         if(is.na(version)) version <- ""
@@ -1557,9 +1552,15 @@ function(dir)
 }
 
 .DESCRIPTION_to_HTML <- 
-function(descfile, dynamic = FALSE, hooks = list()) {
-
+function(descfile, dynamic = FALSE, resources = NULL, hooks = list())
+{
     ## Similar to .DESCRIPTION_to_latex().
+
+    if(is.null(resources))
+        resources <- if(dynamic)
+                         "/doc/html"
+                     else
+                         "https://cloud.R-project.org/web/resources"
 
     if(dynamic) {
         if(is.null(hooks$description_license_paths))
@@ -1854,10 +1855,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
                          .ORCID_iD_regexp),
                  paste0("<a href=\"https://orcid.org/\\1\">",
                         "<img alt=\"ORCID iD\" ",
-                        if(dynamic)
-                            " src=\"/doc/html/orcid.svg\" "
-                        else
-                            " src=\"https://cloud.R-project.org/web/resources/orcid.svg\" ",
+                        sprintf(" src=\"%s/orcid.svg\" ", resources),
                         "style=\"width:16px; height:16px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
                         "></a>"),
                  desc["Author"])
@@ -1866,10 +1864,7 @@ function(descfile, dynamic = FALSE, hooks = list()) {
                          .ROR_ID_regexp),
                  paste0("<a href=\"https://ror.org/\\1\">",
                         "<img alt=\"ROR ID\" ",
-                        if(dynamic)
-                            " src=\"/doc/html/ror.svg\" "
-                        else
-                            " src=\"https://cloud.R-project.org/web/resources/ror.svg\" ",
+                        sprintf(" src=\"%s/ror.svg\" ", resources),
                         "style=\"width:20px; height:20px; margin-left:4px; margin-right:4px; vertical-align:middle\"",
                         "></a>"),
                  desc["Author"])
@@ -1891,3 +1886,17 @@ function(descfile, dynamic = FALSE, hooks = list()) {
               names(desc), desc),
       "</table>")
 }
+
+image_data_uri <-
+function(file)
+{
+    if(!length(file) || !nzchar(file) || !file.exists(file))
+        return(NA_character_)
+    size <- file.size(file)
+    if(is.na(size) || size == 0)
+        return(NA_character_)
+    mime <- mime_type(file)
+    if(is.na(mime)) return(NA_character_)
+    sprintf("data:%s;base64,%s", mime, base64_encode(file))
+}
+
