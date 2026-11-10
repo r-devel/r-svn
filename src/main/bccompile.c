@@ -1567,6 +1567,42 @@ static SEXP codebuf_code(CodeBuf *cb, Cntxt *cntxt)
 
 
 /*
+ * Locations in messages
+ */
+
+/* addLocString(): " at <file>:<line>" for the current source reference
+   of the code buffer, or "" */
+static const char *loc_string(CodeBuf *cb, char *buf, size_t size)
+{
+    buf[0] = '\0';
+    SEXP sref = cb == NULL ? R_NilValue : cb->curSrcref;
+    if (sref == R_NilValue || TYPEOF(sref) != INTSXP || XLENGTH(sref) < 1)
+	return buf;
+    const char *fname = "";
+    SEXP srcfile = Rf_getAttrib(sref, s_srcfile);
+    if (TYPEOF(srcfile) == ENVSXP) {
+	SEXP fn = Rf_findVarInFrame3(srcfile, s_filename, TRUE);
+	if (TYPEOF(fn) == STRSXP && XLENGTH(fn) >= 1) {
+	    fname = CHAR(STRING_ELT(fn, 0));
+	    const char *slash = strrchr(fname, '/');
+	    if (slash != NULL)
+		fname = slash + 1;
+	}
+    }
+    snprintf(buf, size, " at %s:%d", fname, INTEGER(sref)[0]);
+    return buf;
+}
+
+/* cntxt$stop(msg, cntxt, loc): a compilation error with the location
+   of the current source reference appended */
+NORET static void stop_at(Cntxt *cntxt, CodeBuf *cb, const char *msg)
+{
+    char loc[1024];
+    Rf_errorcall(cntxt->call, "%s%s", msg, loc_string(cb, loc, sizeof loc));
+}
+
+
+/*
  * Constant folding
  */
 
@@ -1710,7 +1746,7 @@ static SEXP fold_handler(SEXP cond, void *data)
     return R_NilValue;
 }
 
-static int constant_fold(SEXP e, Cntxt *cntxt, SEXP *value);
+static int constant_fold(SEXP e, Cntxt *cntxt, CodeBuf *cb, SEXP *value);
 
 /* constantFoldCall */
 static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
@@ -1732,7 +1768,7 @@ static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
 	    return FALSE;
 	}
 	SEXP val;
-	if (! constant_fold(CAR(p), cntxt, &val)) {
+	if (! constant_fold(CAR(p), cntxt, NULL, &val)) {
 	    UNPROTECT(1);
 	    return FALSE;
 	}
@@ -1765,7 +1801,9 @@ static int constant_fold_call(SEXP e, Cntxt *cntxt, SEXP *value)
 }
 
 /* constantFold(e, cntxt): TRUE with *value set if e folds to a constant */
-static int constant_fold(SEXP e, Cntxt *cntxt, SEXP *value)
+/* constantFold(e, cntxt, loc): cb, when given, locates the errors; the
+   R compiler passes no location for the arguments of a folded call */
+static int constant_fold(SEXP e, Cntxt *cntxt, CodeBuf *cb, SEXP *value)
 {
     switch (TYPEOF(e)) {
     case LANGSXP:
@@ -1773,10 +1811,9 @@ static int constant_fold(SEXP e, Cntxt *cntxt, SEXP *value)
     case SYMSXP:
 	return constant_fold_sym(e, cntxt, value);
     case PROMSXP:
-	Rf_errorcall(cntxt->call, _("cannot constant fold literal promises"));
+	stop_at(cntxt, cb, _("cannot constant fold literal promises"));
     case BCODESXP:
-	Rf_errorcall(cntxt->call,
-		     _("cannot constant fold literal bytecode objects"));
+	stop_at(cntxt, cb, _("cannot constant fold literal bytecode objects"));
     default:
 	if (check_const(e)) {
 	    *value = e;
@@ -2129,24 +2166,8 @@ static void note(CodeBuf *cb, const char *fmt, ...)
     Rvsnprintf_mbcs(msg, sizeof msg, fmt, ap);
     va_end(ap);
 
-    SEXP sref = cb == NULL ? R_NilValue : cb->curSrcref;
-    if (sref != R_NilValue && TYPEOF(sref) == INTSXP && XLENGTH(sref) >= 1) {
-	const char *fname = "";
-	SEXP srcfile = Rf_getAttrib(sref, s_srcfile);
-	if (TYPEOF(srcfile) == ENVSXP) {
-	    SEXP fn = Rf_findVarInFrame3(srcfile, s_filename, TRUE);
-	    if (TYPEOF(fn) == STRSXP && XLENGTH(fn) >= 1) {
-		fname = CHAR(STRING_ELT(fn, 0));
-		const char *slash = strrchr(fname, '/');
-		if (slash != NULL)
-		    fname = slash + 1;
-	    }
-	}
-	Rprintf("Note: %s at %s:%d \n", msg, fname, INTEGER(sref)[0]);
-    }
-    else {
-	Rprintf("Note: %s \n", msg);
-    }
+    char loc[1024];
+    Rprintf("Note: %s%s \n", msg, loc_string(cb, loc, sizeof loc));
 }
 
 static int suppress_undef(SEXP sym, Cntxt *cntxt)
@@ -2350,7 +2371,7 @@ static void cmp(SEXP e, CodeBuf *cb, Cntxt *cntxt, int missingOK, int setloc)
 	setcurexpr(cb, e);
     }
     SEXP val;
-    if (! constant_fold(e, cntxt, &val)) {
+    if (! constant_fold(e, cntxt, cb, &val)) {
 	switch (TYPEOF(e)) {
 	case LANGSXP:
 	    cmp_call(e, cb, cntxt, TRUE);
@@ -2359,9 +2380,9 @@ static void cmp(SEXP e, CodeBuf *cb, Cntxt *cntxt, int missingOK, int setloc)
 	    cmp_sym(e, cb, cntxt, missingOK);
 	    break;
 	case BCODESXP:
-	    Rf_errorcall(cntxt->call, _("cannot compile byte code literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile byte code literals in code"));
 	case PROMSXP:
-	    Rf_errorcall(cntxt->call, _("cannot compile promise literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile promise literals in code"));
 	default:
 	    cmp_const(e, cb, cntxt);
 	}
@@ -2420,10 +2441,10 @@ static void cmp_call_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int nse)
 	    put0(cb, DODOTS_OP);
 	}
 	else if (TYPEOF(a) == BCODESXP) {
-	    Rf_errorcall(cntxt->call, _("cannot compile byte code literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile byte code literals in code"));
 	}
 	else if (TYPEOF(a) == PROMSXP) {
-	    Rf_errorcall(cntxt->call, _("cannot compile promise literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile promise literals in code"));
 	}
 	else {
 	    if (TYPEOF(a) == SYMSXP || TYPEOF(a) == LANGSXP) {
@@ -2641,7 +2662,7 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     int have_else = n == 4;
     SEXP else_expr = have_else ? CADDDR(e) : R_NilValue;
     SEXP ct;
-    if (constant_fold(test, cntxt, &ct)) {
+    if (constant_fold(test, cntxt, cb, &ct)) {
 	/* a folded value is fresh: keep it alive across the tests on a
 	   classed constant, which allocate and run R code */
 	PROTECT(ct);
@@ -3060,19 +3081,19 @@ static void cmp_builtin_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int missingOK
 		cmp_tag(n, cb);
 	    }
 	    else {
-		Rf_errorcall(cntxt->call, _("missing arguments are not allowed"));
+		stop_at(cntxt, cb, _("missing arguments are not allowed"));
 	    }
 	}
 	else if (TYPEOF(a) == BCODESXP) {
-	    Rf_errorcall(cntxt->call, _("cannot compile byte code literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile byte code literals in code"));
 	}
 	else if (TYPEOF(a) == PROMSXP) {
-	    Rf_errorcall(cntxt->call, _("cannot compile promise literals in code"));
+	    stop_at(cntxt, cb, _("cannot compile promise literals in code"));
 	}
 	else {
 	    if (TYPEOF(a) == SYMSXP) {
 		SEXP ca;
-		if (! constant_fold(a, cntxt, &ca)) {
+		if (! constant_fold(a, cntxt, cb, &ca)) {
 		    cmp_sym(a, cb, &ncntxt, missingOK);
 		    put0(cb, PUSHARG_OP);
 		}
@@ -3666,7 +3687,7 @@ static void cmp_setter_call(SEXP place, SEXP origplace, SEXP vexpr, CodeBuf *cb,
 					  origplace, vexpr));
     setcurexpr(cb, cexpr);
     if (afun == NULL) {
-	Rf_errorcall(cntxt->call, _("invalid function in complex assignment"));
+	stop_at(cntxt, cb, _("invalid function in complex assignment"));
     }
     else if (TYPEOF(afun) == SYMSXP) {
 	if (! try_setter_inline(afun, place, origplace, acall, cb, &ncntxt)) {
@@ -3752,7 +3773,7 @@ static int cmp_complex_assign(SEXP symbol, SEXP lhs, SEXP value, int superAssign
     int nplaces = 0;
     for (SEXP place = lhs; TYPEOF(place) == LANGSXP; place = CADR(place)) {
 	if (lang_length(place) < 2)
-	    Rf_errorcall(cntxt->call, _("bad assignment 1"));
+	    stop_at(cntxt, cb, _("bad assignment 1"));
 	nplaces++;
     }
     SEXP places = PROTECT(Rf_allocVector(VECSXP, nplaces));
@@ -3764,7 +3785,7 @@ static int cmp_complex_assign(SEXP symbol, SEXP lhs, SEXP value, int superAssign
 	    SET_VECTOR_ELT(places, i, set_lang_elt(place, 1, s_tmp));
 	}
 	if (TYPEOF(place) != SYMSXP)
-	    Rf_errorcall(cntxt->call, _("bad assignment 2"));
+	    stop_at(cntxt, cb, _("bad assignment 2"));
     }
 
     for (int i = nplaces - 1; i >= 1; i--)
@@ -4070,7 +4091,7 @@ static int cmp_subset_dispatch(int start_op, int dflt_op, int rank, SEXP e,
 {
     SEXP oe = CADR(e);
     if (oe == R_MissingArg)
-	Rf_errorcall(cntxt->call, _("cannot compile this expression"));
+	stop_at(cntxt, cb, _("cannot compile this expression"));
     Cntxt ncntxt = make_arg_context(cntxt);
     int ci = putconst(cb, e);
     int label = makelabel(cb);
@@ -4663,10 +4684,24 @@ attribute_hidden SEXP R_bcCmpfun(SEXP f, SEXP options)
     return val;
 }
 
+/* getCompilerOption() in the R compiler reads the options with
+   names(options) and options[[name]], so any named vector works there;
+   a named atomic vector is accepted here as well */
+static SEXP options_as_list(SEXP options)
+{
+    if (options == R_NilValue || TYPEOF(options) == VECSXP ||
+	! Rf_isVector(options))
+	return options;
+    return Rf_coerceVector(options, VECSXP);
+}
+
 attribute_hidden SEXP do_bccmpfun(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    return R_bcCmpfun(CAR(args), CADR(args));
+    SEXP options = PROTECT(options_as_list(CADR(args)));
+    SEXP ans = R_bcCmpfun(CAR(args), options);
+    UNPROTECT(1);
+    return ans;
 }
 
 attribute_hidden SEXP do_bccompile(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -4675,7 +4710,10 @@ attribute_hidden SEXP do_bccompile(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP env = CADR(args);
     if (TYPEOF(env) != ENVSXP) /* the message the R implementation gives */
 	Rf_error(_("argument is not an environment"));
-    return R_bcCompile(CAR(args), env, CADDR(args), CADDDR(args));
+    SEXP options = PROTECT(options_as_list(CADDR(args)));
+    SEXP ans = R_bcCompile(CAR(args), env, options, CADDDR(args));
+    UNPROTECT(1);
+    return ans;
 }
 
 /*
