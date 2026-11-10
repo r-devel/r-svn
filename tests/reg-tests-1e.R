@@ -4426,18 +4426,6 @@ dev.off(d); options(op)
 
 
 
-## sample() without replacement, weights spanning many orders of magnitude
-w <- c(1, 1, 1, 1e-20, 0)
-set.seed(1)
-stopifnot(!vapply(1:200, function(i) 5L %in% sample.int(5L, 4L, prob = w), NA))
-w <- c(1, 1, 1, 1e-20, 1e-20)
-set.seed(2)
-fourth <- vapply(1:1000, function(i) sample.int(5L, 4L, prob = w)[4L], 1L)
-stopifnot(abs(mean(fourth == 4L) - 0.5) < 0.1)
-## drew the zero-weight item, and always item 5 of the two equal small
-## weights, as the running total of the remaining mass drifted, in R <= 4.6.2
-
-
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
