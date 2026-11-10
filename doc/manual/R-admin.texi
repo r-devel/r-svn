@@ -56,6 +56,7 @@ This is a guide to installation and administration for R.
 
 
 
+
 @node Obtaining R
 @chapter Obtaining R
 @cindex Obtaining R
@@ -63,6 +64,7 @@ This is a guide to installation and administration for R.
 Sources, binaries and documentation for @R{} can be obtained via
 @acronym{CRAN}, the ``Comprehensive R Archive Network'' whose current
 members are listed at @uref{https://CRAN.R-project.org/mirrors.html}.
+
 
 
 @node Getting and unpacking the sources
@@ -239,6 +241,7 @@ of this chapter we consider only building from the sources.
 
 Cross-building is not possible: installing @R{} builds a minimal version
 of @R{} and then runs many @R{} scripts to complete the build.
+
 
 
 @node Simple compilation
@@ -463,12 +466,13 @@ make info     @r{to create info files (not @samp{refman} nor @samp{fullrefman}).
 @c texi2any from July 2021.
 You will not be able to build any of these unless you have
 @command{texi2any} version 6.8 or later installed, and for PDF you must
-have @command{texi2dvi} and @file{texinfo.tex} installed (which are part
-of the @acronym{GNU} @I{Texinfo} distribution but are, especially
-@file{texinfo.tex}, often made part of the @TeX{} package @pkg{texinfo} in
-re-distributions).  The path to @command{texi2any} can be set by macro
-@samp{TEXI2ANY} in @file{config.site}.  NB: @command{texi2any} requires
-@command{perl}.
+have @command{texi2dvi}, @file{texinfo.tex} and @command{pdftex}
+installed (the first two are part of the @acronym{GNU} @I{Texinfo}
+distribution but are, especially @file{texinfo.tex}, often made part of
+the @TeX{} package @pkg{texinfo} in re-distributions).  The path to
+@command{texi2any} can be set by macro @samp{TEXI2ANY} in
+@file{config.site}.  NB: @command{texi2any} and @command{texi2dvi}
+require @command{perl}.
 
 The PDF versions can be viewed using any recent PDF viewer: they have
 hyperlinks that can be followed.  The info files are suitable for
@@ -924,6 +928,7 @@ functions provides a degree of platform-independence (including to OS
 updates) but replaces it with a dependence on the @R{} version.)
 
 
+
 @node Debugging Symbols
 @subsection Debugging Symbols
 
@@ -978,16 +983,16 @@ SHLIB_OPENMP_FFLAGS
 @end example
 
 @noindent
-Setting these to an empty value will disable @abbr{OpenMP} for that compiler
-(and configuring with @option{--disable-openmp} will disable all
-detection@footnote{This does not necessarily disable @emph{use} of
-@abbr{OpenMP} -- the @command{configure} code allows for platforms where @abbr{OpenMP}
-is used without a flag. For the @command{flang} compiler in late 2017,
-the Fortran runtime always used @abbr{OpenMP}.} of @abbr{OpenMP}).  The
-@command{configure} detection test is to compile and link a standalone
-@abbr{OpenMP} program, which is not the same as compiling a shared object and
-loading it into the C program of @R{}'s executable.  Note that
-overridden values are not tested.
+Setting these to an empty value will disable @abbr{OpenMP} for that
+compiler (and configuring with @option{--disable-openmp} will disable
+all detection@footnote{This does not necessarily disable @emph{use} of
+@abbr{OpenMP} -- the @command{configure} code allows for platforms where
+@abbr{OpenMP} is used without a flag.  For the `classic' @command{flang}
+compiler in late 2017, the Fortran runtime always used @abbr{OpenMP}.}
+of @abbr{OpenMP}).  The @command{configure} detection test is to compile
+and link a standalone @abbr{OpenMP} program, which is not the same as
+compiling a shared object and loading it into the C program of @R{}'s
+executable.  Note that overridden values are not tested.
 
 @node C++ Support
 @subsection C++ Support
@@ -1149,6 +1154,7 @@ Various macros can be set in file @file{config.site} to customize how
 C/C++ compilers, set macro @samp{LTO_FC} (probably to empty).  Macro
 @samp{LTO_LD} can be used to select an alternative linker should that be
 needed.
+
 
 
 @node LTO with GCC
@@ -1390,6 +1396,7 @@ Windows @acronym{FAQ}} for more details on the binary installer and for
 information on use on older Windows systems.
 
 
+
 @node Building from source
 @section Building from source
 
@@ -1397,6 +1404,7 @@ It is possible to use other 64-bit toolchains (including `MSYS2') with
 @abbr{UCRT} support to build @R{}, but this manual only documents that
 used for recent binary distributions of @R{}.  When using other
 toolchains, makefiles of @R{} and packages may need to be adapted.
+
 
 
 @node The Windows toolset
@@ -1622,6 +1630,7 @@ unsigned/not notarized: to install those Control/right/two-finger click,
 select @samp{Open With} and @samp{Installer}.)
 
 For building @R{} from source, see @ref{macOS}.
+
 
 
 @node Running R under macOS
@@ -1856,6 +1865,7 @@ setting the environment variable @env{R_LIBS} or using the @R{} function
 directory referred to as a `library tree'.
 
 
+
 @node Default packages
 @section Default packages
 @cindex Packages, default
@@ -2047,6 +2057,7 @@ comparable age to your version of @R{}).
 
 Naive users sometimes forget that as well as installing a package, they
 have to use @code{library} to make its functionality available.
+
 
 
 @node Windows packages
@@ -2663,6 +2674,7 @@ The other aspect of the internationalization is support for the
 translation of messages.  This is enabled in almost all builds of @R{}.
 
 
+
 @node Locales
 @section Locales
 @cindex Locale
@@ -2706,6 +2718,7 @@ some OSes as separate languages, @code{no} and @code{nn}).
 @R{} is principally concerned with the first (for translations) and
 third.  Note that the charset may be deducible from the language, as
 some OSes offer only one charset per language.
+
 
 
 @node Locales under Unix-alikes
@@ -2950,6 +2963,7 @@ typedef enum @{
 (and @samp{USER_NORM} is not available).
 
 
+
 @node Unix-alike standalone
 @section Unix-alikes
 
@@ -3100,6 +3114,7 @@ Debian/Ubuntu's) make a distinction between the user version of a
 package and the development version.  The latter usually has the same
 name but with the extension @samp{-devel} or @samp{-dev}: you need both
 versions installed.
+
 
 
 @node Essential programs and libraries
@@ -3420,9 +3435,10 @@ future---@command{configure} warns when it is used.
 Library @code{libdeflate} (@url{https://github.com/ebiggers/libdeflate})
 is used by @code{memCompress()} and @code{memDecompress()} if available.
 
-The compression library for @code{zstd} is used if available.  It might
-be named @code{libzstd} or be part of a package including the
-@command{zstd} utilities.
+The Zstandard compression library and its headers are required.  It
+might be named @code{libzstd}@footnote{install Linux package
+@code{libzstd-dev} or @code{libzstd-devel}.} or be part of a package
+including the @command{zstd} utilities.
 
 Use of the X11 clipboard selection requires the @code{Xmu} headers and
 libraries.  These are normally part of an X11 installation (e.g.@: the
@@ -3449,8 +3465,8 @@ environment variable @env{R_GSCMD} at that time.
 @enindex R_GSCMD
 
 At the time of writing a full installation on Fedora Linux used the
-following packages and their development versions, and this may provide
-a useful checklist for other systems:
+following packages and their development versions and dependencies, and
+this may provide a useful checklist for other systems:
 @example
 bzip2 cairo fontconfig freetype fribidi gcc gcc-gfortran gcc-c++ glib2
 glibc harfbuzz lapack libX11 libXext libXt libcurl libdeflate libicu
@@ -3458,7 +3474,8 @@ libjpeg libpng libtiff libtirpc libxcrypt libzstd ncurses pango
 pkgconf-pkg-config pcre2 readline tcl tk xz zlib
 @end example
 @noindent
-plus, preferably a TeX installation and Java.
+plus, preferably, a TeX installation, @code{texinfo} and Java.
+
 
 
 @node Tcl/Tk
@@ -3653,6 +3670,7 @@ implementations of LAPACK and BLAS (which is nowadays distributed as
 part of LAPACK): it has been announced that version 3.12.1 included in
 @R{}@tie{}4.5.0 is expected to be the last update.
 
+
 @node BLAS
 @subsection BLAS
 
@@ -3730,6 +3748,7 @@ from a running @R{} session by package @CRANpkg{flexiblas}.
 
 BLAS implementations which use parallel computations can be
 non-deterministic: this is known for ATLAS.
+
 
 
 @node ATLAS
@@ -4221,6 +4240,7 @@ support.
 @appendix Configuration on a Unix-alike
 
 
+
 @node Configuration options
 @section Configuration options
 
@@ -4357,6 +4377,7 @@ Note that caching is turned @emph{off} by default: use the command line
 option @option{--config-cache} (or @option{-C}) to enable caching.
 
 
+
 @node Setting paper size
 @subsection Setting paper size
 @enindex R_PAPERSIZE
@@ -4480,11 +4501,9 @@ specified as part of @code{FCFLAGS}.
 
 The search mechanism can be changed using the configure variable
 @code{FC} which specifies the command that runs the Fortran compiler.
-If your Fortran compiler is in a non-standard location, you
-@enindex PATH
-should set the environment variable @env{PATH} accordingly before
-running @command{configure}, or use the configure variable @code{FC} to
-specify its full path.
+If your Fortran compiler is not one of these (for example,
+@command{flang}), specify it in the configure variable @code{FC}.  If it
+is not on your path, use this to specify its full path.
 
 If your Fortran libraries are in slightly peculiar places, you should
 @enindex LD_LIBRARY_PATH
@@ -4697,6 +4716,7 @@ Apple builds of GCC), but Apple @command{clang} is better identified by
 the @code{__apple_build_version__} macro.
 
 
+
 @node X11 issues
 @section X11 issues
 
@@ -4897,6 +4917,7 @@ Use of @code{_GLIBCXX_ASSERTIONS} will link @code{abort} and
 --as-cran} will warn.
 
 
+
 @node Clang
 @subsection Clang
 
@@ -4909,21 +4930,31 @@ This has to be used in conjunction with a Fortran compiler: the
 @command{configure} code will remove @option{-lgcc} from @env{FLIBS},
 which is needed for some versions of @command{gfortran}.
 
-The current out-of-the-box default for @command{clang++} is to use the
-C++ runtime @code{libstdc++} associated with the installed
-@command{g++}.  Using the runtime from the
+The current out-of-the-box default for most builds of @command{clang++}
+on Linux is to use the C++ runtime @code{libstdc++} associated with the
+installed @command{g++}.  Using the runtime from the
 @url{https://libcxx.llvm.org/, @code{libc++}} project (Fedora
-@acronym{RPM} @code{libcxx-devel}) @emph{via} @option{-stdlib=libc++}
-has also been tested.
+@acronym{RPM} @code{libcxx-devel}) is tested regularly. The version of
+@code{libc++} in @I{LLVM} 23 tidied up `transitive inclusions' in C++ system
+headers and so uncovered errors in many packages which used C++ headers
+but did not include them directly.
 
-Recent versions have (optional when built) @abbr{OpenMP} support.@footnote{This
-also needs the @abbr{OpenMP} runtime which has sometimes been distributed
-separately.}
+Which C++ runtime is used can be changed by, for example
+@example
+CXX="clang++- -stdlib=libc++"
+@end example
+@noindent
+when @R{} is configured or in a @file{Makevars} file (@pxref{Customizing
+package compilation}).
 
-There are problems mixing @command{clang} 15.0.0 and later built as
-default on Linux to produce PIE code and @command{gfortran} 11 or later,
-which does not.  One symptom is that @command{configure} does not detect
-@code{FC_LEN_T}, which can be overcome by setting
+Recent versions of @command{clang} have (optional when built)
+@abbr{OpenMP} support.@footnote{This also needs the @abbr{OpenMP}
+runtime @code{libomp} which has sometimes been distributed separately.}
+
+There have been problems mixing @command{clang} 15.0.0 and later built
+as default on Linux to produce PIE code and @command{gfortran} 11 or
+later, which does not.  One symptom is that @command{configure} does not
+detect @code{FC_LEN_T}, which can be overcome by setting
 @example
 FPIEFLAGS=-fPIE
 @end example
@@ -4936,10 +4967,10 @@ unset.)
 
 The name @command{flang} has been used for two projects: this is about
 the sub-project of @I{LLVM} which builds a Fortran compiler and runtime
-libraries.  The compiler command was @command{flang-new} prior to
+libraries.  The compiler command was called @command{flang-new} prior to
 version 20.
 
-The version in @I{LLVM} 16 and later was able to build @R{} on @cputype{x86_64} Linux
+As from @I{LLVM} 16 this is able to build @R{} on @cputype{x86_64} Linux
 with
 @example
 FC=/path/to/flang (or flang-new)
@@ -4951,8 +4982,7 @@ passed @command{make check-all}.  There is also support for
 tested with @R{}.
 
 
-@c This was about 'Classic Flang'.  The newer version is not
-@c yet able to compile Fortran.
+@c This was about 'Classic Flang'.
 @c There is a project called @command{flang}
 @c (@uref{https://github.com/flang-compiler/flang})) to develop a
 @c Fortran compiler similar to clang but based on the Portland Group's front
@@ -5095,6 +5125,7 @@ Windows).
 The instructions here are for `Apple Silicon' (@cputype{arm64}) or Intel
 64-bit (@cputype{x86_64}) builds on macOS 11 (@I{Big Sur}) and later.
 
+
 @node Prerequisites
 @subsection Prerequisites
 
@@ -5142,16 +5173,17 @@ A Fortran compiler. @xref{Fortran compilers}.
 
 @item
 Binary components @code{pcre2}@footnote{If compiling it from source on
-@cputype{arm64}, @code{pcre2} (at least up to version 10.39) needs to
-be built without JIT support (the default) as the @R{} build segfaults
-if that is enabled, so do run @code{make check} on your build.} and
-@code{xz} (for @code{liblzma}) from
+@cputype{arm64}, @code{pcre2} (at least up to version 10.39) needs to be
+built without JIT support (the default) as the @R{} build segfaults if
+that is enabled, so do run @code{make check} on your build.}, @code{xz}
+(for @code{liblzma}) and @code{zstd}@footnote{which supplies
+@code{libstd} but not the command-line utilities.} from
 @uref{https://mac.r-project.org/bin/}.  There is an @R{} script there to
 help with installing all the needed components.  (At the time of writing
 @code{install.libs("r-base-dev")} installed neither @code{readline5} nor
 those needed to support @I{Pango}.)
 
-Apple Silicon users of @I{Sonoma} (14) or later want the @code{darwin23}
+Apple Silicon users of @I{Sonoma} (macOS 14) or later want the @code{darwin23}
 components.  Intel users want the @code{darwin20} components: the
 @code{darwin17} ones are for macOS 10.13--10.15.
 
@@ -5281,8 +5313,9 @@ FFLAGS="-g -O2 -mmacos-version-min=11.0"
 FCFLAGS="-g -O2 -mmacos-version-min=11.0"
 @end example
 @noindent
-where @code{11.0} can be replaced by @code{12.0}, @code{13.0},
-@code{14.0} or @code{15.0}
+where @code{11.0} can be replaced by a valid macOS version number such
+as @code{26.0}.  (Setting this is needed in macOS 26.0 or later to
+circumvent a bug in @command{gfortran}.)
 
 To install packages using compiled code one needs the Command Line Tools
 (or @I{Xcode}) and appropriate compilers, e.g.@: the C/C++ compilers from
@@ -5306,11 +5339,11 @@ tar xf subversion-1.14.3-darwin15.6.tar.gz
 sudo cp subversion-1.14.3-darwin15.6/svn $LOCAL/bin
 @end example
 
-If building software or installing source packages with @command{cmake}
-(or a non-Apple @command{make}) for `Apple Silicon' ensure it contains
-the @cputype{arm64} architecture (use @command{file} to be sure).
-Running Apple compilers from an @cputype{x86_64} executable will
-generate @cputype{x86_64} code @dots{}.
+@c If building software or installing source packages with @command{cmake}
+@c (or a non-Apple @command{make}) for `Apple Silicon' ensure it contains
+@c the @cputype{arm64} architecture (use @command{file} to be sure).
+@c Running Apple compilers from an @cputype{x86_64} executable will
+@c generate @cputype{x86_64} code @dots{}.
 
 @c If you have a build@footnote{For example, some Homebrew
 @c distributions.} of @code{cairo} with dynamic libraries, you can add
@@ -5353,15 +5386,13 @@ browser, consider using @command{curl -OL} to download (as illustrated
 above) or @command{xattr -c} to remove extended attributes.
 
 @command{configure} defaults to @option{--with-internal-tzcode} on
-macOS.  The native implementation used to be unusable on earlier
-versions (with a 32-bit @code{time_t} and/or timezone tables missing
-information beyond the 32-bit range).  As from macOS 12.6, option
-@option{--without-internal-tzcode} can be used to override this and @R{}
-contains sufficient workarounds (for example, the native code fails to
-recognize dates with a negative @code{tm_year}, that is dates before
-1900) for @R{} to pass its checks.  However, there are discrepancies,
-notably in Europe in the 1900s and 1940s, even though the Olson database
-contains the correct information.
+macOS.  (The native implementation used to be unusable.)  As from macOS
+12.6, option @option{--without-internal-tzcode} can be used to override
+this and @R{} contains sufficient workarounds (for example, the native
+code fails to recognize dates with a negative @code{tm_year}, that is
+dates before 1900) for @R{} to pass its checks.  However, there are
+discrepancies, notably in Europe in the 1900s and 1940s, even though the
+Olson database contains the correct information.
 
 @node Fortran compilers
 @subsection Fortran compiler
@@ -5379,6 +5410,15 @@ symlink is broken, the driver will issue a warning and use @code{xcrun
 is used when using @command{gfortran} to link, so not when building @R{}
 but when installing a few packages.)
 
+This has problems identifying macOS versions 26 and later: use
+@example
+FC="/opt/gfortran/bin/gfortran -mmacosx-version-min=26.0"
+@end example
+@noindent
+(or 27 or later) or set environment variable
+@env{MACOSX_DEPLOYMENT_TARGET} (which also applies to Apple
+@command{clang}).
+
 @c Other builds of @command{gfortran} for @code{arm64} macOS 14 are
 @c available at
 @c @uref{https://github.com/fxcoudert/gfortran-for-macOS/releases}. To use
@@ -5390,6 +5430,32 @@ but when installing a few packages.)
 @c @noindent
 @c in @file{config.site} to ensure the matching Fortran run-time libraries are
 @c found.
+
+@node Using flang
+@subsubsection Using @command{flang}
+
+It is intended in future to use @I{LLVM}'s @command{flang} as the
+Fortran compiler, at least on @cputype{arm64}.  There is a preliminary
+binary distribution at
+@uref{https://github.com/R-macos/llvm-project/releases}.  Installing that
+needs something like
+@example
+curl -OL https://github.com/R-macos/llvm-project/releases/download/23.1.1/flang-23.1.1-darwin22.6.0.tar.xz
+tar xf flang-23.1.1-darwin22.6.0.tar.xz -C/
+@end example
+@noindent
+to install to @file{/opt/R/flang-23}.  (If you download in a browser you
+will need to strip attributes with @command{xattr -c}.)
+
+Currently to build some packages you will need
+@example
+FCFLAGS="-g -O2 -pedantic -fintrinsic-modules-path /opt/R/flang-23/lib/clang/23/finclude/flang/arm64-apple-darwin22.6.0"
+SHLIB_FCLDFLAGS="-Wl,-dylib -Wl,-headerpad_max_install_names -Wl,-undefined -Wl,dynamic_lookup"
+@end example
+in @file{config.site}.
+
+Currently (Oct 2026) this successfully builds @R{} and all but one
+@acronym{CRAN} package (although a score or so fail their checks).
 
 @node Cairo graphics
 @subsection Cairo graphics
@@ -5496,30 +5562,34 @@ rather than the system ones.
 
 It is normally possible to build @R{} with GCC (built from the sources,
 from a @command{gfortran} distribution, from @I{Homebrew}, @dots{}).
-@c re-trested with GCC 14.1
+@c re-tested with GCC 14.1
 When last tested it was not possible to use @command{gcc} to build the
 @code{quartz()} device, so @command{configure --without-aqua} may be
-required.  @R{} was built and tested with the GCC 14.2 compilers in the
-@code{arm64} @command{gfortran} distribution mentioned above using a
-@file{config.site} containing
-@example
-CC=/opt/gfortran/bin/gcc
-CXX=/opt/gfortran/bin/g++
-FC=/opt/gfortran/bin/gfortran
-CFLAGS="-g -O2 -Wall -pedantic -Wstrict-prototypes"
-C17FLAGS="-g -O2 -Wall -pedantic -Wno-strict-prototypes"
-C90FLAGS=$C17FLAGS
-C99FLAGS=$C17FLAGS
-CXXFLAGS="-g -O2 -Wall -pedantic"
-CPPFLAGS='-isystem /opt/R/arm64/include'
-LDFLAGS=-L/opt/R/arm64/lib
-@end example
+required.
+
+@c Failed to cofigure on macOS 27 with the 'fixed' headers, specifically stdio.h
+@c @R{} was built and tested with the GCC 14.2 compilers in the
+@c @code{arm64} @command{gfortran} distribution mentioned above using a
+@c @file{config.site} containing
+@c @example
+@c CC="/opt/gfortran/bin/aarch64-apple-darwin20.0-gcc -mmacosx-version-min=26.0"
+@c CXX="/opt/gfortran/bin/aarch64-apple-darwin20.0-g++ -mmacosx-version-min=26.0"
+@c FC="/opt/gfortran/bin/gfortran -mmacosx-version-min=26.0"
+@c CFLAGS="-g -O2 -Wall -pedantic -Wstrict-prototypes"
+@c C17FLAGS="-g -O2 -Wall -pedantic -Wno-strict-prototypes"
+@c C90FLAGS=$C17FLAGS
+@c C99FLAGS=$C17FLAGS
+@c CXXFLAGS="-g -O2 -Wall -pedantic"
+@c CPPFLAGS='-isystem /opt/R/arm64/include'
+@c LDFLAGS=-L/opt/R/arm64/lib
+@c @end example
 
 It is usually possible to add some @abbr{OpenMP} support to the Apple
 @command{clang} compilers: see @uref{https://mac.r-project.org/openmp/}.
 Note that that approach is somewhat fragile as it needs a
-@file{libomp.dylib} library matching the version of the compiler
-used.
+@file{libomp.dylib} library matching the version of the compiler used.
+(And often none is available for the latest version(s) of Apple
+@command{clang}.)
 
 @node Other libraries
 @subsection Other libraries
@@ -5583,6 +5653,7 @@ Parallel installation of packages will make use of the utility
 downloaded from @uref{https://www.stats.ox.ac.uk/pub/bdr/timeout}: make
 it executable (@code{chmod 755 timeout}) and put it somewhere on your
 path.
+
 
 
 @node Accelerate
@@ -5847,10 +5918,10 @@ However, there are some important details.
 @itemize
 
 @item
-Current @acronym{CRAN} macOS distributions are targeted at @I{Sonoma} or
-@I{Big Sur} (Intel) so it is wise to ensure that the compilers generate
-code that will run on that OS or later.  With the recommended
-compilers we can use something like
+Current @acronym{CRAN} macOS distributions are targeted at @I{Sonoma}
+(14, @cputype{arm64}) or @I{Big Sur} (11, Intel) so it is wise to ensure
+that the compilers generate code that will run on that OS or later.
+With the recommended compilers we can use something like
 @example
 CC="clang -mmacos-version-min=14.0"
 CXX="clang++ -mmacos-version-min=14.0"

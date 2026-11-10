@@ -2248,6 +2248,8 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
     if (!isEnvironment(rho))
 	errorcall(call, "'rho' must be an environment not %s: detected in C-level applyClosure",
 		  R_typeToChar(rho));
+    if (TYPEOF(op) != CLOSXP)
+	errorcall(call, "'op' must be a closure not %s: detected in C-level applyClosure", R_typeToChar(op));
 
     formals = FORMALS(op);
     savedrho = CLOENV(op);
@@ -7033,10 +7035,12 @@ static SEXP R_findBCInterpreterExpression(void)
 
 attribute_hidden SEXP R_getCurrentSrcref(void)
 {
+    SEXP srcref;
     if (R_Srcref != R_InBCInterpreter)
-	return R_Srcref;
+	srcref = R_Srcref;
     else
-	return R_findBCInterpreterSrcref(NULL);
+	srcref = R_findBCInterpreterSrcref(NULL);
+    return srcref ? srcref : R_NilValue; // don't return C NULL
 }
 
 static Rboolean maybeClosureWrapper(SEXP expr)
