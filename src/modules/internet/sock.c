@@ -350,6 +350,10 @@ int Sock_listen(int fd, char *cname, int buflen, Sock_error_t perr)
     int retval;
     struct hostent *hostptr;
 
+    /* callers may use cname even if accept() fails */
+    if (cname != NULL && buflen > 0)
+	cname[0] = '\0';
+
     do
 	retval = accept(fd, (struct sockaddr *)(&net_client), &len);
     while (R_invalid_socket_eintr(retval));
