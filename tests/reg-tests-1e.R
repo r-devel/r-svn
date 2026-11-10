@@ -4584,6 +4584,30 @@ stopifnot(identical(d, dev.cur()), names(d) == "pdf")
 dev.off(d); options(op)
 ## returned c("null device" = 1L) in R <= 4.6.2
 
+## seq.int(from, length.out = n) returns a compact sequence -- PR#19282
+isCompact <- function(x)
+    any(grepl("(compact)", capture.output(.Internal(inspect(x))), fixed = TRUE))
+stopifnot(exprs = {
+    identical(seq.int(2026L, length.out = 10), 2026:2035)
+    identical(seq.int(2026, length.out = 10), 2026:2035)
+    identical(seq.int(to = 10, length.out = 3), 8:10)
+    identical(seq.int(1, 10, length.out = 10), 1:10)
+    identical(seq.int(10, 1, length.out = 10), 10:1)
+    identical(seq.int(5, by = 1, length.out = 4), 5:8)
+    identical(seq.int(5, by = -1, length.out = 4), 5:2)
+    identical(seq.int(to = 5, by = 1, length.out = 4), 2:5)
+    identical(seq.int(2.5, length.out = 3), c(2.5, 3.5, 4.5))
+    identical(seq.int(7, length.out = 1), 7L)
+    identical(seq.int(1, 10, length.out = 4), c(1L, 4L, 7L, 10L))
+    identical(seq.int(1e17, length.out = 3), rep(1e17, 3))
+    isCompact(seq.int(2026L, length.out = 1e7))
+    isCompact(seq.int(to = 1e7, length.out = 1e7))
+    isCompact(seq.int(1, 1e7, length.out = 1e7))
+    isCompact(seq.int(1e7, by = -1, length.out = 1e7))
+    isCompact(seq.int(3e9, length.out = 1e7))
+})
+## allocated and filled a full vector in R <= 4.6.2
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

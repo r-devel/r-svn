@@ -49,6 +49,12 @@
       \code{LDOUBLE} to avoid platform dependency, thanks to \I{Mauricio Vargas}'
       proposal in \PR{18693}.
 
+      \item \code{seq.int(from, length.out = n)}, and more generally
+      \code{seq.int()} calls with \code{length.out} whose result equals
+      \code{from:to}, now return a compact \code{ALTREP} sequence as
+      \code{seq.int(from, to)} already did, thanks to \I{Hugo Gruson}'s
+      \PR{19282}.
+
       \item \emph{Object not found} errors now signal error conditions
       of class \code{objectNotFoundError}. \emph{Function not found}
       errors signal conditions of the subclass
