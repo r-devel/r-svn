@@ -1,6 +1,6 @@
 % File src/library/utils/man/untar.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2009-2025 R Core Team
+% Copyright 2009-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{untar}
@@ -129,7 +129,7 @@ untar(tarfile, files = NULL, list = FALSE, exdir = ".",
       available).
 
       Recent versions of Windows supply a build of \code{bsdtar} as
-      \code{tar.exe}, but with compiled-in support only for \code{gzip}
+      \file{tar.exe}, but with compiled-in support only for \command{gzip}
       compression.
     }
 
@@ -201,13 +201,20 @@ untar(tarfile, files = NULL, list = FALSE, exdir = ".",
   lead to unexpected files with names with prefix \file{._}.
 
   Some external commands have \sQuote{security} measures to change the
-  extracted file paths.  For example, GNU \code{tar} and
+  extracted file paths.  For example, GNU \command{tar} and
   \command{bsdtar} remove the leading slash on absolute filepaths:
   specify \code{extras = "-P"} to override this. \command{bsdtar}
   refuses to extract paths containing \code{".."}  with the same
   workaround.  The internal implementation removes leading slashes (with
   a warning) and stops with an error for paths starting with \code{"~"}
   or containing \code{".."}, again unless \code{extras = "-P"} is specified.
+  It also stops with an error for a hard link whose target is an absolute
+  path, starts with \code{"~"}, resolves outside the extraction directory
+  or passes through a symbolic link; a symbolic link is restored as a file
+  copy (on Windows, or where symbolic links cannot be created) only if its
+  target meets the same conditions.  The permissions of extracted files
+  are subject to the \command{umask}, and the \samp{setuid} and
+  \samp{setgid} bits of archive members are not restored.
 
   Extracted files will overwrite existing file unless flag \option{-k}
   is included in \code{extras}.
