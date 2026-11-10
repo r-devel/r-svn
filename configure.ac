@@ -455,6 +455,12 @@ AC_ARG_WITH([pcre1],
 [R_ARG_USE(pcre1)],
 [use_pcre1=no])
 
+## zstd
+AC_ARG_WITH([libzstd],
+[AS_HELP_STRING([--with-libzstd],[use zstd library if available @<:@yes@:>@])],
+[R_ARG_USE(libzstd)],
+[use_libzstd=yes])
+
 ## Aqua.
 AC_ARG_WITH([aqua],
 [AS_HELP_STRING([--with-aqua],[macOS only: use Aqua (if available) @<:@yes@:>@])],
@@ -2649,8 +2655,13 @@ R_BZLIB
 ## LZMA headers and libraries from xz-utils
 R_LZMA
 
-## Zstd headers and libraries.
+## libzstd headers and libraries.
+if test "x$use_libzstd" = xyes; then
 R_ZSTD
+else
+# for completeness as R_ZSTD sets it
+have_zstd = no
+fi
 
 ## libdeflate headers and libraries.
 R_LIBDEFLATE
@@ -3274,6 +3285,9 @@ fi
 if test "x$have_libdeflate" = xyes; then
   R_SH_VAR_ADD(r_external_libs, [libdeflate], [, ])
 fi
+if test "x$have_zstd" = xyes; then
+  R_SH_VAR_ADD(r_external_libs, [zstd], [, ])
+fi
 
 r_capabilities=
 r_no_capabilities=
@@ -3432,6 +3446,9 @@ if test "${ac_cv_sizeof_size_t}" = 4; then
 fi
 if test "${USE_INCLUDED_LIBINTL}" = "yes"; then
   AC_MSG_WARN([Using the bundled libintl is deprecated.])
+fi
+if test -z "${r_cv_prog_cc_m}"; then
+  AC_MSG_WARN([No way was found to determine C dependencies, so incremental builds may be incomoplete.])
 fi
 
 
