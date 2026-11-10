@@ -3525,7 +3525,9 @@ add_dummies <- function(dir, Log)
             bad_files <- noEOL<- character()
             for(f in all_files) {
                 if (!file.exists(f)) next
-                contents <- readChar(f, file.size(f), useBytes = TRUE)
+                fsize <- file.size(f)
+                if (fsize == 0L) next
+                contents <- readChar(f, fsize, useBytes = TRUE)
                 if (grepl("\r", contents, fixed = TRUE, useBytes = TRUE))
                     bad_files <- c(bad_files, f)
                 if (!grepl("\n$", contents, useBytes = TRUE))
@@ -6384,6 +6386,10 @@ add_dummies <- function(dir, Log)
                              "^ld: warning: search path .* not found",
                              "^ld: warning: -single_module is obsolete",
                              "^ld: warning: .*was built for newer"
+                             )
+                ## rustc wrning
+                warn_re <- c(warn_re,
+                             "^warning: the following packages contain code that will be rejected by a future version of Rust"
                              )
 
                 ## <FIXME>
