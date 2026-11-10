@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *  Copyright (C) 2003--2018  The R Foundation
  *
@@ -417,12 +417,8 @@ walker_ProbSampleReplace(int n, double *p, int *a, int nans, int *ans)
 static void ProbSampleNoReplace(int n, double *p, int *perm,
 				int nans, int *ans)
 {
-    double rT, mass, totalmass, drift, sum, comp;
-    int i, j, k, n1;
-    bool drifted = FALSE;
-
     /* Record element identities */
-    for (i = 0; i < n; i++)
+    for (int i = 0; i < n; i++)
 	perm[i] = i + 1;
 
     /* Sort probabilities into descending order */
@@ -431,24 +427,26 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
 
     /* drift = totalmass - exact remaining mass, initially 1 - sum(p)
        with sum(p) by Neumaier summation (p[i] >= 0 here) */
-    sum = comp = 0;
-    for (i = 0; i < n; i++) {
+    double sum = 0, comp = 0;
+    for (int i = 0; i < n; i++) {
 	double t = sum + p[i];
 	comp += (sum >= p[i]) ? (sum - t) + p[i] : (p[i] - t) + sum;
 	sum = t;
     }
-    drift = (1 - sum) - comp;
+    double drift = (1 - sum) - comp;
+    bool drifted = FALSE;
 
     /* Compute the sample */
-    totalmass = 1;
+    int i, j, n1;
+    double totalmass = 1;
     for (i = 0, n1 = n-1; i < nans; i++, n1--) {
 	if (n1 > 0) {	/* a real choice remains */
 	    double remaining = totalmass - drift;
 	    if (remaining <= 0 || fabs(drift) > SAMPLE_DRIFT_TOL * remaining)
 		drifted = TRUE;
 	}
-	rT = totalmass * unif_rand();
-	mass = 0;
+	double rT = totalmass * unif_rand(),
+	    mass = 0;
 	for (j = 0; j < n1; j++) {
 	    mass += p[j];
 	    if (rT <= mass)
@@ -462,8 +460,8 @@ static void ProbSampleNoReplace(int n, double *p, int *perm,
 	    drift -= (a - (t - bb)) + (b - bb);
 	    totalmass = t;
 	}
-	for(k = j; k < n1; k++) {
-	    p[k] = p[k + 1];
+	for(int k = j; k < n1; k++) {
+	    p   [k] = p   [k + 1];
 	    perm[k] = perm[k + 1];
 	}
     }
@@ -497,21 +495,20 @@ static void FixupProb(double *p, int n, int require_k, bool replace)
 */
 attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP x, y, sn, sk, prob, sreplace;
-
     checkArity(op, args);
-    sn = CAR(args); args = CDR(args);
-    sk = CAR(args); args = CDR(args); /* size */
+    SEXP sn = CAR(args); args = CDR(args);
+    SEXP sk = CAR(args); args = CDR(args); /* size */
     if (length(sk) != 1)
 	error(_("invalid '%s' argument"), "size");
-    sreplace = CAR(args); args = CDR(args);
+    SEXP sreplace = CAR(args); args = CDR(args);
     if(length(sreplace) != 1)
 	 error(_("invalid '%s' argument"), "replace");
     int replace = asLogical(sreplace);
-    prob = CAR(args);
     if (replace == NA_LOGICAL)
 	error(_("invalid '%s' argument"), "replace");
+    SEXP prob = CAR(args);
     GetRNGstate();
+    SEXP y; // the result
     if (!isNull(prob)) {
 	int n = asInteger(sn), k = asInteger(sk);
 	if (n == NA_INTEGER || n < 0 || (k > 0 && n == 0))
@@ -528,7 +525,7 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (length(prob) != n)
 	    error(_("incorrect number of probabilities"));
 	FixupProb(p, n, k, (bool) replace);
-	PROTECT(x = allocVector(INTSXP, n));
+	SEXP x = PROTECT(allocVector(INTSXP, n));
 	if (replace) {
 	    int i, nc = 0;
 	    for (i = 0; i < n; i++) if(n * p[i] > 0.1) nc++;
@@ -560,7 +557,7 @@ attribute_hidden SEXP do_sample(SEXP call, SEXP op, SEXP args, SEXP rho)
 		double *ry = REAL(y);
 		for (R_xlen_t i = 0; i < n; i++) x[i] = (double) i;
 		for (R_xlen_t i = 0; i < k; i++) {
-		    R_xlen_t j = (R_xlen_t) R_unif_index(n);
+		    R_xlen_t j = (R_xlen_t) R_unif_index((double)n);
 		    ry[i] = x[j] + 1;
 		    x[j] = x[--n];
 		}
