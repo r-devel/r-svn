@@ -2641,29 +2641,36 @@ static int h_if(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
     int have_else = n == 4;
     SEXP else_expr = have_else ? CADDDR(e) : R_NilValue;
     SEXP ct;
-    if (constant_fold(test, cntxt, &ct) && TYPEOF(ct) == LGLSXP &&
-	const_scalar_test(ct)) {
-	/* if (ct$value): the evaluator's own checks on the value */
-	if (XLENGTH(ct) != 1)
-	    Rf_errorcall(cntxt->call, _("the condition has length > 1"));
-	if (LOGICAL(ct)[0] == NA_LOGICAL)
-	    Rf_errorcall(cntxt->call,
-			 _("missing value where TRUE/FALSE needed"));
-	if (LOGICAL(ct)[0]) {
-	    cmp(then_expr, cb, cntxt, FALSE, TRUE);
+    if (constant_fold(test, cntxt, &ct)) {
+	/* a folded value is fresh: keep it alive across the tests on a
+	   classed constant, which allocate and run R code */
+	PROTECT(ct);
+	if (TYPEOF(ct) == LGLSXP && const_scalar_test(ct)) {
+	    /* if (ct$value): the evaluator's own checks on the value */
+	    if (XLENGTH(ct) != 1)
+		Rf_errorcall(cntxt->call, _("the condition has length > 1"));
+	    if (LOGICAL(ct)[0] == NA_LOGICAL)
+		Rf_errorcall(cntxt->call,
+			     _("missing value where TRUE/FALSE needed"));
+	    int value = LOGICAL(ct)[0];
+	    UNPROTECT(1);
+	    if (value) {
+		cmp(then_expr, cb, cntxt, FALSE, TRUE);
+	    }
+	    else if (have_else) {
+		cmp(else_expr, cb, cntxt, FALSE, TRUE);
+	    }
+	    else if (cntxt->tailcall) {
+		put0(cb, LDNULL_OP);
+		put0(cb, INVISIBLE_OP);
+		put0(cb, RETURN_OP);
+	    }
+	    else {
+		put0(cb, LDNULL_OP);
+	    }
+	    return TRUE;
 	}
-	else if (have_else) {
-	    cmp(else_expr, cb, cntxt, FALSE, TRUE);
-	}
-	else if (cntxt->tailcall) {
-	    put0(cb, LDNULL_OP);
-	    put0(cb, INVISIBLE_OP);
-	    put0(cb, RETURN_OP);
-	}
-	else {
-	    put0(cb, LDNULL_OP);
-	}
-	return TRUE;
+	UNPROTECT(1);
     }
     Cntxt ncntxt = make_nontailcall_context(cntxt);
     cmp(test, cb, &ncntxt, FALSE, TRUE);
