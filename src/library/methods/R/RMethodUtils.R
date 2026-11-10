@@ -339,6 +339,7 @@ rematchDefinition <- function(definition, generic, mnames, fnames, signature)
     if(!added && keepsDots) {
         ## the formal args of the method must be identical to generic
         formals(definition) <- formals(generic)
+        attr(body(definition), "srcref") <- NULL
         return(definition)
     }
     dotsPos <- match("...", fnames)
@@ -1941,8 +1942,8 @@ evalqOnLoad <- function(expr, where = topenv(parent.frame()), aname = "")
 ## a primitive or a function calling UseMethod()
 isS3Generic <- function(fdef) {
     switch(typeof(fdef),
-           "special" = FALSE,
-           "builtin" = TRUE,
-           ## otherwise:
-           "UseMethod" %in% .getGlobalFuns(fdef)) # from refClass.R
+           "special" =     , # rep, round, ...
+           "builtin" = TRUE, # c, trunc, ...
+           "closure" = "UseMethod" %in% .getGlobalFuns(fdef),
+           FALSE)
 }
