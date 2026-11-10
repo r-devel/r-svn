@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-2025   The R Core Team.
+ *  Copyright (C) 2001-2026   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,28 +34,69 @@ static void transferVector(SEXP s, SEXP t);
 /* Build a CHARSXP marked as UTF-8 from the NUL-terminated string 's'.
    DCF files are required to be UTF-8, so 's' is interpreted as UTF-8
    regardless of its actual encoding; any invalid byte sequences are
-   repaired by escaping them as "<xx>", exactly as
+   repaired by escaping them as "<xx>", as
    iconv(from = "UTF-8", to = "UTF-8", sub = "byte") does (which the R
    code paths in read.dcf()/write.dcf() also use).  The common case of
-   already-valid input is handled without conversion. */
+   already-valid input is handled without conversion.
+
+   The escaping is done with utf8Valid()'s rules rather than by iconv():
+   glibc and libiconv pass 4-byte sequences above U+10FFFF through,
+   which utf8Valid() rejects, so an iconv() round trip could leave the
+   result invalid and do_readDCF() would then re-encode the whole field
+   value for every further continuation line. */
 static SEXP mkCharUTF8sub(const char *s)
 {
     if (utf8Valid(s))
 	return mkCharCE(s, CE_UTF8);
 
-    /* reEnc3() performs the iconv() repair via Riconv(); subst = 1 selects
-       the "<xx>" hexadecimal substitution for invalid bytes.  It returns a
-       string allocated with R_alloc() (and freed at the vmaxset() in
-       do_readDCF()), or 's' itself if iconv is unavailable.  Either way
-       mkCharCE() copies the bytes into the CHARSXP below. */
-    const char *repaired = reEnc3(s, "UTF-8", "UTF-8", 1);
-    return mkCharCE(repaired, CE_UTF8);
+    const void *vmax = vmaxget();
+    char *out = R_alloc(4 * strlen(s) + 1, sizeof(char)); /* all escaped */
+    char *q = out;
+    for (const char *p = s; *p; ) {
+	if ((unsigned char) *p < 0x80) {
+	    *q++ = *p++;
+	    continue;
+	}
+	int len = utf8ValidClen(p);
+	if (len > 0) {
+	    memcpy(q, p, len);
+	    q += len;
+	    p += len;
+	} else {
+	    snprintf(q, 5, "<%02x>", (unsigned char) *p);
+	    q += 4;
+	    p++;
+	}
+    }
+    *q = '\0';
+
+    SEXP ans = mkCharCE(out, CE_UTF8);
+    vmaxset(vmax);
+    return ans;
 }
 
-static void con_cleanup(void *data)
+/* What do_readDCF() has to release however it exits: the error() calls
+   in its read loop would otherwise leak the line buffer and the compiled
+   regexps, and leave open a connection it opened itself. */
+typedef struct dcf_info {
+    Rconnection con;
+    bool wasopen;
+    char **buf;			/* the line buffer, which realloc() may move */
+    regex_t *regex[5];
+    int nregex;			/* how many of regex[] have been compiled */
+} dcf_info;
+
+static void dcf_cleanup(void *data)
 {
-    Rconnection con = data;
-    if(con->isopen) con->close(con);
+    dcf_info *pdi = (dcf_info *) data;
+
+    for(int i = 0; i < pdi->nregex; i++)
+	tre_regfree(pdi->regex[i]);
+    pdi->nregex = 0;
+    free(*pdi->buf);
+    *pdi->buf = NULL;
+    if(!pdi->wasopen && pdi->con->isopen)
+	pdi->con->close(pdi->con);
 }
 
 static bool field_is_foldable_p(const char *, SEXP);
@@ -92,13 +133,18 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     int nwhat, nret, nc, nr, m, k, lastm, need, i, n_eblanklines = 0;
     bool blank_skip, field_skip = false;
     int whatlen, dynwhat, buflen = 8096; // was 100, but that re-alloced often
-    char *line, *buf;
+    char *line, *buf = NULL;
     regex_t blankline, contline, trailblank, regline, eblankline;
     regmatch_t regmatch[1];
     SEXP file, what, what2, retval, retval2, dims, dimnames;
     Rconnection con = NULL;
     bool wasopen, is_eblankline;
     RCNTXT cntxt;
+    dcf_info di = {
+	.buf = &buf,
+	.regex = { &blankline, &trailblank, &contline, &regline, &eblankline },
+	.nregex = 0
+    };
 
     SEXP fold_excludes;
     bool field_fold = true, has_fold_excludes;
@@ -110,14 +156,16 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     file = CAR(args);
     con = getConnection(asInteger(file));
     wasopen = con->isopen;
-    if(!wasopen) {
-	if(!con->open(con)) error(_("cannot open the connection"));
-	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
-    }
+    if(!wasopen && !con->open(con))
+	error(_("cannot open the connection"));
+    /* Set up a context which will close the connection if we opened it,
+       and free the line buffer and regexps, on error */
+    di.con = con;
+    di.wasopen = wasopen;
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &dcf_cleanup;
+    cntxt.cenddata = &di;
     if(!con->canread) error(_("cannot read from this connection"));
 
     args = CDR(args);
@@ -143,6 +191,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     tre_regcompb(&contline, "^[ \t]+", REG_EXTENDED);
     tre_regcompb(&regline, "^[^:]+:[ \t]*", REG_EXTENDED);
     tre_regcompb(&eblankline, "^[ \f\n\r\t\v]+\\.[ \f\n\r\t\v]*$", REG_EXTENDED);
+    di.nregex = 5;
 
     k = 0;
     lastm = -1; /* index of the field currently being recorded */
@@ -150,6 +199,13 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     void *vmax = vmaxget();
     char buf0[MAXELTSIZE];
     while((line = Rconn_getline2(con, buf0, MAXELTSIZE))) {
+	/* Repair invalid UTF-8 in the whole line before matching, as the
+	   all = TRUE R code does: a new field name is recorded repaired, so
+	   matching its later occurrences against the raw bytes would fail
+	   and add a duplicate column for each.  The repaired copy comes from
+	   R_alloc() and may be shorter than 21 bytes. */
+	if(!utf8Valid(line))
+	    line = (char *) reEnc3(line, "UTF-8", "UTF-8", 1);
 	if(strlen(line) == 0 ||
 	   tre_regexecb(&blankline, line, 0, 0, 0) == 0) {
 	    /* A blank line.  The first one after a record ends a new
@@ -178,7 +234,8 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		/* A continuation line: wrong if at the beginning of a
 		   record. */
 		if((lastm == -1) && !field_skip) {
-		    line[20] = '\0';
+		    if(strlen(line) > 20)
+			line[20] = '\0';
 		    error(_("Found continuation line starting '%s ...' at begin of record."),
 			  line);
 		}
@@ -205,11 +262,11 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			need += (int) strlen(line + offset) + n_eblanklines;
 		    }
 		    if(buflen < need) {
+			/* on failure, dcf_cleanup() frees the old buffer */
 			char *tmp = (char *) realloc(buf, need);
-			if(!tmp) {
-			    free(buf);
+			if(!tmp)
 			    error(_("could not allocate memory for 'read.dcf'"));
-			} else buf = tmp;
+			buf = tmp;
 			buflen = need;
 		    }
 		    strcpy(buf, CHAR(STRING_ELT(retval, lastm + nwhat * k)));
@@ -287,10 +344,9 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			need = (int) (Rf_strchr(line, ':') - line + 1);
 			if(buflen < need){
 			    char *tmp = (char *) realloc(buf, need);
-			    if(!tmp) {
-				free(buf);
+			    if(!tmp)
 				error(_("could not allocate memory for 'read.dcf'"));
-			    } else buf = tmp;
+			    buf = tmp;
 			    buflen = need;
 			}
 			strncpy(buf, line, Rf_strchr(line, ':') - line);
@@ -317,20 +373,16 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		} else {
 		    /* Must be a regular line with no tag ... */
-		    line[20] = '\0';
+		    if(strlen(line) > 20)
+			line[20] = '\0';
 		    error(_("Line starting '%s ...' is malformed!"), line);
 		}
 	    }
 	}
     }
     vmaxset(vmax);
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
-    free(buf);
-    tre_regfree(&blankline);
-    tre_regfree(&contline);
-    tre_regfree(&trailblank);
-    tre_regfree(&regline);
-    tre_regfree(&eblankline);
+    endcontext(&cntxt);
+    dcf_cleanup(&di);
 
     if(!blank_skip) k++;
 

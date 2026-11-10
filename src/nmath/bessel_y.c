@@ -63,7 +63,7 @@ double bessel_y(double x, double alpha)
 	       ((alpha      == na ) ? 0 : bessel_j(x, -alpha) * sinpi(alpha)));
     }
     else if (alpha > max_alpha_y) { // NB: same bound in math_2B() [ ../main/arithmetic.c ]
-	MATHLIB_WARNING2(_("besselY(x, nu): nu=%g > %g =: max_alpha_y too large for bessel_y() algorithm"),
+	MATHLIB_WARNING2(_("besselY(x, nu): nu=%g > %g =: max_alpha_y, too large for bessel_y() algorithm"),
 			alpha, max_alpha_y);
 	// FIXME asymptotic formula (w/ potential accuracy loss) is still much better than NaN
 	return ML_NAN;
@@ -120,6 +120,11 @@ double bessel_y_ex(double x, double alpha, double *by)
     }
     na = floor(alpha);
     if (alpha < 0) {
+	if (-alpha > max_alpha_y) { // 'by' is too short for bessel_j_ex(x, -alpha, by)
+	    MATHLIB_WARNING2(_("besselY(x, -nu): nu=%g > %g =: max_alpha_y, too large for bessel_y() algorithm"),
+			     -alpha, max_alpha_y);
+	    return ML_NAN;
+	}
 	/* Using Abramowitz & Stegun  9.1.2
 	 * this may not be quite optimal (CPU and accuracy wise) */
 	return(((alpha - na == 0.5) ? 0 : bessel_y_ex(x, -alpha, by) * cospi(alpha)) -
