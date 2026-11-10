@@ -593,18 +593,34 @@ int static R_strieql(const char *a, const char *b)
 #include "RBufferUtils.h"
 
 /* iconv(x, from, to, sub, mark) */
+/* Everything do_iconv() holds that is not R memory. */
+typedef struct {
+    void *latin1_obj;
+    void *utf8_obj;
+    void *arg_obj;
+    R_StringBuffer *cbuff;
+} iconv_cleanup_t;
+
+static void iconv_cleanup(void *data)
+{
+    iconv_cleanup_t *cd = data;
+    if (cd->latin1_obj != (iconv_t)-1) Riconv_close(cd->latin1_obj);
+    if (cd->utf8_obj != (iconv_t)-1) Riconv_close(cd->utf8_obj);
+    if (cd->arg_obj != (iconv_t)-1) Riconv_close(cd->arg_obj);
+    R_FreeStringBuffer(cd->cbuff);
+}
+
 attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP ans, x = CAR(args), si;
-    void * arg_obj = (iconv_t)-1;
-    void * latin1_obj = (iconv_t)-1;
-    void * utf8_obj = (iconv_t)-1;
     const char *inbuf;
     char *outbuf;
     const char *sub; // null for no substitution.
     size_t inb, outb, res;
     size_t inp_unit_size = 0; /* uninitialized */
     R_StringBuffer cbuff = {NULL, 0, MAXELTSIZE};
+    iconv_cleanup_t cd = { (iconv_t)-1, (iconv_t)-1, (iconv_t)-1, &cbuff };
+    RCNTXT cntxt;
     bool isRawlist = false;
 
     checkArity(op, args);
@@ -680,6 +696,14 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	    } else
 		PROTECT(ans = duplicate(x));
 	}
+	/* Release the descriptors and the buffer when an error unwinds out
+	   of the loop below (an embedded nul in the result, an unsupported
+	   conversion for a later element, an allocation failure). */
+	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		     R_NilValue, R_NilValue);
+	cntxt.cend = &iconv_cleanup;
+	cntxt.cenddata = &cd;
+
 	R_AllocStringBuffer(0, &cbuff);  /* 0 -> default */
 	for(R_xlen_t i = 0; i < XLENGTH(x); i++) {
 	    if (isRawlist) {
@@ -705,9 +729,9 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 	       FIXME: Should we go further and ignore "from" with any non-bytes,
 	              non-raw input? */
 	    if (!isRawlist && IS_UTF8(si) && streql(from, "")) {
-		if (utf8_obj == (iconv_t)-1) {
-		    utf8_obj = Riconv_open(to, "UTF-8");
-		    if(utf8_obj == (iconv_t)(-1))
+		if (cd.utf8_obj == (iconv_t)-1) {
+		    cd.utf8_obj = Riconv_open(to, "UTF-8");
+		    if(cd.utf8_obj == (iconv_t)(-1))
 		#ifdef Win32
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "UTF-8", to, localeCP);
@@ -718,21 +742,21 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 			// In case there are others, we set sub here.
 			if(streql(to, "ASCII//TRANSLIT")) {
 			    to = "ASCII";
-			    utf8_obj = Riconv_open(to, "UTF-8");
+			    cd.utf8_obj = Riconv_open(to, "UTF-8");
 			    if(!sub) sub = "c99";
 			}
-			if(utf8_obj == (iconv_t)(-1))
+			if(cd.utf8_obj == (iconv_t)(-1))
 			    error(_("unsupported conversion from '%s' to '%s'"),
 				  "UTF-8", to);
 		    }
 		#endif
 		}
-		obj = utf8_obj;
+		obj = cd.utf8_obj;
 		fromUTF8 = TRUE;
 	    } else if (!isRawlist && IS_LATIN1(si) && streql(from, "")) {
-		if (latin1_obj == (iconv_t)-1) {
-		    latin1_obj = Riconv_open(to, "latin1");
-		    if(latin1_obj == (iconv_t)(-1))
+		if (cd.latin1_obj == (iconv_t)-1) {
+		    cd.latin1_obj = Riconv_open(to, "latin1");
+		    if(cd.latin1_obj == (iconv_t)(-1))
 		#ifdef Win32
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      "latin1", to, localeCP);
@@ -740,20 +764,20 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 		    {
 			if(streql(to, "ASCII//TRANSLIT")) {
 			    to = "ASCII";
-			    latin1_obj = Riconv_open(to, "latin1");
+			    cd.latin1_obj = Riconv_open(to, "latin1");
 			    if(!sub) sub = "?";
 			}
-			if(latin1_obj == (iconv_t)(-1))
+			if(cd.latin1_obj == (iconv_t)(-1))
 			    error(_("unsupported conversion from '%s' to '%s'"),
 				  "latin1", to);			   
 		    }
 		#endif
 		}
-		obj = latin1_obj;
+		obj = cd.latin1_obj;
 	    } else {
-		if (arg_obj == (iconv_t)-1) {
-		    arg_obj = Riconv_open(to, from);
-		    if(arg_obj == (iconv_t)(-1))
+		if (cd.arg_obj == (iconv_t)-1) {
+		    cd.arg_obj = Riconv_open(to, from);
+		    if(cd.arg_obj == (iconv_t)(-1))
 		#ifdef Win32
 			error(_("unsupported conversion from '%s' to '%s' in codepage %d"),
 			      from, to, localeCP);
@@ -761,16 +785,16 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 		    {
 			if(streql(to, "ASCII//TRANSLIT")) {
 			    to = "ASCII";
-			    arg_obj = Riconv_open(to, from);
+			    cd.arg_obj = Riconv_open(to, from);
 			    if(!sub) sub = "?";
 			}
-			if(arg_obj == (iconv_t)(-1))
+			if(cd.arg_obj == (iconv_t)(-1))
 			    error(_("unsupported conversion from '%s' to '%s'"),
 				  from, to);			   
 		    }
 		#endif
 		}
-		obj = arg_obj;
+		obj = cd.arg_obj;
 		fromUTF8 = streql(from, "UTF-8")
 		           || (streql(from, "") && known_to_be_utf8);
 		           /* FIXME: utf8locale? as Riconv doesn't handle
@@ -940,10 +964,8 @@ attribute_hidden SEXP do_iconv(SEXP call, SEXP op, SEXP args, SEXP env)
 		} else SET_STRING_ELT(ans, i, NA_STRING);
 	    }
 	}
-	if (latin1_obj != (iconv_t)-1) Riconv_close(latin1_obj);
-	if (utf8_obj != (iconv_t)-1) Riconv_close(utf8_obj);
-	if (arg_obj != (iconv_t)-1) Riconv_close(arg_obj);
-	R_FreeStringBuffer(&cbuff);
+	endcontext(&cntxt);
+	iconv_cleanup(&cd);
     }
     UNPROTECT(1);
     return ans;
