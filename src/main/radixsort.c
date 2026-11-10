@@ -24,6 +24,7 @@
 #include <config.h>
 #endif
 
+#define R_USE_SIGNALS 1 /* for the cleanup context */
 #include <Defn.h>
 #include <Internal.h>
 
@@ -1543,6 +1544,34 @@ static void dsort(double *x, int *o, int n)
     }
 }
 
+/* The scratch buffers are file statics reused across calls, and
+   do_radixsort frees them on its normal return.  An error signalled
+   mid-sort (the Error() macro, an allocation failure) unwinds past that
+   and the next call overwrites the pointers with fresh allocations, so
+   free them from a cleanup context as well.  xsub is do_radixsort's own
+   local; its address is the context data. */
+static void radix_cleanup(void *data)
+{
+    void **pxsub = data;
+
+    /* same order as the normal path: drop the marks planted on the
+       CHARSXPs, then restore the truelengths that had been saved */
+    for (int i = 0; i < ustr_n; i++)
+        SET_TRLEN(ustr[i], 0);
+    maxlen = 1;
+    ustr_n = 0;
+    savetl_end();
+    free(ustr);                ustr=NULL;          ustr_alloc=0;
+    gsfree();
+    free(radix_xsub);          radix_xsub=NULL;    radix_xsuballoc=0;
+    free(*pxsub); free(newo);  *pxsub=newo=NULL;
+    free(xtmp);                xtmp=NULL;          xtmp_alloc=0;
+    free(otmp);                otmp=NULL;          otmp_alloc=0;
+    free(csort_otmp);          csort_otmp=NULL;    csort_otmp_alloc=0;
+    free(cradix_counts);       cradix_counts=NULL; cradix_counts_alloc=0;
+    free(cradix_xtmp);         cradix_xtmp=NULL;   cradix_xtmp_alloc=0;
+}
+
 attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     int n = -1, narg = 0, ngrp, tmp, *osub, thisgrpn;
@@ -1550,6 +1579,7 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
     bool isSorted = true, retGrp;
     void *xd;
     int *o = NULL;
+    void *xsub = NULL;
 
     /* ML: FIXME: Here are just two of the dangerous assumptions here */
     if (sizeof(int) != 4) {
@@ -1632,6 +1662,12 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
         checkEncodings(x);
     }
     
+    RCNTXT cntxt;
+    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+		 R_NilValue, R_NilValue);
+    cntxt.cend = &radix_cleanup;
+    cntxt.cenddata = &xsub;
+
     savetl_init();   // from now on use Error not error.
 
     switch (TYPEOF(x)) {
@@ -1696,7 +1732,6 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     
     int maxgrpn = gsmax[flip];   // biggest group in the first arg
-    void *xsub = NULL;           // local
 // This was not valid C23, and clang 15 warns it was not valid C99 either.
 //    int (*f) ();  // called with fn pointer, int
 //    void (*g) (); // called with fn pointer, int *, int
@@ -1930,15 +1965,8 @@ attribute_hidden SEXP do_radixsort(SEXP call, SEXP op, SEXP args, SEXP rho)
         }
     }
     
-    gsfree();
-    free(radix_xsub);          radix_xsub=NULL;    radix_xsuballoc=0;
-    free(xsub); free(newo);    xsub=newo=NULL;
-    free(xtmp);                xtmp=NULL;          xtmp_alloc=0;
-    free(otmp);                otmp=NULL;          otmp_alloc=0;
-    free(csort_otmp);          csort_otmp=NULL;    csort_otmp_alloc=0;
-
-    free(cradix_counts);       cradix_counts=NULL; cradix_counts_alloc=0;
-    free(cradix_xtmp);         cradix_xtmp=NULL;   cradix_xtmp_alloc=0;
+    endcontext(&cntxt);
+    radix_cleanup(&xsub);
     // TO DO: use xtmp already got
 
     UNPROTECT(1);
