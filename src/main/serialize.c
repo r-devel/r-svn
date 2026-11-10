@@ -514,8 +514,15 @@ static void InString(R_inpstream_t stream, char *buf, int length)
 		;
 	    UngetChar(&iss, c);
 	    for (i = 0; i < length; i++) {
-		if ((c =  GetChar(&iss)) == '\\') {
-		    switch(c = GetChar(&iss)) {
+		/* fgetc() and text connections return EOF without an
+		   error: stop here rather than fill the rest of the
+		   string with EOF bytes */
+		if ((c = GetChar(&iss)) == EOF)
+		    error(_("read error"));
+		if (c == '\\') {
+		    if ((c = GetChar(&iss)) == EOF)
+			error(_("read error"));
+		    switch(c) {
 		    case 'n' : buf[i] = '\n'; break;
 		    case 't' : buf[i] = '\t'; break;
 		    case 'v' : buf[i] = '\v'; break;
@@ -2007,7 +2014,10 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    {
 		/* These are all short strings */
 		length = InInteger(stream);
-		if (length < 0)
+		/* Primitive names come from R_FunTab.  An implausible
+		   length from the stream must not become a large
+		   stack allocation. */
+		if (length < 0 || length > 255)
 		    error(_("invalid length"));
 		R_CheckStack2(length+1);
 		char cbuf[length+1];
@@ -3120,7 +3130,7 @@ struct fileid {
     double size, mtime, ino, dev;
 };
 
-#define NC 100
+#define NC 256
 static int used = 0;
 static char *names[NC];
 static char *ptr[NC];

@@ -382,4 +382,54 @@ stopifnot(identical(h1, 1), identical(n, 1),
           identical(attr(h, "label"), "kept"),
           identical(h(2), 2), identical(n, 1)) # h no longer traced
 
+
+## validObject(x) coerced 'x' to simple superclasses unnecessarily
+## (PR#17944)
+setClass("A0", validity = function (object) { object; TRUE })
+setClass("A1", contains = "A0")
+as(new("A1"), "A0") # make implicit coercion "visible" to 'trace'
+trace("coerce", signature = c(from = "A1", to = "A0"),
+      tracer = quote(stop("unnecessary coercion", domain = NA)))
+stopifnot(identical(getClass("A1")@  contains$A0,
+                    getClass("A0")@subclasses$A1),
+          getClass("A1")@contains$A0@simple,
+          validObject(new("A1"))) # was Error .... : unnecessary coercion
+setAs("A1", "A0", function (from) from) # simple->explicit inheritance
+trace("coerce", signature = c(from = "A1", to = "A0"),
+      tracer = quote(stop(  "necessary coercion", domain = NA)))
+stopifnot(identical(getClass("A1")@  contains$A0,
+                    getClass("A0")@subclasses$A1),
+          !getClass("A1")@contains$A0@simple,
+          tryCatch({ validObject(new("A1")); "" },
+                   error = conditionMessage) == "necessary coercion",
+          removeClass("A1"),
+          removeClass("A0"))
+## in R <= 4.6.2
+
+
+## 'canCoerce' missed uncached implicit coercion to subclass (PR#16423)
+setClass("A0", slots = c(x0 = "numeric"))
+setClass("A1", slots = c(x1 = "numeric"))
+setClass("A2", slots = c(x2 = "numeric"))
+setIs("A1", "A0",
+      coerce = function (from) new("A0", x0 = from@x1),
+      replace = function (from, value) new("A1", x1 = value@x0))
+setIs("A2", "A1",
+      coerce = function (from) new("A1", x1 = from@x2))
+stopifnot(## Implicit coercion to superclass
+          canCoerce(new("A1"), "A0"),
+          canCoerce(new("A2"), "A1"),
+          ## Implicit coercion to subclass
+          canCoerce(new("A0"), "A1"), # was FALSE, wrongly
+          identical(as(new("A0"), "A1"), new("A1")),
+          canCoerce(new("A0"), "A1"), # still, after caching
+         !canCoerce(new("A1"), "A2"), # as no 'replace'
+          tryCatch({ as(new("A1"), "A2"); FALSE },
+                   error = function (.) TRUE),
+          removeClass("A2"),
+          removeClass("A1"),
+          removeClass("A0"))
+## in R <= 4.6.2
+
+
 cat('Time elapsed: ', proc.time(),'\n')
