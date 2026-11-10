@@ -134,11 +134,6 @@
 
       \item \code{libzstd} is required.  For \R 4.7.0 only, this can be
       circumvented by configuring with \option{--without-libzstd}.
-
-      \item \command{configure} issues a warning if no way is found to
-      determine C dependencies, as without this updating a build is
-      unreliable, for example if \file{Rversion.h} is changed (and it
-      holds the SVN revision).  (Seen with macOS SDK 27.2.)
     }
   }
 
@@ -464,6 +459,20 @@
 
       \item \code{aperm(x, perm)} and \code{t(x)} did not support arrays
       \code{x} of type \code{"expression"}.
+
+      \item \code{validObject(x)} coerced \code{x} to simple
+      superclasses unnecessarily.  Now validity methods for simple
+      superclasses are called with \code{x} as the argument.  Thanks to
+      \I{Hervé Pagès} for the report (\PR{17944}).
+
+      \item \code{canCoerce} did not consider an uncached implicit
+      coercion from the object class to a subclass.  Thanks to
+      \I{Hervé Pagès} for the report (\PR{16423}).
+
+      \item \code{dev.set(1)} now returns the number and name of the
+      device it opens, as documented, rather than
+      \code{c("null device" = 1)}, thanks to \I{Trevor Davis}' report
+      and patch in \PR{19281}.      
     }
   }
 }
@@ -478,6 +487,14 @@
   \subsection{Installation}{
     \itemize{
       \item \command{configure} now reports if \code{zstd} support was found.
+
+      \item \command{configure} issues a warning if no way is found to
+      determine C dependencies, as without this updating a build is
+      unreliable, for example if \file{Rversion.h} is changed (and it
+      holds the SVN revision).  (Seen with macOS \abbr{SDK} 27.2.)
+
+      \item The way \command{configure} tests for C and Objective-C
+      \command{make} dependencies is now less fragile and works on macOS 27.2.
     }
   }
   \subsection{Bug Fixes}{

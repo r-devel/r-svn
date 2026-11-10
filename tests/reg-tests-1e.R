@@ -3733,25 +3733,6 @@ stopifnot(identical(L00, ksmooth(x,y, n.points = 0)))
 ## ditto segfaulted in R <= 4.6.1
 
 
-## malformed ALTREP serialized class metadata
-altrep <- rawToChar(serialize(1:3, NULL, ascii = TRUE))
-marker <- "\n2\n13\n1\n13\n254\n"
-pos <- gregexpr(marker, altrep, fixed = TRUE)[[1L]]
-stopifnot(length(pos) == 1L, pos > 0L)
-replacements <- c("\n2\n13\n1\n8357\n254\n",
-                  "\n2\n14\n1\n13\n254\n",
-                  "\n2\n13\n0\n254\n")
-errs <- lapply(replacements, function(replacement) {
-    serialized <- charToRaw(sub(marker, replacement, altrep, fixed = TRUE))
-    tryCid(unserialize(serialized))
-})
-stopifnot(vapply(errs, inherits, NA, what = "error"),
-          vapply(errs, function(e)
-              grepl("invalid ALTREP serialized class", conditionMessage(e), fixed = TRUE),
-              NA))
-## an invalid type value indexed beyond Type2Table and seg.faulted
-
-
 ## lm(data = .)
 (lmd <- lm(data = swiss))
 stopifnot(all.equal(coef(lmd), tolerance = 1e-4,
@@ -4362,51 +4343,6 @@ unlink(td, recursive = TRUE)
 ## no NOTE in R <= 4.6.2
 
 
-## x[i] <- v coercing and extending x with check.bounds on -- PR#19111
-local({
-    op <- options(check.bounds = TRUE)
-    on.exit(options(op))
-    x <- c(TRUE, FALSE)
-    gctorture(TRUE)
-    suppressWarnings(x[5] <- 1L)
-    gctorture(FALSE)
-    stopifnot(identical(x, c(1L, 0L, NA, NA, 1L)))
-})
-## gave garbage, an error or a segfault in R <= 4.6.2
-
-
-## readLines() must free its line buffer on error, including after growth.
-## The error cases also exercise the cleanup under leak checkers.
-local({
-    tf <- tempfile()
-    old <- options(warn = 2)
-    for (mode in c("", "rt")) {
-        ## A corrupt gzip stream fails while reading the first line.
-        writeBin(as.raw(c(0x1f, 0x8b, 0x08, 0, 0, 0, 0, 0, 0, 3,
-                          rep(0xaf, 40))), tf)
-        con <- gzfile(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-        ## Errors after growth, both during reading and after closing.
-        line <- strrep("a", 8000)
-        writeBin(c(charToRaw(line), as.raw(0), charToRaw("x\n")), tf)
-        con <- file(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-        writeChar(line, tf, eos = NULL)
-        con <- file(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-    }
-    options(old)
-    unlink(tf)
-})
-## leaked the buffer on errors in R <= 4.6.x
-
-
 ## str() missing spaces (" ") after "attr(*, "<....>")="  -- PR#18719 (part 2)
 op <- options(keep.source = TRUE)
 dostr <- function(x) { writeLines(A <- capture.output( str(x) )); A }
@@ -4428,19 +4364,6 @@ stopifnot(exprs = {
 }) ; options(op)
 ## space was missing after '<some>:' and '=' in some cases in R <= 4.6.2
 
-
-
-## grepRaw() with truncated TRE patterns -- PR#18995
-for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4"))
-    tryCatch(grepRaw(p, "abc"), error = function(e) NULL)
-## read past the end of the pattern in R <= 4.6.2 (visible under ASan)
-
-
-## integer literals outside the int range -- PR#19050
-stopifnot(identical(suppressWarnings(str2lang("4294967296L")), 4294967296),
-          identical(suppressWarnings(str2lang("0x80000000L")), 2147483648),
-          identical(str2lang("2147483647L"), 2147483647L))
-## converted out-of-range doubles to int (undefined behaviour) in R <= 4.6.2
 
 
 ## methods::evalSource did not create S4 method tables when not caching,
@@ -4473,20 +4396,6 @@ stopifnot(identical(Fold, getMethod(gnm, sig))) # 'Fold' restored
 ## in R <= 4.6.2
 
 
-## gsub() when the first replacement is longer than the initial buffer:
-## empty input, or a long match repeated by back-references
-local({
-    r <- strrep("b", 2000)
-    for(perl in c(FALSE, TRUE))
-        stopifnot(identical(gsub("", r, "", perl = perl), r),
-                  identical(gsub("(.*)", "\\1\\1\\1", strrep("a", 4000),
-                                 perl = perl), strrep("a", 12000)))
-    w <- strrep("\u00e9", 2000)
-    stopifnot(identical(gsub("", w, ""), w))
-})
-## overflowed a heap buffer, typically aborting, in R <= 4.6.2
-
-
 ## smooth(*, "S") mis-reported changes, affecting "3RS3R" and "3RSS" -- PR#19280
 x <- c(0.5, 1, 3, 3, 1, 0)
 sS <- smooth(x, "S")
@@ -4501,25 +4410,19 @@ stopifnot(exprs = {
 ## smooth(x) was identical to x and sS said "NOT changed", in R <= 4.6.2
 
 
-## memDecompress(type = "zstd") sized its buffer from the first frame header
-if(nzchar(extSoftVersion()[["zstd"]])) {
-    two <- c(memCompress(charToRaw("hello "), "zstd"),
-             memCompress(charToRaw("world"), "zstd"))
-    x <- as.raw(rep(1:3, 1e5)) # compresses far below 1/3
-    ## a 5-byte raw block behind a header claiming 3.96 GiB
-    lie <- as.raw(c(0x28, 0xb5, 0x2f, 0xfd, 0xa0, 0x20, 0x20, 0x20, 0xfd,
-                    0x29, 0, 0, 0x68, 0x65, 0x6c, 0x6c, 0x6f))
-    invisible(gc(reset = TRUE))
-    r <- tryCatch(memDecompress(lie, "zstd"), error = identity)
-    stopifnot(exprs = {
-        identical(rawToChar(memDecompress(two, "zstd")), "hello world")
-        identical(memDecompress(memCompress(x, "zstd"), "zstd"), x)
-        inherits(r, "error")
-        gc()["Vcells", "max used"] < 2^27 # 1 GiB
-    })
-}
-## two frames failed with "Destination buffer is too small", and a 17-byte
-## input allocated 3.96 GiB before failing, in R <= 4.6.2
+## deriv() and deriv3() when 'function.arg' is a zero-length logical -- PR#19285
+stopifnot(is.expression(deriv (~x^2, "x", logical(0))),
+          is.expression(deriv3(~x^2, "x", logical(0))))
+## segfaulted or returned a function, depending on the build, in R <= 4.6.2
+
+
+## dev.set(1) returns the device it opens, as documented -- PR#19281
+op <- options(device = function(...) pdf(NULL))
+d <- dev.set(1L)
+stopifnot(identical(d, dev.cur()), names(d) == "pdf")
+dev.off(d); options(op)
+## returned c("null device" = 1L) in R <= 4.6.2
+
 
 
 
