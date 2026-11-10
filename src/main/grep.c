@@ -439,6 +439,12 @@ R_pcre2_prepare(const char *pattern, SEXP subject, bool use_UTF8,
 	char buf[256];
 	pcre2_get_error_message(errcode, (PCRE2_UCHAR *)buf, sizeof(buf));
 	pcre2_compile_context_free(ccontext);
+	/* The tables belong to the caller, whose cleanup the error unwind
+	   skips. */
+	if (*tables) {
+	    free((void *)*tables);
+	    *tables = NULL;
+	}
 	warning(_("PCRE pattern compilation error\n\t'%s'\n\tat '%s'\n"), buf,
 	        to_native(pattern + erroffset, use_UTF8));
 	error(_("invalid regular expression '%s'"),
@@ -510,6 +516,10 @@ R_pcre_prepare(const char *pattern, SEXP subject, bool use_UTF8,
 	*tables = pcre_maketables();
     *re = pcre_compile(pattern, options, &errorptr, &erroffset, *tables);
     if (!*re) {
+	/* The tables belong to the caller, whose cleanup the error unwind
+	   skips. */
+	pcre_free((void *)*tables);
+	*tables = NULL;
 	if (errorptr)
 	    warning(_("PCRE pattern compilation error\n\t'%s'\n\tat '%s'\n"),
 	            errorptr, to_native(pattern + erroffset, use_UTF8));
@@ -873,7 +883,10 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 			if (ovector[1] > 0)
 			    bufp += ovector[1];
 			else if (*bufp)
-			    bufp += utf8clen(*bufp);
+			    /* Only use_UTF8 input has been validated as UTF-8;
+			       utf8clen() on an arbitrary byte claims up to 6 and
+			       would run past the terminator. */
+			    bufp += use_UTF8 ? utf8clen(*bufp) : 1;
 			ntok++;
 			if (*bufp == '\0')
 			    break;
@@ -904,7 +917,7 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 			bufp += ovector[1];
 		    } else {
 			/* Match was empty. */
-			int clen = utf8clen(*bufp);
+			int clen = use_UTF8 ? utf8clen(*bufp) : 1;
 			strncpy(pt, bufp, clen);
 			pt[clen] = '\0';
 			bufp += clen;
@@ -2043,6 +2056,8 @@ sub_buffer_size_init(size_t replen, int ns, int nsubs, int global,
     if (global) {
 	double dnns = (double)ns * (*maxrep + 1.) + 1000.;
 	if (dnns > 10000) dnns = 2.*ns + (double)replen + 1000.;
+	if (dnns < (double)ns + *maxrep + 1000.)
+	    dnns = (double)ns + *maxrep + 1000.;
 	*nns = sub_buffer_check_overflow(dnns);
     } else
 	*nns = sub_buffer_check_overflow((double)ns +

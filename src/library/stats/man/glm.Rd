@@ -27,7 +27,9 @@ glm(formula, family = gaussian, data, weights, subset,
 glm.fit(x, y, weights = rep.int(1, nobs),
         start = NULL, etastart = NULL, mustart = NULL,
         offset = rep.int(0, nobs), family = gaussian(),
-        control = list(), intercept = TRUE, singular.ok = TRUE)
+        control = list(), intercept = TRUE,
+        tol  = control$tol  \%||\% min(1e-7, control$epsilon/1000), %
+        wtol = control$wtol \%||\% 0, singular.ok = TRUE) %
 
 \method{weights}{glm}(object, type = c("prior", "working"), \dots)
 }
@@ -114,13 +116,20 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   \item{intercept}{logical. Should an intercept be included in the
     \emph{null} model?}
 
+  \item{tol}{tolerance for the \code{\link{qr}} decomposition.  Default
+    is 1e-7 (the previously hardwired value), as for \code{\link{lm}}.}
+  \item{wtol}{tolerance for treating small positive weights as zero.
+    Default is currently 0 for back compatibility, indicating that only
+    exact zeros are treated as zero.}
+
   \item{object}{an object inheriting from class \code{"glm"}.}
   \item{type}{character, partial matching allowed.  Type of weights to
     extract from the fitted model object.  Can be abbreviated.}
 
   \item{\dots}{
     For \code{glm}: arguments to be used to form the default
-    \code{control} argument if it is not supplied directly.
+    \code{control} argument if it is not supplied directly, hence see
+    \code{\link{glm.control}()}.
 
     For \code{weights}: further arguments passed to or from other methods.
   }
@@ -237,11 +246,11 @@ glm.fit(x, y, weights = rep.int(1, nobs),
     parameters, computed via the \code{aic} component of the family.
     For binomial and Poison families the dispersion is
     fixed at one and the number of parameters is the number of
-    coefficients.  For gaussian, Gamma and inverse gaussian families the
+    coefficients.  For Gaussian, Gamma and inverse Gaussian families the
     dispersion is estimated from the residual deviance, and the number
     of parameters is the number of coefficients plus one.  For a
-    gaussian family the MLE of the dispersion is used so this is a valid
-    value of AIC, but for Gamma and inverse gaussian families it is not.
+    Gaussian family the MLE of the dispersion is used so this is a valid
+    value of AIC, but for Gamma and inverse Gaussian families it is not.
     For families fitted by quasi-likelihood the value is \code{NA}.}
   \item{null.deviance}{The deviance for the null model, comparable with
     \code{deviance}. The null model will include the offset, and an
@@ -295,11 +304,11 @@ glm.fit(x, y, weights = rep.int(1, nobs),
   the component \code{y} of the result is the proportion of successes.
 }
 \seealso{
-  \code{\link{anova.glm}}, \code{\link{summary.glm}}, etc. for
-  \code{glm} methods,
-  and the generic functions \code{\link{anova}}, \code{\link{summary}},
+  \code{\link{anova.glm}}, \code{\link{residuals.glm}},
+  \code{\link{summary.glm}}, etc. for \code{glm} methods,
+  and the generic functions \code{\link{AIC}}, \code{\link{extractAIC}},
   \code{\link{effects}}, \code{\link{fitted.values}},
-  and \code{\link{residuals}}.
+  and \code{\link{logLik}}.
 
   \code{\link{lm}} for non-generalized \emph{linear} models (which SAS
   calls GLMs, for \sQuote{general} linear models).
@@ -343,10 +352,12 @@ anova(glm.D93)
 A1 <- -2*c(ll) + 2*attr(ll, "df")
 A2 <- glm.D93$family$aic(counts, mu=fitted(glm.D93), wt=1) +
         2 * length(coef(glm.D93))
+(A3 <- extractAIC(glm.D93))
 stopifnot(exprs = {
   all.equal(A0, A1)
   all.equal(A1, A2)
-  all.equal(A1, glm.D93$aic)
+  all.equal(A2, A3[2])
+  all.equal(A3[2], glm.D93$aic)
 })
 
 

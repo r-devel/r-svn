@@ -1279,7 +1279,12 @@ static SEXP xxpipe(SEXP lhs, SEXP rhs, YYLTYPE *lloc_rhs)
 	    SEXP alist = list1(R_MissingArg);
 	    SET_TAG(alist, var);
 	    SEXP fun = lang4(R_FunctionSymbol, alist, expr, R_NilValue);
-	    return lang2(fun, lhs);
+	    /* the result stays on the parser stack until the next
+	       reduction, so it must be preserved like any other value */
+	    PRESERVE_SV(ans = lang2(fun, lhs));
+	    RELEASE_SV(lhs);
+	    RELEASE_SV(rhs);
+	    return ans;
 	}
 
 	/* check for placeholder in the RHS function */
@@ -1641,9 +1646,15 @@ void R_FinalizeSrcRefState(void)
     if (PS_IDS != R_NilValue) {
 	if (ParseState.prevState || ID_COUNT > MAX_DATA_COUNT) {
 	    PS_SET_IDS(R_NilValue);
-        } else {/* Remove the parent records */
+        } else {
+	    /* Remove the parent records.  'identifier' is the id of the
+	       last node, not a count, so include it: when a lexer error
+	       unwinds mid-expression that node is a recorded one, and a
+	       stale ID_ID would make finalizeData() treat an unrecorded
+	       node of the next parse as present in its parse data, in
+	       which case the comment-parent walk can loop forever. */
             if (identifier > ID_COUNT) identifier = ID_COUNT;
-            for (int i=0; i < identifier; i++) {
+            for (int i=0; i <= identifier; i++) {
 		ID_ID(i) = 0;
 	        ID_PARENT(i) = 0;
 	    }
@@ -2672,12 +2683,12 @@ static int NumericValue(int c)
     /* Make certain that things are okay. */
     if(c == 'L') {
 	double a = R_atof(yytext);
-	int b = (int) a;
 	/* We are asked to create an integer via the L, so we check that the
 	   double and int values are the same. If not, this is a problem and we
 	   will not lose information and so use the numeric value.
+	   The range test comes first, as (int) a is undefined outside it.
 	*/
-	if(a != (double) b) {
+	if(a < INT_MIN || a > INT_MAX || a != (int) a) {
 	    if(GenerateCode) {
 		if(seendot == 1 && seenexp == 0)
 		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);

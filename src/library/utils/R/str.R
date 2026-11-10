@@ -1,5 +1,5 @@
 #  File src/library/utils/R/str.R
-#  Part of the R package, https://www.R-project.org
+#  Part of R, https://www.R-project.org
 #
 #  Copyright (C) 1995-2026 The R Core Team
 #
@@ -39,7 +39,7 @@ str.data.frame <- function(object, ...)
 	"\n", sep = "")
 
     ## calling next method, usually  str.default:
-    if(length(l <- list(...)) && any("give.length" == names(l)))
+    if("give.length" %in% ...names())
 	invisible(NextMethod("str", ...))
     else invisible(NextMethod("str", give.length=structure(FALSE, from="data.frame"), ...))
 }
@@ -71,7 +71,7 @@ str.Date <- str.POSIXt <- function(object, ...) {
     }
 
     le.str <- if(give.length) paste0("[1:",as.character(n),"]")
-    cat(" ", cl[1L], le.str,", format: ", sep = "")
+    cat(cl[1L], le.str,", format: ", sep = "")
     ## do.call(str, c(list(format(object), give.head = FALSE), larg))
     ## ensuring 'object' is *not* copied:
     str.f.obj <- function(...) str(format(object), ...)
@@ -165,9 +165,9 @@ str.default <-
     oo <- options(digits = digits.d); on.exit(options(oo))
     le <- length(object)[1L] # [1]: protect from nonsense
     if(is.na(le)) {
-        warning("'str.default': 'le' is NA, so taken as 0", immediate. = TRUE)
-        le <- 0
-        vec.len <- 0
+	warning("'str.default': 'le' is NA, so taken as 0", immediate. = TRUE)
+	le <- 0
+	vec.len <- 0
     }
 
     nchar.w <- function(x) nchar(x, type="w", allowNA=TRUE)
@@ -250,11 +250,11 @@ str.default <-
     if(is.ts <- stats::is.ts(object))
         str1.ts <- function(o, lestr) {
             tsp.a <- stats::tsp(o)
-            paste0(" Time-Series ", lestr, " from ", format(tsp.a[1L]),
+            paste0("Time-Series ", lestr, " from ", format(tsp.a[1L]),
                    " to ", format(tsp.a[2L]), ":")
         }
     if (is.null(object))
-	cat(" NULL\n")
+	cat("NULL\n")
     else if(S4) {
 	trygetSlots <- function(x, nms) {
 	    r <- tryCatch(sapply(nms, methods::slot, object=x, simplify = FALSE),
@@ -324,14 +324,14 @@ str.default <-
     }
     else if(is.function(object)) {
 	cat(if(is.null(ao <- args(object))) deParse(object)
-	else { dp <- deParse(ao); paste(dp[-length(dp)], collapse="\n") },"\n")
+	    else { dp <- deParse(ao); paste(dp[-length(dp)], collapse="\n") },"\n")
     } else if(is.list(object)) {
 	i.pl <- is.pairlist(object)
 	is.d.f <- is.data.frame(object)
 	##?if(is.d.f) std.attr <- c(std.attr, "class", if(is.d.f) "row.names")
 	if(le == 0) {
 	    if(is.d.f) std.attr <- c(std.attr, "class", "row.names")
-	    else cat(" ", if(!is.null(names(object))) "Named ",
+	    else cat(if(!is.null(names(object))) "Named ",
 		     if(i.pl)"pair", "list()\n", sep = "")
 	} else { # list, length >= 1 :
 	    if(irregCl <- has.class &&
@@ -344,8 +344,7 @@ str.default <-
 		le <- length(object <- uncObj)
 		std.attr <- c(std.attr, "class")
 	    }
-	    if(no.list || identical(sys.function(-1), NextMethod)
-               ) {
+	    if(no.list || identical(sys.function(-1), NextMethod)) {
 		## str.default is a 'NextMethod' : omit the 'List of ..'
 		std.attr <- c(std.attr, "class", if(is.d.f) "row.names")
 	    } else { # need as.character here for double lengths.
@@ -369,14 +368,14 @@ str.default <-
 			   format(nms, width = max(ncn), justify="left")
 		       }
 		for (i in seq_len(min(list.len,le) ) ) {
-		    cat(indent.str, comp.str, nam.ob[i], ":", sep = "")
+		    cat(indent.str, comp.str, nam.ob[i], ": ", sep = "")
 		    envir <- # pass envir for 'promise' components:
 			if(oTypes[[i]] == "promise") {
 			    structure(envP, nam = as.name(names(envP)[i]))
 			} # else NULL
 		    strSub(object[[i]], give.length=give.length,
-                           nest.lev = nest.lev + 1,
-                           indent.str = paste(indent.str,".."))
+			   nest.lev = nest.lev + 1,
+			   indent.str = paste(indent.str,".."))
 		}
 		if(list.len < le)
 		    cat(indent.str, "[list output truncated]\n")
@@ -408,8 +407,8 @@ str.default <-
 
 	    lsep <- if(ord) "<" else ","
 	    str1 <-
-		paste0(if(ord)" Ord.f" else " F", "actor",
-                       if(is.array(object)) arrLenstr(object),
+		paste0(if(ord) "Ord.f" else "F", "actor",
+		       if(is.array(object)) arrLenstr(object),
 		       " w/ ", nl, " level", if(nl != 1) "s",
 		       if(nl) " ",
 		       if(nl) paste0(lev.att, collapse = lsep),
@@ -420,24 +419,20 @@ str.default <-
 	    str1 <- str1.ts(object,
                             if(isA <- is.array(object)) arrLenstr(object) else le.str)
 	    std.attr <- c("tsp", "class", if(isA) "dim")
-        } else if(is.vector(object)
-	       || is.atomic(object)
-               ##f fails for formula:
-               ##f typeof(object) in {"symbol", "language"} =: is.symbolic(.):
-               ##f || (is.language(object) && !is.expression(object))
-               || (is.language(object) && !is.expression(object) && !any(cl == "formula")) ) {
+	} else if(is.atomic(object)
+	       || is.vector(object)
+	       || (is.language(object) && !is.expression(object) && !any(cl == "formula")) ) {
 	    if(is.atomic(object)) {
 		##-- atomic:   numeric{dbl|int} complex character logical raw
 		mod <- substr(mode(object), 1, 4)
-		if     (mod == "nume")
-		    mod <- if(is.integer(object)) "int" else "num"
+		if     (mod == "nume")   mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }
-		else if(mod == "comp") mod <- "cplx" #- else: keep 'logi'
+		else if(mod == "comp")   mod <- "cplx" #- else: keep 'logi'
 		if(is.array(object)) {
 		    le.str <- arrLenstr(object)
 		    if(m <- match("AsIs", cl, 0L)) ## workaround bad format.AsIs()
 			oldClass(object) <- cl[-m]
-                    std.attr <- "dim"
+		    std.attr <- "dim"
 		} else if(!is.null(names(object))) {
 		    mod <- paste("Named", mod)
 		    std.attr <- std.attr[std.attr != "names"]
@@ -449,17 +444,17 @@ str.default <-
 		    ## don't show the class *twice*
 		    std.attr <- c(std.attr, "class")
 		}
-		str1 <-
-		    if(le == 1 && !is.array(object)) paste(NULL, mod)
-		    else paste0(" ", mod, if(le>0)" ", le.str)
+		str1 <- # 2026-10: no longer prepend " "
+		    if(le == 1 && !is.array(object)) mod
+		    else paste0(mod, if(le>0)" ", le.str)
 	    } else { ##-- not atomic, but vector: #
 		mod <- typeof(object)#-- typeof(.) is more precise than mode!
 		str1 <- switch(mod,
-			       call = " call",
-			       language = " language",
-			       symbol = " symbol",
+			       call = "call",
+			       language = "language",
+			       symbol = "symbol",
 			       expression = " ",# "expression(..)" by deParse(.)
-			       name = " name",
+			       name = "name",
 			       ## in R (once):	comment.expression
 
 			       ## default :
@@ -480,8 +475,7 @@ str.default <-
 	    ## ideally we would figure out if as.character has a
 	    ## suitable method and use that.
 	} else if(has.class) {
-	    cat("Class", if(length(cl) > 1) "es",
-		" '", paste(cl, collapse = "', '"), "' ", sep = "")
+	    cat(pClass(cl))
 	    ## If there's a str.<method>, it should have been called before!
 	    uo <- unclass(object)
 	    if(!is.null(attributes(uo)$class)) {
@@ -496,13 +490,13 @@ str.default <-
 	    return(invisible())
 	} else if(is.atomic(object)) {
 	    if((1 == length(a <- attributes(object))) && (names(a) == "names"))
-		str1 <- paste(" Named vector", le.str)
+		str1 <- paste("Named vector", le.str)
 	    else {
 		##-- atomic / not-vector  "unclassified object" ---
-		str1 <- paste(" atomic", le.str)
+		str1 <- paste("atomic", le.str)
 	    }
-	} else if(typeof(object) == "promise") {
-	    cat(" promise to ")
+	} else if(typeof(object) == "promise") { # should no longer happen
+	    cat("promise to ")
 	    objExp <-
 		if (is.null(envir) || is.null(nam <- attr(envir, "nam")))
 		    substitute(.x., as.environment(list(.x. = object)))
@@ -649,7 +643,7 @@ str.default <-
 	give.L <- give.length || identical(attr(give.length,"from"), "data.frame")
 	for (i in seq_along(a))
 	    if (all(nam[i] != std.attr)) {# only `non-standard' attributes:
-		cat(indent.str, paste0('- attr(*, "', nam[i], '")='), sep = "")
+		cat(indent.str, paste0('- attr(*, "', nam[i], '")= '), sep = "")
 		strSub(a[[i]], give.length = give.L,
 		       indent.str = paste(indent.str, ".."), nest.lev = nest.lev+1)
 	    }

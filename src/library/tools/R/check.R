@@ -3525,7 +3525,9 @@ add_dummies <- function(dir, Log)
             bad_files <- noEOL<- character()
             for(f in all_files) {
                 if (!file.exists(f)) next
-                contents <- readChar(f, file.size(f), useBytes = TRUE)
+                fsize <- file.size(f)
+                if (fsize == 0L) next
+                contents <- readChar(f, fsize, useBytes = TRUE)
                 if (grepl("\r", contents, fixed = TRUE, useBytes = TRUE))
                     bad_files <- c(bad_files, f)
                 if (!grepl("\n$", contents, useBytes = TRUE))
@@ -5503,7 +5505,7 @@ add_dummies <- function(dir, Log)
                         paste(c("From the bibliography engine:", # BibTeX or biber
                                 bibwarnings), collapse = "\n  ")
                 )
-                ltx_err <- any(grepl("LaTeX error", out, ignore.case = TRUE,
+                ltx_err <- any(grepl("(LaTeX|BibTeX) error", out, ignore.case = TRUE,
                                      useBytes = TRUE))
                 iskip <- grep("^Note: skipping .* dependencies:", out,
                               useBytes = TRUE)
@@ -6385,6 +6387,10 @@ add_dummies <- function(dir, Log)
                              "^ld: warning: -single_module is obsolete",
                              "^ld: warning: .*was built for newer"
                              )
+                ## rustc wrning
+                warn_re <- c(warn_re,
+                             "^warning: the following packages contain code that will be rejected by a future version of Rust"
+                             )
 
                 ## <FIXME>
                 ## Support for RcppArmadillo 15 transition.
@@ -7048,21 +7054,21 @@ add_dummies <- function(dir, Log)
                          if(!check_incoming) "bad_engine")
             if(!all(names(res) %in% allowed)) {
                 errorLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"), "\n")
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 if(length(res$suggested_but_not_installed))
-                   wrapLog("The suggested packages are required for",
+                   wrapLog("\nThe suggested packages are required for",
                            "a complete check.\n",
                            "Checking can be attempted without them",
                            "by setting the environment variable",
                            "_R_CHECK_FORCE_SUGGESTS_",
-                           "to a false value.\n\n")
-                wrapLog(msg_DESCRIPTION)
+                           "to a false value.")
+                wrapLog(paste0("\n", msg_DESCRIPTION))
                 summaryLog(Log)
                 do_exit(1L)
             } else if (length(res$required_for_checking_but_not_installed)) {
                 warningLog(Log, "Cannot process vignettes")
                 do_vignettes  <<- FALSE
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
             } else {
                 if( length(res[["orphaned"]]) || length(res[["orphaned1"]]) )
                     warningLog(Log)
@@ -7070,7 +7076,7 @@ add_dummies <- function(dir, Log)
                     infoLog(Log)
                 else
                     noteLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 ## if(length(res$orphaned2))
                 ##     wrapLog("\nSuggested packages need to be used conditionally:",
                 ##             "this is particularly important for",
