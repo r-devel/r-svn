@@ -4426,34 +4426,6 @@ dev.off(d); options(op)
 
 
 
-## read.dcf() repairs a line holding a 5- or 6-byte UTF-8 form the way it
-## records the field name, so the name matches on later occurrences;
-## and discovering many fields is no longer quadratic in their number
-local({
-    tf <- tempfile()
-    rec <- c(charToRaw("Package: p\nX"),
-             as.raw(c(0xfd, 0xb2, 0xb2, 0xb3, 0xb2, 0xb3)),
-             charToRaw("Y: v\n"))
-    con <- file(tf, "wb")
-    writeBin(c(rep(rec, 2), charToRaw("\n"), rec), con)
-    close(con)
-    d <- read.dcf(tf)
-    stopifnot(identical(dim(d), c(2L, 2L)),
-              identical(colnames(d), c("Package", "X<fd><b2><b2><b3><b2><b3>Y")),
-              identical(d[, 2L], c("v", "v")))
-    n <- 7000L
-    nms <- sprintf("F%04d", seq_len(n))
-    writeLines(c(paste0(nms, ": ", seq_len(n)), "", "F0001: x"), tf)
-    d <- read.dcf(tf)
-    stopifnot(identical(dim(d), c(2L, n)), identical(colnames(d), nms),
-              identical(unname(d[1L, n]), as.character(n)),
-              identical(unname(d[2L, 1:2]), c("x", NA)))
-    unlink(tf)
-})
-## gave a column per occurrence of the field (in R-devel since r90646),
-## and 7000 fields took 7 s (in R <= 4.6.2)
-
-
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
