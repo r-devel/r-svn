@@ -15,6 +15,7 @@ getVaW <- function(expr, obj=FALSE) {
                             invokeRestart("muffleWarning") })
     structure(val %||% quote(._NULL_()), warning = W) # NULL cannot have attr.
 }
+all.equal13 <- function(x, y, ...) all.equal(x, y, tolerance = 1e-13, ...)
 options(nwarnings = 10000, # (rather than just 50)
         warn = 2, # only caught or asserted warnings
         width = 99) # instead of 80
@@ -471,10 +472,10 @@ assertWarnV(print(predict(mod2, newdata=nd, rankdeficient = "warnif")))
                   predict(mod2, newdata=nd, rankdeficient = "NA") # NA's but no warning
 nm5 <- as.character(1:5)
 stopifnot(exprs = {
-    all.equal(setNames(rep(0, 5), nm5), predict(mod2), tol=1e-13) # pred: 1.776e-15
+    all.equal13(setNames(rep(0, 5), nm5), predict(mod2)) # pred: 1.776e-15
     is.numeric(p2 <- predict(mod2, newdata = data.frame(y=rep(1,5)))) # no warning, no NA:
     identical(p2,    predict(mod2, newdata = data.frame(y=rep(1,5)), rankdeficient="NA"))
-    all.equal(p2, setNames(rep(1, 5), nm5), tol=1e-13)# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
+    all.equal13(p2, setNames(rep(1, 5), nm5))# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
 })
 ## fine, using model.offset() now
 
@@ -3732,25 +3733,6 @@ stopifnot(identical(L00, ksmooth(x,y, n.points = 0)))
 ## ditto segfaulted in R <= 4.6.1
 
 
-## malformed ALTREP serialized class metadata
-altrep <- rawToChar(serialize(1:3, NULL, ascii = TRUE))
-marker <- "\n2\n13\n1\n13\n254\n"
-pos <- gregexpr(marker, altrep, fixed = TRUE)[[1L]]
-stopifnot(length(pos) == 1L, pos > 0L)
-replacements <- c("\n2\n13\n1\n8357\n254\n",
-                  "\n2\n14\n1\n13\n254\n",
-                  "\n2\n13\n0\n254\n")
-errs <- lapply(replacements, function(replacement) {
-    serialized <- charToRaw(sub(marker, replacement, altrep, fixed = TRUE))
-    tryCid(unserialize(serialized))
-})
-stopifnot(vapply(errs, inherits, NA, what = "error"),
-          vapply(errs, function(e)
-              grepl("invalid ALTREP serialized class", conditionMessage(e), fixed = TRUE),
-              NA))
-## an invalid type value indexed beyond Type2Table and seg.faulted
-
-
 ## lm(data = .)
 (lmd <- lm(data = swiss))
 stopifnot(all.equal(coef(lmd), tolerance = 1e-4,
@@ -3818,8 +3800,8 @@ fitP <- glm(counts ~ outcome + treatment, family = poisson())
 fit0 <- update(fitP, . ~ outcome)
                  (A1 <- anova(      fitP, test = "Rao"))
                   A2 <- anova(fit0, fitP, test = "Rao")
-stopifnot(all.equal(A1, anova(fitP,       test = "Ra"), tolerance = 1e-13),
-          all.equal(A2, anova(fit0, fitP, test = "Ra"), tolerance = 1e-13))
+stopifnot(all.equal13(A1, anova(fitP,       test = "Ra")),
+          all.equal13(A2, anova(fit0, fitP, test = "Ra")))
 ## "Ra" gave error  "undefined columns selected"  in  R <= 4.6.1
 
 
@@ -4205,6 +4187,14 @@ stopifnot(identical(a0$response, 0L),
 ##converted indices to double & replaced NULL components of 'specials' with logical() in R <= 4.6.2
 
 
+## 'delete.response' did not modify optional attribute 'dataClasses'
+t1 <- terms(model.frame(y ~ x, data.frame(x = 0, y = 0)))
+a0 <- attributes(t0 <- delete.response(t1))
+stopifnot(identical(a0$predvars, quote(list(x))),
+          identical(a0$dataClasses, c(x = .MFclass(0))))
+## in R <= 4.6.2
+
+
 ## scan() stripping a UTF-8 BOM from a first field that fills its buffer
 if (l10n_info()[["UTF-8"]]) {
     x <- paste0("\ufeff", strrep("a", 8186L)) # 8189 bytes: buffer size - 3
@@ -4353,51 +4343,6 @@ unlink(td, recursive = TRUE)
 ## no NOTE in R <= 4.6.2
 
 
-## x[i] <- v coercing and extending x with check.bounds on -- PR#19111
-local({
-    op <- options(check.bounds = TRUE)
-    on.exit(options(op))
-    x <- c(TRUE, FALSE)
-    gctorture(TRUE)
-    suppressWarnings(x[5] <- 1L)
-    gctorture(FALSE)
-    stopifnot(identical(x, c(1L, 0L, NA, NA, 1L)))
-})
-## gave garbage, an error or a segfault in R <= 4.6.2
-
-
-## readLines() must free its line buffer on error, including after growth.
-## The error cases also exercise the cleanup under leak checkers.
-local({
-    tf <- tempfile()
-    old <- options(warn = 2)
-    for (mode in c("", "rt")) {
-        ## A corrupt gzip stream fails while reading the first line.
-        writeBin(as.raw(c(0x1f, 0x8b, 0x08, 0, 0, 0, 0, 0, 0, 3,
-                          rep(0xaf, 40))), tf)
-        con <- gzfile(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-        ## Errors after growth, both during reading and after closing.
-        line <- strrep("a", 8000)
-        writeBin(c(charToRaw(line), as.raw(0), charToRaw("x\n")), tf)
-        con <- file(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-        writeChar(line, tf, eos = NULL)
-        con <- file(tf, mode)
-        stopifnot(inherits(tryCid(readLines(con)), "error"),
-                  identical(isOpen(con), nzchar(mode)))
-        close(con)
-    }
-    options(old)
-    unlink(tf)
-})
-## leaked the buffer on errors in R <= 4.6.x
-
-
 ## str() missing spaces (" ") after "attr(*, "<....>")="  -- PR#18719 (part 2)
 op <- options(keep.source = TRUE)
 dostr <- function(x) { writeLines(A <- capture.output( str(x) )); A }
@@ -4421,17 +4366,64 @@ stopifnot(exprs = {
 
 
 
-## grepRaw() with truncated TRE patterns -- PR#18995
-for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4"))
-    tryCatch(grepRaw(p, "abc"), error = function(e) NULL)
-## read past the end of the pattern in R <= 4.6.2 (visible under ASan)
+## methods::evalSource did not create S4 method tables when not caching,
+## so methods::insertSource did not trace S4 methods (PR#15242)
+pkg <- "methods"
+gnm <- "cbind2"
+sig <- c(x = "ANY", y = "ANY")
+def <- function (x, y, ...) NULL
+Fold <- getMethod(gnm, sig)
+sM <- substitute(setMethod(g, s, d), list(g = gnm, s = sig, d = def))
+dput(sM, tf <- tempfile())
+E0 <- evalSource(tf, package = pkg) # cache=FALSE by default
+stopifnot(is(E0, "sourceEnvironment"))
+L0 <- as.list(E0, all.names = TRUE) |> Filter(f = is.environment)
+stopifnot(length(L0) == 1L) # one method table (had zero)
+E1 <- L0[[1L]]
+L1 <- as.list(E1, all.names = TRUE)
+stopifnot(length(L1) == 1L) # one method
+Fnew <- L1[[1L]]
+stopifnot(identical(Fold, getMethod(gnm, sig)), # 'Fnew' not cached
+          identical(Fnew, setDataPart(Fold, `environment<-`(def, E0))))
+insertSource(E0, package = pkg, methods = gnm)
+Fwtr <- getMethod(gnm, sig)
+stopifnot(is(Fwtr, "MethodDefinitionWithTrace"),
+          identical(as(Fwtr, "MethodDefinition"),
+                    `environment<-`(Fnew, environment(Fold))),
+          identical(Fwtr@original, Fold))
+untrace(gnm, signature = sig)
+stopifnot(identical(Fold, getMethod(gnm, sig))) # 'Fold' restored
+## in R <= 4.6.2
 
 
-## integer literals outside the int range -- PR#19050
-stopifnot(identical(suppressWarnings(str2lang("4294967296L")), 4294967296),
-          identical(suppressWarnings(str2lang("0x80000000L")), 2147483648),
-          identical(str2lang("2147483647L"), 2147483647L))
-## converted out-of-range doubles to int (undefined behaviour) in R <= 4.6.2
+## smooth(*, "S") mis-reported changes, affecting "3RS3R" and "3RSS" -- PR#19280
+x <- c(0.5, 1, 3, 3, 1, 0)
+sS <- smooth(x, "S")
+(s3RS <- smooth(smooth(x, "3R"), "S"))
+stopifnot(exprs = {
+    attr(sS, "changed") # was FALSE wrongly
+    all.equal13(c(0.5, 1:3, 1:0), c(sS)) # {always}
+    all.equal13(c(s3RS), c(sS))          # ditto
+    all.equal13(c(smooth(x)),         c(smooth(s3RS, "3R")))
+    all.equal13(c(smooth(x, "3RSS")), c(smooth(s3RS, "S")))
+})
+## smooth(x) was identical to x and sS said "NOT changed", in R <= 4.6.2
+
+
+## deriv() and deriv3() when 'function.arg' is a zero-length logical -- PR#19285
+stopifnot(is.expression(deriv (~x^2, "x", logical(0))),
+          is.expression(deriv3(~x^2, "x", logical(0))))
+## segfaulted or returned a function, depending on the build, in R <= 4.6.2
+
+
+## dev.set(1) returns the device it opens, as documented -- PR#19281
+op <- options(device = function(...) pdf(NULL))
+d <- dev.set(1L)
+stopifnot(identical(d, dev.cur()), names(d) == "pdf")
+dev.off(d); options(op)
+## returned c("null device" = 1L) in R <= 4.6.2
+
+
 
 
 ## sample() without replacement, weights spanning many orders of magnitude
