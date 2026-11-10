@@ -4585,8 +4585,7 @@ dev.off(d); options(op)
 ## returned c("null device" = 1L) in R <= 4.6.2
 
 ## seq.int(from, length.out = n) returns a compact sequence -- PR#19282
-isCompact <- function(x)
-    any(grepl("(compact)", capture.output(.Internal(inspect(x))), fixed = TRUE))
+altClass <- function(x) .Internal(altrep_class(x))[1L]
 stopifnot(exprs = {
     identical(seq.int(2026L, length.out = 10), 2026:2035)
     identical(seq.int(2026, length.out = 10), 2026:2035)
@@ -4600,11 +4599,11 @@ stopifnot(exprs = {
     identical(seq.int(7, length.out = 1), 7L)
     identical(seq.int(1, 10, length.out = 4), c(1L, 4L, 7L, 10L))
     identical(seq.int(1e17, length.out = 3), rep(1e17, 3))
-    isCompact(seq.int(2026L, length.out = 1e7))
-    isCompact(seq.int(to = 1e7, length.out = 1e7))
-    isCompact(seq.int(1, 1e7, length.out = 1e7))
-    isCompact(seq.int(1e7, by = -1, length.out = 1e7))
-    isCompact(seq.int(3e9, length.out = 1e7))
+    identical(altClass(seq.int(2026L, length.out = 1e7)), "compact_intseq")
+    identical(altClass(seq.int(to = 1e7, length.out = 1e7)), "compact_intseq")
+    identical(altClass(seq.int(1, 1e7, length.out = 1e7)), "compact_intseq")
+    identical(altClass(seq.int(1e7, by = -1, length.out = 1e7)), "compact_intseq")
+    identical(altClass(seq.int(3e9, length.out = 1e7)), "compact_realseq")
 })
 ## allocated and filled a full vector in R <= 4.6.2
 
