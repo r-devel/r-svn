@@ -3356,7 +3356,7 @@ around this is for the package's @file{configure} script to include
 @example
 if test -z "$CMAKE"; then CMAKE="`which cmake`"; fi
 if test -z "$CMAKE"; then CMAKE=/Applications/CMake.app/Contents/bin/cmake; fi
-if test -f "$CMAKE"; then echo "no 'cmake' command found"; exit 1; fi
+if test ! -f "$CMAKE"; then echo "no 'cmake' command found"; exit 1; fi
 @end example
 @noindent
 and for the second approach to substitute @env{CMAKE} into
@@ -3439,12 +3439,14 @@ The files and directories are checked for sufficient permissions
 
 @item
 The files are checked for binary executables, using a suitable version
-of @command{file} if available@footnote{A suitable @command{file.exe} is
-part of the Windows toolset: it checks for @command{gfile} if a suitable
-@command{file} is not found: the latter is available in the @I{OpenCSW}
-collection for Solaris at @uref{https://www.opencsw.org/}.  The source
-repository is @uref{https://astron.com/pub/file/}.}.  (There may be
-rare false positives.)
+of the @command{file} command-line utility if available@footnote{A
+suitable @command{file.exe} is part of the Windows toolset, but minimal
+Linux environments such as Alpine Linux may not have @command{file}
+pre-installed.
+The source repository is @uref{https://astron.com/pub/file/}.
+Command @command{gfile} (from the now-historical @I{OpenCSW} collection
+for Solaris at @uref{https://www.opencsw.org/}) is tried if a suitable
+@command{file} is not found.}.  (There may be rare false positives.)
 
 @item
 The @file{DESCRIPTION} file is checked for completeness, and some of its
@@ -4795,7 +4797,7 @@ importMethodsFrom(package, ...)
 @noindent
 listing the classes and functions with methods respectively.  Suppose we
 had two small packages @pkg{A} and @pkg{B} with @pkg{B} using @pkg{A}.
-Then they could have @code{NAMESPACE} files
+Then they could have @file{NAMESPACE} files
 
 @quotation
 @cartouche
@@ -5004,10 +5006,11 @@ the POSIX standard.  Nor did Solaris support @samp{$(@var{cmd})}.}
 @command{ash} (@uref{https://en.wikipedia.org/wiki/Almquist_shell},
 a `lightweight shell with few builtins) or derivatives such as @command{dash}.
 Beware of assuming that all the POSIX command-line utilities are
-available, especially on Windows where only a subset (which has changed
-by version of @file{Rtools}) is provided for use with @R{}.  One
-particular issue is the use of @command{echo}, for which two behaviours
-are allowed
+available, especially in minimal Linux environments (e.g., Alpine Linux
+does not have @command{file} pre-installed) or on Windows where only a
+subset (which has changed by version of @file{Rtools}) is provided for
+use with @R{}. One particular issue is the use of @command{echo}, for
+which two behaviours are allowed
 (@uref{https://pubs.opengroup.org/onlinepubs/9699919799/utilities/echo.html})
 and both have occurred as defaults on @R{} platforms: portable
 applications should use neither @option{-n} (as the first argument) nor
@@ -5503,7 +5506,7 @@ interface.
 
 @c https://endoflife.date/java
 Java 8 is still in widespread use (and may remain so because of licence
-changes and support on older OSes..  On the other hand, newer platforms
+changes and support on older OSes).  On the other hand, newer platforms
 may only have support for fairly recent versions of Java: for @cputype{arm64}
 macOS the first officially supported version was 17.
 
@@ -5687,6 +5690,13 @@ on @cputype{x86_64} but are likely to be needed on @cputype{ix86}.}) to
 mitigate the effects of extended-precision calculations.  The platform
 most often seen to give different numerical results is @cputype{arm64} macOS,
 so be sure to include that in any empirical determination.
+
+@c Seen in many packages with MKL 2016.2.0
+@strong{Never} test floating-point results using @code{identical()} (even
+though @CRANpkg{testthat} allows it): use a tolerance.  Even running
+the same computation twice may give slightly different results as the
+steps may be re-ordered, some steps may be done in/saved to
+higher-precision, @dots{}.
 
 Tests which involve random inputs or non-deterministic algorithms should
 normally set a seed or be tested for many seeds.
@@ -6243,7 +6253,7 @@ run-time path to the library.
 @item
 Package authors commonly assume things are part of C/C++ when they are
 not: the most common example is POSIX@footnote{Although this was added
-for C23, full support of that is years away.} function @code{strdup}.
+in C23.} function @code{strdup}.
 The most common C library on Linux, @code{glibc}, will hide the
 declarations of such extensions unless a `feature-test macro' is defined
 @strong{before} (almost) any system header is included.  So for
@@ -6610,8 +6620,8 @@ Another build for Windows which may be sufficiently compatible with
 @subsubsection C23 changes
 
 The C23 standard was finally published in Oct 2024, by which time it had
-been widely implemented for a least a couple of years.  It will become
-the default of GCC 15, and @R{} will default to it if available from
+been widely implemented for a least a couple of years.  It became
+the default of GCC 15, and @R{} defaults to it if available from
 @R{} 4.5.0.
 
 @c Some of the more significant changes are
@@ -6738,11 +6748,18 @@ The same applies to @code{INTEGER(KIND=4)} and @code{COMPLEX(KIND=16)}.
 
 Many uses of integer and real variable in Fortran code in packages will
 interwork with C (for example @code{.Fortran} is written in C), and @R{}
-has checked that @code{INTEGER} and @code{DOUBLE PRECISION} correspond to
-the C types @code{int} and @code{double}.  To make this explicit, from
-Fortran 2003 one can use the named constants @code{c_int},
+has checked that @code{INTEGER} and @code{DOUBLE PRECISION} correspond
+to the C types @code{int} and @code{double}.  To make this explicit,
+from Fortran 2003 one can use the named constants @code{c_int},
 @code{c_double} and @code{c_double_complex} from module
-@code{iso_c_binding}.
+@code{iso_c_binding}.  However, this may need to be used with
+caution:@footnote{In 2026 @command{flang} on macOS had
+@code{c_long_double} as a 16-byte type, but neither @command{flang} nor
+Apple @command{clang} supported such a type.}  it does not specify which
+C compiler it is aiming to be compatible with.  Problems have been seen
+with @code{c_long_double} on @cputype{arm64} platforms, where some C
+compilers have @code{long double} the same type as @code{double} and
+others have software emulation.
 
 @item
 The Intel compilers only recognize the extensions @file{.f} (fixed-form)
@@ -8309,6 +8326,9 @@ PDF format will not display in most @HTML{} browsers, but might be the
 best choice in reference manuals.)  Specify the filename relative to
 @file{man/figures} in the @code{\figure} directive.
 
+Figures named @file{logo.png} or @file{logo.svg} will be shown instead
+of the R logo in the dynamic HTML help pages and the single-page HTML
+manuals generated by @code{tools::pkg2HTML}.
 
 @node Insertions
 @section Insertions
@@ -9242,7 +9262,8 @@ This chapter is based on reports from users and the information may not
 be current.
 
 
-@node Profilong on Linux
+@node Profiling on Linux
+@anchor{Profilong on Linux}@c old link
 @subsection Profiling on Linux
 
 Options include using @command{sprof} for a shared object, and
@@ -9256,6 +9277,7 @@ used to be.  There is also `Google Performance Tools', also known as
 All of these work best when @R{} and any packages have been built with
 debugging symbols.
 
+@node perf
 @subsubsection @command{perf}
 
 This seems the most widely distributed tool.
@@ -9291,6 +9313,7 @@ which shows which shared libraries (@abbr{DSO}s) the time was spent in.
 @command{perf annotate} can be used on an application built with GCC and
 @option{-ggdb}: it interleaves disassembled and source code.
 
+@node oprofile and operf
 @subsubsection @command{oprofile} and @command{operf}
 
 The @command{oprofile} project has two modes of operation.  Since
@@ -9376,7 +9399,7 @@ The profiling data is by default stored in sub-directory
 @file{oprofile_data} of the current directory, which can be removed at
 the end of the session.
 
-
+@node sprof
 @subsubsection @command{sprof}
 
 You can select shared objects to be profiled with @command{sprof} by
@@ -12245,6 +12268,7 @@ should @strong{not} be included within an @code{extern "C"} block (as
 they include system headers@footnote{Even including C system headers in
 such a block has caused compilation errors.}).
 
+@node External C++ code
 @subsection External C++ code
 
 Quite a lot of external C++ software is header-only (e.g.@: most of the

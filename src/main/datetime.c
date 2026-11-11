@@ -194,7 +194,7 @@ static bool warn1902 = false;
 static const int month_days[12] =
   {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-// Careful : days_in_year is for base-0 years, days_in_month for base-1970.
+// Careful : days_in_year is for base-0 years, days_in_month for base-1900.
 #define isleap(y) ((((y) % 4) == 0 && ((y) % 100) != 0) || ((y) % 400) == 0)
 #define days_in_year(year) (isleap(year) ? 366 : 365)
 #define days_in_month(mon, yr) ((mon == 1 && isleap(1900+yr)) ? 29 : month_days[mon])
@@ -686,7 +686,7 @@ static stm * localtime0(const double *tp, const int local, stm *ltm)
     /* month within year */
     int mon;
     for (mon = 0;
-	 day >= (tmp = days_in_month(mon, y)); // days_in_month in 1900-based
+	 day >= (tmp = days_in_month(mon, y)); // days_in_month is 1900-based
 	 day -= tmp, mon++);
     res->tm_mon = mon;
     res->tm_mday = day + 1;
@@ -1451,13 +1451,14 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 		Rf_error("output string exceeded 2048 bytes");
 	    }
 
-	    /* Now assume tzone abbreviated name is < 40 bytes,
-	       but they are currently 3 or 4 bytes.
-	    */
+	    /* Time zone abbreviations are currently 3 or 4 bytes, but
+	       both the "zone" component and the "tzone" attribute can be
+	       set by the user, and the strftime output may already have
+	       filled buff, so check the appended length fits. */
 	    if(UseTZ) {
+		const char *p = NULL;
 		if(have_zone) {
-		    const char *p = CHAR(STRING_ELT(VECTOR_ELT(x, 9), i%nlen[9]));
-		    if(strlen(p)) {strcat(buff, " "); strcat(buff, p);}
+		    p = CHAR(STRING_ELT(VECTOR_ELT(x, 9), i%nlen[9]));
 		} else if(!isNull(tz)) {
 		    int ii = 0;
 		    if(LENGTH(tz) == 3) {
@@ -1465,8 +1466,14 @@ attribute_hidden SEXP do_formatPOSIXlt(SEXP call, SEXP op, SEXP args, SEXP env)
 			else if(tm.tm_isdst == 0) ii = 1;
 			else ii = 0; /* Use base timezone name */
 		    }
-		    const char *p = CHAR(STRING_ELT(tz, ii));
-		    if(strlen(p)) {strcat(buff, " "); strcat(buff, p);}
+		    p = CHAR(STRING_ELT(tz, ii));
+		}
+		if(p && *p) {
+		    size_t len = strlen(buff), plen = strlen(p);
+		    if(len + 1 + plen >= sizeof(buff))
+			Rf_error("output string exceeded 2048 bytes");
+		    buff[len] = ' ';
+		    memcpy(buff + len + 1, p, plen + 1);
 		}
 	    }
 	    SET_STRING_ELT(ans, i, mkChar(buff));

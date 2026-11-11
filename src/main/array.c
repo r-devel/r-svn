@@ -1596,7 +1596,7 @@ attribute_hidden SEXP do_matprod(SEXP call, SEXP op, SEXP args, SEXP rho)
 attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP a, r, dims, dimnames, dimnamesnames = R_NilValue,
-	ndimnamesnames, rnames, cnames;
+	ndimnamesnames, rnames, cnames, dimr, nmdma, nmdmr;
     int ldim, ncol = 0, nrow = 0;
     R_xlen_t len = 0;
 
@@ -1672,6 +1672,7 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	}
 	break;
     case VECSXP:
+    case EXPRSXP:
 	for (i = 0, j = 0; i < len; i++, j += nrow) {
 	    if (j > l_1) j -= l_1;
 	    SET_VECTOR_ELT(r, i, VECTOR_ELT(a,j));
@@ -1687,11 +1688,22 @@ attribute_hidden SEXP do_transpose(SEXP call, SEXP op, SEXP args, SEXP rho)
 	UNPROTECT(2); /* r, dimnamesnames */
 	goto not_matrix;
     }
-    PROTECT(dims = allocVector(INTSXP, 2));
-    INTEGER(dims)[0] = ncol;
-    INTEGER(dims)[1] = nrow;
-    setAttrib(r, R_DimSymbol, dims);
-    UNPROTECT(1); /* dims */
+    PROTECT(dimr = allocVector(INTSXP, 2));
+    INTEGER(dimr)[0] = ncol;
+    INTEGER(dimr)[1] = nrow;
+    if(ldim == 2) {
+	nmdma = getAttrib(dims, R_NamesSymbol);
+	if(nmdma != R_NilValue) {
+	    PROTECT(nmdma);
+	    PROTECT(nmdmr = allocVector(STRSXP, 2));
+	    SET_STRING_ELT(nmdmr, 0, STRING_ELT(nmdma, 1));
+	    SET_STRING_ELT(nmdmr, 1, STRING_ELT(nmdma, 0));
+	    setAttrib(dimr, R_NamesSymbol, nmdmr);
+	    UNPROTECT(2);
+	}
+    }
+    setAttrib(r, R_DimSymbol, dimr);
+    UNPROTECT(1); /* dimr */
     /* R <= 2.2.0: dropped list(NULL,NULL) dimnames :
      * if(rnames != R_NilValue || cnames != R_NilValue) */
     if(!isNull(dimnames)) {
@@ -1874,6 +1886,7 @@ attribute_hidden SEXP do_aperm(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
 
     case VECSXP:
+    case EXPRSXP:
 	for (lj = 0, li = 0; li < len; li++) {
 	    SET_VECTOR_ELT(r, li, VECTOR_ELT(a, lj));
 	    CLICKJ;

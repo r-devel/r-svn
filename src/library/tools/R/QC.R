@@ -91,6 +91,7 @@ conceptual_base_code <- c("c.default")
 undoc <-
 function(package, dir, lib.loc = NULL)
 {
+    nsInfo <- NULL
     ## Argument handling.
     ## <NOTE>
     ## Earlier versions used to give an error if there were no Rd
@@ -229,12 +230,12 @@ function(package, dir, lib.loc = NULL)
     if(.isMethodsDispatchOn()) {
         ## Undocumented S4 classes?
         S4_classes <- methods::getClasses(code_env)
-        ## <NOTE>
-        ## There is no point in worrying about exportClasses directives
-        ## in a NAMESPACE file when working on a package source dir, as
-        ## we only source the assignments, and hence do not get any
-        ## S4 classes or methods.
-        ## </NOTE>
+        if(!is.null(nsInfo)) {
+            OK <- nsInfo$exportClasses
+            for(p in nsInfo$exportClassPatterns)
+                OK <- c(OK, grepv(p, S4_classes))
+            S4_classes <- unique(OK)
+        }
         ## The bad ones:
         S4_classes <-
             S4_classes[vapply(S4_classes, utils:::topicName, " ",
@@ -242,16 +243,8 @@ function(package, dir, lib.loc = NULL)
                        %notin% all_doc_topics]
         undoc_things <-
             c(undoc_things, list("S4 classes" = unique(S4_classes)))
-    }
 
-    if(.isMethodsDispatchOn()) {
         ## Undocumented S4 methods?
-        ## <NOTE>
-        ## There is no point in worrying about exportMethods directives
-        ## in a NAMESPACE file when working on a package source dir, as
-        ## we only source the assignments, and hence do not get any
-        ## S4 classes or methods.
-        ## </NOTE>
         .make_S4_method_siglist <- function(g) {
             mlist <- .get_S4_methods_list(g, code_env)
             sigs <- .make_siglist(mlist) #  s/#/,/g
@@ -260,8 +253,10 @@ function(package, dir, lib.loc = NULL)
             else
                 character()
         }
-        S4_methods <- lapply(.get_S4_generics(code_env),
-                             .make_S4_method_siglist)
+        generics <- .get_S4_generics(code_env)
+        if(!is.null(nsInfo))
+            generics <- generics[names(generics) %in% nsInfo$exportMethods]
+        S4_methods <- lapply(generics, .make_S4_method_siglist)
         S4_methods <- as.character(unlist(S4_methods, use.names = FALSE))
 
         ## The bad ones:
@@ -787,7 +782,7 @@ function(package, dir, lib.loc = NULL,
             ##   }
             ##   funlst <- funlst[!vapply(funlst, is_defunct, NA)]
             ## However, packages could add their wrappers to provide
-            ## more convenient messages ... 
+            ## more convenient messages ...
             ## Hence simply drop everything that has an alias in
             if(length(ind <- which(names(db) == db_name_defunct))) {
                 db_aliases_in_package_defunct_Rd <-
@@ -870,7 +865,7 @@ function(package, dir, lib.loc = NULL,
 }
 
 print.codoc <-
-function(x, ...)    
+function(x, ...)
 {
     if(length(y <- format(x, ...)))
         writeLines(paste(y, collapse = "\n\n"))
@@ -923,7 +918,7 @@ function(x, ...)
     ## 'internal'.
     ## However, if a package has a namespace, then all *exported*
     ## functions should have \usage entries (apart from defunct
-    ## functions and S4 generics and functions re-exported from 
+    ## functions and S4 generics and functions re-exported from
     ## other packages), see the above comments for
     ## functions_missing_from_usages).
     ## Show this info unless explicitly turned off.
@@ -945,7 +940,7 @@ function(x, ...)
 
     if(!length(x))
         return(y)
-    
+
     has_only_names <- is.character(x[[1L]][[1L]][["code"]])
 
     format_args <- function(s) {
@@ -1047,7 +1042,7 @@ function(x, ...)
     }
 
     fmt <- function(fname) {
-        xfname <- x[[fname]]                      
+        xfname <- x[[fname]]
         pcn(c(gettextf("Codoc mismatches from Rd file '%s':", fname),
               vapply(seq_along(xfname),
                      function(i) {
@@ -1064,7 +1059,7 @@ function(x, ...)
                      },
                      "")))
     }
-        
+
     c(y, vapply(names(x), fmt, ""))
 }
 
@@ -3363,7 +3358,7 @@ function(dir, force_suggests = TRUE, check_incoming = FALSE,
     ## If the package itself is the VignetteBuilder,
     ## we may not have installed it yet.
     defer <- package_name %in%  db["VignetteBuilder"]
-    vigns <-
+    vigns <- if (!ignore_vignettes)
         .package_vignettes_via_call_to_R(dir = dir,
                                          subdirs = file.path("inst", "doc"),
                                          check = !defer)
@@ -3486,142 +3481,138 @@ function(dir, force_suggests = TRUE, check_incoming = FALSE,
 format.check_package_depends <-
 function(x, ...)
 {
+    fmt <- function(x) {
+        if(length(x)) paste(x, collapse = "\n") else character()
+    }
+    pf2 <- .pretty_format2
+
     c(character(),
-      if(length(x$skipped)) c(x$skipped, ""),
+      if(length(x$skipped))
+          fmt(x$skipped),
       if(length(x$all_depends)) {
-          c("There is circular dependency in the installation order:",
-            .pretty_format2("  One or more packages in", x$all_depends),
-            "  depend on this package (for the versions on the repositories).",
-            "")
+          ## FIXME: i18n
+          fmt(c("There is circular dependency in the installation order:",
+                pf2("One or more packages in", x$all_depends),
+                "depend on this package (for the versions on the repositories)."))
       },
-      if(length(bad <- x$required_but_not_installed) > 1L) {
-          c(.pretty_format2("Packages required but not available:", bad), "")
-      } else if(length(bad)) {
-          c(sprintf("Package required but not available: %s", sQuote(bad)), "")
+      if(length(bad <- x$required_but_not_installed)) {
+          fmt(pf2(ngettext(length(bad),
+                           "Package required but not available:",
+                           "Packages required but not available:"),
+                  bad))
       },
-      if(length(bad <- x$suggested_but_not_installed) > 1L) {
-          c(.pretty_format2("Packages suggested but not available:", bad), "")
-      } else if(length(bad)) {
-          c(sprintf("Package suggested but not available: %s", sQuote(bad)), "")
+      if(length(bad <- x$suggested_but_not_installed)) {
+          fmt(pf2(ngettext(length(bad),
+                           "Package suggested but not available:",
+                           "Packages suggested but not available:"),
+                  bad))
       },
-      if(length(bad <- x$required_but_obsolete) > 1L) {
-          c(.pretty_format2("Packages required and available but unsuitable versions:",
-                            bad),
-            "")
-      } else if(length(bad)) {
-          c(sprintf("Package required and available but unsuitable version: %s", sQuote(bad)),
-            "")
+      if(length(bad <- x$required_but_obsolete)) {
+          fmt(pf2(ngettext(length(bad),
+                           "Package required and available but unsuitable version:",
+                           "Packages required and available but unsuitable versions:"),
+                  bad))
       },
-      if(length(bad <- x$suggests_but_not_installed) > 1L) {
-          c(.pretty_format2("Packages suggested but not available for checking:",
-                            bad),
-            "")
-      } else if(length(bad)) {
-          c(sprintf("Package suggested but not available for checking: %s",
-                     sQuote(bad)),
-            "")
+      if(length(bad <- x$suggests_but_not_installed)) {
+          fmt(pf2(ngettext(length(bad),
+                           "Package suggested but not available for checking:",
+                           "Packages suggested but not available for checking:"),
+                  bad))
       },
-      if(length(bad <- x$enhances_but_not_installed) > 1L) {
-          c(.pretty_format2("Packages which this enhances but not available for checking:",
-                            bad),
-            "")
-      } else if(length(bad)) {
-          c(sprintf("Package which this enhances but not available for checking: %s", sQuote(bad)),
-            "")
+      if(length(bad <- x$enhances_but_not_installed)) {
+          fmt(pf2(ngettext(length(bad),
+                           "Package which this enhances but not available for checking:",
+                           "Packages which this enhances but not available for checking:"),
+                  bad))
       },
-      if(length(bad <- x$required_for_checking_but_not_declared) > 1L) {
-          c(.pretty_format2("VignetteBuilder packages not declared:", bad), "")
-      } else if(length(bad)) {
-          c(sprintf("VignetteBuilder package not declared: %s", sQuote(bad)), "")
+      if(length(bad <- x$required_for_checking_but_not_declared)) {
+          fmt(pf2(ngettext(length(bad),
+                           "VignetteBuilder package not declared:",
+                           "VignetteBuilder packages not declared:"),
+                  bad))
       },
-      if(length(bad <- x$required_for_checking_but_not_installed) > 1L) {
-          c(.pretty_format2("VignetteBuilder packages required for checking but not installed:", bad), "")
-      } else if(length(bad)) {
-          c(sprintf("VignetteBuilder package required for checking but not installed: %s", sQuote(bad)), "")
+      if(length(bad <- x$required_for_checking_but_not_installed)) {
+          fmt(pf2(ngettext(length(bad),
+                           "VignetteBuilder package required for checking but not installed:",
+                           "VignetteBuilder packages required for checking but not installed:"),
+                  bad))
       },
       if(length(bad <- x$missing_vignette_depends)) {
-          c(if(length(bad) > 1L) {
-                c("Vignette dependencies not required:", .pretty_format(bad))
-            } else {
-                sprintf("Vignette dependency not required: %s", sQuote(bad))
-            },
-            strwrap(gettextf("Vignette dependencies (%s entries) must be contained in the DESCRIPTION Depends/Suggests/Imports entries.",
-                             "\\VignetteDepends{}")),
-            "")
+          msg <- gettextf("Vignette dependencies (%s entries) must be contained in the DESCRIPTION Depends/Suggests/Imports entries.",
+                          "\\VignetteDepends{}")
+          fmt(c(pf2(ngettext(length(bad),
+                             "Vignette dependency not required:",
+                             "Vignette dependencies not required:"),
+                    bad),
+                strwrap(msg)))
       },
       if(length(bad <- x$no_vignettes)) {
-          c(if(length(bad) > 1L) {
-                c("Vignette dependencies required without any vignettes:", .pretty_format(bad))
-            } else {
-                sprintf("Vignette dependency required without any vignettes: %s", sQuote(bad))
-            },
-            "")
+          fmt(pf2(ngettext(length(bad),
+                           "Vignette dependency required without any vignettes:",
+                           "Vignette dependencies required without any vignettes:"),
+                  bad))
       },
       if(length(bad <- x$missing_rdmacros_depends)) {
-          c(if(length(bad) > 1L)
-                .pretty_format2("RdMacros packages not required:", bad)
-            else
-                sprintf("RdMacros package not required: %s", sQuote(bad)),
-            strwrap("RdMacros packages must be contained in the DESCRIPTION Imports/Depends entries."),
-            "")
+          msg <- gettext("RdMacros packages must be contained in the DESCRIPTION Imports/Depends entries.")
+          fmt(c(pf2(ngettext(length(bad),
+                             "RdMacros package not required:",
+                             "RdMacros packages not required:"),
+                    bad),
+                strwrap(msg)))
       },
       if(length(bad <- x$missing_namespace_depends)) {
-          error_str <- "missing from DESCRIPTION Imports/Depends entries:"
-          c(if(length(bad) > 1L)
-                .pretty_format2(paste("Namespace dependencies", error_str), bad)
-            else
-                sprintf("Namespace dependency %s %s", error_str, sQuote(bad)),
-          "")
+          fmt(pf2(ngettext(length(bad),
+                           "Namespace dependency missing from DESCRIPTION Imports/Depends entries:",
+                           "Namespace dependencies missing from DESCRIPTION Imports/Depends entries:"),
+                  bad))
       },
       if(length(y <- x$many_depends)) {
-          c(.pretty_format2("Depends: includes the non-default packages:", y),
-            strwrap(paste("Adding so many packages to the search path",
-                          "is excessive",
-                          "and importing selectively is preferable."
-                          , collapse = ", ")),
-            "")
+          msg <- gettext("Adding so many packages to the search path is excessive and importing selectively is preferable.")
+          fmt(c(pf2(gettext("Depends includes the non-default packages:"),
+                    y),
+                strwrap(msg)))
       },
       if(ly <- length(x$many_imports)) {
-          c(sprintf("Imports includes %d non-default packages.", ly),
-            strwrap(paste("Importing from so many packages",
-                          "makes the package vulnerable to any of them",
-                          "becoming unavailable.  Move as many as possible to",
-                          "Suggests and use conditionally."
-                          , collapse = ", ")),
-            "")
+          msg <- gettext("Importing from so many packages makes the package vulnerable to any of them becoming unavailable.  Move as many as possible to Suggests and use conditionally.")
+          fmt(c(gettextf("Imports includes %d non-default packages.", ly),
+                strwrap(msg)))
       },
       if(length(y <- x$bad_engine)) {
-          c(y, "")
+          fmt(y)
       },
       if(length(bad <- x$hdOnly)) {
-          c(if(length(bad) > 1L)
-            c("Packages in Depends/Imports which should probably only be in LinkingTo:", .pretty_format(bad))
-          else
-            sprintf("Package in Depends/Imports which should probably only be in LinkingTo: %s", sQuote(bad)),
-            "")
+          fmt(pf2(ngettext(length(bad),
+                           "Package in Depends/Imports which should probably only be in LinkingTo:",
+                           "Packages in Depends/Imports which should probably only be in LinkingTo:"),
+                  bad))
       },
       if(length(bad <- x[["orphaned"]])) {
-          c(if(length(bad) > 1L)
-            c("Requires orphaned packages:", .pretty_format(bad))
-          else
-            sprintf("Requires orphaned package: %s", sQuote(bad)),
-          "")
+          fmt(pf2(ngettext(length(bad),
+                           "Requires orphaned package:",
+                           "Requires orphaned packages:"),
+                  bad))
       },
       if(length(bad <- x[["orphaned1"]])) {
-          c(if(length(bad) > 1L)
-            c("Requires (indirectly) orphaned packages:", .pretty_format(bad))
-          else
-            sprintf("Requires (indirectly) orphaned package: %s", sQuote(bad)),
-            "")
+          fmt(pf2(ngettext(length(bad),
+                           "Requires (indirectly) orphaned package:",
+                           "Requires (indirectly) orphaned packages:"),
+                  bad))
       },
       if(length(bad <- x[["orphaned2"]])) {
-          c(if(length(bad) > 1L)
-            c("Suggests orphaned packages:", .pretty_format(bad))
-          else
-            sprintf("Suggests orphaned package: %s", sQuote(bad)),
-            "")
+          fmt(pf2(ngettext(length(bad),
+                           "Suggests orphaned package:",
+                           "Suggests orphaned packages:"),
+                  bad))
       }
       )
+}
+
+print.check_package_depends <-
+function(x, ...)
+{
+    if(length(y <- format(x)))
+        writeLines(paste(y, collapse = "\n\n"))
+    invisible(x)
 }
 
 ### * .check_package_description
@@ -3879,6 +3870,20 @@ function(dfile)
     allpkgs <- c(unique(depends), unique(imports),
                  unique(suggests), unique(enhances))
     out <- unique(allpkgs[duplicated(allpkgs)])
+    ## Within a field, an unversioned or identical repeated entry
+    ## cannot be part of such a range, so is redundant.
+    repeated <- list()
+    for(field in c("Depends", "Imports", "LinkingTo", "Suggests", "Enhances")) {
+        if(is.na(entries <- db[field]))
+            next
+        entries <- gsub("[[:space:]]+", "", unlist(strsplit(entries, ",")))
+        entries <- entries[nzchar(entries)]
+        pkgs <- sub("^([[:alnum:].]+).*$", "\\1", entries)
+        bad <- (pkgs %in% pkgs[duplicated(pkgs)]) &
+            (!grepl("(", entries, fixed = TRUE) | duplicated(entries))
+        if(any(bad))
+            repeated[[field]] <- unique(pkgs[bad])
+    }
     links <- missing_incs <- character()
     llinks <-  .get_requires_with_version_from_package_db(db, "LinkingTo")
     have_src <- TRUE # dummy
@@ -3913,6 +3918,7 @@ function(dfile)
         missing_incs <- as.vector(llinks[!nzchar(incs)])
     }
     out <- list(duplicates = unique(allpkgs[duplicated(allpkgs)]),
+                repeated = repeated,
                 bad_links = links, missing_incs = missing_incs,
                 have_src = have_src)
     class(out) <- "check_package_description2"
@@ -3923,29 +3929,37 @@ format.check_package_description2 <-
 function(x, ...)
 {
     c(if(length(xx <- x$duplicates)) {
-        c(if(length(xx) > 1L)
-          "Packages listed in more than one of Depends, Imports, Suggests, Enhances:"
-        else
-          "Package listed in more than one of Depends, Imports, Suggests, Enhances:",
+        c(ngettext(length(xx),
+                   "Package listed in more than one of Depends, Imports, Suggests, Enhances:",
+                   "Packages listed in more than one of Depends, Imports, Suggests, Enhances:"),
           paste(c(" ", sQuote(xx)), collapse = " "),
           "A package should be listed in only one of these fields.")
+      },
+      if(length(xx <- x$repeated)) {
+          c(unlist(Map(function(field, pkgs)
+                           sprintf(ngettext(length(pkgs),
+                                            "Package listed more than once in %s: %s",
+                                            "Packages listed more than once in %s: %s"),
+                                   field, paste(sQuote(pkgs), collapse = " ")),
+                       names(xx), xx),
+                   use.names = FALSE),
+            "Package dependency requirements should not be duplicated.")
       },
       if(!x$have_src)
           "'LinkingTo' field is unused: package has no 'src' directory",
       if(length(xx <- x$bad_links)) {
-          if(length(xx) > 1L)
-              c("Versioned 'LinkingTo' values for",
-                paste(c(" ", sQuote(xx)), collapse = " "),
-                "are only usable in R >= 3.0.2")
-          else
-              sprintf("Versioned 'LinkingTo' value for %s is only usable in R >= 3.0.2",
-                      sQuote(xx))
+          sprintf(
+              ngettext(length(xx),
+                       "Versioned 'LinkingTo' value for %s is only usable in R >= 3.0.2",
+                       "Versioned 'LinkingTo' values for %s are only usable in R >= 3.0.2"),
+              paste(sQuote(xx), collapse = " "))
       },
       if(x$have_src && length(xx <- x$missing_incs)) {
-          c(if(length(xx) > 1L)
-                "Packages in 'LinkingTo' providing no 'include' directory:"
-            else "Package in 'LinkingTo' providing no 'include' directory:",
-            paste(c(" ", sQuote(xx)), collapse = " "))
+          sprintf(
+              ngettext(length(xx),
+                       "'LinkingTo' for %s is unused as it has no 'include' directory",
+                       "'LinkingTo' for %s are unused as they have no 'include' directory"),
+              paste(sQuote(xx), collapse = " "))
       })
 }
 
@@ -5048,7 +5062,7 @@ function(pkgDir)
                     paste(c(utils::head(.eval_with_capture(traceback(tb))$output, 5),
                             "  ..."),
                           collapse = "\n"),
-                    "\n")
+                    "\n", domain = NA)
         }), error = identity, finally = {
             sink(type = "message")
             sink(type = "output")
@@ -6320,12 +6334,15 @@ function(package, dir, lib.loc = NULL)
 
     if(length(ns)) {
         imp <- c(ns$imports, ns$importClasses, ns$importMethods)
-        if (length(imp)) {
+        if(length(imp)) {
             imp <- sapply(imp, function(x) x[[1L]])
             all_imports <- unique(c(imp, all_imports))
         }
     } else imp <- character()
     bad_imp <- setdiff(imports0, all_imports)
+    bad_base <- intersect(imp,
+                          intersect(.get_standard_package_names()$base,
+                                    union(suggests, enhances)))
 
     ## All the non-default packages need to be imported from.
     depends_not_import <- setdiff(depends, c(imp, default_package_names))
@@ -6367,7 +6384,8 @@ function(package, dir, lib.loc = NULL)
             this <- sub('^"(.*)"$', "\\1", this)
             this <- sub("^'(.*)'$", "\\1", this)
             if (p %in% "base") {
-                this <- setdiff(this, ls(baseenv(), all.names = TRUE))
+                this <- setdiff(this,
+                                c(ls(baseenv(), all.names = TRUE), extras$base))
                 if(length(this))
                     imp2un <- c(imp2un, paste(p, this, sep = "::"))
                 next
@@ -6464,6 +6482,7 @@ function(package, dir, lib.loc = NULL)
     res <- list(others = unique(bad_exprs),
                 bad_practice = unique(bad_prac),
                 imports = unique(bad_imports),
+                base = bad_base,
                 imps = unique(bad_imps),
                 in_depends = unique(bad_deps),
                 unused_imports = bad_imp,
@@ -6490,153 +6509,137 @@ function(x, ...)
         config_val_to_logical(Sys.getenv("_R_CHECK_PACKAGES_USED_IGNORE_UNUSED_IMPORTS_",
                                          "FALSE"))
                                         # ^^^^^ rather "TRUE" ??
+
+    fmt <- function(x) {
+        if(length(x)) paste(x, collapse = "\n") else character()
+    }
+
     c(character(),
       if(length(xx <- x$imports)) {
-          if(length(xx) > 1L) {
-              c(gettext("'::' or ':::' imports not declared from:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("'::' or ':::' import not declared from: %s", sQuote(xx))
-          }
+          fmt(c(ngettext(length(xx),
+                         "'::' or ':::' import not declared from:",
+                         "'::' or ':::' imports not declared from:"),
+                .pretty_format(sort(xx))))
+      },
+      if(length(xx <- x$base)) {
+          fmt(c(ngettext(length(xx),
+                         "Base package in Suggests/Enhances imported in NAMESPACE:",
+                         "Base packages in Suggests/Enhances imported in NAMESPACE:"),
+                .pretty_format(sort(xx))))
       },
       if(length(xx <- x$others)) {
-          if(length(xx) > 1L) {
-              c(gettext("'library' or 'require' calls not declared from:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("'library' or 'require' call not declared from: %s",
-                       sQuote(xx))
-          }
+          fmt(c(ngettext(length(xx),
+                         "'library' or 'require' call not declared from:",
+                         "'library' or 'require' calls not declared from:"),
+                .pretty_format(sort(xx))))
       },
       if(length(xx <- x$imps)) {
-          if(length(xx) > 1L) {
-              c(gettext("'loadNamespace' or 'requireNamespace' calls not declared from:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("'loadNamespace' or 'requireNamespace' call not declared from: %s",
-                       sQuote(xx))
-          }
+          fmt(c(ngettext(length(xx),
+                         "'loadNamespace' or 'requireNamespace' call not declared from:",
+                         "'loadNamespace' or 'requireNamespace' calls not declared from:"),
+                .pretty_format(sort(xx))))
       },
       if(length(xx <- x$in_depends)) {
-          msg <- "  Please remove these calls from your code."
-          if(length(xx) > 1L) {
-              c(gettext("'library' or 'require' calls to packages already attached by Depends:"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("'library' or 'require' call to %s which was already attached by Depends.",
-                         sQuote(xx)), msg)
-          }
+          msg <- gettext("Please remove these calls from your code.")
+          fmt(c(ngettext(length(xx),
+                         "'library' or 'require' call to package already attached by Depends:",
+                         "'library' or 'require' calls to packages already attached by Depends:"),
+                .pretty_format(sort(xx)),
+                msg))
       },
       if(length(xx <- x$bad_practice)) {
           msg <-
-              "  Please use :: or requireNamespace() instead.\n  See section 'Suggested packages' in the 'Writing R Extensions' manual."
-          if(length(xx) > 1L) {
-              c(gettext("'library' or 'require' calls in package code:"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("'library' or 'require' call to %s in package code.",
-                         sQuote(xx)), msg)
-          }
+              c(gettext("Please use :: or requireNamespace() instead."),
+                gettext("See section 'Suggested packages' in the 'Writing R Extensions' manual."))
+          fmt(c(ngettext(length(xx),
+                         "'library' or 'require' call in package code:",
+                         "'library' or 'require' calls in package code:"),
+                .pretty_format(sort(xx)),
+                msg))
       },
 
       if(length(xx <- x$unused_imports) && !ignore_unused_imports) {
-          msg <- "  All declared Imports should be used."
-          if(length(xx) > 1L) {
-              c(gettext("Namespaces in Imports field not imported from:"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("Namespace in Imports field not imported from: %s",
-                       sQuote(xx)), msg)
-          }
+          msg <- gettext("All declared Imports should be used.")
+          fmt(c(ngettext(length(xx),
+                         "Namespace in Imports field not imported from:",
+                         "Namespaces in Imports field not imported from:"),
+                .pretty_format(sort(xx)),
+                msg))
       },
       if(length(xx <- x$depends_not_import)) {
-          msg <- c("  These packages need to be imported from (in the NAMESPACE file)",
-                   "  for when this namespace is loaded but not attached.")
-          if(length(xx) > 1L) {
-              c(gettext("Packages in Depends field not imported from:"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("Package in Depends field not imported from: %s",
-                         sQuote(xx)), msg)
-          }
+          msg <- gettext("These packages need to be imported from (in the NAMESPACE file) for when this namespace is loaded but not attached.")
+          fmt(c(ngettext(length(xx),
+                         "Package in Depends field not imported from:",
+                         "Packages in Depends field not imported from:"),
+                .pretty_format(sort(xx)),
+                strwrap(msg)))
       },
       if(length(xx <- x$imp2un)) {
-          if(length(xx) > 1L) {
-              c(gettext("Missing or unexported objects:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("Missing or unexported object: %s", sQuote(xx))
-          }
+          fmt(c(ngettext(length(xx),
+                         "Missing or unexported object:",
+                         "Missing or unexported objects:"),
+                .pretty_format(sort(xx))))
       },
       if(length(xx <- x$imp32)) { ## ' ' seems to get converted to dir quotes
-          msg <- "See the note in ?`:::` about the use of this operator."
-          msg <- strwrap(paste(msg, collapse = " "), indent = 2L, exdent = 2L)
-          if(length(xx) > 1L) {
-              c(gettext("':::' calls which should be '::':"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("':::' call which should be '::': %s",
-                         sQuote(xx)), msg)
-          }
+          msg <- gettext("See the note in ?`:::` about the use of this operator.")
+          fmt(c(ngettext(length(xx),
+                         "':::' call which should be '::':",
+                         "':::' calls which should be '::':"),
+                .pretty_format(sort(xx)),
+                msg))
       },
       if(length(xx <- x$imp3ff)) {
-           if(length(xx) > 1L) {
-              c(gettext("Missing objects imported by ':::' calls:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("Missing object imported by a ':::' call: %s",
-                       sQuote(xx))
-          }
+          fmt(c(ngettext(length(xx),
+                         "Missing object imported by a ':::' call:",
+                         "Missing objects imported by ':::' calls:"),
+                .pretty_format(sort(xx))))
      },
       if(length(xxx <- x$imp3f)) { ## ' ' seems to get converted to dir quotes
-          msg <- "See the note in ?`:::` about the use of this operator."
-          msg <- strwrap(paste(msg, collapse = " "), indent = 2L, exdent = 2L)
+          msg <- gettext("See the note in ?`:::` about the use of this operator.")
           if(incoming) {
               z <- sub(":::.*", "", xxx)
               base <- unlist(.get_standard_package_names()[c("base", "recommended")])
-              if (any(z %in% base))
+              if(any(z %in% base))
                   msg <- c(msg,
-                           "  Including base/recommended package(s):",
+                           gettext("Including base/recommended package(s):"),
                            .pretty_format(intersect(base, z)))
           }
-          if(length(xxx) > 1L) {
-              c(gettext("Unexported objects imported by ':::' calls:"),
-                .pretty_format(sort(xxx)), msg)
-          } else  if(length(xxx)) {
-              c(gettextf("Unexported object imported by a ':::' call: %s",
-                         sQuote(xxx)), msg)
-          }
+          fmt(c(ngettext(length(xxx),
+                         "Unexported object imported by a ':::' call:",
+                         "Unexported objects imported by ':::' calls:"),
+                .pretty_format(sort(xxx)),
+                msg))
       },
       if(isTRUE(x$imp3self)) {
-          msg <-
-              c("There are ::: calls to the package's namespace in its code.",
-                "A package almost never needs to use ::: for its own objects:")
-          c(strwrap(paste(msg, collapse = " "), indent = 0L, exdent = 2L),
-            .pretty_format(sort(x$imp3selfcalls)))
+          msg <- gettext("There are ::: calls to the package's namespace in its code.  A package almost never needs to use ::: for its own objects:")
+          fmt(c(strwrap(msg),
+                .pretty_format(sort(x$imp3selfcalls))))
       },
       if(length(xx <- x$imp3unknown)) {
-          msg <- "See the note in ?`:::` about the use of this operator."
-          msg <- strwrap(paste(msg, collapse = " "), indent = 2L, exdent = 2L)
-          if(length(xx) > 1L) {
-              c(gettext("Unavailable namespaces imported from by ':::' calls:"),
-                .pretty_format(sort(xx)), msg)
-          } else {
-              c(gettextf("Unavailable namespace imported from by a ':::' call: %s",
-                         sQuote(xx)), msg)
-          }
+          msg <- gettext("See the note in ?`:::` about the use of this operator.")
+          fmt(c(ngettext(length(xx),
+                         "Unavailable namespace imported from by a ':::' call:",
+                         "Unavailable namespaces imported from by ':::' calls:"),
+                .pretty_format(sort(xx)),
+                msg))
       },
-      if(length(xx <- x$data)) {
-          if(length(xx) > 1L) {
-              c(gettext("'data(package=)' calls not declared from:"),
-                .pretty_format(sort(xx)))
-          } else {
-              gettextf("'data(package=)' call not declared from: %s",
-                       sQuote(xx))
-          }
+     if(length(xx <- x$data)) {
+         fmt(c(ngettext(length(xx),
+                        "'data(package=)' call not declared from:",
+                        "'data(package=)' calls not declared from:"),
+               .pretty_format(sort(xx))))
       },
       if(nzchar(x$methods_message)) {
-          x$methods_message
+          fmt(x$methods_message)
       })
+}
+
+print.check_packages_used <-
+function(x, ...)
+{
+    if(length(y <- format(x)))
+        writeLines(paste(y, collapse = "\n\n"))
+    invisible(x)
 }
 
 ### * .check_packages_used_in_examples
@@ -7336,11 +7339,15 @@ function(dir, silent = FALSE, def_enc = FALSE, minlevel = -1)
             if(!silent) message(geterrmessage())
         } else print(tmp, minlevel = minlevel)
     }
-    if(length(bad)) bad <- sQuote(sub(".*/", "", bad))
-    if(length(bad) > 1L)
-        cat("problems found in ", paste(bad, collapse=", "), "\n", sep = "")
-    else if(length(bad))
-        cat("problem found in ", bad, "\n", sep = "")
+    if(length(bad)) {
+        bad <- sQuote(sub(".*/", "", bad))
+        cat(ngettext(length(bad),
+                     "problem found in ",
+                     "problems found in "),
+            paste(bad, collapse=", "),
+            "\n",
+            sep = "")
+    }
     invisible()
 }
 
@@ -7515,8 +7522,7 @@ function(x, ...)
                         )
         out <- c(out, strwrap(msg), .pretty_format(x$devices),
                  strwrap(paste("dev.new() is the preferred way to open a new device,",
-                               "in the unlikely event one is needed.",
-                               collapse = " ")))
+                               "in the unlikely event one is needed.")))
     }
     out
 }
@@ -8100,11 +8106,12 @@ function(dir, localOnly = FALSE, pkgSize = NA)
         ## Should be a single URL: this is checked in check_meta()
         ## inside .check_packages().
         z <- parse_URI_reference(v)
-        w <- if(endsWith(tolower(z$authority), "github.com") && 
+        w <- if(endsWith(tolower(z$authority), "github.com") &&
                 !grepl("/issues(/new(/choose)?)?/?$", z$path))
                  paste0(.gh_repo_URL(v), "/issues")
              else if(endsWith(z$authority, "gitlab.com") &&
-                     !endsWith(z$path, "/-/issues"))
+                     !endsWith(z$path, "/-/issues") &&
+                     !endsWith(z$path, "/-/work_items"))
                  paste0(.gh_repo_URL(v), "/-/issues")
              else
                  NULL
@@ -8932,21 +8939,17 @@ function(x, ...)
                         sQuote(paste("License_restricts_use:", y)))
             })),
       fmt(c(if(length(y <- x$depends_with_restricts_use_TRUE)) {
-                paste(c("Package has a FOSS license but eventually depends on the following",
-                        if(length(y) > 1L)
-                            "packages which restrict use:"
-                        else
-                            "package which restricts use:",
+                paste(c(ngettext(length(y),
+                                 "Package has a FOSS license but eventually depends on the following package which restricts use:",
+                                 "Package has a FOSS license but eventually depends on the following packages which restrict use:"),
                         strwrap(paste(y, collapse = ", "),
                                 indent = 2L, exdent = 4L)),
                       collapse = "\n")
             },
             if(length(y <- x$depends_with_restricts_use_NA)) {
-                paste(c("Package has a FOSS license but eventually depends on the following",
-                        if(length(y) > 1L)
-                            "packages which may restrict use:"
-                        else
-                            "package which may restrict use:",
+                paste(c(ngettext(length(y),
+                                 "Package has a FOSS license but eventually depends on the following package which may restrict use:",
+                                 "Package has a FOSS license but eventually depends on the following packages which may restrict use:"),
                         strwrap(paste(y, collapse = ", "),
                                 indent = 2L, exdent = 4L)),
                       collapse = "\n")
@@ -8982,15 +8985,15 @@ function(x, ...)
                         collapse = "\n")
               })),
       if(length(y <- x$uses)) {
-          paste(if(length(y) > 1L)
-                "Uses the superseded packages:" else
-                "Uses the superseded package:",
+          paste(ngettext(length(y),
+                         "Uses the superseded package:",
+                         "Uses the superseded packages:"),
                 paste(sQuote(y), collapse = ", "))
       },
       if(length(y <- x$BUGS)) {
-          paste(if(length(y) > 1L)
-                "Uses the non-portable packages:" else
-                "Uses the non-portable package:",
+          paste(ngettext(length(y),
+                         "Uses the non-portable package:",
+                         "Uses the non-portable packages:"),
                 paste(sQuote(y), collapse = ", "))
       },
       if(length(y <- x$authors_at_R_calls)) {
@@ -9091,10 +9094,9 @@ function(x, ...)
                             paste0("  ", conditionMessage(y))),
                           collapse = "\n")
                 else
-                    paste(c(if(length(y) > 1L)
-                                "Found the following (possibly) invalid URLs:"
-                            else
-                                "Found the following (possibly) invalid URL:",
+                    paste(c(ngettext(length(y),
+                                     "Found the following (possibly) invalid URL:",
+                                     "Found the following (possibly) invalid URLs:"),
                             paste0("  ", gsub("\n", "\n    ", format(y), fixed=TRUE))),
                           collapse = "\n")
             },
@@ -9154,11 +9156,10 @@ function(x, ...)
                 "Checking URLs requires 'libcurl' support in the R build."
             })),
       if(length(y <- x$bad_file_URIs)) {
-          paste(c(if(NROW(y) > 1L)
-                      "Found the following (possibly) invalid file URIs:"
-                  else
-                      "Found the following (possibly) invalid file URI:",
-                  sprintf("  URI: %s\n    From: %s", y[, 1L], y[, 2L])),
+          paste(c(ngettext(NROW(y),
+                           "Found the following (possibly) invalid file URI:",
+                           "Found the following (possibly) invalid file URIs:"),
+                  gettextf("  URI: %s\n    From: %s", y[, 1L], y[, 2L])),
                 collapse = "\n")
       },
       fmt(if(length(y <- x$bad_dois)) {
@@ -9167,32 +9168,29 @@ function(x, ...)
                            paste0("  ", conditionMessage(y))),
                         collapse = "\n")
               else
-                  paste(c(if(length(y) > 1L)
-                              "Found the following (possibly) invalid DOIs:"
-                          else
-                              "Found the following (possibly) invalid DOI:",
+                  paste(c(ngettext(length(y),
+                                   "Found the following (possibly) invalid DOI:",
+                                   "Found the following (possibly) invalid DOIs:"),
                           paste0("  ", gsub("\n", "\n    ", format(y),
                                             fixed = TRUE))),
                         collapse = "\n")
           }),
       fmt(if(length(y <- x$bad_arXiv_ids)) {
-              paste(c(if(length(y) > 1L)
-                          "The Description field contains the following (possibly) invalid arXiv ids:"
-                      else
-                          "The Description field contains the following (possibly) invalid arXiv id:",
+              paste(c(ngettext(length(y),
+                               "The Description field contains the following (possibly) invalid arXiv id:",
+                               "The Description field contains the following (possibly) invalid arXiv ids:"),
                       paste0("  ", gsub("\n", "\n    ", format(y),
                                         fixed = TRUE))),
                     collapse = "\n")
           }),
       fmt(if(length(y <- x$bad_ORCID_iDs)) {
-              paste(c(if(NROW(y) > 1L)
-                          "Found the following (possibly) invalid ORCID iDs:"
-                      else
-                          "Found the following (possibly) invalid ORCID iD:",
-                      sprintf("  iD: %s\t(from: %s)",
-                              unlist(y[, 1L]),
-                              vapply(y[, 2L], paste, "",
-                                     collapse = ", "))),
+              paste(c(ngettext(NROW(y),
+                               "Found the following (possibly) invalid ORCID iD:",
+                               "Found the following (possibly) invalid ORCID iDs:"),
+                      gettextf("  iD: %s\t(from: %s)",
+                               unlist(y[, 1L]),
+                               vapply(y[, 2L], paste, "",
+                                      collapse = ", "))),
                     collapse = "\n")
           }),
       fmt(if(length(y <- x$bad_ROR_IDs)) {
@@ -10420,10 +10418,9 @@ print.check_pragmas <-
 function(x, ...)
 {
     if(length(x)) {
-        if(length(x) == 1L)
-            writeLines("File which contain pragma(s) suppressing diagnostics:")
-        else
-            writeLines("Files which contain pragma(s) suppressing diagnostics:")
+        writeLines(ngettext(length(x),
+                            "File which contains pragma(s) suppressing diagnostics:",
+                            "Files which contain pragma(s) suppressing diagnostics:"))
         .pretty_print(x)
     }
     x

@@ -92,7 +92,7 @@
       \code{gsub_with_transformed_matches()} and
       \code{system_with_capture()} in package \pkg{tools}.
 
-      \item \command{data()} will accept text files with further
+      \item \code{data()} will accept text files with further
       extension \file{.zst} or \file{.zstd}, and read them on builds
       with \command{zstd} support.
 
@@ -107,6 +107,21 @@
       \item \code{tools::add_datalist()} now returns a logical
       (invisibly, instead of \code{NULL}), indicating if it did add
       a \file{data/datalist} file (addressing parts of \PR{18015}).
+
+      \item \code{gzcon} \code{rawConnection}s now can flush and are
+      writable thanks to \I{Ivan Krylov}'s analysis and patch in \PR{19172}.
+
+      \item \code{chol2inv()} gains optional switch \code{diag.only} for
+      shortcutting \code{diag(chol2inv(.))}, wished for with a patch and
+      reproducible analysis in \PR{19177} by \I{Adam Marstrand}.
+
+      \item Dynamic HTML help pages are postprocessed to link function
+      arguments in the Usage section to their documentation in the
+      Arguments section.
+
+      \item The X11 on-screen devices now supports history navigation
+      through (customizable) key bindings.
+
     }
   }
 
@@ -116,6 +131,9 @@
       \command{sed} error when the new \option{--package-metadata} linker flag
       is involved; an \samp{s}-command delimiter other than \samp{:} was needed
       (\PR{19060}, thanks to \I{Jeroen Ooms} and \I{Dirk Eddelbuettel}).
+
+      \item \code{libzstd} is required.  For \R 4.7.0 only, this can be
+      circumvented by configuring with \option{--without-libzstd}.
     }
   }
 
@@ -140,6 +158,17 @@
       \item \command{R CMD build} now excludes an obsolete
       \file{data/datalist} file when the package uses \samp{LazyData},
       and reports when it added one.
+
+      \item The long-standing environment variable \env{PKG_BUILD_DIR}
+      %% added in Sept 2015
+      to control where \command{R CMD INSTALL} unpacks source tarballs
+      is now documented in the R Internals manual.  This is supplemented by
+      \env{PKG_BUILD_DIR_BARE} to use \env{PKG_BUILD_DIR} as the
+      unpacking directory without adding a random path component.
+
+      \item \command{R CMD check} now \samp{NOTE}s packages listed more
+      than once in a dependency field other than to give a version
+      range, e.g., \samp{Imports: utils, stats, utils}.
     }
   }
 
@@ -154,6 +183,17 @@
 
   \subsection{Bug Fixes}{
     \itemize{
+      \item The internal method of \code{untar()} now checks the whole path
+      of every member, so that a final component of \code{".."} or \code{"~"}
+      can no longer place a link or file outside the extraction directory;
+      rejects hard- and symbolic-link targets restored as file copies,
+      which resolve outside the extraction directory or pass through a
+      symbolic link; applies the \command{umask} to extracted files; also no longer
+      restores \samp{setuid} or \samp{setgid} permission bits.
+      Similarly, the internal method of \code{unzip()} no longer extracts
+      through symbolic links below \code{exdir}, both thanks to \I{Kevin
+      Ushey}'s report and patch in \PR{19229}.
+
       \item For \code{x <-  <large-POSIXlt>}, for some boundary cases
       with \code{x$sec - floor(x$sec)} close to 1, \code{c(x)} could
       become one second ahead of \code{x} in \R 4.6.0;  \I{subassignments}
@@ -277,12 +317,6 @@
       \item Changed \code{model.frame.glm()} to use same logic as
       \code{model.frame.lm()} (\PR{19036}, \I{Isaac Gravestock}).
 
-      \item \code{strptime()} now also returns \code{NA} for out of range
-      \code{"\%OS"} and a correct error message in some wrong multibyte
-      cases, fixing \PR{19117} comment #1 and \PR{19122} by \I{Michael
-	Chirico}; additionally, some overflow to \code{Inf} times no longer
-      result in \code{NA}.
-
       \item \code{drop1.glm()} misbehaved for models fitted with
       \code{y = FALSE} (\PR{19128}, \I{Amal Tawfik}).
 
@@ -292,27 +326,23 @@
       \item \code{summary(<free1way>)} renames p-values to \code{Pr(..)}
       and thus \code{printCoefmat} recognises them.
 
-      \item \code{strptime(ch, "...\%OS<n>...")} now disregards contiguous
-      digits in "<n>", for symmetry with \code{strftime()}, fulfilling
-      \I{Frederick Eaton}'s wish in \PR{17209}, thanks to a patch by
-      \I{Suharto Anggono}.
-
-      \item \code{strptime("0", "\%w")} in a \code{"C"} locale now
-      works in valid cases, fixing \PR{19124} thanks to \I{Michael
-        Chirico}.
-
       \item Fix for \PR{19035} (piping \code{postscript()} output)
       thanks to \I{Jeroen Ooms} and \I{Ivan Krylov}.
 
       \item \code{lm(.., weights = *)} gets a new optional argument
       \code{wtol}, defaulting to 0 currently for back compatibility.
       Setting \code{wtol = 1e-30} fixes \PR{17475} thanks to the
-      \sQuote{\I{R Dev Day}} 2025 participants \I{Kelly Bodwin} et al.
+      \sQuote{\I{R Dev Day}} 2025 participants \I{Kelly Bodwin} \abbr{et al.}
+
+      \item \code{glm(*, wtol = <positive>)} treats very small weights as
+      zeros via \code{glm.fit()} and \code{glm.control()}, also with new
+      optional \code{tol} argument, more similar to \code{lm()}, but not
+      equivalently, e.g., for computing \code{AIC()}.
 
       \item Atypical \code{lm()} calls now work better, e.g.,
       \code{fm <- lm(rock); update(fm, . ~ . - perm)} and similar cases,
       fixing \PR{17463} and \PR{17476} and part of \PR{1861}, thanks to
-      \I{Ben Tyner}, \I{Elin Waring}, \I{Kevin Tappe} and other bugzilla
+      \I{Ben Tyner}, \I{Elin Waring}, \I{Kevin Tappe} and other Bugzilla
       contributors.
 
       \item \code{pkg2HTML(dir="pkg")} and other \pkg{tools}
@@ -332,13 +362,157 @@
 
       \item \code{confint(<free1way>, what = "OVL")} now includes one
       for shift effect confidence intervals including zero.
+
+      \item \code{x[logi]}, with \code{logi} a logical index, now warns if
+      \code{length(x)} is not a multiple of \code{length(logi)}, fixing
+      \PR{19155} thanks to several participants in two \I{R Dev Day}s and
+      the \I{R Sprint} in 2026.
+
+      \item The \code{as.list()} method for class \code{"function"} now
+      checks its argument and behaves better for a fake "function", fixing
+      \PR{19173} thanks to \I{Mark Padgham}'s report and patch proposal.
+
+      \item The \code{anova(.., test = tt)} methods for \code{"glm"} and
+      \code{"glmlist"} now do partially match a string \code{tt}, as
+      documented, thanks to \I{Amal Tawfik}'s report and patch in
+      \PR{19179}.
+
+      \item Added protection against out-of-range values for graphical
+      parameters \code{lty}, \code{lend}, and \code{ljoin} in
+      \pkg{graphics} function calls (\PR{19170}). Thanks to \I{Adam
+        Berkeš}.
+
+      \item \code{cairo_pdf()} no longer silently ignores \code{grid.newpage()}
+      calls after drawing a \code{glyphGrob} containing two or more glyphs
+      inside a masked \code{viewport}. Thanks to \I{Trevor Davis}' patch
+      proposal in \PR{19075}.
+
+      \item \code{trace} with non-\code{NULL} \code{exit} replaced
+      rematched S4 method definitions with non-rematched ones that
+      evaluated \code{exit} twice, first on \code{.local} exit and again
+      on method exit.
+
+      \item When tracing rematched S4 methods, \code{trace} could insert
+      a call \code{trace(.local, tracer=, exit=, \dots)} with improper
+      \code{tracer} and \code{exit} components.  Thanks to \I{Hao Wang} for
+      the report (\PR{18707}).
+
+      \item Fixes for \code{grid.pack(row.after=)}
+      (and \code{row.before} and \code{col.after} and
+      \code{col.before}) and \code{grid.pack(dynamic=TRUE)}.
+      Thanks to \I{Athenkosi Nkonyeni} for reports.
+
+      \item \code{parse_Rd()} should no longer leak memory when errors are
+      raised, thanks to \I{Kevin Ushey}'s report and patch in \PR{19184}.
+
+      \item \code{delete.response} inadvertently converted indices
+      (attributes \code{response}, \code{offset}, \code{specials}) from
+      integer to double.  It also replaced \code{NULL} components of
+      \code{specials} with \code{logical(0L)}.
+
+      \item \code{delete.response} did not modify optional attribute
+      \code{dataClasses}.
+
+      \item When interaction terms or offsets were present,
+      \code{drop.terms} and \code{[.terms} could return a \code{terms}
+      object with invalid \code{predvars} and \code{dataClasses}
+      attributes.  One consequence was that \code{x[-j]} and
+      \code{x[seq_len(n)[-j]]} could differ for objects \code{x} with
+      \code{n} terms and indices \code{j} in \code{seq_len(n)}.
+
+      \item \code{unzip(., unzip = "internal")} no longer leaks the zip
+      handle on error, thanks to \I{Kevin Ushey}, see \PR{19233}
+
+      \item The S4 methods for \code{initialize} with signature
+      \code{.Object="oldClass"} or \code{.Object=".environment"}
+      evaluated arguments of type \code{"symbol"} or \code{"call"} when
+      dispatching next methods, causing misbehaviour of
+      \code{new(Class, \dots)} with symbols or calls in \code{\dots}.
+      Thanks to \I{Alexis Sardá-Espinosa} for the report (\PR{16629}).
+
+      \item The S4 methods for \code{initialize} with signature
+      \code{.Object="array"}, \code{.Object="matrix"}, or
+      \code{.Object="ts"} did not give higher precedence to named
+      components of \code{\dots}, violating the convention of the
+      default method.  Thanks to \I{Dan Murphy} for the report
+      (\PR{14323}).
+
+      \item Fix for long-standing bug in Cairo raster output that sometimes
+      produced gaps between adjacent filled rectangles (\PR{16721}).
+      Thanks to \I{Dave Dixon} for the original report and to \I{Ella
+	Kaye}, \I{George Stagg}, \I{Kevin Ushey}, and \I{Ivan Krylov} for
+      contributions to the fix.
+
+      \item \code{str()}'s output puts a space (\code{" "}) after
+      \code{"<some>:"} and \code{"attr(*, \"<....>\")="} consistently now,
+      addressing \PR{18719} by \I{Dave Slager} and \I{Novica Nakov}.
+      This was achieved by no longer \emph{pre}pending spaces, such that
+      e.g., \code{str(pi)}'s output no longer starts with a space.
+
+      This should have little effect on (\command{R CMD check})s, as
+      \command{R CMD Rdiff} does \emph{not} show such differences.
+
+      \item \code{E <- evalSource(\dots, cache = FALSE)} did not create
+      S4 method tables in \code{E}, so \code{insertSource(E, \dots)} did
+      not trace S4 methods.  Thanks to \I{Takeshi Arabiki} for the
+      report (\PR{15242}).
+
+      \item \code{aperm(x, perm)} and \code{t(x)} did not support arrays
+      \code{x} of type \code{"expression"}.
+
+      \item \code{validObject(x)} coerced \code{x} to simple
+      superclasses unnecessarily.  Now validity methods for simple
+      superclasses are called with \code{x} as the argument.  Thanks to
+      \I{Hervé Pagès} for the report (\PR{17944}).
+
+      \item \code{canCoerce} did not consider an uncached implicit
+      coercion from the object class to a subclass.  Thanks to
+      \I{Hervé Pagès} for the report (\PR{16423}).
+
+      \item \code{dev.set(1)} now returns the number and name of the
+      device it opens, as documented, rather than
+      \code{c("null device" = 1)}, thanks to \I{Trevor Davis}' report
+      and patch in \PR{19281}.
+
+      \item \code{str(x)} no longer prints to full internal
+      precision when \code{x} has a class, is of type \code{double}, but
+      \code{is.numeric(x)} is false, as e.g., for \code{"difftime"} objects
+      \code{x}.  Rather, \code{str.default()} obeys its default or explicit
+      \code{digits.d} argument, fixing \PR{19294}.
     }
   }
 }
 
+\section{\Rlogo Changes in R 4.6.2 patched}{
+  \subsection{New Features}{
+    \itemize{
+      \item \code{capabilities()} now reports if \code{zstd} compression
+      is supported.
+    }
+  }
+  \subsection{Installation}{
+    \itemize{
+      \item \command{configure} now reports if \code{zstd} support was found.
 
-\section{\Rlogo Changes in R 4.6.1 patched}{
+      \item \command{configure} issues a warning if no way is found to
+      determine C dependencies, as without this updating a build is
+      unreliable, for example if \file{Rversion.h} is changed (and it
+      holds the SVN revision).  (Seen with macOS \abbr{SDK} 27.2.)
 
+      \item The way \command{configure} tests for C and Objective-C
+      \command{make} dependencies is now less fragile and works on macOS 27.2.
+    }
+  }
+  \subsection{Bug Fixes}{
+    \itemize{
+      \item \code{smooth(*, "S")} now reports a change when the last plateau it splits
+      is unchanged on its right side, so "3RS3R" and "3RSS" are correct now
+      in such cases.  Fixes \PR{19280} reported with patch by \I{Kevin Ushey}.
+    }
+  }
+}
+
+\section{\Rlogo Changes in R 4.6.2}{
   \subsection{Bug Fixes}{
     \itemize{
       \item In plain-text help (\code{Rd2txt}), paragraphs are again
@@ -393,8 +567,95 @@
       \I{R Dev Day @ useR! 2026} contributors, notably
       \I{Tomek Gieorgijewski}, report in \PR{18680}.
 
+      \item \code{strptime(ch, "...\%OS<n>...")} now disregards contiguous
+      digits in "<n>", for symmetry with \code{strftime()}, fulfilling
+      \I{Frederick Eaton}'s wish in \PR{17209}, thanks to a patch by
+      \I{Suharto Anggono}.
+
+      \item \code{strptime()} now also returns \code{NA} for out of range
+      \code{"\%OS"} and a correct error message in some wrong multibyte
+      cases, fixing \PR{19117} comment #1 and \PR{19122} by \I{Michael
+	Chirico}; additionally, some overflow to \code{Inf} times no longer
+      result in \code{NA}.
+
+      \item \code{strptime("0", "\%w")} in a \code{"C"} locale now works in
+      valid cases, returning \code{NA} for invalid week numbers
+      (\code{"\%U"} or \code{"\%W"}), fixing \PR{19124} thanks to
+      \I{Michael Chirico}'s report and notably \I{Suharto Anggono}'s
+      analysis, also correctly fixing \PR{15195}.
+
       \item \code{ksmooth(x,y, x.points=NULL)} now returns an empty (x,y)
       pair instead of crashing \R, fixing \PR{19153}.
+
+      Additionally, also by \I{Adam Berkeš}, \code{x <- rep(999,0);
+	ksmooth(x, x, x.points = 1)} no longer writes out of bounds, fixing
+      \PR{19171}.  Ditto for \code{ksmooth(x, x, n.points = 0)}, \PR{19219}.
+
+      \item \code{besselI(1, 1e11)} and \code{besselK(..)} now signal a
+      warning and return \code{NaN} instead of typically segfaulting,
+      fixing \PR{19175} thanks to \I{Ben Bolker}.
+
+      Further, \code{besselK(1, -1e11)} and similar warn about too large
+      \code{|nu|}, returning \code{NaN} rather than segfaulting, fixing
+      \PR{19196} thanks to \I{Adam Berkeš}.
+
+      \item \code{text.default(.., col = numeric(0))} and similar no longer
+      segfault in "instrumented" versions of R, fixing \PR{19178} thanks to
+      \I{Jiang Yuancheng}'s \command{fusion-fuzz} and \I{Ivan Krylov}.
+
+      \item \command{R CMD rtags} (on Unix-alikes) no longer fails from
+      a bad escape if \command{sh} is \command{bash} or \command{busybox}.
+
+      \item \code{capabilities("X11")} no longer incorrectly returns
+      \code{TRUE} on a Unix-alike where X11 is not actually available when
+      built by a C compiler without C23 \code{enum} base types, thanks to
+      \I{Trevor Davis}' report and patch in \PR{19180}.
+
+      \item \code{predict(smooth.spline(..), deriv = -99)} and similar
+      invalid \code{deriv} values now signal errors instead of segfaulting,
+      thanks to \I{Adam Berkeš}' report and proposal in \PR{19190}.
+
+      \item \code{format(x, width = 2^31 -1)} for an non-ascii
+      character \code{x} such as \code{x = "\u00e9"} now signals an error
+      as the required width is too large, rather than segfaulting,
+      thanks to \I{Adam Berkeš}' report in \PR{19188}.
+
+      \item \code{influence.measures()} inadvertently wasn't updated along
+      with \code{dffits()}, \code{dfbetas()}, \code{covratio()}. \PR{19167} by
+      \I{Amal Tawfik}.
+
+      \item If \code{wilcox.test(..., exact=TRUE)}'s p-value is close to
+      the 0 or 1 boundaries, the calculation no longer suffers severely
+      from cancellation, thanks to \I{Tasuku Kobayashi}'s reports and
+      \I{Ahmed Sattar Jabbar}'s suggestion in \PR{19144}.
+
+      \item Long stringed error messages are now protected from premature
+      garbage collection, fixing \PR{19210}, reported and analyzed by
+      \I{Yuancheng Jiang}.
+
+      \item \code{strsplit(str, perl=TRUE, bytes=TRUE)} no longer accesses
+      invalid memory in case \code{str} is an invalid UTF-8 string, fixing
+      \PR{19212}, thanks to \I{Kevin Ushey}.
+
+      \item \code{isoreg(numeric(0))} no longer returns unallocated component
+      \code{yc}, fixing \PR{19224} thanks to \I{Kevin Ushey}.
+
+      \item \code{KalmanLike(1:5, list(1,2))} and similar no longer
+      segfault, fixing \PR{19217} thanks to \I{Kevin Ushey} and \I{Adam Berkeš}.
+    }
+  }
+  \subsection{Bug Fixes (Windows)}{
+    \itemize{
+      \item \code{path.expand("~")} and similar now should work correctly
+      on Windows when the user name is not in ASCII and neither
+      \env{\%HOME\%} nor \env{\%USER\%} environment variables are set,
+      fixing \PR{18949} thanks to the report and patch from \I{Ivan Krylov}
+      and \I{Mauricio Vargas}'s \I{R Dev Day} work.
+
+      \item \code{file.copy(*, date=TRUE)} no longer opens files for
+      exclusive access when copying the file time.  Consequently, the time
+      \emph{is} copied now and concurrent attempts to open the source file should
+      work reliably, thanks to \I{Kevin Ushey}'s report and patch in \PR{19187}.
     }
   }
 }
@@ -449,7 +710,7 @@
       \item The data part of \code{getGenerics()} listed package names for
       generic functions defined in more than one package.  Now it
       lists generic function names, as intended.  Thanks to \I{Michael
-      Chirico} for report and patch proposal (\PR{19080}).
+	Chirico} for report and patch proposal (\PR{19080}).
 
       \item Overly long \code{dyn.load()} error messages (C level
       \code{dlerror()}), should no longer corrupt its state, thanks to
@@ -542,7 +803,7 @@
       \command{tar} programs do).
 
       \item \code{extSoftVersion()[["zstd"]]} now reports the version of
-      the \command{zstd} compression library if available, thanks to
+      the \code{libzstd} compression library if available, thanks to
       \I{Trevor Davis}' patch proposal in \PR{18914}.
 
       \item New logical \code{option()} \code{quiet}, defaulting to

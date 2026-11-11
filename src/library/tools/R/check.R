@@ -3525,7 +3525,9 @@ add_dummies <- function(dir, Log)
             bad_files <- noEOL<- character()
             for(f in all_files) {
                 if (!file.exists(f)) next
-                contents <- readChar(f, file.size(f), useBytes = TRUE)
+                fsize <- file.size(f)
+                if (fsize == 0L) next
+                contents <- readChar(f, fsize, useBytes = TRUE)
                 if (grepl("\r", contents, fixed = TRUE, useBytes = TRUE))
                     bad_files <- c(bad_files, f)
                 if (!grepl("\n$", contents, useBytes = TRUE))
@@ -4978,10 +4980,7 @@ add_dummies <- function(dir, Log)
             as.numeric(Sys.getenv("_R_CHECK_VIGNETTE_TIMING_CPU_TO_ELAPSED_THRESHOLD_",
                                   NA_character_))
 
-        libpaths <- .libPaths()
-        .libPaths(c(libdir, libpaths))
-        vigns <- pkgVignettes(dir = pkgdir)
-        .libPaths(libpaths)
+        vigns <- .package_vignettes_via_call_to_R(dir = pkgdir, libpaths = c(libdir, .libPaths()))
         if(is.null(vigns)) return()
 
         ## Packages with a 'vignette' subdir not providing vignettes.
@@ -5015,19 +5014,24 @@ add_dummies <- function(dir, Log)
         if (!is_base_pkg) {
             dir <- file.path(pkgdir, "inst", "doc")
             if (dir.exists(dir)) {
-                outputs <- character(length(vigns$docs))
-                .msg <- character()
-                for (i in seq_along(vigns$docs)) {
-                    file <- vigns$docs[i]
-                    name <- vigns$names[i]
-                    engine <- vignetteEngine(vigns$engines[i])
-                    outputs[i] <- tryCatch({
-                        find_vignette_product(name, what="weave", final=TRUE, dir=dir, engine = engine)
-                    }, error = function(e) {
-                        .msg <<- c(.msg, conditionMessage(e))
-                        NA}
-                    )
-                }
+                outputs <- R(function(docs, libpaths) {
+                    .libPaths(libpaths)
+                    outputs <- character(length(vigns$docs))
+                    .msg <- character()
+                    for (i in seq_along(vigns$docs)) {
+                        file <- vigns$docs[i]
+                        name <- vigns$names[i]
+                        engine <- vignetteEngine(vigns$engines[i])
+                        outputs[i] <- tryCatch({
+                            find_vignette_product(name, what="weave", final=TRUE, dir=dir, engine = engine)
+                        }, error = function(e) {
+                            .msg <<- c(.msg, conditionMessage(e))
+                            NA}
+                        )
+                    }
+                    structure(outputs, msg = .msg)
+                }, list(vigns$docs, c(libdir, .libPaths())), "--vanilla")
+                .msg <- attr(outputs, "msg")
                 bad_vignettes <- vigns$docs[is.na(outputs)]
             } else {
                 .msg <- "Directory 'inst/doc' does not exist."
@@ -5198,58 +5202,54 @@ add_dummies <- function(dir, Log)
             ## This is similar to the weave output check above, but we
             ## cannot simply use find_vignette_product(by = "tangle") as
             ## we need to ignore outputs with no R code, see above.
-            ## <FIXME>
-            ## Unfortunately, knitr::vtangle() still creates empty
-            ## outputs when xfun::is_R_CMD_check() which gives true when
-            ##   !is.na(Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA))
-            ## or when
-            ##   tolower(Sys.getenv("_R_CHECK_LICENSE_")) == "true"
-            ## so we have to reset these env vars.
-            rcp <- Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA_character_)
-            rcl <- Sys.getenv("_R_CHECK_LICENSE_")
-            if(!is.na(rcp))
+            bad_vignettes <- R(function(vigns, libpaths) {
+                ## <FIXME>
+                ## Unfortunately, knitr::vtangle() still creates empty
+                ## outputs when xfun::is_R_CMD_check() which gives true when
+                ##   !is.na(Sys.getenv("_R_CHECK_PACKAGE_NAME_", NA))
+                ## or when
+                ##   tolower(Sys.getenv("_R_CHECK_LICENSE_")) == "true"
+                ## so we have to reset these env vars.
                 Sys.unsetenv("_R_CHECK_PACKAGE_NAME_")
-            if(tolower(rcl) == "true")
                 Sys.setenv("_R_CHECK_LICENSE_" = "false")
-            bad_vignettes <- character()
-            for (i in seq_along(vigns$docs)) {
-                tdir <- tempfile()
-                file <- vigns$docs[i]
-                engine <- vignetteEngine(vigns$engines[i])
-                encoding <- vigns$encodings[i]
-                dir.create(tdir)
-                ## Argh.
-                ## At least knitr::markdown() gives error msgs when
-                ## tangling with quiet = TRUE, so we need to capture
-                ## these.
-                .eval_with_capture({
-                    products <-
-                        tryCatch(buildVignette(file, dir = tdir,
-                                               weave = FALSE,
-                                               quiet = TRUE,
-                                               engine = engine,
-                                               encoding = encoding),
-                                 error = identity)
-                })
-                if(!inherits(products, "error") && length(products)) {
-                    ## Hmm ... there should really only be one tangle
-                    ## product.
-                    lines <- readLines(file.path(tdir, products[1L]),
-                                       warn = FALSE)
-                    if(!all(grepl("(^###|^[[:space:]]*$)", lines,
-                                  useBytes = TRUE)) &&
-                       !file.exists(file.path(dir, basename(products[1L])))
-                       )
-                        bad_vignettes <- c(bad_vignettes, file)
+                ## Hopefully knitr::vtangle() will be fixed eventually ...
+                ## </FIXME>
+                .libPaths(libpaths)
+                bad_vignettes <- character()
+                for (i in seq_along(vigns$docs)) {
+                    tdir <- tempfile()
+                    file <- vigns$docs[i]
+                    engine <- vignetteEngine(vigns$engines[i])
+                    encoding <- vigns$encodings[i]
+                    dir.create(tdir)
+                    ## Argh.
+                    ## At least knitr::markdown() gives error msgs when
+                    ## tangling with quiet = TRUE, so we need to capture
+                    ## these.
+                    .eval_with_capture({
+                        products <-
+                            tryCatch(buildVignette(file, dir = tdir,
+                                                   weave = FALSE,
+                                                   quiet = TRUE,
+                                                   engine = engine,
+                                                   encoding = encoding),
+                                     error = identity)
+                    })
+                    if(!inherits(products, "error") && length(products)) {
+                        ## Hmm ... there should really only be one tangle
+                        ## product.
+                        lines <- readLines(file.path(tdir, products[1L]),
+                                           warn = FALSE)
+                        if(!all(grepl("(^###|^[[:space:]]*$)", lines,
+                                      useBytes = TRUE)) &&
+                           !file.exists(file.path(dir, basename(products[1L])))
+                           )
+                            bad_vignettes <- c(bad_vignettes, file)
+                    }
+                    unlink(tdir, recursive = TRUE)
                 }
-                unlink(tdir, recursive = TRUE)
-            }
-            if(tolower(rcl) == "true")
-                Sys.setenv("_R_CHECK_LICENSE_" = rcl)
-            if(!is.na(rcp))
-                Sys.setenv("_R_CHECK_PACKAGE_NAME_" = rcp)
-            ## Hopefully knitr::vtangle() will be fixed eventually ...
-            ## </FIXME>
+                bad_vignettes
+            }, list(vigns, c(libdir, .libPaths())), "--vanilla")
             if(nb <- length(bad_vignettes)) {
                 if(!any) noteLog(Log)
                 any <- TRUE
@@ -5505,7 +5505,7 @@ add_dummies <- function(dir, Log)
                         paste(c("From the bibliography engine:", # BibTeX or biber
                                 bibwarnings), collapse = "\n  ")
                 )
-                ltx_err <- any(grepl("LaTeX error", out, ignore.case = TRUE,
+                ltx_err <- any(grepl("(LaTeX|BibTeX) error", out, ignore.case = TRUE,
                                      useBytes = TRUE))
                 iskip <- grep("^Note: skipping .* dependencies:", out,
                               useBytes = TRUE)
@@ -6387,6 +6387,10 @@ add_dummies <- function(dir, Log)
                              "^ld: warning: -single_module is obsolete",
                              "^ld: warning: .*was built for newer"
                              )
+                ## rustc wrning
+                warn_re <- c(warn_re,
+                             "^warning: the following packages contain code that will be rejected by a future version of Rust"
+                             )
 
                 ## <FIXME>
                 ## Support for RcppArmadillo 15 transition.
@@ -6739,9 +6743,12 @@ add_dummies <- function(dir, Log)
         }
     } ## {check_install()}
 
-    ## This requires a GNU-like 'du' with 1k block sizes,
+    ## This requires a GNU-like 'du' with 1024-byte block sizes,
     ## so use -k (which POSIX requires).
     ## It also depends on the total being last.
+    ## NB: this can (transiently) overstate disk usage due to filesystem
+    ## preallocation, notably on XFS (where usage reported for */<pkg>.rdb
+    ## has been observed to shrink noticeably after some delay)
     check_install_sizes <- function()
     {
         pd <- file.path(libdir, pkgname)
@@ -7047,21 +7054,21 @@ add_dummies <- function(dir, Log)
                          if(!check_incoming) "bad_engine")
             if(!all(names(res) %in% allowed)) {
                 errorLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"), "\n")
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 if(length(res$suggested_but_not_installed))
-                   wrapLog("The suggested packages are required for",
+                   wrapLog("\nThe suggested packages are required for",
                            "a complete check.\n",
                            "Checking can be attempted without them",
                            "by setting the environment variable",
                            "_R_CHECK_FORCE_SUGGESTS_",
-                           "to a false value.\n\n")
-                wrapLog(msg_DESCRIPTION)
+                           "to a false value.")
+                wrapLog(paste0("\n", msg_DESCRIPTION))
                 summaryLog(Log)
                 do_exit(1L)
             } else if (length(res$required_for_checking_but_not_installed)) {
                 warningLog(Log, "Cannot process vignettes")
                 do_vignettes  <<- FALSE
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
             } else {
                 if( length(res[["orphaned"]]) || length(res[["orphaned1"]]) )
                     warningLog(Log)
@@ -7069,7 +7076,7 @@ add_dummies <- function(dir, Log)
                     infoLog(Log)
                 else
                     noteLog(Log)
-                printLog0(Log, paste(out, collapse = "\n"))
+                printLog0(Log, paste(out, collapse = "\n\n"), "\n")
                 ## if(length(res$orphaned2))
                 ##     wrapLog("\nSuggested packages need to be used conditionally:",
                 ##             "this is particularly important for",

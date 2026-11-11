@@ -1,10 +1,11 @@
 #### lm, glm, aov, etc --- typically *strict* tests (no *.Rout.save)
 
-options(warn = 2, width = 101) # all warnings must be asserted below
+options(warn = 2, width = 101, warnPartialMatchArgs = TRUE) # all warnings must be asserted below
 all.equal.0 <- function(x,y, ...) all.equal(x,y, tolerance = 0, ...)
 all.equal15 <- function(x,y, ...) all.equal(x,y, tolerance = 1e-15, ...)
 assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
-
+## for comparisons, may drop call:
+noC  <- function(L) L[-match("call", names(L))]
 
 data(mtcars)
 mtcar2 <- within(mtcars, {
@@ -332,7 +333,7 @@ stopifnot(exprs = {
     length(ae15) == 2
     all.equal( coef (fit  ),   coef (fit15),     tolerance = 6e-16)# (0 ; Lnx x86_64)
     all.equal( coef (fit  ),   coef (fitw30),    tolerance = 1e-14)# seen 1.135e-15 [Lnx x86_64]
-    all.equal( coef (fitw30),  coef (fiF100w30), tolerance = 2e-15)# seen 3.43 e-16 [Lnx x86_64]
+    all.equal( coef (fitw30),  coef (fiF100w30), tolerance = 1e-14)# seen 2.146e-15 [Apple M1, Xcode 26.3, LLVM flang 23.1.1]
     all.equal(resid (fitw30), resid (fiF100w30), tolerance = 2e-13)# .. 3.81e-14
     all.equal(fitted(fitw30), fitted(fiF100w30), tolerance = 1e-13)# .. 1.38e-14
 })
@@ -349,6 +350,29 @@ all.equal15(resid(fit), resid(fiF100))# Mean rel..diff.: 2.24..
 ## and it's only at the 2 very small weights locations:
 (iDiff <- which(0 < unname(zapsmall(abs(1 - resid(fiF100)/resid(fit)))))) # 2 3
 stopifnot(identical(iDiff, 2:3))
+
+## *sub models drop the "almost 0 weight" observations entirely:  subset = -(1:3)
+            fsub  <-  lm(y~x, weights = wts, data = df, subset = -(1:3))
+            fsub1 <-  lm(y~x, weights = wts, data = df, subset = -1)
+## small weights with glm()    ---------- FIXME unfinished (??) in ../R/glm.R <<<< logLik(glm(*, wtol=*))
+            gfit  <- glm(y~x, weights = wts, data = df)
+assertWarnV(gfw30 <- glm(y~x, weights = wts, data = df, wtol = 1e-30)) # currently warning on treating small wt as 0
+            gfsub <- glm(y~x, weights = wts, data = df, subset = -(1:3))
+            gfsub1<- glm(y~x, weights = wts, data = df, subset = -1)
+
+assertWarnV(sgfit  <- summary(gfit)) # with a summary.glm() warning about zero weight
+assertWarnV(sgfw30 <- summary(gfw30))
+sfit <- summary(fit)
+stopifnot(exprs = {
+    all.equal.0(coef(fit),          coef(fsub1))
+    all.equal.0(coef(gfit),         coef(gfsub1))
+    all.equal15(coef(fit),          coef(gfit))
+    all.equal15(coef(sfit), coef(sgfit))
+    all.equal.0(coef(sfit), coef(summary(fsub1)))
+    ## dropping the 3 small-weight obs does change 'df' -> std.err, etc:
+    all.equal(coef(fsub),          coef(fit), tolerance = 1e-14) # seen 1.135e-15
+    all.equal(coef(summary(fsub)), coef(sfit), tolerance = 0.10)# seen 0.053
+})
 
 ###--- update(<lm.fit>) in  *a*typical cases
 ## [Bug  1861]  update() can not find objects    --- 1 Aug 2002
@@ -389,16 +413,27 @@ stopifnot(exprs = { # the fitted models now have identical 'call':
     ##
     all.equal.0( wls2(rock.mod1), wls2(rock.mod2) -> wu2) # Error in eval(..) : object 'res2' not found
     all.equal.0( wls2(rock.modf) -> wuf, wu2)
-    all.equal.0( wuf, wls2(rock.modf2))
-    all.equal.0( wuf, wls2(rock.modf0))
-    ## but wls2(umod0) or  wls2(umod*)  all fail
+    all.equal.0(    wuf,      wls2(rock.modf2))
+    all.equal.0(noC(wuf), noC(wls2(rock.modf0)))
+    ## but wls2(umod0) or  wls2(umod*)  all fail [[TODO ?]]
 })
+## A version without data i.e. global variables!
+counts <- c(18,17,15,20,10,20,25,13,12)
+treatment <- gl(3,3)
+form <- counts ~ treatment # formula as object
+flm <- lm(form)
+(u1 <- update(flm)) # calling update.default(flm) -- failed in R-devel 90471
+rm(form)
+(u2 <- update(flm))
+stopifnot(all.equal.0(u1, flm),
+          identical(u1, u2))
+
 
 ##----- the same with glm(): ----------
-
 rock.glm0 <- glm(area ~ . , data = rock)
 rock.glm1 <- glm(area ~ peri + shape + perm, data = rock)
 rock.glm2 <- glm(rock)
+form <- formula(rock.mod1)
 rock.glmf <- glm(form, data = rock)
 rock.glmf0<- glm(form0,data = rock)
 rock.glmf2<- glm(formula(rock.glm1), data = rock)
@@ -424,11 +459,20 @@ stopifnot(exprs = { # the fitted models now have identical 'call':
     all.equal.0( uglmf, uglmf2)
     all.equal.0(uglm1$call, uglm2$call) # non identical environment(.$formula)
     ##
-    all.equal.0( wls2(rock.glm1), wls2(rock.glm2) -> wu2)
-    all.equal.0( wls2(rock.glmf) -> wuf, wu2)
-    all.equal.0( wuf, wls2(rock.glmf0))
-    all.equal.0( wuf, wls2(rock.glmf2))
+    all.equal.0( wls2(rock.glm1 ), wu2 <- wls2(rock.glm2))
+    all.equal.0( wls2(rock.glmf ), wu2)
+    all.equal.0( wls2(rock.glmf2), wu2)
+    is.call({ wu0 <- wu2; wu0$formula <- form0 })
+    all.equal.0(noC(wu0), noC(wls2(rock.glmf0)))
 })
+form <- counts ~ treatment
+fglm <- glm(form, family = poisson())
+(u1 <- update(fglm))
+rm(form)
+(u2 <- update(fglm))
+stopifnot(all.equal.0(u1, fglm),
+          all.equal.0(u1, u2))
+
 
 ## AIC & logLik() --- PR#16008
 dropN <- function(llik) `attr<-`(llik, "nall", NULL)
@@ -442,6 +486,26 @@ stopifnot({
     all.equal15(lLg, #    __________________ was  -Inf
                 structure(-0.471028026733263, nobs = 9L, df = 3, class = "logLik"))
 })
+
+## logLik(glm(*, wtol > 0)) *does* behave differently, than lm(*, wtol > 0)
+prop <- function(FN) { stopifnot(is.function(FN))
+    rbind(
+        fit = c(lm = FN(fit),    glm = FN(gfit))
+      , sub1= c(lm = FN(fsub1) , glm = FN(gfsub1))
+      , w30 = c(lm = FN(fitw30), glm = FN(gfw30))
+      , sub = c(lm = FN(fsub)  , glm = FN(gfsub))
+    )
+}
+## For  logLik, AIC(.), sigma(.)  too:   glm <==> subsetting
+(llik  <- prop(logLik))
+(aics  <- prop(AIC))
+(xAICs  <- prop(\(.) extractAIC(.)[2])) # quite different for the lm()s [as docu.]
+(sigmas<- prop(sigma)) |> print() |> assertWarnV()
+(nObs  <- prop(nobs)) # here, lm & glm  both "keep" nobs=20 {for 'w30': wtol > 0}
+
+stopifnot(nObs["fit",] == 20L,
+          all.equal15(aics [,"glm"],
+                      xAICs[,"glm"]))
 
 
 ## lm() and glm() with only __data__ (i.e., no formula) args:
@@ -459,6 +523,24 @@ stopifnot(exprs = {
     abs(resRelD) < 1e-12 # Lnx x86_c64 {default qr() tol} has max(.) = 7.26e-14
 })
 
+## R-devel (4.7.0) Sep.2026 introducing extra arguments  {tol, wtol}
+## ------->  Does a previously correct 'control' still work?  [Yes! see below]
+glmCn <- list(epsilon = 1e-08, maxit = 25, trace = FALSE, tol = 1e-8/1000, wtol = 0)
+glmCo <- list(epsilon = 1e-08, maxit = 25, trace = FALSE)
+stopifnot(identical(if(getRversion() >= "4.7") glmCn else glmCo,
+                    glm.control()))
+go <- glm(rock, control=glmCo)
+gn <- glm(rock)
+stopifnot(all.equal15(noC(go), noC(gn))) # still ok in R-devel
+## "harder:"
+gcL <- list(eps = 1e-15)
+(go1 <- glm(rock, control = gcL)) |> tools::assertWarning(verbose=TRUE) # about 'eps'
+          all.equal15(go1, gn) # not just call, also 'qr$tol' and 'control' differ
+stopifnot(all.equal15(summary(coef(go1)), summary(coef((gn))))) # still ok in R-devel
+
+
+
+## NB:  Also consider demos(\"glm.vr\") -->>>>> ../demo/glm.vr.R  <<<<<<<<<
 
 
 ### Local variables:
