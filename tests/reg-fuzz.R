@@ -176,6 +176,19 @@ tools::assertError(format(y, "%Y", usetz = TRUE))
 ## overflowed a stack buffer, typically aborting, in R <= 4.6.2
 
 
+## gc() accounting after releasing a long string that carries a hash value
+local({
+    used <- function() gc()["Vcells", "used"]
+    v0 <- used()
+    errs <- lapply(1:8, function(i)
+        tryCid(as.name(paste0(strrep("a", 20000), i))))
+    stopifnot(vapply(errs, inherits, NA, what = "error"),
+              abs(used() - v0) < 1e6)
+})
+## each rejected name was released as if its length were its hash value, so
+## 'used' wrapped around and the vector heap limit stopped applying, in R <= 4.6.2
+
+
 
 
 ## keep at end
