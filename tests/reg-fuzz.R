@@ -176,7 +176,7 @@ tools::assertError(format(y, "%Y", usetz = TRUE))
 ## overflowed a stack buffer, typically aborting, in R <= 4.6.2
 
 
-## gc() accounting after releasing a long string that carries a hash value
+## gc() accounting after releasing a long string that carries a hash value -- PR#19195
 local({
     used <- function() gc()["Vcells", "used"]
     v0 <- used()
