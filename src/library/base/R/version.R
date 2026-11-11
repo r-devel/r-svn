@@ -316,7 +316,7 @@ function(..., na.rm)
 as.character.numeric_version <-
 function(x, ...) 
 {
-    v = attr(x, "source")
+    v <- attr(x, "source")
     if (!is.null(v)) v else format(x)
 }
 
