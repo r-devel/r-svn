@@ -314,8 +314,11 @@ function(..., na.rm)
 }
 
 as.character.numeric_version <-
-function(x, ...)
-    as.character(format(x))
+function(x, ...) 
+{
+    v = attr(x, "source")
+    if (!is.null(v)) format(x) else v
+}
 
 as.data.frame.numeric_version <- as.data.frame.vector
 
@@ -359,10 +362,6 @@ function(x, incomparables = FALSE, ...)
 format.numeric_version <-
 function(x, ...)
 {
-    attr <- attr(x, "source")
-    if (!is.null(attr)) {
-        return(attr)
-    }
     x <- unclass(x)
     y <- rep.int(NA_character_, length(x))
     names(y) <- names(x)
