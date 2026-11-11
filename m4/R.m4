@@ -1919,12 +1919,13 @@ fi
 AC_DEFUN([R_BSD_NETWORKING],
 [AC_CACHE_CHECK([for BSD networking],
                 [r_cv_bsd_networking],
-[case "${host_os}" in
+[r_cv_bsd_networking=no
+case "${host_os}" in
   cygwin*|mingw*|windows*|winnt|msys)
     r_cv_bsd_networking=yes
     ;;
 esac
-if test "${ac_cv_bsd_networking}" != yes \
+if test "${r_cv_bsd_networking}" != yes \
      && test "${ac_cv_header_netdb_h}" = yes \
 dnl needed for Rhttpd.c but missed before R 3.2.4
      && test "${ac_cv_header_arpa_inet_h}" = yes \
@@ -1933,10 +1934,10 @@ dnl needed for Rhttpd.c but missed before R 3.2.4
      && test "${ac_cv_search_connect}" != no \
      && test "${ac_cv_search_gethostbyname}" !=  no; then
   r_cv_bsd_networking=yes
-fi
-if test "${ac_cv_bsd_networking}" = no; then
-  AC_MSG_ERROR([BSD networking functions are required])
 fi])
+if test "${r_cv_bsd_networking}" = no; then
+  AC_MSG_ERROR([BSD networking functions are required])
+fi
 ])# R_BSD_NETWORKING
 
 ## R_BITMAPS
