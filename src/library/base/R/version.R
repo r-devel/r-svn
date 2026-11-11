@@ -317,7 +317,7 @@ as.character.numeric_version <-
 function(x, ...) 
 {
     v = attr(x, "source")
-    if (!is.null(v)) format(x) else v
+    if (!is.null(v)) v else format(x)
 }
 
 as.data.frame.numeric_version <- as.data.frame.vector
