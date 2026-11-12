@@ -7170,10 +7170,10 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
 		error("allocation error in memCompress with libdeflate");
 	}
 	size_t inlen = XLENGTH(from);
-	size_t outlen = libdeflate_zlib_compress_bound(c, inlen);
+	size_t outlen = libdeflate_gzip_compress_bound(c, inlen);
 	Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
         size_t res =
-	    libdeflate_zlib_compress(c, RAW(from), inlen, buf, outlen);
+	    libdeflate_gzip_compress(c, RAW(from), inlen, buf, outlen);
 	if(res == 0)
 	    error("internal libdeflate error in memCompress");
 	ans = allocVector(RAWSXP, res);
@@ -7182,13 +7182,27 @@ do_memCompress(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 #else
     {
-	Bytef *buf;
-	/* could use outlen = compressBound(inlen) */
-	uLong inlen = XLENGTH(from),
-	    outlen = (uLong)(1.001*(double)inlen + 20);
-	buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-	res = compress(buf, &outlen, (Bytef *)RAW(from), inlen);
+	z_stream strm;
+	memset(&strm, 0, sizeof(strm));
+	uLong inlen = XLENGTH(from);
+
+	res = deflateInit2(&strm, 6, Z_DEFLATED, MAX_WBITS + 16, 8,
+			   Z_DEFAULT_STRATEGY);
 	if(res != Z_OK) error("internal error %d in memCompress", res);
+	/* +18 covers the gzip header and trailer */
+	uLong outlen = deflateBound(&strm, inlen) + 18;
+	Bytef *buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+	strm.next_in = (Bytef *) RAW(from);
+	strm.avail_in = inlen;
+	strm.next_out = buf;
+	strm.avail_out = outlen;
+	res = deflate(&strm, Z_FINISH);
+	if(res != Z_STREAM_END) {
+	    deflateEnd(&strm);
+	    error("internal error %d in memCompress", res);
+	}
+	outlen = strm.total_out;
+	deflateEnd(&strm);
 	ans = allocVector(RAWSXP, outlen);
 	if (outlen)
 	    memcpy(RAW(ans), buf, outlen);
