@@ -862,12 +862,6 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
     else if (data.ans_flags &	2) mode = LGLSXP;
     else if (data.ans_flags &	1) mode = RAWSXP;
 
-    /* Nothing but NULLs, as in c(). */
-    if (mode == NILSXP) {
-	UNPROTECT(1);
-	return R_NilValue;
-    }
-
     /* Allocate the return value and set up to pass through */
     /* the arguments filling in values of the returned object. */
 
