@@ -1691,6 +1691,12 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
 	for (; frmls != R_NilValue; frmls = CDR(frmls))
 	    defineVar(TAG(frmls), R_NilValue, newenv);
 	for (SEXP env = cmpenv; env != top; env = CDR(env)) {
+	    if (env == R_EmptyEnv) {
+		/* top is not an ancestor of cmpenv: fun cannot be compiled */
+		UNPROTECT(1); /* newenv */
+		return top;
+	    }
+
 	    if (IS_STANDARD_UNHASHED_FRAME(env))
 		cmpenv_enter_frame(FRAME(env), newenv);
 	    else if (IS_STANDARD_HASHED_FRAME(env)) {
@@ -1704,7 +1710,7 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
 	    }
 		/* topenv is a safe conservative answer; if a closure
 		   defines anything, its environment will not match, and
-		   it will never be compiled */
+		   it will be compiled again */
 		/* FIXME: would it be safe to simply ignore elements of
 		   of these environments? */
 	}
@@ -1866,10 +1872,39 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     return val;
 }
 
+/* Cached code compiled for the local variables in cmpenv cannot be
+   used for fun. Compiling fun as it is would leave functions with
+   either set of local variables replacing each other's cache entry,
+   so return a copy of fun whose environment defines both sets: the
+   code compiled for the copy can be used for both. */
+static SEXP jit_merged_closure(SEXP fun, SEXP cmpenv)
+{
+    SEXP top = topenv(R_NilValue, CLOENV(fun));
+    if (cmpenv == top || cmpenv_topenv(cmpenv) != top)
+	return fun; /* cmpenv has no local variables that could be used */
+
+    SEXP newenv = make_cached_cmpenv(fun);
+    if (newenv == top)
+	return fun; /* the local variables of fun are not known */
+
+    PROTECT(newenv);
+    SEXP h = HASHTAB(cmpenv);
+    int n = length(h);
+    for (int i = 0; i < n; i++)
+	cmpenv_enter_frame(VECTOR_ELT(h, i), newenv);
+
+    SEXP val = PROTECT(mkCLOSXP(FORMALS(fun), BODY(fun), newenv));
+    SHALLOW_DUPLICATE_ATTRIB(val, fun);
+    UNPROTECT(2); /* newenv, val */
+
+    return val;
+}
+
 /* fun is modified in-place when compiled */
 static void R_cmpfun(SEXP fun)
 {
     R_exprhash_t hash = 0;
+    SEXP cmpenv = R_NilValue; /* of a cache entry that fun cannot use */
     if (jit_strategy != STRATEGY_NO_CACHE) {
 	hash = hashfun(fun);
 	SEXP entry = get_jit_cache_entry(hash);
@@ -1906,16 +1941,19 @@ static void R_cmpfun(SEXP fun)
 		/* FIXME: revisit this when deep comparison of environments
 			  (and srcrefs) is available */
 	    } else {
-		SET_NOJIT(fun);
-		/**** also mark the cache entry as NOJIT, or as need to see
-		      many times? */
-		return;
+		/* Marking fun as NOJIT here would keep it in the AST
+		   interpreter for good, however often it is called, so
+		   re-compile and re-cache in this case as well. */
+		cmpenv = jit_cache_env(entry);
 	    }
 	}
 	PRINT_JIT_INFO;
     }
 
-    SEXP val = R_cmpfun1(fun);
+    /* the closure passed to the compiler */
+    SEXP cmpfun = cmpenv == R_NilValue ? fun : jit_merged_closure(fun, cmpenv);
+    PROTECT(cmpfun);
+    SEXP val = R_cmpfun1(cmpfun);
 
     if (TYPEOF(BODY(val)) != BCODESXP)
 	SET_NOJIT(fun);
@@ -1924,6 +1962,7 @@ static void R_cmpfun(SEXP fun)
 	    set_jit_cache_entry(hash, val); /* val is protected by callee */
 	SET_BODY(fun, BODY(val));
     }
+    UNPROTECT(1); /* cmpfun */
 }
 
 static SEXP R_compileExpr(SEXP expr, SEXP rho)

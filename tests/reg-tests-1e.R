@@ -4499,6 +4499,33 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## JIT compilation of functions sharing a body with an already compiled one
+is.compiled <- function(f) typeof(.Internal(bodyCode(f))) == "bytecode"
+f1 <- function(x) { for (i in x) NULL }
+f1(1); f1(1)
+if(is.compiled(f1)) { # not when the JIT is disabled
+    f2 <- function(x, y) { for (i in x) NULL }
+    f2(1); f2(1)
+    fn <- quote(function(x) { for (i in x) x <- i; max(x) })
+    f3 <- eval(fn, new.env())
+    f4 <- eval(fn, new.env())
+    f5 <- eval(fn, list2env(list(max = function(...) "local")))
+    f6 <- eval(fn, new.env())
+    for(i in 1:3) r <- list(f3(1:3), f4(1:3), f5(1:3), f6(1:3))
+    stopifnot(is.compiled(f2), is.compiled(f3), is.compiled(f4),
+              is.compiled(f5), is.compiled(f6),
+              identical(r, list(3L, 3L, "local", 3L)))
+    ## environments that do not lead to a top level environment
+    f7 <- f8 <- function(x) { for (i in x) NULL }
+    environment(f7) <- new.env(hash = FALSE, parent = emptyenv())
+    environment(f8) <- list2env(list("{" = function(...) "local"),
+                                parent = emptyenv())
+    for(i in 1:3) r <- list(tryCid(f7(1)), f8(1))
+    stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
+}
+## f2, f4, f5 and f6 were never compiled, and the second call of f7
+## did not return, in R <= 4.6.2
+
 
 
 ## keep at end
