@@ -4434,6 +4434,14 @@ stopifnot(identical(r, paste("'difftime' num", fmtd)))
 ## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
 
 
+## socketSelect() on a socket connection that is not open -- PR#19298
+s <- socketConnection(port = 8083L, open = "")
+msg <- tryCmsg(socketSelect(list(s), timeout = 0))
+close(s)
+stopifnot(is.character(msg), !englishMsgs || grepl("not open", msg))
+## used an uninitialized file descriptor, possibly segfaulting, in R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
