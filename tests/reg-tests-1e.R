@@ -4434,6 +4434,18 @@ stopifnot(identical(r, paste("'difftime' num", fmtd)))
 ## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
 
 
+## forcing a long chain of forwarded variable promises
+mk <- function(v) environment()
+step <- compiler::compile(quote(mk(v))) # a promise for the variable 'v'
+e <- mk(1)
+for(i in 1:100) e <- eval(step, e)
+stopifnot(identical(e$v, 1))
+for(i in 1:1e5) e <- eval(step, e)
+r <- tryCatch(e$v, error = identity)
+stopifnot(identical(r, 1) || inherits(r, "error"))
+rm(mk, step, e, r)
+## C stack overflow with an earlier version of the change
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
