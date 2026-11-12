@@ -4499,7 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## JIT compilation of functions sharing a body with an already compiled one
+## JIT compilation of functions sharing a cached function's body -- PR#19308
 is.compiled <- function(f) typeof(.Internal(bodyCode(f))) == "bytecode"
 f1 <- function(x) { for (i in x) NULL }
 f1(1); f1(1)
