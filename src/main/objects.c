@@ -95,7 +95,7 @@ static SEXP applyMethod(SEXP call, SEXP op, SEXP args, SEXP rho, SEXP newvars)
 	int save = R_PPStackTop, flag = PRIMPRINT(op);
 	const void *vmax = vmaxget();
 	R_Visible = flag != 1;
-	ans = PRIMFUN(op) (call, op, args, rho);
+	ans = R_callPrimFun(op, call, args, rho);
 	if (flag < 2) R_Visible = flag != 1;
 	check_stack_balance(op, save);
 	vmaxset(vmax);
@@ -110,7 +110,7 @@ static SEXP applyMethod(SEXP call, SEXP op, SEXP args, SEXP rho, SEXP newvars)
 	const void *vmax = vmaxget();
 	PROTECT(args = evalList(args, rho, call, 0));
 	R_Visible = flag != 1;
-	ans = PRIMFUN(op) (call, op, args, rho);
+	ans = R_callPrimFun(op, call, args, rho);
 	if (flag < 2) R_Visible = flag != 1;
 	UNPROTECT(1);
 	check_stack_balance(op, save);

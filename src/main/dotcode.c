@@ -746,6 +746,10 @@ R_FUNTYPES(void, V, void *)
 attribute_hidden SEXP R_doDotCall(DL_FUNC fun, int nargs, SEXP *cargs,
 				  SEXP call) {
     SEXP retval = R_NilValue;	/* -Wall */
+    /* A native routine is expected to manage its own protections, so
+       bracket it: unprotecting past this point releases values owned by
+       .Call itself.  A no-op unless --enable-strict-barrier. */
+    int savedfloor = R_OpenPPFrame();
     switch (nargs) {
     case 0:
 	retval = ((FUNS0)fun)();
@@ -1399,6 +1403,8 @@ attribute_hidden SEXP R_doDotCall(DL_FUNC fun, int nargs, SEXP *cargs,
     default:
 	errorcall(call, _("too many arguments, sorry"));
     }
+    R_ClosePPFrame(savedfloor);
+
     return check_retval(call, retval);
 }
 

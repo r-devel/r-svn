@@ -383,6 +383,9 @@ int R_ReplDLLdo1(void)
 	if(c == ';' || c == '\n') break;
     }
     R_PPStackTop = 0;
+#ifdef TESTING_WRITE_BARRIER
+    R_PPStackFloor = 0;
+#endif
     R_CurrentExpr = R_Parse1Buffer(&R_ConsoleIob, 0, &status);
 
     switch(status) {
@@ -1015,6 +1018,9 @@ void setup_Rmainloop(void)
     R_Toplevel.nextcontext = NULL;
     R_Toplevel.callflag = CTXT_TOPLEVEL;
     R_Toplevel.cstacktop = 0;
+#ifdef TESTING_WRITE_BARRIER
+    R_Toplevel.ppstackfloor = 0;
+#endif
     R_Toplevel.gcenabled = R_GCEnabled;
     R_Toplevel.promargs = R_NilValue;
     R_Toplevel.callfun = R_NilValue;

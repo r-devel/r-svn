@@ -1417,6 +1417,9 @@ typedef struct RCNTXT {
     int callflag;		/* The context "type" */
     JMP_BUF cjmpbuf;		/* C stack and register information */
     int cstacktop;		/* Top of the pointer protection stack */
+#ifdef TESTING_WRITE_BARRIER
+    int ppstackfloor;		/* R_PPStackFloor value */
+#endif
     int evaldepth;	        /* evaluation depth at inception */
     SEXP promargs;		/* Promises supplied to closure */
     SEXP callfun;		/* The closure called */
@@ -1586,6 +1589,24 @@ extern0 int	R_Is_Running;	    /* for Windows memory manager */
 LibExtern int	R_PPStackSize	INI_as(R_PPSSIZE); /* The stack size (elements) */
 LibExtern int	R_PPStackTop;	    /* The top of the stack */
 LibExtern SEXP*	R_PPStack;	    /* The pointer protection stack */
+
+/* Protection stack floor.  Calls into code that is expected to manage
+   its own protections -- a primitive's C function, or a native routine
+   reached through .Call/.External -- are bracketed by a frame that
+   raises the floor to the current top.  Entries below the floor belong
+   to the caller, so a callee that unprotects past it has released a
+   value it does not own.  That is a protection bug even though the
+   stack itself does not underflow, and it is the usual way an
+   UNPROTECT with too large a count goes unnoticed.  Only checked when
+   R is configured with --enable-strict-barrier. */
+#ifdef TESTING_WRITE_BARRIER
+extern0 int	R_PPStackFloor;	    /* Lowest entry the callee may release */
+int  R_OpenPPFrame(void);
+void R_ClosePPFrame(int savedfloor);
+#else
+# define R_OpenPPFrame() 0
+# define R_ClosePPFrame(savedfloor) do { (void) (savedfloor); } while (0)
+#endif
 
 void R_ReleaseMSet(SEXP mset, int keepSize);
 
@@ -2146,6 +2167,7 @@ void Rf_checkArityCall(SEXP, SEXP, SEXP);
 void CheckFormals(SEXP, const char*);
 void R_check_locale(void);
 void check_stack_balance(SEXP op, int save);
+SEXP R_callPrimFun(SEXP fun, SEXP call, SEXP args, SEXP rho);
 void CleanEd(void);
 void copyMostAttribNoTs(SEXP, SEXP);
 SEXP createS3Vars(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
