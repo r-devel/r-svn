@@ -102,3 +102,33 @@ stopifnot(identical(p, pp))
 stopifnot(all(sapply(compiler:::safeBaseInternals,
                      function(f)
                      compiler:::is.simpleInternal(get(f, "package:base")))))
+
+
+## Type predicates on boxed values, immediate scalars, and compact sequences.
+local({
+    predicates <- c("is.null", "is.logical", "is.integer", "is.double",
+                    "is.complex", "is.character", "is.symbol", "is.object",
+                    "is.numeric")
+    boxed <- list(NULL, logical(), FALSE, TRUE, NA, 0L, NA_integer_, 1,
+                  NA_real_, NaN, Inf, 1i, "x", quote(x), list(1), as.raw(0),
+                  factor("x"), structure(1L, class = "foo"), c(a = 1), 1:100)
+    cases <- list(
+        list(quote(x), boxed),
+        list(quote(x + 0L), list(0L, 1L, -1L, NA_integer_)),
+        list(quote(x + 0), list(0, 1, -1, NA_real_, NaN, Inf, -Inf)),
+        list(quote(x < 0), list(-1, 0, 1, NA_real_)),
+        list(quote(if (x) NA else TRUE), list(FALSE, TRUE)),
+        list(quote(if (x) NA_integer_ else 1L), list(FALSE, TRUE)),
+        list(quote(seq_len(x)), list(0L, 1L, 3L)),
+        list(quote(1L:x), list(1L, 3L)))
+    for (predicate in predicates) {
+        for (case in cases) {
+            f <- eval(substitute(function(x) P(E),
+                                 list(P = as.name(predicate), E = case[[1L]])))
+            cf <- cmpfun(f)
+            for (x in case[[2L]])
+                stopifnot(identical(withVisible(cf(x)), withVisible(f(x))))
+            ## R 4.6.1 through R-devel r90881 boxed immediate predicate operands.
+        }
+    }
+})

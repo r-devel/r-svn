@@ -6240,16 +6240,33 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     NEXT(); \
 } while (0)
 
-#define DO_ISTEST(fun) do { \
-  SETSTACK(-1, fun(GETSTACK(-1)) ? R_TrueValue : R_FalseValue);	\
+/* Immediate scalar tags describe attribute-free values. Partial stack
+   values must still be materialized before applying a type predicate. */
+#define DO_ISTEST(fun, scalar_test) do { \
+  int tag = R_BCNodeStackTop[-1].tag; \
+  if (tag == 0) \
+    SETSTACK(-1, fun(GETSTACK_SXPVAL(-1)) ? R_TrueValue : R_FalseValue); \
+  else if (tag == REALSXP || tag == INTSXP || tag == LGLSXP) \
+    SETSTACK_LOGICAL(-1, scalar_test); \
+  else { \
+    SEXP value = GETSTACK(-1); \
+    SETSTACK(-1, fun(value) ? R_TrueValue : R_FalseValue); \
+  } \
   R_Visible = TRUE; \
   NEXT(); \
 } while(0)
 #define DO_ISTYPE(type) do { \
-  SETSTACK(-1, TYPEOF(GETSTACK(-1)) == type ? R_TrueValue : R_FalseValue); \
+  int tag = R_BCNodeStackTop[-1].tag; \
+  if (tag == 0) \
+    SETSTACK(-1, TYPEOF(GETSTACK_SXPVAL(-1)) == (type) ? R_TrueValue : R_FalseValue); \
+  else if (tag == REALSXP || tag == INTSXP || tag == LGLSXP) \
+    SETSTACK_LOGICAL(-1, tag == (type)); \
+  else \
+    SETSTACK(-1, TYPEOF(GETSTACK(-1)) == (type) ? R_TrueValue : R_FalseValue); \
   R_Visible = TRUE; \
   NEXT(); \
 } while (0)
+#define isIntegerOnly(x) (TYPEOF(x) == INTSXP && ! inherits(x, "factor"))
 #define isNumericOnly(x) (isNumeric(x) && ! isLogical(x))
 
 #ifdef BC_PROFILING
@@ -8361,21 +8378,15 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SETSTACK(-1, value);
 	NEXT();
       }
-    OP(ISNULL, 0): DO_ISTEST(isNull);
+    OP(ISNULL, 0): DO_ISTEST(isNull, FALSE);
     OP(ISLOGICAL, 0): DO_ISTYPE(LGLSXP);
-    OP(ISINTEGER, 0): {
-	SEXP arg = GETSTACK(-1);
-	Rboolean test = (TYPEOF(arg) == INTSXP) && ! inherits(arg, "factor");
-	SETSTACK(-1, test ? R_TrueValue : R_FalseValue);
-	R_Visible = TRUE;
-	NEXT();
-      }
+    OP(ISINTEGER, 0): DO_ISTEST(isIntegerOnly, tag == INTSXP);
     OP(ISDOUBLE, 0): DO_ISTYPE(REALSXP);
     OP(ISCOMPLEX, 0): DO_ISTYPE(CPLXSXP);
     OP(ISCHARACTER, 0): DO_ISTYPE(STRSXP);
     OP(ISSYMBOL, 0): DO_ISTYPE(SYMSXP); /**** S4 thingy allowed now???*/
-    OP(ISOBJECT, 0): DO_ISTEST(OBJECT);
-    OP(ISNUMERIC, 0): DO_ISTEST(isNumericOnly);
+    OP(ISOBJECT, 0): DO_ISTEST(OBJECT, FALSE);
+    OP(ISNUMERIC, 0): DO_ISTEST(isNumericOnly, tag != LGLSXP);
     OP(VECSUBSET, 1): DO_VECSUBSET(rho, FALSE);
     OP(MATSUBSET, 1): DO_MATSUBSET(rho, FALSE); NEXT();
     OP(VECSUBASSIGN, 1): DO_VECSUBASSIGN(rho, FALSE);
