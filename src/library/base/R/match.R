@@ -47,8 +47,6 @@ match.arg <- function (arg, choices, several.ok = FALSE)
 			envir = sys.frame(sysP))
     }
     if (is.null(arg)) return(choices[1L])
-    else if(!is.character(arg))
-	stop("'arg' must be NULL or a character vector")
     all.match <- FALSE
     if(!is.logical(several.ok)) {
         if(is.character(several.ok) && startsWith(several.ok, "all"))
@@ -62,11 +60,12 @@ match.arg <- function (arg, choices, several.ok = FALSE)
     } else if(length(arg) == 0L) stop("'arg' must be of length >= 1")
 
     ## handle each element of arg separately
-    i <- pmatch(arg, choices, nomatch = 0L, duplicates.ok = TRUE)
-    if(all(i0 <- i == 0L) || (all.match && any(i0)))
+    if(!is.character(arg) ||
+       all(i0 <- (i <- pmatch(arg, choices, nomatch = 0L, duplicates.ok = TRUE)) == 0L) ||
+       (all.match && any(i0)))
         stop(sprintf(ngettext(length(chs <- unique(choices[nzchar(choices)])),
-                              "'arg' should be %s",
-                              "'arg' should be one of %s"),
+                              "'arg' should be NULL or %s",
+                              "'arg' should be NULL or one of %s"),
                      paste(dQuote(chs), collapse=", ")),
              domain = NA)
 
