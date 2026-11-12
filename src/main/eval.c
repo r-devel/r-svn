@@ -951,9 +951,16 @@ static R_INLINE void POP_PENDING_PROMISE(RPRSTACK *cellptr)
     R_PendingPromises = cellptr->next;
 }
 
+static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval);
+
 static void forcePromise(SEXP e)
 {
     if (! PROMISE_IS_EVALUATED(e)) {
+	/* a promise for a plain variable is usually forced by a lookup */
+	if (! PRSEEN(e) && TYPEOF(PRCODE(e)) == BCODESXP &&
+	    forceVariablePromiseValue(e, NULL))
+	    return;
+
 	PROTECT(e);
 	if(PRSEEN(e)) {
 	    if (PRSEEN(e) == 1)
@@ -5909,7 +5916,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
    regular code has to deal with an unbound or missing variable, an
    active binding, or a value that is itself an unforced promise. On
    TRUE the promise is forced and its value has been pushed. */
-static R_INLINE Rboolean forceVariablePromise(SEXP prom)
+static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
 {
     SEXP code = PRCODE(prom);
     BCODE *pc = BCCODE(code);
@@ -5961,10 +5968,22 @@ static R_INLINE Rboolean forceVariablePromise(SEXP prom)
     case LGLSXP: val.u.ival = BNDCELL_LVAL(src); break;
     }
 
-    BCNPUSH_STACKVAL(val); /* push early to protect */
     SET_PROMISE_VALUE_FROM_STACKVAL(prom, val);
     SET_PRENV(prom, R_NilValue);
     R_Visible = TRUE;
+    if (pval != NULL)
+	*pval = val;
+    return TRUE;
+}
+
+/* The same for GETVAR, which wants the value on the stack. */
+static R_INLINE Rboolean forceVariablePromise(SEXP prom)
+{
+    R_bcstack_t val;
+    if (! forceVariablePromiseValue(prom, &val))
+	return FALSE;
+
+    BCNPUSH_STACKVAL(val);
     return TRUE;
 }
 
