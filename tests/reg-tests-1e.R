@@ -4434,6 +4434,12 @@ stopifnot(identical(r, paste("'difftime' num", fmtd)))
 ## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
 
 
+## model.matrix() names an unsuitable factor in the error message -- PR#19148
+(msg <- tryCmsg(model.matrix(y ~ f1, data.frame(y = 1:3, f1 = factor("a")))))
+stopifnot(is.character(msg), grepl("f1", msg))
+## failed from `contrasts<-`(`*tmp*`, ...), hiding the variable, in R <= 4.6.*
+
+
 ## socketSelect() on a socket connection that is not open -- PR#19298
 s <- socketConnection(port = 8083L, open = "")
 msg <- tryCmsg(socketSelect(list(s), timeout = 0))
