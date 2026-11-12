@@ -1809,6 +1809,11 @@ static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
 	    if (! cmpenv_exists_local(TAG(frmls), cmpenv, top))
 		return FALSE;
 	for (; env != top; env = ENCLOS(env)) {
+	    /* top is R_GlobalEnv by default, and need not be an
+	       ancestor of env */
+	    if (env == R_EmptyEnv)
+		return FALSE;
+
 	    /* As in make_cached_cmpenv, only standard frames are
 	       supported; hashed ones are what new.env() and local()
 	       create by default. */
