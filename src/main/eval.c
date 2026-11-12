@@ -5950,8 +5950,19 @@ static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
 	if (value == R_UnboundValue || value == R_MissingArg)
 	    return FALSE;
 	if (TYPEOF(value) == PROMSXP) {
-	    if (! PROMISE_IS_EVALUATED(value))
-		return FALSE;
+	    if (! PROMISE_IS_EVALUATED(value)) {
+		/* An argument passed along unforced: force it the same
+		   way first. PRSEEN stops a cycle of such promises, which
+		   the regular code then reports. */
+		if (PRSEEN(value) || TYPEOF(PRCODE(value)) != BCODESXP)
+		    return FALSE;
+
+		SET_PRSEEN(prom, 1);
+		Rboolean forced = forceVariablePromiseValue(value, NULL);
+		SET_PRSEEN(prom, 0);
+		if (! forced)
+		    return FALSE;
+	    }
 	    if (PROMISE_TAG(value)) {
 		val.tag = PROMISE_TAG(value);
 		src = value;
