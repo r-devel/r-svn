@@ -2282,11 +2282,34 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
        environment layout.  We can live with it for now since it only
        happens immediately after the environment creation.  LT */
 
+    /* A constant default evaluates to itself, so it is bound without
+       a promise. Not for S4 generics and methods: R_execMethod copies
+       the frame of the generic and switches unforced default promises
+       to the defaults of the method. */
+    Rboolean constDefaults = ! IS_S4_OBJECT(op);
+
     f = formals;
     a = actuals;
     while (f != R_NilValue) {
 	if (CAR(a) == R_MissingArg && CAR(f) != R_MissingArg) {
-	    SETCAR(a, mkPROMISE(CAR(f), newrho));
+	    SEXP dflt = CAR(f);
+	    switch (TYPEOF(dflt)) {
+	    case SYMSXP:
+	    case LANGSXP:
+	    case PROMSXP:
+	    case BCODESXP:
+	    case DOTSXP:
+		SETCAR(a, mkPROMISE(dflt, newrho));
+		break;
+	    default:
+		if (constDefaults) {
+		    MARK_NOT_MUTABLE(dflt);
+		    SETCAR(a, dflt);
+		}
+		else {
+		    SETCAR(a, mkPROMISE(dflt, newrho));
+		}
+	    }
 	    SET_MISSING(a, 2);
 	}
 	f = CDR(f);
