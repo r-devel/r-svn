@@ -4447,6 +4447,7 @@ stopifnot(identical(r, paste("'difftime' num", fmtd)))
 ## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
 
 
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
