@@ -1664,11 +1664,11 @@ static R_INLINE Rboolean R_CheckJIT(SEXP fun)
    the cmpenv changing after being entered in the cache, and also
    allows large values that might be bound to local variables in
    cmpenv to be reclaimed (also, some package tests, e.g. in shiny, test
-   when things get reclaimed). Standard local frames are processed directly,
-   hashed frames are processed via lsInternal3, which involves extra
-   allocations, but should be used rarely. If a local environment is
-   of unsupported type, topenv is returned as a valid conservative
-   answer.
+   when things get reclaimed). Standard local frames, hashed or not, are
+   processed directly. If a local environment is of unsupported type,
+   topenv is returned as a valid conservative answer. The new
+   environment is hashed, as it is searched for each local variable of
+   a function that might use the cached code.
 
    Since we compute the local variables at compile
    time we should record them in the byte code object and use the
@@ -1687,7 +1687,7 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     if (cmpenv == top && frmls == R_NilValue)
 	return cmpenv;
     else {
-	SEXP newenv = PROTECT(NewEnvironment(R_NilValue, R_NilValue, top));
+	SEXP newenv = PROTECT(R_NewHashedEnv(top, 0));
 	for (; frmls != R_NilValue; frmls = CDR(frmls))
 	    defineVar(TAG(frmls), R_NilValue, newenv);
 	for (SEXP env = cmpenv; env != top; env = CDR(env)) {
@@ -1778,13 +1778,7 @@ static R_INLINE SEXP cmpenv_topenv(SEXP cmpenv)
 
 static R_INLINE Rboolean cmpenv_exists_local(SEXP sym, SEXP cmpenv, SEXP top)
 {
-    if (cmpenv != top)
-	for (SEXP frame = FRAME(cmpenv);
-	     frame != R_NilValue;
-	     frame = CDR(frame))
-	    if (TAG(frame) == sym)
-		return TRUE;
-    return FALSE;
+    return cmpenv != top && R_existsVarInFrame(cmpenv, sym);
 }
 
 static R_INLINE Rboolean cmpenv_exists_frame(SEXP frame, SEXP cmpenv, SEXP top)
