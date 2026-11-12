@@ -798,6 +798,15 @@ typedef enum {
   EXPAND_AFTER_ITER
 } tre_expand_ast_symbol_t;
 
+/* Upper bound on the number of positions (literal nodes) in the expanded
+   AST.  Individual repetition counts are limited to RE_DUP_MAX, but nested
+   repetitions multiply, so without this a short pattern such as
+   "(?:a{2,101,})(?:a{2,101,}){100}{100}" expands to millions of nodes and
+   gigabytes of allocation before compilation finishes.  Legitimate patterns
+   are orders of magnitude below this; even (a{255}){255}, the largest
+   nesting RE_DUP_MAX permits at two levels, needs about 65000. */
+#define TRE_EXPAND_MAX_POSITIONS 100000
+
 /* Expands each iteration node that has a finite nonzero minimum or maximum
    iteration count to a catenated sequence of copies of the node. */
 static reg_errcode_t
@@ -917,6 +926,8 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 					  &max_pos);
 		    if (status != REG_OK)
 		      return status;
+		    if (max_pos > TRE_EXPAND_MAX_POSITIONS)
+		      return REG_ESPACE;
 		    if (seq1 != NULL)
 		      seq1 = tre_ast_new_catenation(mem, seq1, copy);
 		    else
@@ -947,6 +958,8 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 					      &pos_add, NULL, &copy, &max_pos);
 			if (status != REG_OK)
 			  return status;
+			if (max_pos > TRE_EXPAND_MAX_POSITIONS)
+			  return REG_ESPACE;
 			if (seq2 != NULL)
 			  seq2 = tre_ast_new_catenation(mem, copy, seq2);
 			else
