@@ -4424,16 +4424,6 @@ dev.off(d); options(op)
 ## returned c("null device" = 1L) in R <= 4.6.2
 
 
-## str(<difftime>, digits.d = *) -- PR#19294
-(dd <- .difftime(2500+pi, units="days"))
-di <- 1:15
-r <- vapply(di, \(d) capture.output(str(dd, digits.d = d, give.attr = FALSE)), "..")
-writeLines(head(r))
-(fmtd <- vapply(di, \(dig) format(c(dd), digits=dig), ""))
-stopifnot(identical(r, paste("'difftime' num", fmtd)))
-## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
-
-
 ## forcing a long chain of forwarded variable promises
 mk <- function(v) environment()
 step <- compiler::compile(quote(mk(v))) # a promise for the variable 'v'
@@ -4445,6 +4435,16 @@ r <- tryCatch(e$v, error = identity)
 stopifnot(identical(r, 1) || inherits(r, "error"))
 rm(mk, step, e, r)
 ## C stack overflow with an earlier version of the change
+
+
+## str(<difftime>, digits.d = *) -- PR#19294
+(dd <- .difftime(2500+pi, units="days"))
+di <- 1:15
+r <- vapply(di, \(d) capture.output(str(dd, digits.d = d, give.attr = FALSE)), "..")
+writeLines(head(r))
+(fmtd <- vapply(di, \(dig) format(c(dd), digits=dig), ""))
+stopifnot(identical(r, paste("'difftime' num", fmtd)))
+## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
 
 
 ## keep at end
