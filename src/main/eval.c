@@ -2737,6 +2737,14 @@ static R_INLINE SEXP GET_BINDING_CELL(SEXP symbol, SEXP rho)
 {
     if (rho == R_BaseEnv || rho == R_BaseNamespace || IS_USER_DATABASE(rho))
 	return R_NilValue;
+    else if (HASHTAB(rho) == R_NilValue) {
+	/* An unhashed frame, as in a function call: the same search
+	   R_findVarLocInFrame makes, without the calls. */
+	SEXP frame = FRAME(rho);
+	while (frame != R_NilValue && TAG(frame) != symbol)
+	    frame = CDR(frame);
+	return IS_ACTIVE_BINDING(frame) ? R_NilValue : frame;
+    }
     else {
 	R_varloc_t loc = R_findVarLocInFrame(rho, symbol);
 	return (! R_VARLOC_IS_NULL(loc) && ! IS_ACTIVE_BINDING(loc.cell)) ?
