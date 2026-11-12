@@ -5916,7 +5916,7 @@ static R_INLINE Rboolean forceVariablePromise(SEXP prom)
     /* pc[0] is the version */
     if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
 	return FALSE;
-    SEXP symbol = VECTOR_ELT(BCODE_CONSTS(code), BCODE_OPERAND(pc[2]));
+    SEXP symbol = GETCONST(BCCONSTS(code), BCODE_OPERAND(pc[2]));
 
     SEXP cell = R_findVarLoc(symbol, PRENV(prom)).cell;
     if (cell == NULL || IS_ACTIVE_BINDING(cell))
