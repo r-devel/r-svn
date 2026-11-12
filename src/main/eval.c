@@ -7554,7 +7554,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
   RESTORE_BCEVAL_LOCALS(&locals);
 
   BCODE *currentpc = NULL;
-  void *oldbcpc = R_BCpc;
+  /* read once, on return; volatile keeps it out of a register and,
+     with gcc, out of the setjmp bookkeeping at every dispatch */
+  void * volatile oldbcpc = R_BCpc;
   R_BCpc = &currentpc;
 
   static int evalcount = 0;
