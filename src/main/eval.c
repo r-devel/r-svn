@@ -5647,6 +5647,8 @@ static struct { void *addr; int argc; char *instname; } opinfo[OPCOUNT];
 #define SKIP_OP() (pc++)
 
 #define BCCODE(e) BCODE_PTR(BCODE_CODE(e))
+#define BCODE_IS_OP(c, op) ((c).v == opinfo[op].addr)
+#define BCODE_OPERAND(c) ((c).i)
 #else
 typedef int BCODE;
 
@@ -5665,6 +5667,8 @@ typedef int BCODE;
 #define SKIP_OP() (pc++)
 
 #define BCCODE(e) INTEGER(BCODE_CODE(e))
+#define BCODE_IS_OP(c, op) ((c) == (op))
+#define BCODE_OPERAND(c) (c)
 #endif
 
 /**** is there a way to avoid the locked check here? */
@@ -5898,6 +5902,72 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     } while(0)
 #endif
 
+/* A promise for an argument that is just a variable has the code
+   GETVAR; RETURN. Forcing it by a lookup avoids pushing an
+   interpreter frame for those two instructions. Only an ordinary
+   bound value is handled here: FALSE means nothing was done, and the
+   regular code has to deal with an unbound or missing variable, an
+   active binding, or a value that is itself an unforced promise. On
+   TRUE the promise is forced and its value has been pushed. */
+static R_INLINE Rboolean forceVariablePromise(SEXP prom)
+{
+    SEXP code = PRCODE(prom);
+    BCODE *pc = BCCODE(code);
+    /* pc[0] is the version */
+    if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
+	return FALSE;
+    SEXP symbol = VECTOR_ELT(BCODE_CONSTS(code), BCODE_OPERAND(pc[2]));
+
+    SEXP cell = R_findVarLoc(symbol, PRENV(prom)).cell;
+    if (cell == NULL || IS_ACTIVE_BINDING(cell))
+	return FALSE;
+
+    R_bcstack_t val;
+    val.tag = 0;
+    val.flags = 0;
+    val.u.sxpval = R_NilValue;
+
+    SEXP src = cell; /* where an unboxed value is kept, if there is one */
+    if (TYPEOF(cell) == SYMSXP) {
+	val.u.sxpval = SYMVALUE(cell);
+    }
+    else if (BNDCELL_TAG(cell)) {
+	val.tag = BNDCELL_TAG(cell);
+    }
+    else {
+	val.u.sxpval = CAR(cell);
+    }
+
+    if (val.tag == 0) {
+	SEXP value = val.u.sxpval;
+	if (value == R_UnboundValue || value == R_MissingArg)
+	    return FALSE;
+	if (TYPEOF(value) == PROMSXP) {
+	    if (! PROMISE_IS_EVALUATED(value))
+		return FALSE;
+	    if (PROMISE_TAG(value)) {
+		val.tag = PROMISE_TAG(value);
+		src = value;
+	    }
+	    else {
+		val.u.sxpval = PRVALUE(value);
+	    }
+	}
+    }
+
+    switch (val.tag) {
+    case REALSXP: val.u.dval = BNDCELL_DVAL(src); break;
+    case INTSXP: val.u.ival = BNDCELL_IVAL(src); break;
+    case LGLSXP: val.u.ival = BNDCELL_LVAL(src); break;
+    }
+
+    BCNPUSH_STACKVAL(val); /* push early to protect */
+    SET_PROMISE_VALUE_FROM_STACKVAL(prom, val);
+    SET_PRENV(prom, R_NilValue);
+    R_Visible = TRUE;
+    return TRUE;
+}
+
 #define INLINE_GETVAR
 #ifdef INLINE_GETVAR
 /* Try to handle the most common case as efficiently as possible.  If
@@ -5965,6 +6035,8 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     if (! keepmiss && TYPEOF(value) == PROMSXP &&			\
 	! PRSEEN(value) && ! PROMISE_IS_EVALUATED(value) &&		\
 	TYPEOF(PRCODE(value)) == BCODESXP) {				\
+	if (forceVariablePromise(value))				\
+	    NEXT();							\
 	START_BCFRAME_PROM(value);					\
 	NEXT();								\
 	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
