@@ -5842,12 +5842,9 @@ static R_INLINE SEXP findVarEX(SEXP symbol, SEXP rho, Rboolean dd,
 #define PROMISE_IVAL BNDCELL_IVAL
 #define PROMISE_LVAL BNDCELL_LVAL
 
-static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
-			    Rboolean dd, Rboolean keepmiss,
-			    R_binding_cache_t vcache, int sidx)
+static R_INLINE SEXP getvar_from_value(SEXP symbol, SEXP rho,
+				      SEXP value, Rboolean keepmiss)
 {
-    SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);
-
     if (value == R_UnboundValue)
 	UNBOUND_VARIABLE_ERROR(symbol, rho);
     else if (value == R_MissingArg) {
@@ -5874,6 +5871,14 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	ENSURE_NAMED(value); /* needed for .Last.value - LT */
 	return value;
     }
+}
+
+static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
+			    Rboolean dd, Rboolean keepmiss,
+			    R_binding_cache_t vcache, int sidx)
+{
+    SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);
+    return getvar_from_value(symbol, rho, value, keepmiss);
 }
 
 #ifdef IMMEDIATE_PROMISE_VALUES
@@ -5907,7 +5912,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
    not needed. Active bindings will have functions as their values.
    Skipping SYMSXP values rules out R_MissingArg and R_UnboundValue as
    these are implemented as symbols.  It also rules other symbols, but
-   as those are rare they are handled by the getvar() call. */
+   as those are rare they are handled by the getvar_from_value() call. */
 #define DO_GETVAR(dd,keepmiss) do { \
     int sidx = GETOP(); \
     R_Visible = TRUE;	     \
@@ -5969,7 +5974,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	NEXT();								\
 	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
     }									\
-    BCNPUSH(getvar(symbol, rho, dd, keepmiss, vcache, sidx));		\
+    BCNPUSH(getvar_from_value(symbol, rho, value, keepmiss));	\
     NEXT();								\
 } while (0)
 #else
