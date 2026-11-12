@@ -8099,7 +8099,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  args = CLOSURE_CALL_FRAME_ARGS();
 	  if (INLINE_CLOSURE_CALL_OK(fun)) {
 	      START_BCFRAME_CALL();
-	      volatile SEXP vbody = body; // keep gcc -Wclobbered happy
+	      /* gcc keeps a variable that is live across a setjmp call
+		 in memory for the whole function. Reloading the locals
+		 after the call means none of them is. */
+	      volatile struct bcEval_locals vlocals;
+	      SAVE_BCEVAL_LOCALS(&vlocals);
 	      if (SETJMP(BCFRAME_CNTXT()->cjmpbuf)) {
 		  RCNTXT *pcntxt = BCFRAME_CNTXT();
 		  if (! pcntxt->jumptarget) {
@@ -8116,7 +8120,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 		  DO_INLINE_CLOSURE_CALL_RETURN();
 	      }
 	      else {
-		  body = vbody; // keep gcc -Wclobbered happy
+		  RESTORE_BCEVAL_LOCALS(&vlocals);
 		  NEXT();
 		  /* return cleanup is in DO_INLINE_CLOSURE_CALL_RETURN */
 	      }
