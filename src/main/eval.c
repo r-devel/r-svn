@@ -7539,6 +7539,19 @@ static SEXP bcEval(SEXP body, SEXP rho)
   return value;  
 }
 
+/* A few locals of bcEval_loop are deliberately kept in memory rather
+   than in registers; their declarations say why. Compile with
+   -DR_BCEVAL_SPILL_LOCALS=0 to leave the placement to the compiler,
+   e.g. to measure the effect with a different compiler. */
+#ifndef R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL_LOCALS 1
+#endif
+#if R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL volatile
+#else
+# define R_BCEVAL_SPILL
+#endif
+
 static SEXP bcEval_loop(struct bcEval_locals *ploc)
 {
   INITIALIZE_MACHINE();
@@ -7555,9 +7568,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
      before every indirect branch. rho, constants and codebase are
      not included; reloading them after each closure call costs more
      than the dispatch saves. */
-  volatile SEXP body;
-  volatile R_binding_cache_t vcache;
-  volatile Rboolean smallcache;
+  R_BCEVAL_SPILL SEXP body;
+  R_BCEVAL_SPILL R_binding_cache_t vcache;
+  R_BCEVAL_SPILL Rboolean smallcache;
 
   RESTORE_BCEVAL_LOCALS(&locals);
 
