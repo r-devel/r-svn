@@ -4539,7 +4539,7 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 }
 
 /* start of bytecode section */
-static int R_bcVersion = 12;
+static int R_bcVersion = 13;
 static int R_bcMinVersion = 9;
 
 static SEXP R_AddSym = NULL;
@@ -4549,6 +4549,7 @@ static SEXP R_DivSym = NULL;
 static SEXP R_ExptSym = NULL;
 static SEXP R_SqrtSym = NULL;
 static SEXP R_ExpSym = NULL;
+static SEXP R_IsNumericSym = NULL;
 static SEXP R_EqSym = NULL;
 static SEXP R_NeSym = NULL;
 static SEXP R_LtSym = NULL;
@@ -4590,6 +4591,7 @@ void R_initialize_bcode(void)
   R_ExptSym = install("^");
   R_SqrtSym = install("sqrt");
   R_ExpSym = install("exp");
+  R_IsNumericSym = install("is.numeric");
   R_EqSym = install("==");
   R_NeSym = install("!=");
   R_LtSym = install("<");
@@ -4751,6 +4753,7 @@ enum {
   DECLNK_N_OP,
   INCLNKSTK_OP,
   DECLNKSTK_OP,
+  ISNUMERIC2_OP,
   OPCOUNT
 };
 
@@ -8376,6 +8379,30 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(ISSYMBOL, 0): DO_ISTYPE(SYMSXP); /**** S4 thingy allowed now???*/
     OP(ISOBJECT, 0): DO_ISTEST(OBJECT);
     OP(ISNUMERIC, 0): DO_ISTEST(isNumericOnly);
+    /* Unlike the legacy ISNUMERIC, this carries the call for dispatch. */
+    OP(ISNUMERIC2, 1): {
+	int tag = R_BCNodeStackTop[-1].tag;
+	if (tag == REALSXP || tag == INTSXP || tag == LGLSXP) {
+	    SETSTACK_LOGICAL(-1, tag != LGLSXP);
+	    SKIP_OP();
+	}
+	else {
+	    SEXP value = GETSTACK(-1);
+	    if (! OBJECT(value)) {
+		SETSTACK(-1, isNumericOnly(value) ? R_TrueValue : R_FalseValue);
+		SKIP_OP();
+	    }
+	    else {
+		SEXP call = GETCONST(constants, GETOP());
+		SETSTACK(-1, CONS_NR(value, R_NilValue));
+		SET_TAG(GETSTACK(-1), TAG(CDR(call)));
+		SEXP op = getPrimitive(R_IsNumericSym, BUILTINSXP);
+		SETSTACK(-1, do_is(call, op, GETSTACK(-1), rho));
+	    }
+	}
+	R_Visible = TRUE;
+	NEXT();
+      }
     OP(VECSUBSET, 1): DO_VECSUBSET(rho, FALSE);
     OP(MATSUBSET, 1): DO_MATSUBSET(rho, FALSE); NEXT();
     OP(VECSUBASSIGN, 1): DO_VECSUBASSIGN(rho, FALSE);

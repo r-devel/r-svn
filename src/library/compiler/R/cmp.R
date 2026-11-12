@@ -654,7 +654,8 @@ INCLNK.OP = 0,
 DECLNK.OP = 0,
 DECLNK_N.OP = 1,
 INCLNKSTK.OP = 0,
-DECLNKSTK.OP = 0
+DECLNKSTK.OP = 0,
+ISNUMERIC2.OP = 1
 )
 
 Opcodes.names <- names(Opcodes.argc)
@@ -788,6 +789,7 @@ DECLNK.OP <- 125
 DECLNK_N.OP <- 126
 INCLNKSTK.OP <- 127
 DECLNKSTK.OP <- 128
+ISNUMERIC2.OP <- 129
 
 
 ##
@@ -2491,6 +2493,13 @@ setInlineHandler("is.null", function(e, cb, cntxt)
     cmpIs(ISNULL.OP, e, cb, cntxt))
 setInlineHandler("is.object", function(e, cb, cntxt)
     cmpIs(ISOBJECT.OP, e, cb, cntxt))
+setInlineHandler("is.numeric", function(e, cb, cntxt) {
+    if (length(e) != 2 || dots.or.missing(e[-1]) ||
+        (! is.null(names(e)) && ! names(e)[[2]] %in% c("", "x")))
+        cmpBuiltin(e, cb, cntxt)
+    else
+        cmpPrim1(e, cb, ISNUMERIC2.OP, cntxt)
+})
 setInlineHandler("is.symbol", function(e, cb, cntxt)
     cmpIs(ISSYMBOL.OP, e, cb, cntxt))
 
