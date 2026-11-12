@@ -41,8 +41,7 @@ fixPre1.8 <- function(names, where = topenv(parent.frame())) {
             next
         Class <- class(obj)
         if(is.null(attr(Class, "package"))) {
-            if(isClass(Class, where = where)) {
-                ClassDef <- getClass(Class, where = where)
+            if(!is.null(ClassDef <- getClassDef(Class, where = where))) {
                 ok <- !(isVirtualClass(ClassDef) ||
 			!isTRUE(validObject(obj, test=TRUE)))
                 if(ok) {
