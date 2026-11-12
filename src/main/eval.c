@@ -7545,15 +7545,17 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 
   struct bcEval_locals locals = *ploc;
 
-  /* body, vcache and smallcache are kept in memory on purpose: with
-     fewer values live in registers across the instruction dispatch,
-     clang stops shuffling registers before every indirect branch.
-     rho, constants and codebase stay in registers; reloading them
-     after each closure call costs more than the dispatch saves. */
-  volatile SEXP body;
+  /* Kept in registers: most instructions read these. */
   SEXP rho;
   R_bcconsts_t constants;
   BCODE *pc, *codebase;
+
+  /* Kept in memory on purpose: with fewer values live in registers
+     across the instruction dispatch, clang stops shuffling registers
+     before every indirect branch. rho, constants and codebase are
+     not included; reloading them after each closure call costs more
+     than the dispatch saves. */
+  volatile SEXP body;
   volatile R_binding_cache_t vcache;
   volatile Rboolean smallcache;
 
