@@ -49,9 +49,10 @@ attribute_hidden SEXP do_debug(SEXP call, SEXP op, SEXP args, SEXP rho)
 	SET_RDEBUG(CAR(args), 1);
 	break;
     case 1: // undebug()
-	if( RDEBUG(CAR(args)) != 1 )
+	if( RDEBUG(CAR(args)) != 1 && RSTEP(CAR(args)) != 1 )
 	    warning("argument is not being debugged");
 	SET_RDEBUG(CAR(args), 0);
+	SET_RSTEP(CAR(args), 0);
 	break;
     case 2: // isdebugged()
 	ans = ScalarLogical(RDEBUG(CAR(args)));
