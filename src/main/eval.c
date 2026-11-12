@@ -5933,20 +5933,21 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 #endif
 
 /* A promise for an argument that is just a variable has the code
-   GETVAR; RETURN. Forcing it by a lookup avoids pushing an
-   interpreter frame for those two instructions. Only an ordinary
-   bound value is handled here: FALSE means nothing was done, and the
-   regular code has to deal with an unbound or missing variable, an
-   active binding, or a value that is itself an unforced promise. On
-   TRUE the promise is forced and its value has been pushed. */
-static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
+   GETVAR; RETURN. Forcing it by a lookup avoids starting an
+   interpreter frame, or a nested bcEval, for those two instructions.
+   Only an ordinary bound value is handled here. FALSE means nothing
+   was done, and the regular code has to deal with an unbound or
+   missing variable, an active binding, or a variable holding a
+   promise that needs more than a lookup itself. */
+
+static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval);
+
+/* Look up the value of the variable for prom, which is known to be a
+   promise for a plain variable. The value may be unboxed. */
+static R_INLINE Rboolean variablePromiseValue(SEXP prom, R_bcstack_t *pval)
 {
     SEXP code = PRCODE(prom);
-    BCODE *pc = BCCODE(code);
-    /* pc[0] is the version */
-    if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
-	return FALSE;
-    SEXP symbol = GETCONST(BCCONSTS(code), BCODE_OPERAND(pc[2]));
+    SEXP symbol = GETCONST(BCCONSTS(code), BCODE_OPERAND(BCCODE(code)[2]));
 
     SEXP cell = R_findVarLoc(symbol, PRENV(prom)).cell;
     if (cell == NULL || IS_ACTIVE_BINDING(cell))
@@ -5973,19 +5974,14 @@ static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
 	if (value == R_UnboundValue || value == R_MissingArg)
 	    return FALSE;
 	if (TYPEOF(value) == PROMSXP) {
-	    if (! PROMISE_IS_EVALUATED(value)) {
-		/* An argument passed along unforced: force it the same
-		   way first. PRSEEN stops a cycle of such promises, which
-		   the regular code then reports. */
-		if (PRSEEN(value) || TYPEOF(PRCODE(value)) != BCODESXP)
-		    return FALSE;
+	    /* An argument passed along unforced is forced the same way
+	       first. A cycle of such promises ends at one that is marked
+	       as under evaluation, and the regular code reports it. */
+	    if (! PROMISE_IS_EVALUATED(value) &&
+		(PRSEEN(value) || TYPEOF(PRCODE(value)) != BCODESXP ||
+		 ! forceVariablePromiseValue(value, NULL)))
+		return FALSE;
 
-		SET_PRSEEN(prom, 1);
-		Rboolean forced = forceVariablePromiseValue(value, NULL);
-		SET_PRSEEN(prom, 0);
-		if (! forced)
-		    return FALSE;
-	    }
 	    if (PROMISE_TAG(value)) {
 		val.tag = PROMISE_TAG(value);
 		src = value;
@@ -6001,6 +5997,37 @@ static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
     case INTSXP: val.u.ival = BNDCELL_IVAL(src); break;
     case LGLSXP: val.u.ival = BNDCELL_LVAL(src); break;
     }
+
+    *pval = val;
+    return TRUE;
+}
+
+/* Force prom by a lookup if it is a promise for a plain variable. The
+   caller has checked that it is unforced, not under evaluation, and
+   has byte code. On TRUE the value is also stored in *pval, if that
+   is not NULL. */
+static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
+{
+    BCODE *pc = BCCODE(PRCODE(prom));
+    /* pc[0] is the version */
+    if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
+	return FALSE;
+
+    /* Mark the promise as under evaluation for the lookup, as
+       forcePromise does: this stops a cycle of forwarded promises, and
+       an error from the lookup leaves the promise as it would be left
+       by the regular code. */
+    RPRSTACK prstack;
+    SET_PRSEEN(prom, 1);
+    PUSH_PENDING_PROMISE(prom, &prstack);
+
+    R_bcstack_t val;
+    Rboolean found = variablePromiseValue(prom, &val);
+
+    POP_PENDING_PROMISE(&prstack);
+    SET_PRSEEN(prom, 0);
+    if (! found)
+	return FALSE;
 
     SET_PROMISE_VALUE_FROM_STACKVAL(prom, val);
     SET_PRENV(prom, R_NilValue);
