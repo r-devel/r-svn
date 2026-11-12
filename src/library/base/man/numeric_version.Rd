@@ -90,6 +90,7 @@ is.package_version(x)
 \examples{
 x <- package_version(c("1.2-4", "1.2-3", "2.1"))
 x < "1.4-2.3"
+stopifnot(as.character(x[1]), "1.4-2.3")
 c(min(x), max(x))
 x[2, 2]
 x$major

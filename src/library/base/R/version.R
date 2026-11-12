@@ -63,6 +63,7 @@ function(x, strict = TRUE, regexp, classes = NULL)
     }
     names(y) <- nms
     class(y) <- unique(c(classes, "numeric_version"))
+    attr(y, "source") <- x
     y
 }
 
@@ -313,8 +314,11 @@ function(..., na.rm)
 }
 
 as.character.numeric_version <-
-function(x, ...)
-    as.character(format(x))
+function(x, ...) 
+{
+    v <- attr(x, "source")
+    if (!is.null(v)) v else format(x)
+}
 
 as.data.frame.numeric_version <- as.data.frame.vector
 
