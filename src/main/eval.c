@@ -1877,11 +1877,18 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
    either set of local variables replacing each other's cache entry,
    so return a copy of fun whose environment defines both sets: the
    code compiled for the copy can be used for both. */
+#define JIT_MAX_MERGED_VARS 256
 static SEXP jit_merged_closure(SEXP fun, SEXP cmpenv)
 {
     SEXP top = topenv(R_NilValue, CLOENV(fun));
     if (cmpenv == top || cmpenv_topenv(cmpenv) != top)
 	return fun; /* cmpenv has no local variables that could be used */
+
+    /* cmpenv would grow without bound if each function had new local
+       variables; this is meant for functions created again and again
+       in a few kinds of small environment, such as call frames */
+    if (length(cmpenv) > JIT_MAX_MERGED_VARS)
+	return fun;
 
     SEXP newenv = make_cached_cmpenv(fun);
     if (newenv == top)
