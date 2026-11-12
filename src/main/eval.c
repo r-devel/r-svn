@@ -1395,7 +1395,6 @@ static R_exprhash_t hashsrcref(SEXP e, R_exprhash_t h)
     }
     return h;
 }
-#undef HASH
 
 static R_exprhash_t hashexpr(SEXP e)
 {
@@ -1407,8 +1406,21 @@ static R_exprhash_t hashfun(SEXP f)
     R_exprhash_t h = hashexpr(BODY(f));
     if (getAttrib(BODY(f), R_SrcrefSymbol) == R_NilValue)
 	h = hashsrcref(getAttrib(f, R_SrcrefSymbol), h);
+
+    /* Cached code can only be used for a function with the same top
+       level environment whose formals are all local variables of the
+       cached function (see jit_env_match), so functions that share a
+       body but differ in these should not share a cache entry. */
+    for (SEXP frmls = FORMALS(f); frmls != R_NilValue; frmls = CDR(frmls)) {
+	SEXP tag = TAG(frmls);
+	h = HASH(tag, h);
+    }
+    SEXP top = topenv(R_NilValue, CLOENV(f));
+    h = HASH(top, h);
+
     return h;
 }
+#undef HASH
 
 static void loadCompilerNamespace(void)
 {
@@ -1775,6 +1787,14 @@ static R_INLINE Rboolean cmpenv_exists_local(SEXP sym, SEXP cmpenv, SEXP top)
     return FALSE;
 }
 
+static R_INLINE Rboolean cmpenv_exists_frame(SEXP frame, SEXP cmpenv, SEXP top)
+{
+    for (; frame != R_NilValue; frame = CDR(frame))
+	if (! cmpenv_exists_local(TAG(frame), cmpenv, top))
+	    return FALSE;
+    return TRUE;
+}
+
 static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
 {
     /* Can code compiled for environment cmpenv be used as compiled
@@ -1795,14 +1815,18 @@ static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
 	    if (! cmpenv_exists_local(TAG(frmls), cmpenv, top))
 		return FALSE;
 	for (; env != top; env = ENCLOS(env)) {
+	    /* As in make_cached_cmpenv, only standard frames are
+	       supported; hashed ones are what new.env() and local()
+	       create by default. */
 	    if (IS_STANDARD_UNHASHED_FRAME(env)) {
-		/* To keep things simple, for a match this code
-		   requires that the local frames be standard unhashed
-		   frames. */
-		for (SEXP frame = FRAME(env);
-		     frame != R_NilValue;
-		     frame = CDR(frame))
-		    if (! cmpenv_exists_local(TAG(frame), cmpenv, top))
+		if (! cmpenv_exists_frame(FRAME(env), cmpenv, top))
+		    return FALSE;
+	    }
+	    else if (IS_STANDARD_HASHED_FRAME(env)) {
+		SEXP h = HASHTAB(env);
+		int n = length(h);
+		for (int i = 0; i < n; i++)
+		    if (! cmpenv_exists_frame(VECTOR_ELT(h, i), cmpenv, top))
 			return FALSE;
 	    }
 	    else return FALSE;
