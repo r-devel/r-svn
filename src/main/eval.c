@@ -951,16 +951,12 @@ static R_INLINE void POP_PENDING_PROMISE(RPRSTACK *cellptr)
     R_PendingPromises = cellptr->next;
 }
 
-static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval);
+static SEXP variablePromiseSymbol(SEXP prom);
+static SEXP evalVariablePromise(SEXP prom, SEXP symbol);
 
 static void forcePromise(SEXP e)
 {
     if (! PROMISE_IS_EVALUATED(e)) {
-	/* a promise for a plain variable is usually forced by a lookup */
-	if (! PRSEEN(e) && TYPEOF(PRCODE(e)) == BCODESXP &&
-	    forceVariablePromiseValue(e, NULL))
-	    return;
-
 	PROTECT(e);
 	if(PRSEEN(e)) {
 	    if (PRSEEN(e) == 1)
@@ -980,7 +976,10 @@ static void forcePromise(SEXP e)
 	RPRSTACK prstack;
 	PUSH_PENDING_PROMISE(e, &prstack);
 
-	SEXP val = eval(PRCODE(e), PRENV(e));
+	/* a promise for a plain variable needs no byte code interpreter */
+	SEXP sym = variablePromiseSymbol(e);
+	SEXP val = sym != NULL ? evalVariablePromise(e, sym) :
+	    eval(PRCODE(e), PRENV(e));
 	SET_PRVALUE(e, val);
 	ENSURE_NAMEDMAX(val);
 
@@ -5910,6 +5909,24 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     }
 }
 
+/* Compute the value of prom, a promise for the plain variable symbol,
+   as its byte code GETVAR symbol; RETURN would, without starting the
+   byte code interpreter: getvar() is what GETVAR itself falls back to,
+   and the depth and stack checks are those eval() makes before running
+   byte code. */
+static SEXP evalVariablePromise(SEXP prom, SEXP symbol)
+{
+    int depthsave = R_EvalDepth;
+    INCREMENT_EVAL_DEPTH();
+    R_CheckStack();
+
+    SEXP value = getvar(symbol, PRENV(prom), FALSE, FALSE, NULL, 0);
+    R_Visible = TRUE;
+
+    R_EvalDepth = depthsave;
+    return value;
+}
+
 #ifdef IMMEDIATE_PROMISE_VALUES
 # define SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval)  do {		\
 	SEXP value;							\
@@ -5932,119 +5949,97 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     } while(0)
 #endif
 
-/* A promise for an argument that is just a variable has the code
-   GETVAR; RETURN. Forcing it by a lookup avoids starting an
-   interpreter frame, or a nested bcEval, for those two instructions.
-   Only an ordinary bound value is handled here. FALSE means nothing
-   was done, and the regular code has to deal with an unbound or
-   missing variable, an active binding, or a variable holding a
-   promise that needs more than a lookup itself. */
-
-static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval);
-
-/* Look up the value of the variable for prom, which is known to be a
-   promise for a plain variable. The value may be unboxed. */
-static R_INLINE Rboolean variablePromiseValue(SEXP prom, R_bcstack_t *pval)
+/* The byte code of a promise for an argument that is a plain variable,
+   as in f(x), is GETVAR x; RETURN. Returns x for such a promise and
+   NULL for any other. */
+static SEXP variablePromiseSymbol(SEXP prom)
 {
     SEXP code = PRCODE(prom);
-    SEXP symbol = GETCONST(BCCONSTS(code), BCODE_OPERAND(BCCODE(code)[2]));
+    if (TYPEOF(code) != BCODESXP)
+	return NULL;
 
-    SEXP cell = R_findVarLoc(symbol, PRENV(prom)).cell;
-    if (cell == NULL || IS_ACTIVE_BINDING(cell))
-	return FALSE;
-
-    R_bcstack_t val;
-    val.tag = 0;
-    val.flags = 0;
-    val.u.sxpval = R_NilValue;
-
-    SEXP src = cell; /* where an unboxed value is kept, if there is one */
-    if (TYPEOF(cell) == SYMSXP) {
-	val.u.sxpval = SYMVALUE(cell);
-    }
-    else if (BNDCELL_TAG(cell)) {
-	val.tag = BNDCELL_TAG(cell);
-    }
-    else {
-	val.u.sxpval = CAR(cell);
-    }
-
-    if (val.tag == 0) {
-	SEXP value = val.u.sxpval;
-	if (value == R_UnboundValue || value == R_MissingArg)
-	    return FALSE;
-	if (TYPEOF(value) == PROMSXP) {
-	    /* An argument passed along unforced is forced the same way
-	       first. A cycle of such promises ends at one that is marked
-	       as under evaluation, and the regular code reports it. */
-	    if (! PROMISE_IS_EVALUATED(value) &&
-		(PRSEEN(value) || TYPEOF(PRCODE(value)) != BCODESXP ||
-		 ! forceVariablePromiseValue(value, NULL)))
-		return FALSE;
-
-	    if (PROMISE_TAG(value)) {
-		val.tag = PROMISE_TAG(value);
-		src = value;
-	    }
-	    else {
-		val.u.sxpval = PRVALUE(value);
-	    }
-	}
-    }
-
-    switch (val.tag) {
-    case REALSXP: val.u.dval = BNDCELL_DVAL(src); break;
-    case INTSXP: val.u.ival = BNDCELL_IVAL(src); break;
-    case LGLSXP: val.u.ival = BNDCELL_LVAL(src); break;
-    }
-
-    *pval = val;
-    return TRUE;
-}
-
-/* Force prom by a lookup if it is a promise for a plain variable. The
-   caller has checked that it is unforced, not under evaluation, and
-   has byte code. On TRUE the value is also stored in *pval, if that
-   is not NULL. */
-static Rboolean forceVariablePromiseValue(SEXP prom, R_bcstack_t *pval)
-{
-    BCODE *pc = BCCODE(PRCODE(prom));
+    BCODE *pc = BCCODE(code);
     /* pc[0] is the version */
     if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
+	return NULL;
+    return GETCONST(BCCONSTS(code), BCODE_OPERAND(pc[2]));
+}
+
+/* The binding cell of symbol in rho, or NULL if there is none, it is
+   an active binding, or it holds an unforced promise that needs more
+   than a lookup. An argument passed on unchanged holds an unforced
+   promise for a plain variable; that is forced first, by
+   forcePromise(). */
+static R_INLINE SEXP variableValueCell(SEXP symbol, SEXP rho)
+{
+    SEXP cell = R_findVarLoc(symbol, rho).cell;
+    if (cell == NULL || IS_ACTIVE_BINDING(cell))
+	return NULL;
+    if (TYPEOF(cell) != SYMSXP && BNDCELL_TAG(cell))
+	return cell;
+
+    SEXP value = TYPEOF(cell) == SYMSXP ? SYMVALUE(cell) : CAR(cell);
+    if (TYPEOF(value) == PROMSXP && ! PROMISE_IS_EVALUATED(value)) {
+	if (PRSEEN(value) || variablePromiseSymbol(value) == NULL)
+	    return NULL;
+	forcePromise(value);
+    }
+    return cell;
+}
+
+/* Force prom, a promise for a plain variable, by looking the variable
+   up instead of giving its two instructions a frame, and push the
+   value. This does what setup_bcframe_prom(), GETVAR's inline code and
+   finish_force_promise() would do, for a variable bound to a value or
+   to a promise for one. For any other binding it changes nothing and
+   returns FALSE, and the promise gets a frame as before. */
+static R_INLINE Rboolean forceVariablePromise(SEXP prom)
+{
+    SEXP symbol = variablePromiseSymbol(prom);
+    if (symbol == NULL)
 	return FALSE;
 
-    /* Mark the promise as under evaluation for the lookup, as
-       forcePromise does: this stops a cycle of forwarded promises, and
-       an error from the lookup leaves the promise as it would be left
-       by the regular code. */
     RPRSTACK prstack;
     SET_PRSEEN(prom, 1);
     PUSH_PENDING_PROMISE(prom, &prstack);
-
-    R_bcstack_t val;
-    Rboolean found = variablePromiseValue(prom, &val);
-
+    SEXP cell = variableValueCell(symbol, PRENV(prom));
     POP_PENDING_PROMISE(&prstack);
     SET_PRSEEN(prom, 0);
-    if (! found)
+
+    if (cell == NULL)
 	return FALSE;
 
-    SET_PROMISE_VALUE_FROM_STACKVAL(prom, val);
+    SEXP value;
+    if (TYPEOF(cell) == SYMSXP) {
+	/* a variable in the base environment */
+	value = SYMVALUE(cell);
+    }
+    else {
+	switch (BNDCELL_TAG(cell)) {
+	case REALSXP: BCNPUSH_REAL(BNDCELL_DVAL(cell)); goto pushed;
+	case INTSXP: BCNPUSH_INTEGER(BNDCELL_IVAL(cell)); goto pushed;
+	case LGLSXP: BCNPUSH_LOGICAL(BNDCELL_LVAL(cell)); goto pushed;
+	}
+	value = CAR(cell);
+    }
+
+    if (value == R_UnboundValue || value == R_MissingArg)
+	return FALSE;
+    if (TYPEOF(value) == PROMSXP) {
+	if (! PROMISE_IS_EVALUATED(value))
+	    return FALSE;
+	switch (PROMISE_TAG(value)) {
+	case REALSXP: BCNPUSH_REAL(PROMISE_DVAL(value)); goto pushed;
+	case INTSXP: BCNPUSH_INTEGER(PROMISE_IVAL(value)); goto pushed;
+	case LGLSXP: BCNPUSH_LOGICAL(PROMISE_LVAL(value)); goto pushed;
+	}
+	value = PRVALUE(value);
+    }
+    BCNPUSH(value);
+
+ pushed:
+    SET_PROMISE_VALUE_FROM_STACKVAL(prom, R_BCNodeStackTop[-1]);
     SET_PRENV(prom, R_NilValue);
-    R_Visible = TRUE;
-    if (pval != NULL)
-	*pval = val;
-    return TRUE;
-}
-
-/* The same for GETVAR, which wants the value on the stack. */
-static R_INLINE Rboolean forceVariablePromise(SEXP prom)
-{
-    R_bcstack_t val;
-    if (! forceVariablePromiseValue(prom, &val))
-	return FALSE;
-
-    BCNPUSH_STACKVAL(val);
     return TRUE;
 }
 
