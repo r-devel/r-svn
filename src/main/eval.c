@@ -7539,6 +7539,19 @@ static SEXP bcEval(SEXP body, SEXP rho)
   return value;  
 }
 
+/* A few locals of bcEval_loop are deliberately kept in memory rather
+   than in registers; their declarations say why. Compile with
+   -DR_BCEVAL_SPILL_LOCALS=0 to leave the placement to the compiler,
+   e.g. to measure the effect with a different compiler. */
+#ifndef R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL_LOCALS 1
+#endif
+#if R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL volatile
+#else
+# define R_BCEVAL_SPILL
+#endif
+
 static SEXP bcEval_loop(struct bcEval_locals *ploc)
 {
   INITIALIZE_MACHINE();
@@ -7554,9 +7567,10 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
   RESTORE_BCEVAL_LOCALS(&locals);
 
   BCODE *currentpc = NULL;
-  /* read once, on return; volatile keeps it out of a register and,
-     with gcc, out of the setjmp bookkeeping at every dispatch */
-  void * volatile oldbcpc = R_BCpc;
+  /* Read once, on return. Kept in memory on purpose: it is live
+     across the SETJMP calls, and gcc otherwise holds it in a register
+     and writes it to its stack slot before every dispatch. */
+  void * R_BCEVAL_SPILL oldbcpc = R_BCpc;
   R_BCpc = &currentpc;
 
   static int evalcount = 0;
