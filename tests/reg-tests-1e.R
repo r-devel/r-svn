@@ -4511,7 +4511,8 @@ if(is.compiled(f1)) { # not when the JIT is disabled
     f4 <- eval(fn, new.env())
     f5 <- eval(fn, list2env(list(max = function(...) "local")))
     f6 <- eval(fn, new.env())
-    for(i in 1:3) r <- list(f3(1:3), f4(1:3), f5(1:3), f6(1:3))
+    for(i in 1:3)
+        r <- list(f3(1:3), f4(1:3), f5(1:3), f6(1:3))
     stopifnot(is.compiled(f2), is.compiled(f3), is.compiled(f4),
               is.compiled(f5), is.compiled(f6),
               identical(r, list(3L, 3L, "local", 3L)))
@@ -4520,11 +4521,11 @@ if(is.compiled(f1)) { # not when the JIT is disabled
     environment(f7) <- new.env(hash = FALSE, parent = emptyenv())
     environment(f8) <- list2env(list("{" = function(...) "local"),
                                 parent = emptyenv())
-    for(i in 1:3) r <- list(tryCid(f7(1)), f8(1))
+    for(i in 1:3)
+        r <- list(tryCid(f7(1)), f8(1))
     stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
 }
-## f2, f4, f5 and f6 were never compiled, and the second call of f7
-## did not return, in R <= 4.6.2
+## f2, f4, f5 and f6 were never compiled, and f7 hung, in R <= 4.6.2
 
 
 
