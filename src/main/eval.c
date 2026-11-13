@@ -1776,9 +1776,11 @@ static SEXP jit_lang_skeleton(SEXP e, int *budget)
 	    return R_UnboundValue;
 	*budget -= (int) n;
 
-	SEXP val = allocVector(STRSXP, n);
+	/* STRING_ELT can allocate, for deferred strings */
+	SEXP val = PROTECT(allocVector(STRSXP, n));
 	for (R_xlen_t i = 0; i < n; i++)
 	    SET_STRING_ELT(val, i, STRING_ELT(e, i));
+	UNPROTECT(1); /* val */
 	return val;
     }
     default:
@@ -1786,18 +1788,21 @@ static SEXP jit_lang_skeleton(SEXP e, int *budget)
     }
 }
 
-/* The formals kept with a cache entry: names, and skeletons of the
-   default calls, with R_MissingArg for the other defaults. */
+/* The formals kept with a cache entry, in new cells without attributes:
+   names, and skeletons of the default calls, with R_MissingArg for the
+   other defaults. */
 static SEXP jit_cache_formals_snapshot(SEXP formals)
 {
-    SEXP val = PROTECT(shallow_duplicate(formals));
-    for (SEXP frmls = val; frmls != R_NilValue; frmls = CDR(frmls)) {
-	if (TYPEOF(CAR(frmls)) == LANGSXP) {
+    SEXP val = PROTECT(allocList(length(formals)));
+    for (SEXP from = formals, to = val; from != R_NilValue;
+	 from = CDR(from), to = CDR(to)) {
+	SET_TAG(to, TAG(from));
+	if (TYPEOF(CAR(from)) == LANGSXP) {
 	    int budget = JIT_DEFAULT_BUDGET;
-	    SETCAR(frmls, jit_lang_skeleton(CAR(frmls), &budget));
+	    SETCAR(to, jit_lang_skeleton(CAR(from), &budget));
 	}
 	else {
-	    SETCAR(frmls, R_MissingArg);
+	    SETCAR(to, R_MissingArg);
 	}
     }
     UNPROTECT(1); /* val */

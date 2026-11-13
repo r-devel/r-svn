@@ -4542,25 +4542,26 @@ if(is.compiled(f1)) { # not when the JIT is disabled
                      call("function", NULL, deep(10000)),
                      call("function", NULL, deep(10000)),
                      call("function", NULL, dag(50)),
-                     call("function", NULL, dag(50)))
+                     call("function", NULL, dag(50)),
+                     call("quote", as.character(1:10))) # deferred strings
     for(d in defaults) {
         ## not with formals<-, which copies shared subexpressions
         f11 <- eval(call("function", as.pairlist(list(x = d)),
                          quote({ for (i in 1L) NULL; x })))
         stopifnot(identical(f11(0L), 0L), is.compiled(f11))
     }
-    ## nor keep them alive, nor the environment of a formula
+    ## nor keep them alive, nor the environment of a formula, nor
+    ## attributes of the formals
     fin <- 0
-    e1 <- new.env(); e2 <- new.env()
-    reg.finalizer(e1, function(e) fin <<- fin + 1)
-    reg.finalizer(e2, function(e) fin <<- fin + 1)
+    e1 <- new.env(); e2 <- new.env(); e3 <- new.env()
+    for(e in list(e1, e2, e3)) reg.finalizer(e, function(e) fin <<- fin + 1)
     fo <- ~ x
     environment(fo) <- e2
-    f12 <- eval(call("function", as.pairlist(list(x = e1, y = fo)),
-                     quote({ for (i in 1L) NULL; x })))
+    fs <- structure(as.pairlist(list(x = e1, y = fo)), payload = e3)
+    f12 <- eval(call("function", fs, quote({ for (i in 1L) NULL; x })))
     f12(0L)
-    rm(e1, e2, fo, f12); invisible(gc())
-    stopifnot(fin == 2)
+    rm(e, e1, e2, e3, fo, fs, f12); invisible(gc())
+    stopifnot(fin == 3)
 }
 ## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
 
