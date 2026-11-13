@@ -104,7 +104,9 @@
 #define BINARY_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2,             \
                               load1, load2, loop_body) do {             \
         i = i1 = i2 = 0;                                                \
-        if (n == 0) break;                                              \
+        if (n == 0) {                                                   \
+            break;                                                      \
+        }                                                               \
         if (n2 == 1) {                                                  \
             load2;                                                      \
             R_ITERATE_CHECK(ncheck, n, i, {                             \
@@ -121,19 +123,21 @@
                 loop_body                                               \
             });                                                         \
         }                                                               \
-        else if (n1 == n2)                                              \
+        else if (n1 == n2) {                                            \
             R_ITERATE_CHECK(ncheck, n, i, {                             \
                 i1 = i2 = i;                                            \
                 load1;                                                  \
                 load2;                                                  \
                 loop_body                                               \
             });                                                         \
-        else                                                            \
+        }                                                               \
+        else {                                                          \
             MOD_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2, {          \
                 load1;                                                  \
                 load2;                                                  \
                 loop_body                                               \
             });                                                         \
+        }                                                               \
     } while (0)
 
 #define MOD_ITERATE MOD_ITERATE2
