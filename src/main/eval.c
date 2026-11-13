@@ -6916,11 +6916,52 @@ static R_INLINE SEXP SymbolValue(SEXP sym)
     }
 }
 
+/* Fast path for BASEGUARD. TRUE means a function lookup of sym from
+   rho is certain to find the base definition. FALSE only means the
+   cheap checks here could not establish that, and findFun has to
+   decide: only plain unhashed frames are walked, and a frame that
+   binds sym at all (even to a non-function) is left to findFun. */
+static R_INLINE Rboolean baseFunSurelyVisible(SEXP sym, SEXP rho)
+{
+    /* base keeps its bindings in the symbols, so the walk ends there */
+    while (rho != R_BaseEnv && rho != R_BaseNamespace) {
+	if (rho == R_GlobalEnv) {
+	    /* the global cache covers the rest of the search path */
+	    if (! BASE_SYM_CACHED(sym))
+		return FALSE;
+	    break;
+	}
+
+	if (rho == R_EmptyEnv || OBJECT(rho) || HASHTAB(rho) != R_NilValue)
+	    return FALSE;
+
+	for (SEXP frame = FRAME(rho); frame != R_NilValue; frame = CDR(frame))
+	    if (TAG(frame) == sym)
+		return FALSE;
+
+	rho = ENCLOS(rho);
+    }
+
+    if (IS_ACTIVE_BINDING(sym))
+	return FALSE;
+
+    SEXP value = SYMVALUE(sym);
+    if (TYPEOF(value) == PROMSXP) {
+	if (! PROMISE_IS_EVALUATED(value))
+	    return FALSE;
+	value = PRVALUE(value);
+    }
+
+    return TYPEOF(value) == BUILTINSXP || TYPEOF(value) == SPECIALSXP ||
+	TYPEOF(value) == CLOSXP;
+}
+
 #define DO_BASEGUARD() do {				\
 	SEXP expr = GETCONST(constants, GETOP());	\
 	int label = GETOP();				\
 	SEXP sym = CAR(expr);				\
-	if (findFun(sym, rho) != SymbolValue(sym)) {	\
+	if (! baseFunSurelyVisible(sym, rho) &&		\
+	    findFun(sym, rho) != SymbolValue(sym)) {	\
 	    BCNPUSH(eval(expr, rho));			\
 	    pc = codebase + label;			\
 	}						\
