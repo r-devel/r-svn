@@ -2021,46 +2021,10 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     return val;
 }
 
-/* Cached code compiled for the local variables in cmpenv cannot be
-   used for fun. Compiling fun as it is would leave functions with
-   either set of local variables replacing each other's cache entry,
-   so return a copy of fun whose environment defines both sets: the
-   code compiled for the copy can be used for both. */
-#define JIT_MAX_MERGED_VARS 256
-static SEXP jit_merged_closure(SEXP fun, SEXP cmpenv)
-{
-    SEXP top = topenv(R_NilValue, CLOENV(fun));
-    if (cmpenv == top || cmpenv_topenv(cmpenv) != top)
-	return fun; /* cmpenv has no local variables that could be used */
-
-    /* cmpenv would grow without bound if each function had new local
-       variables; this is meant for functions created again and again
-       in a few kinds of small environment, such as call frames */
-    if (length(cmpenv) > JIT_MAX_MERGED_VARS)
-	return fun;
-
-    SEXP newenv = make_cached_cmpenv(fun);
-    if (newenv == top)
-	return fun; /* the local variables of fun are not known */
-
-    PROTECT(newenv);
-    SEXP h = HASHTAB(cmpenv);
-    int n = length(h);
-    for (int i = 0; i < n; i++)
-	cmpenv_enter_frame(VECTOR_ELT(h, i), newenv);
-
-    SEXP val = PROTECT(mkCLOSXP(FORMALS(fun), BODY(fun), newenv));
-    SHALLOW_DUPLICATE_ATTRIB(val, fun);
-    UNPROTECT(2); /* newenv, val */
-
-    return val;
-}
-
 /* fun is modified in-place when compiled */
 static void R_cmpfun(SEXP fun)
 {
     R_exprhash_t hash = 0;
-    SEXP cmpenv = R_NilValue; /* of a cache entry that fun cannot use */
     if (jit_strategy != STRATEGY_NO_CACHE) {
 	hash = hashfun(fun);
 	SEXP entry = get_jit_cache_entry(hash);
@@ -2097,20 +2061,14 @@ static void R_cmpfun(SEXP fun)
 		   references, anyway. */
 		/* FIXME: revisit this when deep comparison of environments
 			  (and srcrefs) is available */
-	    } else {
-		/* Marking fun as NOJIT here would keep it in the AST
-		   interpreter for good, however often it is called, so
-		   re-compile and re-cache in this case as well. */
-		cmpenv = jit_cache_env(entry);
 	    }
 	}
 	PRINT_JIT_INFO;
     }
 
-    /* the closure passed to the compiler */
-    SEXP cmpfun = cmpenv == R_NilValue ? fun : jit_merged_closure(fun, cmpenv);
-    PROTECT(cmpfun);
-    SEXP val = R_cmpfun1(cmpfun);
+    /* A cache mismatch must not leave fun uncompiled for good,
+       however often it is called. Compile and cache it instead. */
+    SEXP val = R_cmpfun1(fun);
 
     if (TYPEOF(BODY(val)) != BCODESXP)
 	SET_NOJIT(fun);
@@ -2119,7 +2077,6 @@ static void R_cmpfun(SEXP fun)
 	    set_jit_cache_entry(hash, val); /* val is protected by callee */
 	SET_BODY(fun, BODY(val));
     }
-    UNPROTECT(1); /* cmpfun */
 }
 
 static SEXP R_compileExpr(SEXP expr, SEXP rho)

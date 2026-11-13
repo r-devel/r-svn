@@ -4536,14 +4536,15 @@ if(is.compiled(f1)) { # not when the JIT is disabled
     deep <- function(n) { e <- quote(x); for(k in 1:n) e <- call("(", e); e }
     dag <- function(n) { e <- quote(x); for(k in 1:n) e <- call("+", e, e); e }
     nest <- function(n) { l <- list(); for(k in 1:n) l <- list(l); l }
-    defaults <- list(1:2147483648, # a compact sequence
-                     structure(1, a = nest(10000)),
+    defaults <- list(structure(1, a = nest(10000)),
                      structure(1, a = nest(10000)),
                      call("function", NULL, deep(10000)),
                      call("function", NULL, deep(10000)),
                      call("function", NULL, dag(50)),
                      call("function", NULL, dag(50)),
                      call("quote", as.character(1:10))) # deferred strings
+    if(.Machine$sizeof.pointer >= 8)
+        defaults <- c(list(1:2147483648), defaults) # a compact sequence
     for(d in defaults) {
         ## not with formals<-, which copies shared subexpressions
         f11 <- eval(call("function", as.pairlist(list(x = d)),
