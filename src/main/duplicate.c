@@ -213,9 +213,8 @@ static SEXP duplicate_child(SEXP s, Rboolean deep) {
 
 /*****************/
 
-/* The nodes R_cycle_detected() has expanded: open addressing with
-   linear probing, in a table on the C stack that may grow onto the
-   heap. */
+/* The nodes R_cycle_detected() has expanded: a heap-allocated hash
+   table with open addressing and linear probing. */
 
 #define SEEN_INITIAL_K 5
 
@@ -224,28 +223,13 @@ typedef struct {
     SEXP *tab;		/* 2^K slots; NULL until used */
     int K;
     size_t count;
-    Rboolean heap;	/* may the table grow onto the heap? */
-    Rboolean overflow;	/* it had to but could not: abandon the walk */
     int altrep;		/* ALTREP lists being walked: record nothing */
-    SEXP initial[1 << SEEN_INITIAL_K];
 } seen_set;
-
-static void seen_init(seen_set *seen, SEXP root, Rboolean heap)
-{
-    seen->root = root;
-    seen->tab = NULL;
-    seen->K = SEEN_INITIAL_K;
-    seen->count = 0;
-    seen->heap = heap;
-    seen->overflow = FALSE;
-    seen->altrep = 0;
-}
 
 static void seen_free(void *data)
 {
     seen_set *seen = data;
-    if (seen->tab != seen->initial)
-	free(seen->tab);
+    free(seen->tab);
     seen->tab = NULL;
 }
 
@@ -258,13 +242,13 @@ static R_INLINE size_t seen_slot(SEXP x, int K)
 
 static void seen_grow(seen_set *seen)
 {
-    int K = seen->K + 1;
+    int K = seen->tab == NULL ? SEEN_INITIAL_K : seen->K + 1;
     size_t n = (size_t) 1 << K;
     SEXP *tab = calloc(n, sizeof(SEXP));
     if (tab == NULL)
 	error(_("cannot allocate memory for cycle detection"));
 
-    for (size_t i = 0; i < n / 2; i++) {
+    for (size_t i = 0; seen->tab != NULL && i < n / 2; i++) {
 	SEXP x = seen->tab[i];
 	if (x != NULL) {
 	    size_t j = seen_slot(x, K);
@@ -273,20 +257,16 @@ static void seen_grow(seen_set *seen)
 	    tab[j] = x;
 	}
     }
-    if (seen->tab != seen->initial)
-	free(seen->tab);
+    free(seen->tab);
     seen->tab = tab;
     seen->K = K;
 }
 
-/* Return TRUE if 'x' has been recorded already, or if recording it
-   overflows a table that may not grow; otherwise record it. */
+/* Return TRUE if 'x' has been recorded already; otherwise record it. */
 static Rboolean seen_before(seen_set *seen, SEXP x)
 {
-    if (seen->tab == NULL) {
-	memset(seen->initial, 0, sizeof(seen->initial));
-	seen->tab = seen->initial;
-    }
+    if (seen->tab == NULL)
+	seen_grow(seen);
 
     size_t mask = ((size_t) 1 << seen->K) - 1;
     size_t i = seen_slot(x, seen->K);
@@ -296,13 +276,8 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
 
     if (seen->altrep == 0) {
 	seen->tab[i] = x;
-	if (2 * ++seen->count > mask + 1) {
-	    if (! seen->heap) {
-		seen->overflow = TRUE;
-		return TRUE;
-	    }
+	if (2 * ++seen->count > mask + 1)
 	    seen_grow(seen);
-	}
     }
     return FALSE;
 }
@@ -327,10 +302,9 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
 	if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
 	    (child == R_NilValue || ! isPairList(child)))
 	    return FALSE;
-	/* on overflow, unwind to R_cycle_detected() at once */
 	if ((MAYBE_SHARED(child) || child == seen->root) &&
 	    seen_before(seen, child))
-	    return seen->overflow;
+	    return FALSE;
 
 	if (ATTRIB(child) != R_NilValue) {
 	    if (cycle_detected(s, ATTRIB(child), seen))
@@ -384,18 +358,10 @@ attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
 	return FALSE;
     }
 
-    seen_set seen;
-    seen_init(&seen, child, FALSE);
-    Rboolean ans = cycle_detected(s, child, &seen);
-    if (! seen.overflow)
-	return ans;
-
-    /* The stack table filled up and the walk was abandoned.  Repeat it
-       with a table that grows onto the heap, freed even if an ALTREP
-       list method signals an error.  The table is not allocated with
-       R_alloc() so that the check cannot trigger a GC. */
+    seen_set seen = { .root = child };
     cycle_args args = { s, child, &seen };
-    seen_init(&seen, child, TRUE);
+    /* Free the table even if an ALTREP list method signals an error.
+       Using calloc() rather than R_alloc() avoids triggering a GC. */
     return R_ExecWithCleanup(cycle_detected_heap, &args, seen_free, &seen) ==
 	R_TrueValue;
 }
