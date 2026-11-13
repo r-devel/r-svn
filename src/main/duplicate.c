@@ -213,48 +213,157 @@ static SEXP duplicate_child(SEXP s, Rboolean deep) {
 
 /*****************/
 
+/* The nodes R_cycle_detected() has expanded: a heap-allocated hash
+   table with open addressing and linear probing. */
+
+#define SEEN_INITIAL_K 5
+
+typedef struct {
+    SEXP root;
+    SEXP *tab;		/* 2^K slots; NULL until used */
+    int K;
+    size_t count;
+    int altrep;		/* ALTREP lists being walked: record nothing */
+} seen_set;
+
+static void seen_free(void *data)
+{
+    seen_set *seen = data;
+    free(seen->tab);
+    seen->tab = NULL;
+}
+
+static R_INLINE size_t seen_slot(SEXP x, int K)
+{
+    /* Fibonacci hashing: the top K bits of the scaled address */
+    size_t h = (size_t) ((uintptr_t) x >> 3) * (size_t) 0x9E3779B97F4A7C15ULL;
+    return h >> (8 * sizeof(size_t) - K);
+}
+
+static void seen_grow(seen_set *seen)
+{
+    int K = seen->tab == NULL ? SEEN_INITIAL_K : seen->K + 1;
+    size_t n = (size_t) 1 << K;
+    SEXP *tab = calloc(n, sizeof(SEXP));
+    if (tab == NULL)
+	error(_("cannot allocate memory for cycle detection"));
+
+    for (size_t i = 0; seen->tab != NULL && i < n / 2; i++) {
+	SEXP x = seen->tab[i];
+	if (x != NULL) {
+	    size_t j = seen_slot(x, K);
+	    while (tab[j] != NULL)
+		j = (j + 1) & (n - 1);
+	    tab[j] = x;
+	}
+    }
+    free(seen->tab);
+    seen->tab = tab;
+    seen->K = K;
+}
+
+/* Return TRUE if 'x' has been recorded already; otherwise record it. */
+static Rboolean seen_before(seen_set *seen, SEXP x)
+{
+    if (seen->tab == NULL)
+	seen_grow(seen);
+
+    size_t mask = ((size_t) 1 << seen->K) - 1;
+    size_t i = seen_slot(x, seen->K);
+    for (; seen->tab[i] != NULL; i = (i + 1) & mask)
+	if (seen->tab[i] == x)
+	    return TRUE;
+
+    if (seen->altrep == 0) {
+	seen->tab[i] = x;
+	if (2 * ++seen->count > mask + 1)
+	    seen_grow(seen);
+    }
+    return FALSE;
+}
+
 /* Detect cycles that would be created by assigning 'child' as a
    component of 's' in a complex assignment without duplicating
    'child'.  This is called quite often but almost always returns
-   FALSE. Could be made more efficient, at least with partial
-   inlining, but probably not worth while until it starts showing up
-   significantly in profiling. Based on code from Michael Lawrence. */
-attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
-    if (s == child) {
-	switch (TYPEOF(child)) {
-	case NILSXP:
-	case SYMSXP:
-	case ENVSXP:
-	case SPECIALSXP:
-	case BUILTINSXP:
-	case EXTPTRSXP:
-	case BCODESXP:
-	case WEAKREFSXP:
-	    /* it's a cycle but one that is OK */
-	    return FALSE;
-	default:
-	return TRUE;
-	}
-    }
-    if (ATTRIB(child) != R_NilValue) {
-	if (R_cycle_detected(s, ATTRIB(child)))
+   FALSE. Based on code from Michael Lawrence.
+
+   A node reachable from 'child' along several paths, as in the result
+   of 'for (k in 1:50) e <- call("+", e, e)', is expanded only once, so
+   the cost is linear in the number of nodes rather than of paths.
+   Such a node is referenced more than once, so only nodes with
+   REFCNT > 1 are recorded, apart from the root, which is recorded too
+   as a cycle through the attributes of an environment can lead back
+   to it. */
+static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
+{
+    for (;;) {
+	if (s == child)
 	    return TRUE;
-    }
-    if (isPairList(child)) {
-	SEXP el = child;
-	while(el != R_NilValue) {
-	    if (s == el || R_cycle_detected(s, CAR(el)))
+	if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
+	    (child == R_NilValue || ! isPairList(child)))
+	    return FALSE;
+	if ((MAYBE_SHARED(child) || child == seen->root) &&
+	    seen_before(seen, child))
+	    return FALSE;
+
+	if (ATTRIB(child) != R_NilValue) {
+	    if (cycle_detected(s, ATTRIB(child), seen))
 		return TRUE;
-	    if (ATTRIB(el) != R_NilValue && R_cycle_detected(s, ATTRIB(el)))
-		return TRUE;
-	    el = CDR(el);
 	}
-    } else if (isVectorList(child)) {
-	for(int i = 0 ; i < length(child); i++)
-	    if (R_cycle_detected(s, VECTOR_ELT(child, i)))
+	if (isPairList(child)) {
+	    if (cycle_detected(s, CAR(child), seen))
 		return TRUE;
+	    child = CDR(child);
+	    continue;
+	} else if (isVectorList(child)) {
+	    /* The elements of an ALTREP list can be new objects, which a GC
+	       during the walk may free and whose addresses may be reused, so
+	       nothing below one is recorded.  Nodes recorded elsewhere are
+	       reachable from the root without one, so they stay alive and
+	       looking them up remains safe. */
+	    int altrep = ALTREP(child) ? 1 : 0;
+	    seen->altrep += altrep;
+	    for(int i = 0 ; i < length(child); i++)
+		if (cycle_detected(s, VECTOR_ELT(child, i), seen))
+		    return TRUE;
+	    seen->altrep -= altrep;
+	}
+	return FALSE;
     }
-    return FALSE;
+}
+
+typedef struct {
+    SEXP s, child;
+    seen_set *seen;
+} cycle_args;
+
+static SEXP cycle_detected_heap(void *data)
+{
+    cycle_args *args = data;
+    return cycle_detected(args->s, args->child, args->seen) ?
+	R_TrueValue : R_FalseValue;
+}
+
+attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
+    switch (TYPEOF(s)) {
+    case NILSXP:
+    case SYMSXP:
+    case ENVSXP:
+    case SPECIALSXP:
+    case BUILTINSXP:
+    case EXTPTRSXP:
+    case BCODESXP:
+    case WEAKREFSXP:
+	/* Cycles through these objects are OK. */
+	return FALSE;
+    }
+
+    seen_set seen = { .root = child };
+    cycle_args args = { s, child, &seen };
+    /* Free the table even if an ALTREP list method signals an error.
+       Using calloc() rather than R_alloc() avoids triggering a GC. */
+    return R_ExecWithCleanup(cycle_detected_heap, &args, seen_free, &seen) ==
+	R_TrueValue;
 }
 
 static R_INLINE SEXP duplicate_list(SEXP s, Rboolean deep)
