@@ -4531,15 +4531,24 @@ if(is.compiled(f1)) { # not when the JIT is disabled
     for(i in 1:3)
         r <- list(tryCid(f9(1)), f10(1))
     stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
-    ## defaults are hashed: neither a long vector nor deep nesting there
-    ## may break a call that supplies the argument
-    f11 <- f12 <- function(x) { for (i in 1L) NULL; x }
-    formals(f11)$x <- 1:2147483648 # a compact sequence
-    deep <- quote(x)
-    for(k in 1:10000) deep <- call("(", deep)
-    formals(f12)$x <- call("function", NULL, deep)
-    stopifnot(identical(f11(0L), 0L), identical(f12(0L), 0L),
-              is.compiled(f11), is.compiled(f12))
+    ## defaults are compared: neither a long vector nor deep nesting nor
+    ## shared subexpressions there may break a call supplying the argument
+    deep <- function(n) { e <- quote(x); for(k in 1:n) e <- call("(", e); e }
+    dag <- function(n) { e <- quote(x); for(k in 1:n) e <- call("+", e, e); e }
+    nest <- function(n) { l <- list(); for(k in 1:n) l <- list(l); l }
+    defaults <- list(1:2147483648, # a compact sequence
+                     structure(1, a = nest(10000)),
+                     structure(1, a = nest(10000)),
+                     call("function", NULL, deep(10000)),
+                     call("function", NULL, deep(10000)),
+                     call("function", NULL, dag(50)),
+                     call("function", NULL, dag(50)))
+    for(d in defaults) {
+        ## not with formals<-, which copies shared subexpressions
+        f11 <- eval(call("function", as.pairlist(list(x = d)),
+                         quote({ for (i in 1L) NULL; x })))
+        stopifnot(identical(f11(0L), 0L), is.compiled(f11))
+    }
 }
 ## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
 

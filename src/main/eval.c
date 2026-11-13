@@ -1408,14 +1408,13 @@ static R_exprhash_t hashfun(SEXP f)
 	h = hashsrcref(getAttrib(f, R_SrcrefSymbol), h);
 
     /* Cached code can only be used for a function with the same top
-       level environment (see jit_env_match) and the same formals, as
-       default arguments can define local variables too (see
-       R_cmpfun), so functions that share a body but differ in these
-       should not share a cache entry. */
+       level environment and formal names (see jit_env_match), so
+       functions that share a body but differ in these should not share
+       a cache entry. Default arguments, which can be arbitrary objects,
+       are compared on a hit instead (see jit_formals_match). */
     for (SEXP frmls = FORMALS(f); frmls != R_NilValue; frmls = CDR(frmls)) {
 	SEXP tag = TAG(frmls);
 	h = HASH(tag, h);
-	h = hashexpr1(CAR(frmls), h);
     }
     SEXP top = topenv(R_NilValue, CLOENV(f));
     h = HASH(top, h);
@@ -1423,32 +1422,6 @@ static R_exprhash_t hashfun(SEXP f)
     return h;
 }
 #undef HASH
-
-/* Default arguments are hashed and compared recursively (see hashfun
-   and R_cmpfun), so functions with very deeply nested ones, which only
-   arise from computing on the language, are not cached: this could
-   exhaust the C stack, even when the arguments are supplied. */
-#define JIT_MAX_DEFAULT_DEPTH 1000
-static Rboolean jit_expr_depth_ok(SEXP e, int depth)
-{
-    if (TYPEOF(e) != LANGSXP && TYPEOF(e) != LISTSXP)
-	return TRUE;
-    if (depth == 0)
-	return FALSE;
-
-    for (; e != R_NilValue; e = CDR(e))
-	if (! jit_expr_depth_ok(CAR(e), depth - 1))
-	    return FALSE;
-    return TRUE;
-}
-
-static Rboolean jit_formals_cacheable(SEXP formals)
-{
-    for (; formals != R_NilValue; formals = CDR(formals))
-	if (! jit_expr_depth_ok(CAR(formals), JIT_MAX_DEFAULT_DEPTH))
-	    return FALSE;
-    return TRUE;
-}
 
 static void loadCompilerNamespace(void)
 {
@@ -1880,6 +1853,58 @@ static R_INLINE Rboolean jit_srcref_match(SEXP cmpsrcref, SEXP srcref)
     return R_compute_identical(cmpsrcref, srcref, 0);
 }
 
+/* The compiler treats variables assigned in default arguments as local
+   (see findLocals in the compiler), and the environment of a cache
+   entry does not record them, so cached code can only be used for a
+   function whose defaults define the same variables. Only calls can.
+   Calls are compared conservatively: symbols by address, scalar
+   constants by value and anything else by address. The work is bounded,
+   as defaults can be arbitrary objects, deeply nested or with shared
+   subexpressions; calls that exceed the bound do not match, which only
+   means that the function is compiled again. */
+#define JIT_DEFAULT_MATCH_BUDGET 1000
+static Rboolean jit_lang_match(SEXP x, SEXP y, int *budget)
+{
+    if (x == y)
+	return TRUE;
+    if (--*budget < 0 || TYPEOF(x) != TYPEOF(y))
+	return FALSE;
+
+    switch (TYPEOF(x)) {
+    case LANGSXP:
+    case LISTSXP:
+	return TAG(x) == TAG(y) &&
+	    jit_lang_match(CAR(x), CAR(y), budget) &&
+	    jit_lang_match(CDR(x), CDR(y), budget);
+    case LGLSXP:
+    case INTSXP:
+    case REALSXP:
+    case CPLXSXP:
+    case STRSXP:
+	return XLENGTH(x) == 1 && XLENGTH(y) == 1 &&
+	    ATTRIB(x) == R_NilValue && ATTRIB(y) == R_NilValue &&
+	    R_compute_identical(x, y, 16);
+    default:
+	return FALSE;
+    }
+}
+
+static Rboolean jit_formals_match(SEXP x, SEXP y)
+{
+    for (; x != R_NilValue && y != R_NilValue; x = CDR(x), y = CDR(y)) {
+	if (TAG(x) != TAG(y))
+	    return FALSE;
+
+	SEXP dx = CAR(x), dy = CAR(y);
+	if (TYPEOF(dx) == LANGSXP || TYPEOF(dy) == LANGSXP) {
+	    int budget = JIT_DEFAULT_MATCH_BUDGET;
+	    if (! jit_lang_match(dx, dy, &budget))
+		return FALSE;
+	}
+    }
+    return x == y;
+}
+
 attribute_hidden SEXP R_cmpfun1(SEXP fun)
 {
     Rboolean old_visible = R_Visible;
@@ -1946,9 +1971,7 @@ static void R_cmpfun(SEXP fun)
 {
     R_exprhash_t hash = 0;
     SEXP cmpenv = R_NilValue; /* of a cache entry that fun cannot use */
-    Rboolean use_cache = jit_strategy != STRATEGY_NO_CACHE &&
-	jit_formals_cacheable(FORMALS(fun));
-    if (use_cache) {
+    if (jit_strategy != STRATEGY_NO_CACHE) {
 	hash = hashfun(fun);
 	SEXP entry = get_jit_cache_entry(hash);
 
@@ -1956,11 +1979,8 @@ static void R_cmpfun(SEXP fun)
 	    jit_info.count++;
 	    if (jit_env_match(jit_cache_env(entry), fun)) {
 		jit_info.envcount++;
-		/* The formals have to match as well: the compiler treats
-		   variables assigned in default arguments as local, and
-		   the environment of the entry does not record them. */
 		if (jit_expr_match(jit_cache_expr(entry), BODY(fun)) &&
-		    jit_expr_match(jit_cache_formals(entry), FORMALS(fun))) {
+		    jit_formals_match(jit_cache_formals(entry), FORMALS(fun))) {
 		    jit_info.bdcount++;
 		    /* if function body has a srcref, all srcrefs compiled
 		       in that function only depend on the body srcref;
@@ -2005,7 +2025,7 @@ static void R_cmpfun(SEXP fun)
     if (TYPEOF(BODY(val)) != BCODESXP)
 	SET_NOJIT(fun);
     else {
-	if (use_cache)
+	if (jit_strategy != STRATEGY_NO_CACHE)
 	    set_jit_cache_entry(hash, val); /* val is protected by callee */
 	SET_BODY(fun, BODY(val));
     }
