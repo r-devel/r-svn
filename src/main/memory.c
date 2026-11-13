@@ -506,7 +506,7 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 /* Miscellaneous Globals. */
 
-attribute_hidden SEXP R_VStack = NULL;	/* R_alloc stack pointer */
+SEXP R_VStack = NULL;		      /* R_alloc stack pointer */
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;

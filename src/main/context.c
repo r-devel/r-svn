@@ -107,7 +107,6 @@
 #include <config.h>
 #endif
 
-#define INLINE_VMAX
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>

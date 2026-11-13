@@ -260,7 +260,6 @@
  R_UnwindHandlerStack
  R_UseNamesSymbol
  R_VSize
- R_VStack
  R_Verbose
  R_WarnLength
  R_Warnings
