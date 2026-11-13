@@ -4556,9 +4556,12 @@ local({
         expected <- suppressWarnings(vapply(seq_len(n), function(i) f(xx[i], yy[i]),
                                             f(x[1L], y[1L])))
         actual <- suppressWarnings(f(x, y))
-        stopifnot(identical(actual, expected))
+        ## Combining NA and NaN may give either missing value; see ?NA.
+        na_nan <- is.na(xx) & is.na(yy) & (is.nan(xx) != is.nan(yy))
+        stopifnot(identical(is.na(actual), is.na(expected)),
+                  identical(actual[!na_nan], expected[!na_nan]))
         if (is.double(actual)) # also distinguish positive and negative zero
-            stopifnot(identical(1 / actual, 1 / expected))
+            stopifnot(identical(1 / actual[!na_nan], 1 / expected[!na_nan]))
     }
     for (op in c("+", "-", "*", "/", "^", "%%", "%/%")) {
         arithmetic <- function(x, y) NULL
