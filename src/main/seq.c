@@ -965,6 +965,10 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(miss_from) rfrom = rto   - (double)lout + 1;
 	if(!R_FINITE(rfrom)) errorcall(call, _("'%s' must be a finite number"), "from");
 	if(!R_FINITE(rto))   errorcall(call, _("'%s' must be a finite number"), "to");
+	if(fabs(rto - rfrom) == (double)(lout - 1)) { // by = +/- 1: same as from:to
+	    ans = seq_colon(rfrom, rto, call);
+	    goto done;
+	}
 	bool finite_del = 0;
 	if(lout > 2) { // only then, use 'by'
 	    double nint = (double)(lout - 1);
@@ -1012,6 +1016,10 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(!R_FINITE(rfrom)) errorcall(call, _("'%s' must be a finite number"), "from");
 	if(!R_FINITE(rby))   errorcall(call, _("'%s' must be a finite number"), "by");
 	rto = rfrom + (double)(lout-1)*rby;
+	if(fabs(rby) == 1. && fabs(rto - rfrom) == (double)(lout - 1)) {
+	    ans = seq_colon(rfrom, rto, call); // compact, as from:to
+	    goto done;
+	}
 	// avoid undefined behaviour by testing range before converting.
 	if(rfrom <= INT_MAX && rfrom >= INT_MIN
 	   &&  rto  <= INT_MAX &&  rto  >= INT_MIN
@@ -1033,6 +1041,10 @@ attribute_hidden SEXP do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    rfrom = rto - (double)(lout-1)*rby;
 	if(!R_FINITE(rto)) errorcall(call, _("'%s' must be a finite number"), "to");
 	if(!R_FINITE(rby)) errorcall(call, _("'%s' must be a finite number"), "by");
+	if(fabs(rby) == 1. && fabs(rto - rfrom) == (double)(lout - 1)) {
+	    ans = seq_colon(rfrom, rto, call); // compact, as from:to
+	    goto done;
+	}
 	if(rby == (int)rby && rto == (int)rto
 	   && rfrom <= INT_MAX && rfrom >= INT_MIN
 	   &&  rto  <= INT_MAX &&  rto  >= INT_MIN) {
