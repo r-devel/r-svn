@@ -4499,6 +4499,23 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## replacing an element by a value with shared subexpressions
+e <- quote(x); for (k in 1:60) e <- call("+", e, e) # 180 cells, 2^60 paths
+l <- list(x = NULL, y = NULL); l$x <- e; l[["y"]] <- e
+p <- pairlist(x = NULL); p$x <- e
+attr(l, "a") <- 1; attr(l, "a") <- e
+stopifnot(identical(l$x, e), identical(l$y, e), identical(p$x, e),
+          identical(attr(l, "a"), e))
+## took time exponential in the depth of 'e' in R <= 4.6.2
+
+
+## replacing an element by an environment that is its own attribute
+en <- new.env(); attr(en, "self") <- en
+l <- list(x = NULL); l$x <- en
+stopifnot(identical(l$x, en))
+## segfault from C stack overflow in R <= 4.6.2
+
+
 
 
 ## keep at end
