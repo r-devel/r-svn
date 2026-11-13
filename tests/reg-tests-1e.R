@@ -4531,6 +4531,15 @@ if(is.compiled(f1)) { # not when the JIT is disabled
     for(i in 1:3)
         r <- list(tryCid(f9(1)), f10(1))
     stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
+    ## defaults are hashed: neither a long vector nor deep nesting there
+    ## may break a call that supplies the argument
+    f11 <- f12 <- function(x) { for (i in 1L) NULL; x }
+    formals(f11)$x <- 1:2147483648 # a compact sequence
+    deep <- quote(x)
+    for(k in 1:10000) deep <- call("(", deep)
+    formals(f12)$x <- call("function", NULL, deep)
+    stopifnot(identical(f11(0L), 0L), identical(f12(0L), 0L),
+              is.compiled(f11), is.compiled(f12))
 }
 ## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
 

@@ -1335,7 +1335,7 @@ static R_exprhash_t hash(unsigned char *str, int n, R_exprhash_t hash)
 static R_exprhash_t hashexpr1(SEXP e, R_exprhash_t h)
 {
 #define SKIP_NONSCALAR 	if (len != 1) break /* non-scalars hashed by address */
-    int len = length(e);
+    R_xlen_t len = xlength(e);
     int type = TYPEOF(e);
     h = HASH(type, h);
     h = HASH(len, h);
@@ -1423,6 +1423,32 @@ static R_exprhash_t hashfun(SEXP f)
     return h;
 }
 #undef HASH
+
+/* Default arguments are hashed and compared recursively (see hashfun
+   and R_cmpfun), so functions with very deeply nested ones, which only
+   arise from computing on the language, are not cached: this could
+   exhaust the C stack, even when the arguments are supplied. */
+#define JIT_MAX_DEFAULT_DEPTH 1000
+static Rboolean jit_expr_depth_ok(SEXP e, int depth)
+{
+    if (TYPEOF(e) != LANGSXP && TYPEOF(e) != LISTSXP)
+	return TRUE;
+    if (depth == 0)
+	return FALSE;
+
+    for (; e != R_NilValue; e = CDR(e))
+	if (! jit_expr_depth_ok(CAR(e), depth - 1))
+	    return FALSE;
+    return TRUE;
+}
+
+static Rboolean jit_formals_cacheable(SEXP formals)
+{
+    for (; formals != R_NilValue; formals = CDR(formals))
+	if (! jit_expr_depth_ok(CAR(formals), JIT_MAX_DEFAULT_DEPTH))
+	    return FALSE;
+    return TRUE;
+}
 
 static void loadCompilerNamespace(void)
 {
@@ -1920,7 +1946,9 @@ static void R_cmpfun(SEXP fun)
 {
     R_exprhash_t hash = 0;
     SEXP cmpenv = R_NilValue; /* of a cache entry that fun cannot use */
-    if (jit_strategy != STRATEGY_NO_CACHE) {
+    Rboolean use_cache = jit_strategy != STRATEGY_NO_CACHE &&
+	jit_formals_cacheable(FORMALS(fun));
+    if (use_cache) {
 	hash = hashfun(fun);
 	SEXP entry = get_jit_cache_entry(hash);
 
@@ -1977,7 +2005,7 @@ static void R_cmpfun(SEXP fun)
     if (TYPEOF(BODY(val)) != BCODESXP)
 	SET_NOJIT(fun);
     else {
-	if (jit_strategy != STRATEGY_NO_CACHE)
+	if (use_cache)
 	    set_jit_cache_entry(hash, val); /* val is protected by callee */
 	SET_BODY(fun, BODY(val));
     }
