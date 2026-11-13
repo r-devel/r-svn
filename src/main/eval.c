@@ -5921,6 +5921,13 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 
 #define INLINE_GETVAR
 #ifdef INLINE_GETVAR
+/* At the end of DO_GETVAR's inline code, the smallcache slot is still
+   empty only if GET_BINDING_CELL_FROM() ran, found no cell to cache,
+   and set 'from'. */
+#define SMALLCACHE_MISSED(dd, vcache, sidx)				\
+    (! (dd) && smallcache &&						\
+     GET_SMALLCACHE_BINDING_CELL(vcache, sidx) == R_NilValue)
+
 /* Try to handle the most common case as efficiently as possible.  If
    smallcache is true then a modulus operation on the index is not
    needed, nor is a check that a non-null value corresponds to the
@@ -5929,12 +5936,15 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
    Skipping SYMSXP values rules out R_MissingArg and R_UnboundValue as
    these are implemented as symbols.  It also rules other symbols, but
    as those are rare they are handled by the getvar_from_value() call.
-   A smallcache slot that is still empty at the end means the frame
-   lookup found no cell to cache and set 'from'; continuing from there
-   avoids searching rho's frame again.  Testing the slot rather than
-   initializing 'from' keeps the fast paths free of an extra store. */
+   After SMALLCACHE_MISSED() the search continues from 'from', so that
+   rho's frame is not searched again. */
 #define DO_GETVAR(dd,keepmiss) do { \
     int sidx = GETOP(); \
+    /* 'from' is deliberately left unset; it is only read after */	\
+    /* GET_BINDING_CELL_FROM() sets it.  Initializing it adds a */	\
+    /* store to every variable read (+0.6% instructions on a */	\
+    /* cached-local loop, clang and gcc alike), and a version not */	\
+    /* passed by address added 14% with clang. */			\
     SEXP from; \
     R_Visible = TRUE;	     \
     if (!dd && smallcache) {						\
@@ -5989,10 +5999,11 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	}								\
     }									\
     SEXP symbol = GETCONST(constants, sidx);				\
-    SEXP value = (!dd && smallcache &&					\
-		  GET_SMALLCACHE_BINDING_CELL(vcache, sidx) == R_NilValue) ? \
-	FIND_VAR_NO_CACHE(symbol, from) :				\
-	findVarEX(symbol, rho, dd, vcache, sidx);			\
+    SEXP value;								\
+    if (SMALLCACHE_MISSED(dd, vcache, sidx))				\
+	value = FIND_VAR_NO_CACHE(symbol, from);			\
+    else								\
+	value = findVarEX(symbol, rho, dd, vcache, sidx);		\
     if (! keepmiss && TYPEOF(value) == PROMSXP &&			\
 	! PRSEEN(value) && ! PROMISE_IS_EVALUATED(value) &&		\
 	TYPEOF(PRCODE(value)) == BCODESXP) {				\
