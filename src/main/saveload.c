@@ -34,6 +34,9 @@
 #include <R_ext/RS.h>
 #include <errno.h>
 #include <ctype.h>		/* for isspace */
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>		/* for fstat, bounding table sizes */
+#endif
 
 /* From time to time changes in R, such as the addition of a new SXP,
  * may require changes in the save file format.  Here are some
@@ -1314,6 +1317,26 @@ static void newdataload_cleanup(void *data)
     cinfo->methods->InTerm(fp, cinfo->data);
 }
 
+/* The table sizes come straight from the file.  Every symbol and every
+   environment is followed by at least one item, and an item occupies at
+   least one byte in each format, so the counts cannot exceed what is
+   left of the file.  That is what stops a 4-byte count from allocating
+   gigabytes before the first item is read. */
+static void CheckTableSizes(FILE *fp, int sym_count, int env_count)
+{
+    if (sym_count < 0 || env_count < 0)
+	error(_("corrupt data file: negative table size"));
+#ifdef HAVE_SYS_STAT_H
+    struct stat sb;
+    long pos = ftell(fp);
+    if (pos >= 0 && fstat(fileno(fp), &sb) == 0 && S_ISREG(sb.st_mode)) {
+	double remaining = (double) sb.st_size - (double) pos;
+	if ((double) sym_count + (double) env_count > remaining)
+	    error(_("corrupt data file: table sizes exceed the file size"));
+    }
+#endif
+}
+
 static SEXP NewDataLoad (FILE *fp, InputRoutines *m, SaveLoadData *d)
 {
     int sym_count, env_count, count;
@@ -1333,6 +1356,7 @@ static SEXP NewDataLoad (FILE *fp, InputRoutines *m, SaveLoadData *d)
     /* Read the table sizes */
     sym_count = m->InInteger(fp, d);
     env_count = m->InInteger(fp, d);
+    CheckTableSizes(fp, sym_count, env_count);
 
     /* Allocate the symbol and environment tables */
     PROTECT(sym_table = allocVector(VECSXP, sym_count));
