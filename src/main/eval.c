@@ -6240,7 +6240,7 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     NEXT(); \
 } while (0)
 
-/* Immediate scalars and compact integer sequences stand for vectors
+/* Immediate scalars and compact sequences stand for vectors
    without attributes, so type predicates need only their type and can
    skip boxing them. Returns that type, or 0 for an entry that has to be
    tested as a SEXP. */
@@ -6253,7 +6253,13 @@ static R_INLINE int unboxed_stack_type(R_bcstack_t *s)
 	return s->tag;
 #ifdef COMPACT_INTSEQ
     case INTSEQSXP:
-	return INTSXP;
+	{
+	    /* Boxing goes through R_compact_intrange(), which makes a
+	       double sequence when an endpoint is INT_MIN. */
+	    int *seqinfo = INTEGER(s->u.sxpval);
+	    return seqinfo[0] == INT_MIN || seqinfo[1] == INT_MIN ?
+		REALSXP : INTSXP;
+	}
 #endif
     default:
 	return 0;

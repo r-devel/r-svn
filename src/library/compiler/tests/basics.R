@@ -133,7 +133,10 @@ local({
         list(quote(if (x) NA_integer_ else 1L), list(FALSE, TRUE)),
         list(quote(seq_len(x)), list(0L, 1L, 3L)),
         list(quote(seq_along(x)), list(NULL, 1, 1:3)),
-        list(quote(1L:x), list(1L, 3L)))
+        list(quote(1L:x), list(1L, 3L)),
+        ## An INT_MIN endpoint makes a double sequence.
+        list(quote(x:x), list(-2147483648, -2147483647)),
+        list(quote(-2147483647:x), list(-2147483648, -2147483646)))
     ## Consumers of the result P, which may be an immediate logical.
     contexts <- expression(P, if (P) 1 else 2, !P, P && TRUE, P || FALSE,
                            { r <- P; r }, c(P, NA))
