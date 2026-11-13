@@ -88,32 +88,3 @@ local({
 stopifnot(identical(findLocals(quote(assign(x, 3)), cntxt), character(0)))
 stopifnot(identical(findLocals(quote(assign("x", 3)), cntxt), "x"))
 stopifnot(identical(findLocals(quote(assign("x", 3, 4)), cntxt), character(0)))
-
-
-## Read active bindings once, both locally and in an enclosing environment.
-local({
-    reads <- 0L
-    env <- new.env()
-    makeActiveBinding("x", function() {
-        reads <<- reads + 1L
-        reads
-    }, env)
-    for (rho in list(env, new.env(parent = env))) {
-        reads <- 0L
-        stopifnot(identical(eval(compile(quote(x)), rho), 1L), reads == 1L)
-        ## Failed in R >= 4.4.0, through R-devel r90881.
-
-        reads <- 0L
-        value <- eval(compile(quote(list(x, x))), rho)
-        stopifnot(identical(value, list(1L, 2L)), reads == 2L)
-        ## Failed in R >= 4.4.0, through R-devel r90881.
-    }
-
-    makeActiveBinding("y", function() {
-        rm("y", envir = env)
-        env$y <- 99L
-        42L
-    }, env)
-    stopifnot(identical(eval(compile(quote(y)), env), 42L), env$y == 99L)
-    ## Returned the replacement value in R >= 4.4.0, through R-devel r90881.
-})

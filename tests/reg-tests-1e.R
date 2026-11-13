@@ -4479,6 +4479,49 @@ stopifnot(identical(lapply(mm[j], Funcall, x = Plt, f = as.vector),
                     lapply(ff[j], Funcall, x = Pct)))
 
 
+## byte-compiled variable reads call an active binding's function once
+local({
+    reads <- 0L
+    env <- new.env()
+    makeActiveBinding("x", function() {
+        reads <<- reads + 1L
+        reads
+    }, env)
+    env$v <- 10:20
+    ## more constants than fit the 256-entry binding cache
+    big <- as.call(c(quote(list), as.list(as.numeric(1:300)), quote(x)))
+    for (rho in list(env, new.env(parent = env))) {
+        reads <- 0L
+        stopifnot(identical(eval(compiler::compile(quote(x)), rho), 1L),
+                  reads == 1L)
+        reads <- 0L
+        stopifnot(identical(eval(compiler::compile(quote(list(x, x))), rho),
+                            list(1L, 2L)), reads == 2L)
+        reads <- 0L
+        stopifnot(identical(eval(compiler::compile(quote(v[x])), rho), 10L),
+                  reads == 1L)
+        reads <- 0L
+        stopifnot(identical(eval(compiler::compile(big), rho)[[301L]], 1L),
+                  reads == 1L)
+    }
+    makeActiveBinding("y", function() {
+        rm("y", envir = env)
+        env$y <- 99L
+        42L
+    }, env)
+    stopifnot(identical(eval(compiler::compile(quote(y)), env), 42L),
+              env$y == 99L)
+    n <- 0L
+    f <- compiler::cmpfun(function(...) list(..1, ..1, (10:20)[..2]))
+    stopifnot(identical(f(n <- n + 1L, 3L), list(1L, 1L, 12L)), n == 1L)
+    stopifnot(identical(
+        tryCatch(eval(compiler::compile(quote(x)), emptyenv()),
+                 error = conditionMessage),
+        tryCatch(eval(quote(x), emptyenv()), error = conditionMessage)))
+})
+## called it twice, or returned the value it assigned, in R 4.4.0 to 4.6.2
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
