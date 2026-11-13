@@ -176,6 +176,27 @@ tools::assertError(format(y, "%Y", usetz = TRUE))
 ## overflowed a stack buffer, typically aborting, in R <= 4.6.2
 
 
+## memDecompress(type = "zstd") sized its buffer from the first frame header
+if(nzchar(extSoftVersion()[["zstd"]])) {
+    two <- c(memCompress(charToRaw("hello "), "zstd"),
+             memCompress(charToRaw("world"), "zstd"))
+    x <- as.raw(rep(1:3, 1e5)) # compresses far below 1/3
+    ## a 5-byte raw block behind a header claiming 3.96 GiB
+    lie <- as.raw(c(0x28, 0xb5, 0x2f, 0xfd, 0xa0, 0x20, 0x20, 0x20, 0xfd,
+                    0x29, 0, 0, 0x68, 0x65, 0x6c, 0x6c, 0x6f))
+    invisible(gc(reset = TRUE))
+    r <- tryCatch(memDecompress(lie, "zstd"), error = identity)
+    stopifnot(exprs = {
+        identical(rawToChar(memDecompress(two, "zstd")), "hello world")
+        identical(memDecompress(memCompress(x, "zstd"), "zstd"), x)
+        inherits(r, "error")
+        gc()["Vcells", "max used"] < 2^27 # 1 GiB
+    })
+}
+## two frames failed with "Destination buffer is too small", and a 17-byte
+## input allocated 3.96 GiB before failing, in R <= 4.6.2
+
+
 
 
 ## keep at end
