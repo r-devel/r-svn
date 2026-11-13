@@ -1177,8 +1177,8 @@ SEXP eval(SEXP e, SEXP rho)
 	    R_ObjectNotFoundError(e, getLexicalCall(rho), NULL);
 	else if (tmp == R_MissingArg) {
 	    /* the error signaled here for a missing ..d matches the one
-	       signaled in getvar_from_value() for byte compiled code, but
-	       ...elt() signals a slightly different error (see PR18661) */
+	       signaled in getvar_force() for byte compiled code, but ...elt()
+	       signals a slightly different error (see PR18661) */
 	    R_MissingArgError(e, getLexicalCall(rho), "evalError");
 	}
 	else if (TYPEOF(tmp) == PROMSXP) {
@@ -5858,8 +5858,8 @@ static R_INLINE SEXP findVarEX(SEXP symbol, SEXP rho, Rboolean dd,
 #define PROMISE_IVAL BNDCELL_IVAL
 #define PROMISE_LVAL BNDCELL_LVAL
 
-static R_INLINE SEXP getvar_from_value(SEXP symbol, SEXP rho,
-				      SEXP value, Rboolean keepmiss)
+static R_INLINE SEXP getvar_force(SEXP symbol, SEXP rho,
+				  SEXP value, Rboolean keepmiss)
 {
     if (value == R_UnboundValue)
 	UNBOUND_VARIABLE_ERROR(symbol, rho);
@@ -5894,7 +5894,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 			    R_binding_cache_t vcache, int sidx)
 {
     SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);
-    return getvar_from_value(symbol, rho, value, keepmiss);
+    return getvar_force(symbol, rho, value, keepmiss);
 }
 
 #ifdef IMMEDIATE_PROMISE_VALUES
@@ -5935,7 +5935,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
    not needed. Active bindings will have functions as their values.
    Skipping SYMSXP values rules out R_MissingArg and R_UnboundValue as
    these are implemented as symbols.  It also rules other symbols, but
-   as those are rare they are handled by the getvar_from_value() call.
+   as those are rare they are handled by the getvar_force() call.
    After SMALLCACHE_MISSED() the search continues from 'from', so that
    rho's frame is not searched again. */
 #define DO_GETVAR(dd,keepmiss) do { \
@@ -6011,7 +6011,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	NEXT();								\
 	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
     }									\
-    BCNPUSH(getvar_from_value(symbol, rho, value, keepmiss));	\
+    BCNPUSH(getvar_force(symbol, rho, value, keepmiss));		\
     NEXT();								\
 } while (0)
 #else
