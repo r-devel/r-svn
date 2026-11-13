@@ -82,6 +82,7 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
+#include "vmax-internal.h"
 #include <Internal.h>
 #include <R_ext/GraphicsEngine.h> /* GEDevDesc, GEgetDevice */
 #include <R_ext/Rdynload.h>
@@ -506,7 +507,7 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 /* Miscellaneous Globals. */
 
-static SEXP R_VStack = NULL;		/* R_alloc stack pointer */
+attribute_hidden SEXP R_VStack = NULL;	/* R_alloc stack pointer */
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;
@@ -2320,12 +2321,12 @@ attribute_hidden void InitMemory(void)
    is traced by the collector. */
 void *vmaxget(void)
 {
-    return (void *) R_VStack;
+    return R_VMaxGet();
 }
 
 void vmaxset(const void *ovmax)
 {
-    R_VStack = (SEXP) ovmax;
+    R_VMaxSet(ovmax);
 }
 
 char *R_alloc(size_t nelem, int eltsize)

@@ -1140,6 +1140,15 @@ stringPositionTr(SEXP string, const char *translatedElement) {
     return -1; /* not found */
 }
 
+HIDDEN INLINE_FUN ptrdiff_t R_BCRelPC(SEXP body, void *currentpc)
+{
+    /* Capture the pc offset from its codebase when a context is created. */
+    if (body && currentpc)
+	return *((BCODE **) currentpc) - BCCODE(body);
+    else
+	return -1;
+}
+
 /* duplicate RHS value of complex assignment if necessary to prevent cycles */
 HIDDEN INLINE_FUN SEXP R_FixupRHS(SEXP x, SEXP y)
 {

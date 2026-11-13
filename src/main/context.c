@@ -110,6 +110,7 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+#include "vmax-internal.h"
 
 /* R_run_onexits - runs the conexit/cend code for all contexts from
    R_GlobalContext down to but not including the argument context.
@@ -176,7 +177,7 @@ static void R_restore_globals(RCNTXT *cptr)
     R_BCbody = cptr->bcbody;
     R_BCFrame = cptr->bcframe;
     R_EvalDepth = cptr->evaldepth;
-    vmaxset(cptr->vmax);
+    R_VMaxSet(cptr->vmax);
     R_interrupts_suspended = (Rboolean) cptr->intsusp;
     R_HandlerStack = cptr->handlerstack;
     R_RestartStack = cptr->restartstack;
@@ -280,11 +281,11 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->jumptarget = NULL;
     cptr->jumpmask = 0;
 
-    /* Store the arguments before calling these accessors, so they do not
-       have to be preserved across the calls. Neither accessor allocates
-       or changes interpreter state. */
+    /* Store the arguments before computing relpc, so they need not survive
+       any calls left after inlining. For valid bytecode, neither accessor
+       allocates or changes interpreter state. */
     cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
-    cptr->vmax = vmaxget();
+    cptr->vmax = R_VMaxGet();
 
     R_GlobalContext = cptr;
 }

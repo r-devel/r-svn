@@ -62,7 +62,7 @@ HEADERS = \
 	rlocale_data.h rlocale_tolower.h rlocale_toupper.h rlocale_widths.h \
 	split-incl.c \
 	unzip.h \
-	valid_utf8.h \
+	valid_utf8.h vmax-internal.h \
 	xspline.c \
 	g_cntrlify.h g_control.h g_extern.h g_her_metr.h g_jis.h
 
