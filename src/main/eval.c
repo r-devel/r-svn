@@ -7539,22 +7539,46 @@ static SEXP bcEval(SEXP body, SEXP rho)
   return value;  
 }
 
+/* A few locals of bcEval_loop are deliberately kept in memory rather
+   than in registers; their declarations say why. Compile with
+   -DR_BCEVAL_SPILL_LOCALS=0 to leave the placement to the compiler,
+   e.g. to measure the effect with a different compiler. */
+#ifndef R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL_LOCALS 1
+#endif
+#if R_BCEVAL_SPILL_LOCALS
+# define R_BCEVAL_SPILL volatile
+#else
+# define R_BCEVAL_SPILL
+#endif
+
 static SEXP bcEval_loop(struct bcEval_locals *ploc)
 {
   INITIALIZE_MACHINE();
 
   struct bcEval_locals locals = *ploc;
 
-  SEXP body, rho;
+  /* Kept in registers: most instructions read these. */
+  SEXP rho;
   R_bcconsts_t constants;
   BCODE *pc, *codebase;
-  R_binding_cache_t vcache;
-  Rboolean smallcache;
+
+  /* Kept in memory on purpose: with fewer values live in registers
+     across the instruction dispatch, clang stops shuffling registers
+     before every indirect branch. rho, constants and codebase are
+     not included; reloading them after each closure call costs more
+     than the dispatch saves. */
+  R_BCEVAL_SPILL SEXP body;
+  R_BCEVAL_SPILL R_binding_cache_t vcache;
+  R_BCEVAL_SPILL Rboolean smallcache;
 
   RESTORE_BCEVAL_LOCALS(&locals);
 
   BCODE *currentpc = NULL;
-  void *oldbcpc = R_BCpc;
+  /* Read once, on return. Kept in memory on purpose: it is live
+     across the SETJMP calls, and gcc otherwise holds it in a register
+     and writes it to its stack slot before every dispatch. */
+  void * R_BCEVAL_SPILL oldbcpc = R_BCpc;
   R_BCpc = &currentpc;
 
   static int evalcount = 0;
@@ -8099,7 +8123,11 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	  args = CLOSURE_CALL_FRAME_ARGS();
 	  if (INLINE_CLOSURE_CALL_OK(fun)) {
 	      START_BCFRAME_CALL();
-	      volatile SEXP vbody = body; // keep gcc -Wclobbered happy
+	      /* gcc keeps a variable that is live across a setjmp call
+		 in memory for the whole function. Reloading the locals
+		 after the call means none of them is. */
+	      volatile struct bcEval_locals vlocals;
+	      SAVE_BCEVAL_LOCALS(&vlocals);
 	      if (SETJMP(BCFRAME_CNTXT()->cjmpbuf)) {
 		  RCNTXT *pcntxt = BCFRAME_CNTXT();
 		  if (! pcntxt->jumptarget) {
@@ -8116,7 +8144,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 		  DO_INLINE_CLOSURE_CALL_RETURN();
 	      }
 	      else {
-		  body = vbody; // keep gcc -Wclobbered happy
+		  RESTORE_BCEVAL_LOCALS(&vlocals);
 		  NEXT();
 		  /* return cleanup is in DO_INLINE_CLOSURE_CALL_RETURN */
 	      }
