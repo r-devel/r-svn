@@ -66,6 +66,13 @@ constrOptim(theta, f, grad, ui, ci, mu = 1e-04, control = list(),
   \code{method = "Nelder-Mead"}.  It should take arguments matching
   those of \code{f} and return a vector containing the gradient.
 
+  In some rare cornercases, the call to \code{optim} inside the outer
+  loop might lead to non-finite function value or parameter values or
+  parameters outside the feasible region. In these cases, the outer
+  loop is stopped early and the last useful result is returned. The
+  \code{message} item in the output list warns the user of this
+  behaviour.
+
 }
 \value{
   As for \code{\link{optim}}, but with two extra components:
