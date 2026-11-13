@@ -780,16 +780,36 @@ attribute_hidden SEXP do_c(SEXP call, SEXP op, SEXP args, SEXP env)
 
     checkArity(op, args);
 
+    /* Usually there is nothing to compact and nothing to dispatch on;
+       one pass over the arguments finds out. */
+    bool anyNull = false, anyObject = false;
+    for (SEXP a = args; a != R_NilValue; a = CDR(a)) {
+	SEXP x = CAR(a);
+	if (x == R_NilValue) {
+	    if (a != args)
+		anyNull = true;
+	}
+	else if (OBJECT(x) || IS_S4_OBJECT(x)) {
+	    anyObject = true;
+	}
+    }
+
     /* Remove any NULL elements before dispatch so
        they never influence the method implementation. */
-    args = R_listCompact(args, /* keep_first */ TRUE);
+    if (anyNull)
+	args = R_listCompact(args, /* keep_first */ TRUE);
 
     /* Attempt method dispatch. */
 
-    /* DispatchOrEval internal generic: c */
-    if (DispatchAnyOrEval(call, op, "c", args, env, &ans, 1, 1))
-	//      ^^^ "Any" => all args are eval()ed and checked => correct multi-arg dispatch
-	return(ans);
+    if (anyObject) {
+	/* DispatchOrEval internal generic: c */
+	if (DispatchAnyOrEval(call, op, "c", args, env, &ans, 1, 1))
+	    //      ^^^ "Any" => all args are eval()ed and checked => correct multi-arg dispatch
+	    return(ans);
+    }
+    else {
+	ans = args;
+    }
     PROTECT(ans);
     SEXP res = do_c_dflt(call, op, ans, env);
     UNPROTECT(1);
@@ -888,9 +908,10 @@ attribute_hidden SEXP do_c_dflt(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	setAttrib(ans, R_NamesSymbol, data.ans_names);
 	UNPROTECT(1);
+	/* only the name construction uses the buffer */
+	R_FreeStringBufferL(&cbuff);
     }
     UNPROTECT(2);
-    R_FreeStringBufferL(&cbuff);
     return ans;
 } /* do_c */
 

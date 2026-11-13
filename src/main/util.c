@@ -573,6 +573,8 @@ SEXP R_listCompact(SEXP s, bool keep_initial) {
     SEXP prev = s;
     while (s != R_NilValue) {
 	s = CDR(s);
+	if (s == R_NilValue)
+	    break;
 	if (CAR(s) == R_NilValue) // skip it
 	    SETCDR(prev, CDR(s));
 	else
