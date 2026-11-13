@@ -865,11 +865,22 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    pa[i] = R_integer_times(x1, x2, &naflag);
-		});
+	    if (n2 == 1) {
+		int tmp = px2[0];
+		R_ITERATE_CHECK(NINTERRUPT, n, i,
+				pa[i] = R_integer_times(px1[i], tmp, &naflag););
+	    }
+	    else if (n1 == 1) {
+		int tmp = px1[0];
+		R_ITERATE_CHECK(NINTERRUPT, n, i,
+				pa[i] = R_integer_times(tmp, px2[i], &naflag););
+	    }
+	    else if (n1 == n2)
+		R_ITERATE_CHECK(NINTERRUPT, n, i,
+				pa[i] = R_integer_times(px1[i], px2[i], &naflag););
+	    else
+		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+				  pa[i] = R_integer_times(px1[i1], px2[i2], &naflag););
 	    if (naflag)
 		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}

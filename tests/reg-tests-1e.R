@@ -4501,6 +4501,44 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 
 
 
+## Integer multiplication: NA propagation and both overflow boundaries.
+local({
+    oldjit <- compiler::enableJIT(0)
+    on.exit(compiler::enableJIT(oldjit))
+    imax <- .Machine$integer.max
+    values <- c(NA_integer_, -imax, -1073741824L, -46341L, -46340L,
+                -3L, -2L, -1L, 0L, 1L, 2L, 3L, 46340L, 46341L,
+                1073741824L, imax)
+    check <- function(x, y, multiply) {
+        product <- as.double(x) * as.double(y)
+        overflow <- !is.na(product) & abs(product) > imax
+        expected <- suppressWarnings(as.integer(product))
+        nwarnings <- 0L
+        actual <- withCallingHandlers(multiply(x, y), warning = function(w) {
+            nwarnings <<- nwarnings + 1L
+            invokeRestart("muffleWarning")
+        })
+        stopifnot(identical(actual, expected),
+                  identical(nwarnings, as.integer(any(overflow))))
+    }
+    multiply <- function(x, y) x * y
+    for (f in list(multiply, compiler::cmpfun(multiply))) {
+        for (x in values)
+            for (y in values)
+                check(x, y, f)
+        check(rep(values, each = length(values)), rep(values, length(values)), f)
+        for (x in values) {
+            check(x, values, f)
+            check(values, x, f)
+        }
+        check(rep(values, 2L), values, f)
+        check(values, integer(), f)
+        check(integer(), values, f)
+    }
+})
+## Same NA and overflow behavior as in R <= 4.6.x; optimized in R 4.7.0.
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
