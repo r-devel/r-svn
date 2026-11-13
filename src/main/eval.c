@@ -951,6 +951,9 @@ static R_INLINE void POP_PENDING_PROMISE(RPRSTACK *cellptr)
     R_PendingPromises = cellptr->next;
 }
 
+static SEXP variablePromiseSymbol(SEXP prom);
+static SEXP evalVariablePromise(SEXP prom, SEXP symbol);
+
 static void forcePromise(SEXP e)
 {
     if (! PROMISE_IS_EVALUATED(e)) {
@@ -973,7 +976,10 @@ static void forcePromise(SEXP e)
 	RPRSTACK prstack;
 	PUSH_PENDING_PROMISE(e, &prstack);
 
-	SEXP val = eval(PRCODE(e), PRENV(e));
+	/* a promise for a plain variable needs no byte code interpreter */
+	SEXP sym = variablePromiseSymbol(e);
+	SEXP val = sym != NULL ? evalVariablePromise(e, sym) :
+	    eval(PRCODE(e), PRENV(e));
 	SET_PRVALUE(e, val);
 	ENSURE_NAMEDMAX(val);
 
@@ -2275,11 +2281,34 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
        environment layout.  We can live with it for now since it only
        happens immediately after the environment creation.  LT */
 
+    /* A constant default evaluates to itself, so it is bound without
+       a promise. Not for S4 generics and methods: R_execMethod copies
+       the frame of the generic and switches unforced default promises
+       to the defaults of the method. */
+    Rboolean constDefaults = ! IS_S4_OBJECT(op);
+
     f = formals;
     a = actuals;
     while (f != R_NilValue) {
 	if (CAR(a) == R_MissingArg && CAR(f) != R_MissingArg) {
-	    SETCAR(a, mkPROMISE(CAR(f), newrho));
+	    SEXP dflt = CAR(f);
+	    switch (TYPEOF(dflt)) {
+	    case SYMSXP:
+	    case LANGSXP:
+	    case PROMSXP:
+	    case BCODESXP:
+	    case DOTSXP:
+		SETCAR(a, mkPROMISE(dflt, newrho));
+		break;
+	    default:
+		if (constDefaults) {
+		    MARK_NOT_MUTABLE(dflt);
+		    SETCAR(a, dflt);
+		}
+		else {
+		    SETCAR(a, mkPROMISE(dflt, newrho));
+		}
+	    }
 	    SET_MISSING(a, 2);
 	}
 	f = CDR(f);
@@ -5647,6 +5676,8 @@ static struct { void *addr; int argc; char *instname; } opinfo[OPCOUNT];
 #define SKIP_OP() (pc++)
 
 #define BCCODE(e) BCODE_PTR(BCODE_CODE(e))
+#define BCODE_IS_OP(c, op) ((c).v == opinfo[op].addr)
+#define BCODE_OPERAND(c) ((c).i)
 #else
 typedef int BCODE;
 
@@ -5665,6 +5696,8 @@ typedef int BCODE;
 #define SKIP_OP() (pc++)
 
 #define BCCODE(e) INTEGER(BCODE_CODE(e))
+#define BCODE_IS_OP(c, op) ((c) == (op))
+#define BCODE_OPERAND(c) (c)
 #endif
 
 /**** is there a way to avoid the locked check here? */
@@ -5876,6 +5909,24 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     }
 }
 
+/* Compute the value of prom, a promise for the plain variable symbol,
+   as its byte code GETVAR symbol; RETURN would, without starting the
+   byte code interpreter: getvar() is what GETVAR itself falls back to,
+   and the depth and stack checks are those eval() makes before running
+   byte code. */
+static SEXP evalVariablePromise(SEXP prom, SEXP symbol)
+{
+    int depthsave = R_EvalDepth;
+    INCREMENT_EVAL_DEPTH();
+    R_CheckStack();
+
+    SEXP value = getvar(symbol, PRENV(prom), FALSE, FALSE, NULL, 0);
+    R_Visible = TRUE;
+
+    R_EvalDepth = depthsave;
+    return value;
+}
+
 #ifdef IMMEDIATE_PROMISE_VALUES
 # define SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval)  do {		\
 	SEXP value;							\
@@ -5897,6 +5948,100 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	ENSURE_NAMEDMAX(value);						\
     } while(0)
 #endif
+
+/* The byte code of a promise for an argument that is a plain variable,
+   as in f(x), is GETVAR x; RETURN. Returns x for such a promise and
+   NULL for any other. */
+static SEXP variablePromiseSymbol(SEXP prom)
+{
+    SEXP code = PRCODE(prom);
+    if (TYPEOF(code) != BCODESXP)
+	return NULL;
+
+    BCODE *pc = BCCODE(code);
+    /* pc[0] is the version */
+    if (! BCODE_IS_OP(pc[1], GETVAR_OP) || ! BCODE_IS_OP(pc[3], RETURN_OP))
+	return NULL;
+    return GETCONST(BCCONSTS(code), BCODE_OPERAND(pc[2]));
+}
+
+/* The binding cell of symbol in rho, or NULL if there is none, it is
+   an active binding, or it holds an unforced promise that needs more
+   than a lookup. An argument passed on unchanged holds an unforced
+   promise for a plain variable; that is forced first, by
+   forcePromise(). */
+static R_INLINE SEXP variableValueCell(SEXP symbol, SEXP rho)
+{
+    SEXP cell = R_findVarLoc(symbol, rho).cell;
+    if (cell == NULL || IS_ACTIVE_BINDING(cell))
+	return NULL;
+    if (TYPEOF(cell) != SYMSXP && BNDCELL_TAG(cell))
+	return cell;
+
+    SEXP value = TYPEOF(cell) == SYMSXP ? SYMVALUE(cell) : CAR(cell);
+    if (TYPEOF(value) == PROMSXP && ! PROMISE_IS_EVALUATED(value)) {
+	if (PRSEEN(value) || variablePromiseSymbol(value) == NULL)
+	    return NULL;
+	forcePromise(value);
+    }
+    return cell;
+}
+
+/* Force prom, a promise for a plain variable, by looking the variable
+   up instead of giving its two instructions a frame, and push the
+   value. This does what setup_bcframe_prom(), GETVAR's inline code and
+   finish_force_promise() would do, for a variable bound to a value or
+   to a promise for one. For any other binding it changes nothing and
+   returns FALSE, and the promise gets a frame as before. */
+static R_INLINE Rboolean forceVariablePromise(SEXP prom)
+{
+    SEXP symbol = variablePromiseSymbol(prom);
+    if (symbol == NULL)
+	return FALSE;
+
+    RPRSTACK prstack;
+    SET_PRSEEN(prom, 1);
+    PUSH_PENDING_PROMISE(prom, &prstack);
+    SEXP cell = variableValueCell(symbol, PRENV(prom));
+    POP_PENDING_PROMISE(&prstack);
+    SET_PRSEEN(prom, 0);
+
+    if (cell == NULL)
+	return FALSE;
+
+    SEXP value;
+    if (TYPEOF(cell) == SYMSXP) {
+	/* a variable in the base environment */
+	value = SYMVALUE(cell);
+    }
+    else {
+	switch (BNDCELL_TAG(cell)) {
+	case REALSXP: BCNPUSH_REAL(BNDCELL_DVAL(cell)); goto pushed;
+	case INTSXP: BCNPUSH_INTEGER(BNDCELL_IVAL(cell)); goto pushed;
+	case LGLSXP: BCNPUSH_LOGICAL(BNDCELL_LVAL(cell)); goto pushed;
+	}
+	value = CAR(cell);
+    }
+
+    if (value == R_UnboundValue || value == R_MissingArg)
+	return FALSE;
+    if (TYPEOF(value) == PROMSXP) {
+	if (! PROMISE_IS_EVALUATED(value))
+	    return FALSE;
+	switch (PROMISE_TAG(value)) {
+	case REALSXP: BCNPUSH_REAL(PROMISE_DVAL(value)); goto pushed;
+	case INTSXP: BCNPUSH_INTEGER(PROMISE_IVAL(value)); goto pushed;
+	case LGLSXP: BCNPUSH_LOGICAL(PROMISE_LVAL(value)); goto pushed;
+	}
+	value = PRVALUE(value);
+    }
+    BCNPUSH(value);
+
+ pushed:
+    SET_PROMISE_VALUE_FROM_STACKVAL(prom, R_BCNodeStackTop[-1]);
+    SET_PRENV(prom, R_NilValue);
+    return TRUE;
+}
 
 #define INLINE_GETVAR
 #ifdef INLINE_GETVAR
@@ -5965,6 +6110,8 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     if (! keepmiss && TYPEOF(value) == PROMSXP &&			\
 	! PRSEEN(value) && ! PROMISE_IS_EVALUATED(value) &&		\
 	TYPEOF(PRCODE(value)) == BCODESXP) {				\
+	if (forceVariablePromise(value))				\
+	    NEXT();							\
 	START_BCFRAME_PROM(value);					\
 	NEXT();								\
 	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
