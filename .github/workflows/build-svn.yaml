@@ -14,4 +14,4 @@ concurrency:
 jobs:
   build:
     name: Build R from SVN mirror
-    uses: r-devel/actions/.github/workflows/build-svn.yaml@freebsd
+    uses: r-devel/actions/.github/workflows/build-svn.yaml@openbsd
