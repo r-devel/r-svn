@@ -1076,23 +1076,7 @@ static void handle_eval_depth_overflow(void)
     R_signalErrorCondition(cond, R_NilValue);
 }
 
-/* Keep the context for profiling and foreign-call tracebacks off the
-   evaluators' stacks when it is not needed. */
-#ifdef __GNUC__
-__attribute__((noinline))
-#endif
-static SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
-{
-    RCNTXT cntxt;
-    SEXP oldref = R_Srcref;
-    begincontext(&cntxt, CTXT_BUILTIN, call,
-		 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-    R_Srcref = NULL;
-    SEXP value = PRIMFUN(op) (call, op, args, rho);
-    R_Srcref = oldref;
-    endcontext(&cntxt);
-    return value;
-}
+static SEXP eval_builtin_with_context(SEXP, SEXP, SEXP, SEXP);
 
 /* Return value of "e" evaluated in "rho". */
 
@@ -5587,6 +5571,26 @@ static R_INLINE void BCNPOP_AND_END_CNTXT(void) {
     RCNTXT* cntxt = BCNALLOC_BASE(sizeof(RCNTXT));
     endcontext(cntxt);
     BCNPOP_ALLOC(sizeof(RCNTXT));
+}
+
+/* Use the node stack as a pool for builtin contexts. Active contexts
+   have stable addresses, and a non-local jump restores the node stack
+   position saved in the target context. */
+#ifdef __GNUC__
+__attribute__((noinline))
+#endif
+static SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    RCNTXT *cntxt = BCNALLOC_CNTXT();
+    SEXP oldref = R_Srcref;
+    begincontext(cntxt, CTXT_BUILTIN, call,
+		 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
+    R_Srcref = NULL;
+    SEXP value = PRIMFUN(op) (call, op, args, rho);
+    R_Srcref = oldref;
+    endcontext(cntxt);
+    BCNPOP_ALLOC(sizeof(RCNTXT));
+    return value;
 }
 
 static SEXP bytecodeExpr(SEXP e)
