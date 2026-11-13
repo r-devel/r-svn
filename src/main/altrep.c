@@ -232,6 +232,21 @@ typedef struct { ALTLIST_METHODS; } altlist_methods_t;
 #define ALTSTRING_DISPATCH(fun, ...) DO_DISPATCH(ALTSTRING, fun, __VA_ARGS__)
 #define ALTLIST_DISPATCH(fun, ...) DO_DISPATCH(ALTLIST, fun, __VA_ARGS__)
 
+/* Elt, Get_region, Is_sorted, No_NA and Dataptr_or_null run with the
+   collector disabled, as Dataptr and the string and list Elt methods do
+   below.  R's own code treats these accessors as never collecting and
+   reads elements from values it has not protected, such as
+   asLogical(eval(...)); a method that allocates must not be able to
+   collect the object it was called on.  An error in a method restores
+   R_GCEnabled through the context. */
+#define NOGC_DISPATCH(val, call) do {		\
+	R_CHECK_THREAD;				\
+	int enabled__ = R_GCEnabled;		\
+	R_GCEnabled = FALSE;			\
+	val = call;				\
+	R_GCEnabled = enabled__;		\
+    } while (0)
+
 
 /*
  * Generic ALTREP support
@@ -421,7 +436,9 @@ static R_INLINE void *ALTVEC_DATAPTR_EX(SEXP x, Rboolean writable)
 
 attribute_hidden const void *ALTVEC_DATAPTR_OR_NULL(SEXP x)
 {
-    return ALTVEC_DISPATCH(Dataptr_or_null, x);
+    const void *val;
+    NOGC_DISPATCH(val, ALTVEC_DISPATCH(Dataptr_or_null, x));
+    return val;
 }
 
 attribute_hidden SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
@@ -436,7 +453,9 @@ attribute_hidden SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
 
 attribute_hidden int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
 {
-    return ALTINTEGER_DISPATCH(Elt, x, i);
+    int val;
+    NOGC_DISPATCH(val, ALTINTEGER_DISPATCH(Elt, x, i));
+    return val;
 }
 
 R_xlen_t INTEGER_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
@@ -450,23 +469,36 @@ R_xlen_t INTEGER_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 	//memcpy(buf, x + i, ncopy * sizeof(int));
 	return ncopy;
     }
-    else
-	return ALTINTEGER_DISPATCH(Get_region, sx, i, n, buf);
+    else {
+	R_xlen_t ncopy;
+	NOGC_DISPATCH(ncopy, ALTINTEGER_DISPATCH(Get_region, sx, i, n, buf));
+	return ncopy;
+    }
 }
 
 int INTEGER_IS_SORTED(SEXP x)
 {
-    return ALTREP(x) ? ALTINTEGER_DISPATCH(Is_sorted, x) : UNKNOWN_SORTEDNESS;
+    if (! ALTREP(x))
+	return UNKNOWN_SORTEDNESS;
+    int val;
+    NOGC_DISPATCH(val, ALTINTEGER_DISPATCH(Is_sorted, x));
+    return val;
 }
 
 int INTEGER_NO_NA(SEXP x)
 {
-    return ALTREP(x) ? ALTINTEGER_DISPATCH(No_NA, x) : 0;
+    if (! ALTREP(x))
+	return 0;
+    int val;
+    NOGC_DISPATCH(val, ALTINTEGER_DISPATCH(No_NA, x));
+    return val;
 }
 
 attribute_hidden double ALTREAL_ELT(SEXP x, R_xlen_t i)
 {
-    return ALTREAL_DISPATCH(Elt, x, i);
+    double val;
+    NOGC_DISPATCH(val, ALTREAL_DISPATCH(Elt, x, i));
+    return val;
 }
 
 R_xlen_t REAL_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
@@ -480,18 +512,29 @@ R_xlen_t REAL_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, double *buf)
 	//memcpy(buf, x + i, ncopy * sizeof(double));
 	return ncopy;
     }
-    else
-	return ALTREAL_DISPATCH(Get_region, sx, i, n, buf);
+    else {
+	R_xlen_t ncopy;
+	NOGC_DISPATCH(ncopy, ALTREAL_DISPATCH(Get_region, sx, i, n, buf));
+	return ncopy;
+    }
 }
 
 int REAL_IS_SORTED(SEXP x)
 {
-    return ALTREP(x) ? ALTREAL_DISPATCH(Is_sorted, x) : UNKNOWN_SORTEDNESS;
+    if (! ALTREP(x))
+	return UNKNOWN_SORTEDNESS;
+    int val;
+    NOGC_DISPATCH(val, ALTREAL_DISPATCH(Is_sorted, x));
+    return val;
 }
 
 int REAL_NO_NA(SEXP x)
 {
-    return ALTREP(x) ? ALTREAL_DISPATCH(No_NA, x) : 0;
+    if (! ALTREP(x))
+	return 0;
+    int val;
+    NOGC_DISPATCH(val, ALTREAL_DISPATCH(No_NA, x));
+    return val;
 }
 
 R_xlen_t LOGICAL_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
@@ -505,19 +548,30 @@ R_xlen_t LOGICAL_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, int *buf)
 	//memcpy(buf, x + i, ncopy * sizeof(int));
 	return ncopy;
     }
-    else
-	return ALTLOGICAL_DISPATCH(Get_region, sx, i, n, buf);
+    else {
+	R_xlen_t ncopy;
+	NOGC_DISPATCH(ncopy, ALTLOGICAL_DISPATCH(Get_region, sx, i, n, buf));
+	return ncopy;
+    }
 }
 
 attribute_hidden int LOGICAL_IS_SORTED(SEXP x)
 {
-    return ALTREP(x) ? ALTLOGICAL_DISPATCH(Is_sorted, x) : UNKNOWN_SORTEDNESS;
+    if (! ALTREP(x))
+	return UNKNOWN_SORTEDNESS;
+    int val;
+    NOGC_DISPATCH(val, ALTLOGICAL_DISPATCH(Is_sorted, x));
+    return val;
 }
 
 
 int LOGICAL_NO_NA(SEXP x)
 {
-    return ALTREP(x) ? ALTLOGICAL_DISPATCH(No_NA, x) : 0;
+    if (! ALTREP(x))
+	return 0;
+    int val;
+    NOGC_DISPATCH(val, ALTLOGICAL_DISPATCH(No_NA, x));
+    return val;
 }
 
 
@@ -532,8 +586,11 @@ R_xlen_t RAW_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, Rbyte *buf)
 	//memcpy(buf, x + i, ncopy * sizeof(int));
 	return ncopy;
     }
-    else
-	return ALTRAW_DISPATCH(Get_region, sx, i, n, buf);
+    else {
+	R_xlen_t ncopy;
+	NOGC_DISPATCH(ncopy, ALTRAW_DISPATCH(Get_region, sx, i, n, buf));
+	return ncopy;
+    }
 }
 
 
@@ -548,8 +605,11 @@ R_xlen_t COMPLEX_GET_REGION(SEXP sx, R_xlen_t i, R_xlen_t n, Rcomplex *buf)
 	//memcpy(buf, x + i, ncopy * sizeof(int));
 	return ncopy;
     }
-    else
-	return ALTCOMPLEX_DISPATCH(Get_region, sx, i, n, buf);
+    else {
+	R_xlen_t ncopy;
+	NOGC_DISPATCH(ncopy, ALTCOMPLEX_DISPATCH(Get_region, sx, i, n, buf));
+	return ncopy;
+    }
 }
 
 
@@ -586,12 +646,20 @@ attribute_hidden void ALTSTRING_SET_ELT(SEXP x, R_xlen_t i, SEXP v)
 
 int STRING_IS_SORTED(SEXP x)
 {
-    return ALTREP(x) ? ALTSTRING_DISPATCH(Is_sorted, x) : UNKNOWN_SORTEDNESS;
+    if (! ALTREP(x))
+	return UNKNOWN_SORTEDNESS;
+    int val;
+    NOGC_DISPATCH(val, ALTSTRING_DISPATCH(Is_sorted, x));
+    return val;
 }
 
 int STRING_NO_NA(SEXP x)
 {
-    return ALTREP(x) ? ALTSTRING_DISPATCH(No_NA, x) : 0;
+    if (! ALTREP(x))
+	return 0;
+    int val;
+    NOGC_DISPATCH(val, ALTSTRING_DISPATCH(No_NA, x));
+    return val;
 }
 
 attribute_hidden SEXP ALTLIST_ELT(SEXP x, R_xlen_t i)
@@ -664,17 +732,23 @@ attribute_hidden SEXP ALTLOGICAL_SUM(SEXP x, Rboolean narm)
 
 attribute_hidden int ALTLOGICAL_ELT(SEXP x, R_xlen_t i)
 {
-    return ALTLOGICAL_DISPATCH(Elt, x, i);
+    int val;
+    NOGC_DISPATCH(val, ALTLOGICAL_DISPATCH(Elt, x, i));
+    return val;
 }
 
 attribute_hidden Rcomplex ALTCOMPLEX_ELT(SEXP x, R_xlen_t i)
 {
-    return ALTCOMPLEX_DISPATCH(Elt, x, i);
+    Rcomplex val;
+    NOGC_DISPATCH(val, ALTCOMPLEX_DISPATCH(Elt, x, i));
+    return val;
 }
 
 attribute_hidden Rbyte ALTRAW_ELT(SEXP x, R_xlen_t i)
 {
-    return ALTRAW_DISPATCH(Elt, x, i);
+    Rbyte val;
+    NOGC_DISPATCH(val, ALTRAW_DISPATCH(Elt, x, i));
+    return val;
 }
 
 
