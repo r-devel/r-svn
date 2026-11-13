@@ -6240,17 +6240,65 @@ static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
     NEXT(); \
 } while (0)
 
-#define DO_ISTEST(fun) do { \
-  SETSTACK(-1, fun(GETSTACK(-1)) ? R_TrueValue : R_FalseValue);	\
-  R_Visible = TRUE; \
-  NEXT(); \
-} while(0)
-#define DO_ISTYPE(type) do { \
-  SETSTACK(-1, TYPEOF(GETSTACK(-1)) == type ? R_TrueValue : R_FalseValue); \
+/* Immediate scalars and compact sequences stand for vectors
+   without attributes, so type predicates need only their type and can
+   skip boxing them. Returns that type, or 0 for an entry that has to be
+   tested as a SEXP. */
+static R_INLINE int unboxed_stack_type(R_bcstack_t *s)
+{
+    switch (s->tag) {
+    case REALSXP:
+    case INTSXP:
+    case LGLSXP:
+	return s->tag;
+#ifdef COMPACT_INTSEQ
+    case INTSEQSXP:
+	{
+	    /* Boxing goes through R_compact_intrange(), which makes a
+	       double sequence when an endpoint is INT_MIN. */
+	    int *seqinfo = INTEGER(s->u.sxpval);
+	    return seqinfo[0] == INT_MIN || seqinfo[1] == INT_MIN ?
+		REALSXP : INTSXP;
+	}
+#endif
+    default:
+	return 0;
+    }
+}
+
+/* fun tests a SEXP; type_test(t) is the same test for an unboxed entry
+   of type t. */
+#define DO_ISTEST(fun, type_test) do { \
+  R_bcstack_t *__s__ = R_BCNodeStackTop - 1; \
+  int __type__ = unboxed_stack_type(__s__); \
+  if (__type__ == 0) { \
+    SEXP __value__ = GETSTACK_PTR(__s__); \
+    SETSTACK_PTR(__s__, fun(__value__) ? R_TrueValue : R_FalseValue); \
+  } \
+  else { \
+    SETSTACK_LOGICAL_PTR(__s__, type_test(__type__)); \
+  } \
   R_Visible = TRUE; \
   NEXT(); \
 } while (0)
+#define DO_ISTYPE(type) do { \
+  R_bcstack_t *__s__ = R_BCNodeStackTop - 1; \
+  int __type__ = unboxed_stack_type(__s__); \
+  if (__type__ == 0) { \
+    int __test__ = TYPEOF(GETSTACK_PTR(__s__)) == (type); \
+    SETSTACK_PTR(__s__, __test__ ? R_TrueValue : R_FalseValue); \
+  } \
+  else { \
+    SETSTACK_LOGICAL_PTR(__s__, __type__ == (type)); \
+  } \
+  R_Visible = TRUE; \
+  NEXT(); \
+} while (0)
+#define isIntegerOnly(x) (TYPEOF(x) == INTSXP && ! inherits(x, "factor"))
 #define isNumericOnly(x) (isNumeric(x) && ! isLogical(x))
+#define unboxedFalse(t) FALSE
+#define unboxedIsIntegerOnly(t) ((t) == INTSXP)
+#define unboxedIsNumericOnly(t) ((t) != LGLSXP)
 
 #ifdef BC_PROFILING
 #define NO_CURRENT_OPCODE -1
@@ -8361,21 +8409,15 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	SETSTACK(-1, value);
 	NEXT();
       }
-    OP(ISNULL, 0): DO_ISTEST(isNull);
+    OP(ISNULL, 0): DO_ISTEST(isNull, unboxedFalse);
     OP(ISLOGICAL, 0): DO_ISTYPE(LGLSXP);
-    OP(ISINTEGER, 0): {
-	SEXP arg = GETSTACK(-1);
-	Rboolean test = (TYPEOF(arg) == INTSXP) && ! inherits(arg, "factor");
-	SETSTACK(-1, test ? R_TrueValue : R_FalseValue);
-	R_Visible = TRUE;
-	NEXT();
-      }
+    OP(ISINTEGER, 0): DO_ISTEST(isIntegerOnly, unboxedIsIntegerOnly);
     OP(ISDOUBLE, 0): DO_ISTYPE(REALSXP);
     OP(ISCOMPLEX, 0): DO_ISTYPE(CPLXSXP);
     OP(ISCHARACTER, 0): DO_ISTYPE(STRSXP);
     OP(ISSYMBOL, 0): DO_ISTYPE(SYMSXP); /**** S4 thingy allowed now???*/
-    OP(ISOBJECT, 0): DO_ISTEST(OBJECT);
-    OP(ISNUMERIC, 0): DO_ISTEST(isNumericOnly);
+    OP(ISOBJECT, 0): DO_ISTEST(OBJECT, unboxedFalse);
+    OP(ISNUMERIC, 0): DO_ISTEST(isNumericOnly, unboxedIsNumericOnly);
     OP(VECSUBSET, 1): DO_VECSUBSET(rho, FALSE);
     OP(MATSUBSET, 1): DO_MATSUBSET(rho, FALSE); NEXT();
     OP(VECSUBASSIGN, 1): DO_VECSUBASSIGN(rho, FALSE);
