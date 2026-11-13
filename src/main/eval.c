@@ -1335,7 +1335,7 @@ static R_exprhash_t hash(unsigned char *str, int n, R_exprhash_t hash)
 static R_exprhash_t hashexpr1(SEXP e, R_exprhash_t h)
 {
 #define SKIP_NONSCALAR 	if (len != 1) break /* non-scalars hashed by address */
-    int len = length(e);
+    R_xlen_t len = xlength(e);
     int type = TYPEOF(e);
     h = HASH(type, h);
     h = HASH(len, h);
@@ -1395,7 +1395,6 @@ static R_exprhash_t hashsrcref(SEXP e, R_exprhash_t h)
     }
     return h;
 }
-#undef HASH
 
 static R_exprhash_t hashexpr(SEXP e)
 {
@@ -1407,8 +1406,22 @@ static R_exprhash_t hashfun(SEXP f)
     R_exprhash_t h = hashexpr(BODY(f));
     if (getAttrib(BODY(f), R_SrcrefSymbol) == R_NilValue)
 	h = hashsrcref(getAttrib(f, R_SrcrefSymbol), h);
+
+    /* Cached code can only be used for a function with the same top
+       level environment and formal names (see jit_env_match), so
+       functions that share a body but differ in these should not share
+       a cache entry. Default arguments, which can be arbitrary objects,
+       are compared on a hit instead (see jit_formals_match). */
+    for (SEXP frmls = FORMALS(f); frmls != R_NilValue; frmls = CDR(frmls)) {
+	SEXP tag = TAG(frmls);
+	h = HASH(tag, h);
+    }
+    SEXP top = topenv(R_NilValue, CLOENV(f));
+    h = HASH(top, h);
+
     return h;
 }
+#undef HASH
 
 static void loadCompilerNamespace(void)
 {
@@ -1548,7 +1561,7 @@ static int JIT_score(SEXP e)
   NO_SCORE
       functions are compiled 1st time seen
         code is cached
-	in case of conflict function may be marked NOJIT
+	in case of conflict function is compiled again
 
   ALL_SMALL_MAYBE
       functions with small score are compiled 2nd time seen
@@ -1652,11 +1665,11 @@ static R_INLINE Rboolean R_CheckJIT(SEXP fun)
    the cmpenv changing after being entered in the cache, and also
    allows large values that might be bound to local variables in
    cmpenv to be reclaimed (also, some package tests, e.g. in shiny, test
-   when things get reclaimed). Standard local frames are processed directly,
-   hashed frames are processed via lsInternal3, which involves extra
-   allocations, but should be used rarely. If a local environment is
-   of unsupported type, topenv is returned as a valid conservative
-   answer.
+   when things get reclaimed). Standard local frames, hashed or not, are
+   processed directly. If a local environment is of unsupported type,
+   topenv is returned as a valid conservative answer. The new
+   environment is hashed, as it is searched for each local variable of
+   a function that might use the cached code.
 
    Since we compute the local variables at compile
    time we should record them in the byte code object and use the
@@ -1675,10 +1688,16 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     if (cmpenv == top && frmls == R_NilValue)
 	return cmpenv;
     else {
-	SEXP newenv = PROTECT(NewEnvironment(R_NilValue, R_NilValue, top));
+	SEXP newenv = PROTECT(R_NewHashedEnv(top, 0));
 	for (; frmls != R_NilValue; frmls = CDR(frmls))
 	    defineVar(TAG(frmls), R_NilValue, newenv);
 	for (SEXP env = cmpenv; env != top; env = CDR(env)) {
+	    if (env == R_EmptyEnv) {
+		/* top is not an ancestor of cmpenv: fun cannot be compiled */
+		UNPROTECT(1); /* newenv */
+		return top;
+	    }
+
 	    if (IS_STANDARD_UNHASHED_FRAME(env))
 		cmpenv_enter_frame(FRAME(env), newenv);
 	    else if (IS_STANDARD_HASHED_FRAME(env)) {
@@ -1692,7 +1711,7 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
 	    }
 		/* topenv is a safe conservative answer; if a closure
 		   defines anything, its environment will not match, and
-		   it will never be compiled */
+		   it will be compiled again */
 		/* FIXME: would it be safe to simply ignore elements of
 		   of these environments? */
 	}
@@ -1701,17 +1720,108 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     }
 }
 
-/* Cache entries are CONS cells with the body in CAR, the environment
-   in CDR, and the Srcref in the TAG. */
+/* The compiler treats variables assigned in default arguments as local
+   (see findLocals in the compiler), and the environment of a cache
+   entry does not record them, so cached code can only be used for a
+   function whose defaults define the same variables. Only calls can,
+   through their structure, symbols and strings alone, so a cache entry
+   keeps a skeleton of each default call with just those: other values,
+   attributes (such as the environment of a formula) and defaults that
+   are not calls are dropped, so that the cache does not keep them alive.
+   Defaults can be arbitrary objects, deeply nested or with shared
+   subexpressions, so the work is bounded: a call that exceeds the bound
+   gets a skeleton that matches nothing, which only means that a
+   function using it is compiled again. */
+#define JIT_DEFAULT_BUDGET 1000
+
+/* Whether e can matter for the variables a default defines; anything
+   else is R_NilValue in a skeleton. */
+static R_INLINE Rboolean jit_lang_relevant(SEXP e)
+{
+    switch (TYPEOF(e)) {
+    case LANGSXP:
+    case LISTSXP:
+    case SYMSXP:
+    case STRSXP:
+	return TRUE;
+    default:
+	return FALSE;
+    }
+}
+
+/* R_UnboundValue, which matches nothing, if e exceeds the budget */
+static SEXP jit_lang_skeleton(SEXP e, int *budget)
+{
+    if (--*budget < 0)
+	return R_UnboundValue;
+
+    switch (TYPEOF(e)) {
+    case LANGSXP:
+    case LISTSXP: {
+	SEXP car = PROTECT(jit_lang_skeleton(CAR(e), budget));
+	SEXP cdr = PROTECT(jit_lang_skeleton(CDR(e), budget));
+	SEXP val = R_UnboundValue;
+	if (car != R_UnboundValue && cdr != R_UnboundValue) {
+	    val = TYPEOF(e) == LANGSXP ? LCONS(car, cdr) : CONS(car, cdr);
+	    SET_TAG(val, TAG(e));
+	}
+	UNPROTECT(2); /* car, cdr */
+	return val;
+    }
+    case SYMSXP:
+	return e;
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(e);
+	if (n > *budget)
+	    return R_UnboundValue;
+	*budget -= (int) n;
+
+	/* STRING_ELT can allocate, for deferred strings */
+	SEXP val = PROTECT(allocVector(STRSXP, n));
+	for (R_xlen_t i = 0; i < n; i++)
+	    SET_STRING_ELT(val, i, STRING_ELT(e, i));
+	UNPROTECT(1); /* val */
+	return val;
+    }
+    default:
+	return R_NilValue;
+    }
+}
+
+/* The formals kept with a cache entry, in new cells without attributes:
+   names, and skeletons of the default calls, with R_MissingArg for the
+   other defaults. */
+static SEXP jit_cache_formals_snapshot(SEXP formals)
+{
+    SEXP val = PROTECT(allocList(length(formals)));
+    for (SEXP from = formals, to = val; from != R_NilValue;
+	 from = CDR(from), to = CDR(to)) {
+	SET_TAG(to, TAG(from));
+	if (TYPEOF(CAR(from)) == LANGSXP) {
+	    int budget = JIT_DEFAULT_BUDGET;
+	    SETCAR(to, jit_lang_skeleton(CAR(from), &budget));
+	}
+	else {
+	    SETCAR(to, R_MissingArg);
+	}
+    }
+    UNPROTECT(1); /* val */
+    return val;
+}
+
+/* Cache entries are pairlists of the body, the environment, the Srcref
+   and the formals. */
 static R_INLINE void set_jit_cache_entry(R_exprhash_t hash, SEXP val)
 {
     int hashidx = hash % JIT_CACHE_SIZE;
 
     PROTECT(val);
-    SEXP entry = CONS(BODY(val), make_cached_cmpenv(val));
+    SEXP cmpenv = PROTECT(make_cached_cmpenv(val));
+    SEXP formals = PROTECT(jit_cache_formals_snapshot(FORMALS(val)));
+    SEXP srcref = getAttrib(val, R_SrcrefSymbol);
+    SEXP entry = list4(BODY(val), cmpenv, srcref, formals);
     SET_VECTOR_ELT(JIT_cache, hashidx, entry);
-    SET_TAG(entry, getAttrib(val, R_SrcrefSymbol));
-    UNPROTECT(1); /* val */
+    UNPROTECT(3); /* val, cmpenv, formals */
 
     JIT_cache_hashes[hashidx] = hash;
 }
@@ -1723,12 +1833,17 @@ static R_INLINE SEXP jit_cache_code(SEXP entry)
 
 static R_INLINE SEXP jit_cache_env(SEXP entry)
 {
-    return CDR(entry);
+    return CADR(entry);
 }
 
 static R_INLINE SEXP jit_cache_srcref(SEXP entry)
 {
-    return TAG(entry);
+    return CADDR(entry);
+}
+
+static R_INLINE SEXP jit_cache_formals(SEXP entry)
+{
+    return CADDDR(entry);
 }
 
 /* forward declaration */
@@ -1766,13 +1881,15 @@ static R_INLINE SEXP cmpenv_topenv(SEXP cmpenv)
 
 static R_INLINE Rboolean cmpenv_exists_local(SEXP sym, SEXP cmpenv, SEXP top)
 {
-    if (cmpenv != top)
-	for (SEXP frame = FRAME(cmpenv);
-	     frame != R_NilValue;
-	     frame = CDR(frame))
-	    if (TAG(frame) == sym)
-		return TRUE;
-    return FALSE;
+    return cmpenv != top && R_existsVarInFrame(cmpenv, sym);
+}
+
+static R_INLINE Rboolean cmpenv_exists_frame(SEXP frame, SEXP cmpenv, SEXP top)
+{
+    for (; frame != R_NilValue; frame = CDR(frame))
+	if (! cmpenv_exists_local(TAG(frame), cmpenv, top))
+	    return FALSE;
+    return TRUE;
 }
 
 static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
@@ -1795,14 +1912,23 @@ static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
 	    if (! cmpenv_exists_local(TAG(frmls), cmpenv, top))
 		return FALSE;
 	for (; env != top; env = ENCLOS(env)) {
+	    /* top is R_GlobalEnv by default, and need not be an
+	       ancestor of env */
+	    if (env == R_EmptyEnv)
+		return FALSE;
+
+	    /* As in make_cached_cmpenv, only standard frames are
+	       supported; hashed ones are what new.env() and local()
+	       create by default. */
 	    if (IS_STANDARD_UNHASHED_FRAME(env)) {
-		/* To keep things simple, for a match this code
-		   requires that the local frames be standard unhashed
-		   frames. */
-		for (SEXP frame = FRAME(env);
-		     frame != R_NilValue;
-		     frame = CDR(frame))
-		    if (! cmpenv_exists_local(TAG(frame), cmpenv, top))
+		if (! cmpenv_exists_frame(FRAME(env), cmpenv, top))
+		    return FALSE;
+	    }
+	    else if (IS_STANDARD_HASHED_FRAME(env)) {
+		SEXP h = HASHTAB(env);
+		int n = length(h);
+		for (int i = 0; i < n; i++)
+		    if (! cmpenv_exists_frame(VECTOR_ELT(h, i), cmpenv, top))
 			return FALSE;
 	    }
 	    else return FALSE;
@@ -1815,6 +1941,58 @@ static R_INLINE Rboolean jit_env_match(SEXP cmpenv, SEXP fun)
 static R_INLINE Rboolean jit_srcref_match(SEXP cmpsrcref, SEXP srcref)
 {
     return R_compute_identical(cmpsrcref, srcref, 0);
+}
+
+/* Whether default y has skeleton x (see jit_lang_skeleton) */
+static Rboolean jit_lang_match(SEXP x, SEXP y, int *budget)
+{
+    if (--*budget < 0)
+	return FALSE;
+    if (x == R_NilValue)
+	return ! jit_lang_relevant(y);
+    if (TYPEOF(x) != TYPEOF(y))
+	return FALSE;
+
+    switch (TYPEOF(x)) {
+    case LANGSXP:
+    case LISTSXP:
+	return TAG(x) == TAG(y) &&
+	    jit_lang_match(CAR(x), CAR(y), budget) &&
+	    jit_lang_match(CDR(x), CDR(y), budget);
+    case SYMSXP:
+	return x == y;
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	if (XLENGTH(y) != n || n > *budget)
+	    return FALSE;
+	*budget -= (int) n;
+
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (! Seql(STRING_ELT(x, i), STRING_ELT(y, i)))
+		return FALSE;
+	return TRUE;
+    }
+    default:
+	return FALSE;
+    }
+}
+
+/* Whether a function with formals y can use the code of a cache entry
+   with formals snapshot x (see jit_cache_formals_snapshot) */
+static Rboolean jit_formals_match(SEXP x, SEXP y)
+{
+    for (; x != R_NilValue && y != R_NilValue; x = CDR(x), y = CDR(y)) {
+	if (TAG(x) != TAG(y))
+	    return FALSE;
+
+	SEXP dx = CAR(x), dy = CAR(y);
+	if (dx != R_MissingArg || TYPEOF(dy) == LANGSXP) {
+	    int budget = JIT_DEFAULT_BUDGET;
+	    if (! jit_lang_match(dx, dy, &budget))
+		return FALSE;
+	}
+    }
+    return x == y;
 }
 
 attribute_hidden SEXP R_cmpfun1(SEXP fun)
@@ -1855,7 +2033,8 @@ static void R_cmpfun(SEXP fun)
 	    jit_info.count++;
 	    if (jit_env_match(jit_cache_env(entry), fun)) {
 		jit_info.envcount++;
-		if (jit_expr_match(jit_cache_expr(entry), BODY(fun))) {
+		if (jit_expr_match(jit_cache_expr(entry), BODY(fun)) &&
+		    jit_formals_match(jit_cache_formals(entry), FORMALS(fun))) {
 		    jit_info.bdcount++;
 		    /* if function body has a srcref, all srcrefs compiled
 		       in that function only depend on the body srcref;
@@ -1882,16 +2061,13 @@ static void R_cmpfun(SEXP fun)
 		   references, anyway. */
 		/* FIXME: revisit this when deep comparison of environments
 			  (and srcrefs) is available */
-	    } else {
-		SET_NOJIT(fun);
-		/**** also mark the cache entry as NOJIT, or as need to see
-		      many times? */
-		return;
 	    }
 	}
 	PRINT_JIT_INFO;
     }
 
+    /* A cache mismatch must not leave fun uncompiled for good,
+       however often it is called. Compile and cache it instead. */
     SEXP val = R_cmpfun1(fun);
 
     if (TYPEOF(BODY(val)) != BCODESXP)
