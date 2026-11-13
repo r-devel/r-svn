@@ -235,12 +235,22 @@ resolveNativeRoutine(SEXP args, DL_FUNC *fun,
     if (dll.type == FILENAME && !strlen(dll.DLLname))
 	errorcall(call, _("PACKAGE = \"\" is invalid"));
 
-    // find if we were called from a namespace
-    SEXP env2 = ENCLOS(env);
+    /* Find if we were called from a namespace.  This is only needed when
+       no PACKAGE argument was supplied (or when checking for cross-usage),
+       so skip the namespace lookups on the common PACKAGE= path. */
+    SEXP env2 = R_NilValue;
     const char *ns = "";
-    if(R_IsNamespaceEnv(env2))
-	ns = CHAR(STRING_ELT(R_NamespaceEnvSpec(env2), 0));
-    else env2 = R_NilValue;
+#ifdef CHECK_CROSS_USAGE
+    bool findns = true;
+#else
+    bool findns = dll.type != FILENAME;
+#endif
+    if (findns) {
+	env2 = ENCLOS(env);
+	if(R_IsNamespaceEnv(env2))
+	    ns = CHAR(STRING_ELT(R_NamespaceEnvSpec(env2), 0));
+	else env2 = R_NilValue;
+    }
 
 #ifdef CHECK_CROSS_USAGE
     if (dll.type == FILENAME && strcmp(dll.DLLname, "base")) {

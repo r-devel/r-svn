@@ -590,12 +590,27 @@ R_setPrimitiveArgTypes(const R_FortranMethodDef * const croutine,
 
 }
 
+/* Hash of a registered routine's name (FNV-1a).  Stored alongside each
+   registered symbol so that lookups by name can reject non-matching
+   entries without a strcmp(); registered names in a package commonly
+   share a long prefix, which makes strcmp() against each entry slow. */
+static unsigned int R_nativeSymbolHash(const char *name)
+{
+    unsigned int hash = 2166136261u;
+    for (const unsigned char *p = (const unsigned char *) name; *p; p++) {
+	hash ^= *p;
+	hash *= 16777619u;
+    }
+    return hash;
+}
+
 static void
 R_addFortranRoutine(DllInfo *info,
 		    const R_FortranMethodDef * const croutine,
 		    Rf_DotFortranSymbol *sym)
 {
     sym->name = Rstrdup(croutine->name);
+    sym->hash = R_nativeSymbolHash(sym->name);
     sym->fun = croutine->fun;
     sym->numArgs = croutine->numArgs > -1 ? croutine->numArgs : -1;
     if(croutine->types)
@@ -608,6 +623,7 @@ R_addExternalRoutine(DllInfo *info,
 		     Rf_DotExternalSymbol *sym)
 {
     sym->name = Rstrdup(croutine->name);
+    sym->hash = R_nativeSymbolHash(sym->name);
     sym->fun = croutine->fun;
     sym->numArgs = croutine->numArgs > -1 ? croutine->numArgs : -1;
 }
@@ -617,6 +633,7 @@ R_addCRoutine(DllInfo *info, const R_CMethodDef * const croutine,
 	      Rf_DotCSymbol *sym)
 {
     sym->name = Rstrdup(croutine->name);
+    sym->hash = R_nativeSymbolHash(sym->name);
     sym->fun = croutine->fun;
     sym->numArgs = croutine->numArgs > -1 ? croutine->numArgs : -1;
     if(croutine->types)
@@ -628,6 +645,7 @@ R_addCallRoutine(DllInfo *info, const R_CallMethodDef * const croutine,
 		 Rf_DotCallSymbol *sym)
 {
     sym->name = Rstrdup(croutine->name);
+    sym->hash = R_nativeSymbolHash(sym->name);
     sym->fun = croutine->fun;
     sym->numArgs = croutine->numArgs > -1 ? croutine->numArgs : -1;
 }
@@ -995,21 +1013,29 @@ addDLL(char *dpath, char *DLLname, HINSTANCE handle)
     return(ans);
 }
 
+/* The lookup routines below take the hash of 'name' (as computed by
+   R_nativeSymbolHash) so that it is computed once per lookup rather
+   than once per registered symbol table. */
+
 static Rf_DotCSymbol *
-Rf_lookupRegisteredCSymbol(DllInfo *info, const char *name)
+Rf_lookupRegisteredCSymbol(DllInfo *info, const char *name,
+			   unsigned int hash)
 {
     for(int i = 0; i < info->numCSymbols; i++) {
-	if(strcmp(name, info->CSymbols[i].name) == 0)
+	if(hash == info->CSymbols[i].hash &&
+	   strcmp(name, info->CSymbols[i].name) == 0)
 	    return(&(info->CSymbols[i]));
     }
     return NULL;
 }
 
 static Rf_DotFortranSymbol *
-Rf_lookupRegisteredFortranSymbol(DllInfo *info, const char *name)
+Rf_lookupRegisteredFortranSymbol(DllInfo *info, const char *name,
+				 unsigned int hash)
 {
     for(int i = 0; i < info->numFortranSymbols; i++) {
-	if(strcmp(name, info->FortranSymbols[i].name) == 0)
+	if(hash == info->FortranSymbols[i].hash &&
+	   strcmp(name, info->FortranSymbols[i].name) == 0)
 	    return(&(info->FortranSymbols[i]));
     }
 
@@ -1017,21 +1043,25 @@ Rf_lookupRegisteredFortranSymbol(DllInfo *info, const char *name)
 }
 
 static Rf_DotCallSymbol *
-Rf_lookupRegisteredCallSymbol(DllInfo *info, const char *name)
+Rf_lookupRegisteredCallSymbol(DllInfo *info, const char *name,
+			      unsigned int hash)
 {
 
     for(int i = 0; i < info->numCallSymbols; i++) {
-	if(strcmp(name, info->CallSymbols[i].name) == 0)
+	if(hash == info->CallSymbols[i].hash &&
+	   strcmp(name, info->CallSymbols[i].name) == 0)
 	    return(&(info->CallSymbols[i]));
     }
     return (Rf_DotCallSymbol*) NULL;
 }
 
 static Rf_DotExternalSymbol *
-Rf_lookupRegisteredExternalSymbol(DllInfo *info, const char *name)
+Rf_lookupRegisteredExternalSymbol(DllInfo *info, const char *name,
+				  unsigned int hash)
 {
     for(int i = 0; i < info->numExternalSymbols; i++) {
-	if(strcmp(name, info->ExternalSymbols[i].name) == 0)
+	if(hash == info->ExternalSymbols[i].hash &&
+	   strcmp(name, info->ExternalSymbols[i].name) == 0)
 	    return(&(info->ExternalSymbols[i]));
     }
     return (Rf_DotExternalSymbol*) NULL;
@@ -1042,6 +1072,7 @@ R_getDLLRegisteredSymbol(DllInfo *info, const char *name,
 			 R_RegisteredNativeSymbol *symbol)
 {
     NativeSymbolType purpose = R_ANY_SYM;
+    unsigned int hash = R_nativeSymbolHash(name);
 
     if(symbol)
 	purpose = symbol->type;
@@ -1049,7 +1080,7 @@ R_getDLLRegisteredSymbol(DllInfo *info, const char *name,
     if((purpose == R_ANY_SYM || purpose == R_C_SYM) &&
        info->numCSymbols > 0) {
 	Rf_DotCSymbol *sym;
-	sym = Rf_lookupRegisteredCSymbol(info, name);
+	sym = Rf_lookupRegisteredCSymbol(info, name, hash);
 	if(sym) {
 	    if(symbol) {
 		symbol->type = R_C_SYM;
@@ -1064,7 +1095,7 @@ R_getDLLRegisteredSymbol(DllInfo *info, const char *name,
     if((purpose == R_ANY_SYM || purpose == R_CALL_SYM) &&
        info->numCallSymbols > 0) {
 	Rf_DotCallSymbol *sym;
-	sym = Rf_lookupRegisteredCallSymbol(info, name);
+	sym = Rf_lookupRegisteredCallSymbol(info, name, hash);
 	if(sym) {
 	    if(symbol) {
 		symbol->type = R_CALL_SYM;
@@ -1078,7 +1109,7 @@ R_getDLLRegisteredSymbol(DllInfo *info, const char *name,
     if((purpose == R_ANY_SYM || purpose == R_FORTRAN_SYM) &&
        info->numFortranSymbols > 0) {
 	Rf_DotFortranSymbol *sym;
-	sym = Rf_lookupRegisteredFortranSymbol(info, name);
+	sym = Rf_lookupRegisteredFortranSymbol(info, name, hash);
 	if(sym) {
 	    if(symbol) {
 		symbol->type = R_FORTRAN_SYM;
@@ -1092,7 +1123,7 @@ R_getDLLRegisteredSymbol(DllInfo *info, const char *name,
     if((purpose == R_ANY_SYM || purpose == R_EXTERNAL_SYM) &&
        info->numExternalSymbols > 0) {
 	Rf_DotExternalSymbol *sym;
-	sym = Rf_lookupRegisteredExternalSymbol(info, name);
+	sym = Rf_lookupRegisteredExternalSymbol(info, name, hash);
 	if(sym) {
 	    if(symbol) {
 		symbol->type = R_EXTERNAL_SYM;
