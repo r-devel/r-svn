@@ -4501,6 +4501,91 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 
 
 
+## Integer arithmetic: NA propagation and both overflow boundaries.
+local({
+    oldjit <- compiler::enableJIT(0)
+    on.exit(compiler::enableJIT(oldjit))
+    imax <- .Machine$integer.max
+    values <- c(NA_integer_, -imax, -1073741824L, -46341L, -46340L,
+                -3L, -2L, -1L, 0L, 1L, 2L, 3L, 46340L, 46341L,
+                1073741824L, imax)
+    check <- function(x, y, f) {
+        result <- f(as.double(x), as.double(y))
+        overflow <- !is.na(result) & abs(result) > imax
+        expected <- suppressWarnings(as.integer(result))
+        nwarnings <- 0L
+        actual <- withCallingHandlers(f(x, y), warning = function(w) {
+            nwarnings <<- nwarnings + 1L
+            invokeRestart("muffleWarning")
+        })
+        stopifnot(identical(actual, expected),
+                  identical(nwarnings, as.integer(any(overflow))))
+    }
+    for (op in c("+", "-", "*")) {
+        arithmetic <- function(x, y) NULL
+        body(arithmetic) <- call(op, quote(x), quote(y))
+        for (f in list(arithmetic, compiler::cmpfun(arithmetic))) {
+            for (x in values)
+                for (y in values)
+                    check(x, y, f)
+            check(rep(values, each = length(values)), rep(values, length(values)), f)
+            for (x in values) {
+                check(x, values, f)
+                check(values, x, f)
+            }
+            check(rep(values, 2L), values, f)
+            check(values, rep(values, 2L), f)
+            check(values, integer(), f)
+            check(integer(), values, f)
+        }
+    }
+})
+## Same NA and overflow behavior as in R <= 4.6.x; optimized in R 4.7.0.
+
+
+## Binary arithmetic loop dispatch: scalar operands, equal lengths and recycling.
+local({
+    oldjit <- compiler::enableJIT(0)
+    on.exit(compiler::enableJIT(oldjit))
+    iv <- c(NA_integer_, -7L, -1L, 0L, 1L, 2L, 7L)
+    dv <- c(as.double(iv), NaN, -Inf, Inf, -0, -0.5, 0.5, 1e-300, 1e300)
+    check <- function(x, y, f) {
+        n <- max(length(x), length(y))
+        xx <- rep_len(x, n)
+        yy <- rep_len(y, n)
+        expected <- suppressWarnings(vapply(seq_len(n), function(i) f(xx[i], yy[i]),
+                                            f(x[1L], y[1L])))
+        actual <- suppressWarnings(f(x, y))
+        ## Combining NA and NaN may give either missing value; see ?NA.
+        na_nan <- is.na(xx) & is.na(yy) & (is.nan(xx) != is.nan(yy))
+        stopifnot(identical(is.na(actual), is.na(expected)),
+                  identical(actual[!na_nan], expected[!na_nan]))
+        if (is.double(actual)) # also distinguish positive and negative zero
+            stopifnot(identical(1 / actual[!na_nan], 1 / expected[!na_nan]))
+    }
+    for (op in c("+", "-", "*", "/", "^", "%%", "%/%")) {
+        arithmetic <- function(x, y) NULL
+        body(arithmetic) <- call(op, quote(x), quote(y))
+        for (f in list(arithmetic, compiler::cmpfun(arithmetic)))
+            for (x in list(iv, dv)) for (y in list(iv, dv)) {
+                xx <- rep(x, each = length(y))
+                yy <- rep(y, length(x))
+                check(xx, yy, f)
+                check(rep(xx, 2L), yy, f)
+                check(xx, rep(yy, 2L), f)
+                for (a in x) check(a, y, f)
+                for (b in y) check(x, b, f)
+                empty <- if (op %in% c("/", "^") || is.double(x) || is.double(y))
+                    numeric() else integer()
+                stopifnot(identical(f(x, y[FALSE]), empty),
+                          identical(f(x[FALSE], y), empty),
+                          identical(f(x[FALSE], y[FALSE]), empty))
+            }
+    }
+})
+## Same arithmetic and recycling behavior as in R <= 4.6.x; refactored in R 4.7.0.
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
