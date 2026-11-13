@@ -95,6 +95,47 @@
 				  n1, n2, i, i1, i2, loop_body);	\
     } while (0)
 
+/* Binary operations with scalar and equal-length fast paths.  If n is
+   nonzero, it must be max(n1, n2), with both input lengths positive.
+   load1 and load2 declare and initialize the operand values using i1 and i2;
+   loop_body must not modify these values or the indices.  A scalar operand
+   is loaded once, before the loop, including when output reuses an input.
+   No operands are loaded when n is zero. */
+#define BINARY_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2,		\
+                              load1, load2, loop_body) do {		\
+	i = i1 = i2 = 0;						\
+	if (n == 0) break;						\
+	if (n2 == 1) {							\
+	    load2;							\
+	    R_ITERATE_CHECK(ncheck, n, i, {				\
+		i1 = i;							\
+		load1;							\
+		loop_body						\
+	    });								\
+	}								\
+	else if (n1 == 1) {						\
+	    load1;							\
+	    R_ITERATE_CHECK(ncheck, n, i, {				\
+		i2 = i;							\
+		load2;							\
+		loop_body						\
+	    });								\
+	}								\
+	else if (n1 == n2)						\
+	    R_ITERATE_CHECK(ncheck, n, i, {				\
+		i1 = i2 = i;						\
+		load1;							\
+		load2;							\
+		loop_body						\
+	    });								\
+	else								\
+	    MOD_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2, {		\
+		load1;							\
+		load2;							\
+		loop_body						\
+	    });								\
+    } while (0)
+
 #define MOD_ITERATE MOD_ITERATE2
 #define MOD_ITERATE_CORE MOD_ITERATE2_CORE
 #define MOD_ITERATE_CHECK MOD_ITERATE2_CHECK
