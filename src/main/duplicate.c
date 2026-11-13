@@ -214,18 +214,40 @@ static SEXP duplicate_child(SEXP s, Rboolean deep) {
 /*****************/
 
 /* The nodes R_cycle_detected() has expanded: open addressing with
-   linear probing, starting in a table on the C stack. */
+   linear probing, in a table on the C stack that may grow onto the
+   heap. */
 
 #define SEEN_INITIAL_K 5
 
 typedef struct {
     SEXP root;
-    SEXP *tab;		/* open addressing, 2^K slots; NULL until used */
+    SEXP *tab;		/* 2^K slots; NULL until used */
     int K;
     size_t count;
+    Rboolean heap;	/* may the table grow onto the heap? */
+    Rboolean overflow;	/* it had to but could not: abandon the walk */
     Rboolean full;	/* growing failed: record nothing more */
     SEXP initial[1 << SEEN_INITIAL_K];
 } seen_set;
+
+static void seen_init(seen_set *seen, SEXP root, Rboolean heap)
+{
+    seen->root = root;
+    seen->tab = NULL;
+    seen->K = SEEN_INITIAL_K;
+    seen->count = 0;
+    seen->heap = heap;
+    seen->overflow = FALSE;
+    seen->full = FALSE;
+}
+
+static void seen_free(void *data)
+{
+    seen_set *seen = data;
+    if (seen->tab != seen->initial)
+	free(seen->tab);
+    seen->tab = NULL;
+}
 
 static R_INLINE size_t seen_slot(SEXP x, int K)
 {
@@ -260,7 +282,8 @@ static void seen_grow(seen_set *seen)
     seen->K = K;
 }
 
-/* Return TRUE if 'x' has been recorded already; otherwise record it. */
+/* Return TRUE if 'x' has been recorded already, or if recording it
+   overflows a table that may not grow; otherwise record it. */
 static Rboolean seen_before(seen_set *seen, SEXP x)
 {
     if (seen->tab == NULL) {
@@ -276,8 +299,13 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
 
     if (! seen->full) {
 	seen->tab[i] = x;
-	if (2 * ++seen->count > mask + 1)
+	if (2 * ++seen->count > mask + 1) {
+	    if (! seen->heap) {
+		seen->overflow = TRUE;
+		return TRUE;
+	    }
 	    seen_grow(seen);
+	}
     }
     return FALSE;
 }
@@ -318,9 +346,10 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
     if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
 	(child == R_NilValue || ! isPairList(child)))
 	return FALSE;
+    /* on overflow, unwind to R_cycle_detected() at once */
     if ((MAYBE_SHARED(child) || child == seen->root) &&
 	seen_before(seen, child))
-	return FALSE;
+	return seen->overflow;
 
     if (ATTRIB(child) != R_NilValue) {
 	if (cycle_detected(s, ATTRIB(child), seen))
@@ -336,7 +365,7 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
 	    el = CDR(el);
 	    /* the rest of a shared tail has been or is being checked */
 	    if (el != R_NilValue && MAYBE_SHARED(el) && seen_before(seen, el))
-		break;
+		return seen->overflow;
 	}
     } else if (isVectorList(child)) {
 	for(int i = 0 ; i < length(child); i++)
@@ -346,22 +375,33 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
     return FALSE;
 }
 
+typedef struct {
+    SEXP s, child;
+    seen_set *seen;
+} cycle_args;
+
+static SEXP cycle_detected_heap(void *data)
+{
+    cycle_args *args = data;
+    return cycle_detected(args->s, args->child, args->seen) ?
+	R_TrueValue : R_FalseValue;
+}
+
 attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
     seen_set seen;
-    seen.root = child;
-    seen.tab = NULL;
-    seen.K = SEEN_INITIAL_K;
-    seen.count = 0;
-    seen.full = FALSE;
-
-    /* An ALTREP list method signalling an error would leak a grown
-       table; using R_alloc() instead would let the table's growth
-       trigger a GC in callers that do not expect one. */
+    seen_init(&seen, child, FALSE);
     Rboolean ans = cycle_detected(s, child, &seen);
+    if (! seen.overflow)
+	return ans;
 
-    if (seen.tab != seen.initial)
-	free(seen.tab);
-    return ans;
+    /* The stack table filled up and the walk was abandoned.  Repeat it
+       with a table that grows onto the heap, freed even if an ALTREP
+       list method signals an error.  The table is not allocated with
+       R_alloc() so that the check cannot trigger a GC. */
+    cycle_args args = { s, child, &seen };
+    seen_init(&seen, child, TRUE);
+    return R_ExecWithCleanup(cycle_detected_heap, &args, seen_free, &seen) ==
+	R_TrueValue;
 }
 
 static R_INLINE SEXP duplicate_list(SEXP s, Rboolean deep)
