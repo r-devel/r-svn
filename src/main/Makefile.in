@@ -12,8 +12,6 @@ R_HOME=$(top_builddir)
 
 include $(top_builddir)/Makeconf
 
-DEFS = @DEFS@ @R_DEFS@ -DBUILDING_R
-
 SOURCES_C = \
 	CommandLineArgs.c \
 	Rdynload.c Renviron.c RNG.c \

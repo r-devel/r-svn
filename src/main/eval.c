@@ -23,8 +23,6 @@
 # include <config.h>
 #endif
 
-/* Inlining allocation stack access can slow the bytecode evaluator. */
-#define NO_INLINE_VMAX
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
