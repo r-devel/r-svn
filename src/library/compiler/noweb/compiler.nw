@@ -195,8 +195,19 @@ options and source code reference.  The default environment is the global
 environment. By default, the source reference argument is [[NULL]] and the
 source reference is taken from the [[srcref]] attribute of the expression
 argument.
+
+The compiler also has a C implementation, in [[src/main/bccompile.c]],
+which generates exactly the same code and is used by default; it is
+what the JIT calls.  [[compile]] and [[cmpfun]] hand the work to it
+unless it has been switched off, by starting \R{} with the environment
+variable [[R_BYTECODE_COMPILER]] set to [["R"]] or by calling
+[[.Internal(nativeCompiler(FALSE))]], in which case the implementation
+in this file is used.  The R implementation remains the reference: the
+test in [[tests/native.R]] checks that the two produce identical code.
 <<[[compile]] function>>=
 compile <- function(e, env = .GlobalEnv, options = NULL, srcref = NULL) {
+    if (.Internal(nativeCompiler(NA)))
+        return(.Internal(bcCompile(e, env, options, srcref)))
     cenv <- makeCenv(env)
     cntxt <- make.toplevelContext(cenv, options)
     cntxt$env <- addCenvVars(cenv, findLocals(e, cntxt))
@@ -589,17 +600,23 @@ optimization level permits their use.  Details of the inlining
 mechanism are given in Section \ref{sec:inlining}.
 
 In addition to the inlining mechanism, some checking of the call is
-carried out for symbol calls. The checking code is
+carried out for symbol calls.  The checks only produce compiler notes,
+so they are skipped when the notes are suppressed; this also avoids
+forcing the bindings of the called functions and matching every call
+against its definition when nothing would be reported.  The checking
+code is
 <<check the call to a symbol function>>=
-if (findLocVar(fun, cntxt))
-    notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
-else {
-    def <- findFunDef(fun, cntxt)
-    if (is.null(def))
-        notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
-    else
-        checkCall(def, call,
-                  function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+if (! suppressAll(cntxt)) {
+    if (findLocVar(fun, cntxt))
+        notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
+    else {
+        def <- findFunDef(fun, cntxt)
+        if (is.null(def))
+            notifyUndefFun(fun, cntxt, loc = cb$savecurloc())
+        else
+            checkCall(def, call,
+                      function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
+    }
 }
 @ 
 and [[checkCall]] is defined as
@@ -5040,9 +5057,12 @@ compiled with [[genCode]] and combined with the closure's formals and
 environment to form a compiled closure.  The [[.Internal]] function
 [[bcClose]] does this. Some additional fiddling is needed if the
 closure is an S4 generic.  The need for the [[asS4]] bit seems a bit
-odd but it is apparently needed at this point.
+odd but it is apparently needed at this point.  As with [[compile]],
+the C implementation does the work unless it has been switched off.
 <<[[cmpfun]] function>>=
 cmpfun <- function(f, options = NULL) {
+    if (.Internal(nativeCompiler(NA)))
+        return(.Internal(bcCmpfun(f, options)))
     type <- typeof(f)
     if (type == "closure") {
         cntxt <- make.toplevelContext(makeCenv(environment(f)), options)
