@@ -254,7 +254,6 @@ void begincontext(RCNTXT * cptr, int flags,
 {
     cptr->cstacktop = R_PPStackTop;
     cptr->gcenabled = R_GCEnabled;
-    cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
     cptr->bcpc = R_BCpc;
     cptr->bcbody = R_BCbody;
     cptr->bcframe = R_BCFrame;
@@ -268,7 +267,6 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->cend = NULL;
     cptr->promargs = promargs;
     cptr->callfun = callfun;
-    cptr->vmax = vmaxget();
     cptr->intsusp = R_interrupts_suspended;
     cptr->handlerstack = R_HandlerStack;
     cptr->restartstack = R_RestartStack;
@@ -281,6 +279,12 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->returnValue = SEXP_TO_STACKVAL(NULL);
     cptr->jumptarget = NULL;
     cptr->jumpmask = 0;
+
+    /* Store the arguments before calling these accessors, so they do not
+       have to be preserved across the calls. Neither accessor allocates
+       or changes interpreter state. */
+    cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
+    cptr->vmax = vmaxget();
 
     R_GlobalContext = cptr;
 }
