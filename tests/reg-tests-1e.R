@@ -4549,15 +4549,18 @@ if(is.compiled(f1)) { # not when the JIT is disabled
                          quote({ for (i in 1L) NULL; x })))
         stopifnot(identical(f11(0L), 0L), is.compiled(f11))
     }
-    ## nor keep them alive
-    fin <- FALSE
-    e <- new.env()
-    reg.finalizer(e, function(e) fin <<- TRUE)
-    f12 <- eval(call("function", as.pairlist(list(x = e)),
+    ## nor keep them alive, nor the environment of a formula
+    fin <- 0
+    e1 <- new.env(); e2 <- new.env()
+    reg.finalizer(e1, function(e) fin <<- fin + 1)
+    reg.finalizer(e2, function(e) fin <<- fin + 1)
+    fo <- ~ x
+    environment(fo) <- e2
+    f12 <- eval(call("function", as.pairlist(list(x = e1, y = fo)),
                      quote({ for (i in 1L) NULL; x })))
     f12(0L)
-    rm(e, f12); invisible(gc())
-    stopifnot(fin)
+    rm(e1, e2, fo, f12); invisible(gc())
+    stopifnot(fin == 2)
 }
 ## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
 

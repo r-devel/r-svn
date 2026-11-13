@@ -1720,15 +1720,86 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     }
 }
 
-/* The formals kept with a cache entry for jit_formals_match, which only
-   looks at default arguments that are calls: other defaults are dropped,
-   so that the cache does not keep possibly large values alive. */
+/* The compiler treats variables assigned in default arguments as local
+   (see findLocals in the compiler), and the environment of a cache
+   entry does not record them, so cached code can only be used for a
+   function whose defaults define the same variables. Only calls can,
+   through their structure, symbols and strings alone, so a cache entry
+   keeps a skeleton of each default call with just those: other values,
+   attributes (such as the environment of a formula) and defaults that
+   are not calls are dropped, so that the cache does not keep them alive.
+   Defaults can be arbitrary objects, deeply nested or with shared
+   subexpressions, so the work is bounded: a call that exceeds the bound
+   gets a skeleton that matches nothing, which only means that a
+   function using it is compiled again. */
+#define JIT_DEFAULT_BUDGET 1000
+
+/* Whether e can matter for the variables a default defines; anything
+   else is R_NilValue in a skeleton. */
+static R_INLINE Rboolean jit_lang_relevant(SEXP e)
+{
+    switch (TYPEOF(e)) {
+    case LANGSXP:
+    case LISTSXP:
+    case SYMSXP:
+    case STRSXP:
+	return TRUE;
+    default:
+	return FALSE;
+    }
+}
+
+/* R_UnboundValue, which matches nothing, if e exceeds the budget */
+static SEXP jit_lang_skeleton(SEXP e, int *budget)
+{
+    if (--*budget < 0)
+	return R_UnboundValue;
+
+    switch (TYPEOF(e)) {
+    case LANGSXP:
+    case LISTSXP: {
+	SEXP car = PROTECT(jit_lang_skeleton(CAR(e), budget));
+	SEXP cdr = PROTECT(jit_lang_skeleton(CDR(e), budget));
+	SEXP val = R_UnboundValue;
+	if (car != R_UnboundValue && cdr != R_UnboundValue) {
+	    val = TYPEOF(e) == LANGSXP ? LCONS(car, cdr) : CONS(car, cdr);
+	    SET_TAG(val, TAG(e));
+	}
+	UNPROTECT(2); /* car, cdr */
+	return val;
+    }
+    case SYMSXP:
+	return e;
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(e);
+	if (n > *budget)
+	    return R_UnboundValue;
+	*budget -= (int) n;
+
+	SEXP val = allocVector(STRSXP, n);
+	for (R_xlen_t i = 0; i < n; i++)
+	    SET_STRING_ELT(val, i, STRING_ELT(e, i));
+	return val;
+    }
+    default:
+	return R_NilValue;
+    }
+}
+
+/* The formals kept with a cache entry: names, and skeletons of the
+   default calls, with R_MissingArg for the other defaults. */
 static SEXP jit_cache_formals_snapshot(SEXP formals)
 {
     SEXP val = PROTECT(shallow_duplicate(formals));
-    for (SEXP frmls = val; frmls != R_NilValue; frmls = CDR(frmls))
-	if (TYPEOF(CAR(frmls)) != LANGSXP)
+    for (SEXP frmls = val; frmls != R_NilValue; frmls = CDR(frmls)) {
+	if (TYPEOF(CAR(frmls)) == LANGSXP) {
+	    int budget = JIT_DEFAULT_BUDGET;
+	    SETCAR(frmls, jit_lang_skeleton(CAR(frmls), &budget));
+	}
+	else {
 	    SETCAR(frmls, R_MissingArg);
+	}
+    }
     UNPROTECT(1); /* val */
     return val;
 }
@@ -1867,21 +1938,14 @@ static R_INLINE Rboolean jit_srcref_match(SEXP cmpsrcref, SEXP srcref)
     return R_compute_identical(cmpsrcref, srcref, 0);
 }
 
-/* The compiler treats variables assigned in default arguments as local
-   (see findLocals in the compiler), and the environment of a cache
-   entry does not record them, so cached code can only be used for a
-   function whose defaults define the same variables. Only calls can.
-   Calls are compared conservatively: symbols by address, scalar
-   constants by value and anything else by address. The work is bounded,
-   as defaults can be arbitrary objects, deeply nested or with shared
-   subexpressions; calls that exceed the bound do not match, which only
-   means that the function is compiled again. */
-#define JIT_DEFAULT_MATCH_BUDGET 1000
+/* Whether default y has skeleton x (see jit_lang_skeleton) */
 static Rboolean jit_lang_match(SEXP x, SEXP y, int *budget)
 {
-    if (x == y)
-	return TRUE;
-    if (--*budget < 0 || TYPEOF(x) != TYPEOF(y))
+    if (--*budget < 0)
+	return FALSE;
+    if (x == R_NilValue)
+	return ! jit_lang_relevant(y);
+    if (TYPEOF(x) != TYPEOF(y))
 	return FALSE;
 
     switch (TYPEOF(x)) {
@@ -1890,19 +1954,26 @@ static Rboolean jit_lang_match(SEXP x, SEXP y, int *budget)
 	return TAG(x) == TAG(y) &&
 	    jit_lang_match(CAR(x), CAR(y), budget) &&
 	    jit_lang_match(CDR(x), CDR(y), budget);
-    case LGLSXP:
-    case INTSXP:
-    case REALSXP:
-    case CPLXSXP:
-    case STRSXP:
-	return XLENGTH(x) == 1 && XLENGTH(y) == 1 &&
-	    ATTRIB(x) == R_NilValue && ATTRIB(y) == R_NilValue &&
-	    R_compute_identical(x, y, 16);
+    case SYMSXP:
+	return x == y;
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	if (XLENGTH(y) != n || n > *budget)
+	    return FALSE;
+	*budget -= (int) n;
+
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (! Seql(STRING_ELT(x, i), STRING_ELT(y, i)))
+		return FALSE;
+	return TRUE;
+    }
     default:
 	return FALSE;
     }
 }
 
+/* Whether a function with formals y can use the code of a cache entry
+   with formals snapshot x (see jit_cache_formals_snapshot) */
 static Rboolean jit_formals_match(SEXP x, SEXP y)
 {
     for (; x != R_NilValue && y != R_NilValue; x = CDR(x), y = CDR(y)) {
@@ -1910,8 +1981,8 @@ static Rboolean jit_formals_match(SEXP x, SEXP y)
 	    return FALSE;
 
 	SEXP dx = CAR(x), dy = CAR(y);
-	if (TYPEOF(dx) == LANGSXP || TYPEOF(dy) == LANGSXP) {
-	    int budget = JIT_DEFAULT_MATCH_BUDGET;
+	if (dx != R_MissingArg || TYPEOF(dy) == LANGSXP) {
+	    int budget = JIT_DEFAULT_BUDGET;
 	    if (! jit_lang_match(dx, dy, &budget))
 		return FALSE;
 	}
