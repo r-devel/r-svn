@@ -227,6 +227,7 @@ typedef struct {
     Rboolean heap;	/* may the table grow onto the heap? */
     Rboolean overflow;	/* it had to but could not: abandon the walk */
     Rboolean full;	/* growing failed: record nothing more */
+    int altrep;		/* ALTREP lists being walked: record nothing */
     SEXP initial[1 << SEEN_INITIAL_K];
 } seen_set;
 
@@ -239,6 +240,7 @@ static void seen_init(seen_set *seen, SEXP root, Rboolean heap)
     seen->heap = heap;
     seen->overflow = FALSE;
     seen->full = FALSE;
+    seen->altrep = 0;
 }
 
 static void seen_free(void *data)
@@ -297,7 +299,7 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
 	if (seen->tab[i] == x)
 	    return TRUE;
 
-    if (! seen->full) {
+    if (! seen->full && seen->altrep == 0) {
 	seen->tab[i] = x;
 	if (2 * ++seen->count > mask + 1) {
 	    if (! seen->heap) {
@@ -368,9 +370,17 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
 		return seen->overflow;
 	}
     } else if (isVectorList(child)) {
+	/* The elements of an ALTREP list can be new objects, which a GC
+	   during the walk may free and whose addresses may be reused, so
+	   nothing below one is recorded.  Nodes recorded elsewhere are
+	   reachable from the root without one, so they stay alive and
+	   looking them up remains safe. */
+	int altrep = ALTREP(child) ? 1 : 0;
+	seen->altrep += altrep;
 	for(int i = 0 ; i < length(child); i++)
 	    if (cycle_detected(s, VECTOR_ELT(child, i), seen))
 		return TRUE;
+	seen->altrep -= altrep;
     }
     return FALSE;
 }
