@@ -1086,6 +1086,7 @@ checkRdaFiles <- function(paths)
         res[p, "compress"] <- if(all(magic[1:2] == c(0x1f, 0x8b))) "gzip"
         else if(rawToChar(magic[1:3]) == "BZh") "bzip2"
         else if(magic[1L] == 0xFD && rawToChar(magic[2:5]) == "7zXZ") "xz"
+        else if(all(magic[1:4] == c(0x28, 0xB5, 0x2F, 0xFD))) "zstd"
         else if(grepl("RD[ABX][1-9]", rawToChar(magic), useBytes = TRUE)) "none"
         else "unknown"
         con <- gzfile(p)
@@ -1103,7 +1104,7 @@ checkRdaFiles <- function(paths)
 ### * resaveRdaFiles
 
 resaveRdaFiles <- function(paths,
-                           compress = c("auto", "gzip", "bzip2", "xz"),
+                           compress = c("auto", "gzip", "bzip2", "xz", "zstd"),
                            compression_level, version = NULL)
 {
     if(length(paths) == 1L && dir.exists(paths))
@@ -1111,7 +1112,7 @@ resaveRdaFiles <- function(paths,
                             file.path(paths, "*.RData")))
     compress <- match.arg(compress)
     if (missing(compression_level))
-        compression_level <- switch(compress, "gzip" = 6L, 9L)
+        compression_level <- switch(compress, "gzip" = 6L, "zstd" = 3L, 9L)
 
     getVerLoad <- function(file)
     {
@@ -1133,14 +1134,17 @@ resaveRdaFiles <- function(paths,
             f2 <- tempfile()
             save(file = f2, list = ls(env, all.names = TRUE), envir = env,
                  compress = "bzip2", version = ver)
-            ss <- file.size(c(f1, f2)) * c(0.9, 1.0)
-            names(ss) <- c(f1, f2)
+            f3 <- tempfile()
+            save(file = f3, list = ls(env, all.names = TRUE), envir = env,
+                 compress = "zstd", version = ver)
+            ss <- file.size(c(f1, f2, f3)) * c(0.9, 1.0, 1.0)
+            names(ss) <- c(f1, f2, f3)
             if(ss[1L] > 10240) {
-                f3 <- tempfile()
-                save(file = f3, list = ls(env, all.names = TRUE), envir = env,
+                f4 <- tempfile()
+                save(file = f4, list = ls(env, all.names = TRUE), envir = env,
                      compress = "xz", version = ver)
-                ss <- c(ss, file.size(f3))
-		names(ss) <- c(f1, f2, f3)
+                ss <- c(ss, file.size(f4))
+		names(ss) <- c(f1, f2, f3, f4)
             }
             nm <- names(ss)
             ind <- which.min(ss)
