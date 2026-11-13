@@ -78,6 +78,35 @@
 #endif /* C99_INLINE_SEMANTICS */
 
 
+/* Loadable modules must use the public functions rather than this state. */
+#if (defined(BUILDING_R) && !defined(NO_INLINE_VMAX)) || defined(COMPILING_R)
+extern attribute_hidden SEXP R_VStack;
+
+/* R_ext/Memory.h already declares these public functions. Use GNU inline
+   semantics for core callers so those declarations do not cause additional
+   external definitions. inlined.c supplies the public definitions. */
+# if defined(COMPILING_R)
+#  define VMAX_INLINE_FUN INLINE_FUN
+# elif defined(__GNUC_STDC_INLINE__) || defined(__GNUC_GNU_INLINE__)
+#  define VMAX_INLINE_FUN extern __attribute__((gnu_inline)) inline
+# else
+#  define VMAX_INLINE_FUN extern R_INLINE
+# endif
+
+VMAX_INLINE_FUN void *vmaxget(void)
+{
+    return (void *) R_VStack;
+}
+
+VMAX_INLINE_FUN void vmaxset(const void *vmax)
+{
+    R_VStack = (SEXP) vmax;
+}
+
+# undef VMAX_INLINE_FUN
+#endif
+
+
 #include <string.h> /* for strlen, strcmp */
 
 /* define inline-able functions */
@@ -1138,15 +1167,6 @@ stringPositionTr(SEXP string, const char *translatedElement) {
             return i;
     }
     return -1; /* not found */
-}
-
-HIDDEN INLINE_FUN ptrdiff_t R_BCRelPC(SEXP body, void *currentpc)
-{
-    /* Capture the pc offset from its codebase when a context is created. */
-    if (body && currentpc)
-	return *((BCODE **) currentpc) - BCCODE(body);
-    else
-	return -1;
 }
 
 /* duplicate RHS value of complex assignment if necessary to prevent cycles */

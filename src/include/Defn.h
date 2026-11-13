@@ -732,20 +732,8 @@ void (SET_HASHASH)(SEXP x, int v);
 void (SET_HASHVALUE)(SEXP x, int v);
 
 /* Bytecode access macros */
-#if defined(__GNUC__) && !defined(BC_PROFILING) && !defined(NO_THREADED_CODE)
-# define THREADED_CODE
-typedef union { void *v; int i; } BCODE;
-#else
-typedef int BCODE;
-#endif
-
 #define BCODE_CODE(x)	CAR(x)
 #define BCODE_PTR(x) ((BCODE *) DATAPTR(x))
-#ifdef THREADED_CODE
-# define BCCODE(x) BCODE_PTR(BCODE_CODE(x))
-#else
-# define BCCODE(x) INTEGER(BCODE_CODE(x))
-#endif
 #define BCODE_CONSTS(x) CDR(x)
 #define BCODE_EXPR(x)	TAG(x)
 #define isByteCode(x)	(TYPEOF(x)==BCODESXP)
@@ -839,7 +827,6 @@ const char * R_typeToChar2(SEXP, SEXPTYPE);
 */
 
 SEXP R_FixupRHS(SEXP x, SEXP y);
-ptrdiff_t R_BCRelPC(SEXP, void *);
 double SCALAR_DVAL(SEXP x);
 int SCALAR_LVAL(SEXP x);
 int SCALAR_IVAL(SEXP x);
@@ -1738,6 +1725,7 @@ extern SEXP R_findBCInterpreterSrcref(RCNTXT*);
 #endif
 extern SEXP R_getCurrentSrcref(void);
 extern SEXP R_getBCInterpreterExpression(void);
+extern ptrdiff_t R_BCRelPC(SEXP, void *);
 
 void R_BCProtReset(R_bcstack_t *);
 

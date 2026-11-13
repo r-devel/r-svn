@@ -23,6 +23,8 @@
 # include <config.h>
 #endif
 
+/* Inlining allocation stack access can slow the bytecode evaluator. */
+#define NO_INLINE_VMAX
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
@@ -4576,6 +4578,10 @@ static SEXP R_DotCSym = NULL;
    instead of a weak reference, stays in the list forever, and is a GC root.*/
 static SEXP R_ConstantsRegistry = NULL;
 
+#if defined(__GNUC__) && ! defined(BC_PROFILING) && (! defined(NO_THREADED_CODE))
+# define THREADED_CODE
+#endif
+
 attribute_hidden
 void R_initialize_bcode(void)
 {
@@ -5612,6 +5618,8 @@ SEXP R_ClosureExpr(SEXP p)
    Proceedings of the 1998 ACM SIGPLAN Conference on Programming
    Language Design and Implementation (PLDI). */
 
+typedef union { void *v; int i; } BCODE;
+
 /* Declare opinfo volatile to prevent gcc 6 from making a local copy
    in bcEval stack frames and thus increasing stack usage
    dramatically */
@@ -5640,7 +5648,9 @@ static struct { void *addr; int argc; char *instname; } opinfo[OPCOUNT];
 #define GETOP() (*pc++).i
 #define SKIP_OP() (pc++)
 
+#define BCCODE(e) BCODE_PTR(BCODE_CODE(e))
 #else
+typedef int BCODE;
 
 #define OP(name,argc) case name##_OP
 
@@ -5656,6 +5666,7 @@ static struct { void *addr; int argc; char *instname; } opinfo[OPCOUNT];
 #define GETOP() *pc++
 #define SKIP_OP() (pc++)
 
+#define BCCODE(e) INTEGER(BCODE_CODE(e))
 #endif
 
 /**** is there a way to avoid the locked check here? */
@@ -6976,6 +6987,16 @@ static SEXP getLocTableElt(ptrdiff_t relpc, SEXP table, SEXP constants)
     if (cidx < 0 || cidx >= LENGTH(constants))
 	return R_NilValue;
     return VECTOR_ELT(constants, cidx);
+}
+
+attribute_hidden ptrdiff_t R_BCRelPC(SEXP body, void *currentpc)
+{
+    /* used to capture the pc offset from its codebase at the time a
+       context is created */
+    if (body && currentpc)
+	return *((BCODE **) currentpc) - BCCODE(body);
+    else
+	return -1;
 }
 
 /* Return the srcref/expression for the current instruction/operand

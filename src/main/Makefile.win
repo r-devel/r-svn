@@ -6,7 +6,7 @@ include ../gnuwin32/MkRules
 all: makeMakedeps libmain.a
 
 ## there are headers and include files in this directory
-CPPFLAGS = -I. -I../include -DHAVE_CONFIG_H -DR_DLL_BUILD $(arch_DEFS)
+CPPFLAGS = -I. -I../include -DHAVE_CONFIG_H -DR_DLL_BUILD -DBUILDING_R $(arch_DEFS)
 
 # (flexiblas not supported on Windows)
 CSOURCES = \

@@ -96,7 +96,7 @@ R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
 .PHONY:  clean veryclean rlibs fixfiles front-ends rmodules
 
 
-CPPFLAGS = -I../include -I. -I../extra -DHAVE_CONFIG_H -DR_DLL_BUILD
+CPPFLAGS = -I../include -I. -I../extra -DHAVE_CONFIG_H -DR_DLL_BUILD -DBUILDING_R
 extra-CPPFLAGS = -I../library/grDevices/src
 system-CPPFLAGS = $(arch_DEFS)
 

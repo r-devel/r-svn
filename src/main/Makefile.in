@@ -12,6 +12,8 @@ R_HOME=$(top_builddir)
 
 include $(top_builddir)/Makeconf
 
+DEFS = @DEFS@ @R_DEFS@ -DBUILDING_R
+
 SOURCES_C = \
 	CommandLineArgs.c \
 	Rdynload.c Renviron.c RNG.c \
@@ -62,7 +64,7 @@ HEADERS = \
 	rlocale_data.h rlocale_tolower.h rlocale_toupper.h rlocale_widths.h \
 	split-incl.c \
 	unzip.h \
-	valid_utf8.h vmax-internal.h \
+	valid_utf8.h \
 	xspline.c \
 	g_cntrlify.h g_control.h g_extern.h g_her_metr.h g_jis.h
 

@@ -82,7 +82,6 @@
 
 #define R_USE_SIGNALS 1
 #include <Defn.h>
-#include "vmax-internal.h"
 #include <Internal.h>
 #include <R_ext/GraphicsEngine.h> /* GEDevDesc, GEgetDevice */
 #include <R_ext/Rdynload.h>
@@ -2319,16 +2318,6 @@ attribute_hidden void InitMemory(void)
    allocates off the heap as RAWSXP/REALSXP and maintains the stack of
    allocations through the ATTRIB pointer.  The stack pointer R_VStack
    is traced by the collector. */
-void *vmaxget(void)
-{
-    return R_VMaxGet();
-}
-
-void vmaxset(const void *ovmax)
-{
-    R_VMaxSet(ovmax);
-}
-
 char *R_alloc(size_t nelem, int eltsize)
 {
     R_size_t size = nelem * eltsize;

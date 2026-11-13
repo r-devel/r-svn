@@ -9,6 +9,9 @@ top_builddir = ../..
 subdir = src/unix
 
 include $(top_builddir)/Makeconf
+
+DEFS = @DEFS@ @R_DEFS@ -DBUILDING_R
+
 # see note in src/main/Makefile.in
 LIBINTL= @BUILD_LIBINTL_FALSE@ @LIBINTL@
 R_HOME=$(rhome)
