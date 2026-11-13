@@ -1408,12 +1408,14 @@ static R_exprhash_t hashfun(SEXP f)
 	h = hashsrcref(getAttrib(f, R_SrcrefSymbol), h);
 
     /* Cached code can only be used for a function with the same top
-       level environment whose formals are all local variables of the
-       cached function (see jit_env_match), so functions that share a
-       body but differ in these should not share a cache entry. */
+       level environment (see jit_env_match) and the same formals, as
+       default arguments can define local variables too (see
+       R_cmpfun), so functions that share a body but differ in these
+       should not share a cache entry. */
     for (SEXP frmls = FORMALS(f); frmls != R_NilValue; frmls = CDR(frmls)) {
 	SEXP tag = TAG(frmls);
 	h = HASH(tag, h);
+	h = hashexpr1(CAR(frmls), h);
     }
     SEXP top = topenv(R_NilValue, CLOENV(f));
     h = HASH(top, h);
@@ -1560,7 +1562,7 @@ static int JIT_score(SEXP e)
   NO_SCORE
       functions are compiled 1st time seen
         code is cached
-	in case of conflict function may be marked NOJIT
+	in case of conflict function is compiled again
 
   ALL_SMALL_MAYBE
       functions with small score are compiled 2nd time seen
@@ -1719,17 +1721,18 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     }
 }
 
-/* Cache entries are CONS cells with the body in CAR, the environment
-   in CDR, and the Srcref in the TAG. */
+/* Cache entries are pairlists of the body, the environment, the Srcref
+   and the formals. */
 static R_INLINE void set_jit_cache_entry(R_exprhash_t hash, SEXP val)
 {
     int hashidx = hash % JIT_CACHE_SIZE;
 
     PROTECT(val);
-    SEXP entry = CONS(BODY(val), make_cached_cmpenv(val));
+    SEXP cmpenv = PROTECT(make_cached_cmpenv(val));
+    SEXP srcref = getAttrib(val, R_SrcrefSymbol);
+    SEXP entry = list4(BODY(val), cmpenv, srcref, FORMALS(val));
     SET_VECTOR_ELT(JIT_cache, hashidx, entry);
-    SET_TAG(entry, getAttrib(val, R_SrcrefSymbol));
-    UNPROTECT(1); /* val */
+    UNPROTECT(2); /* val, cmpenv */
 
     JIT_cache_hashes[hashidx] = hash;
 }
@@ -1741,12 +1744,17 @@ static R_INLINE SEXP jit_cache_code(SEXP entry)
 
 static R_INLINE SEXP jit_cache_env(SEXP entry)
 {
-    return CDR(entry);
+    return CADR(entry);
 }
 
 static R_INLINE SEXP jit_cache_srcref(SEXP entry)
 {
-    return TAG(entry);
+    return CADDR(entry);
+}
+
+static R_INLINE SEXP jit_cache_formals(SEXP entry)
+{
+    return CADDDR(entry);
 }
 
 /* forward declaration */
@@ -1920,7 +1928,11 @@ static void R_cmpfun(SEXP fun)
 	    jit_info.count++;
 	    if (jit_env_match(jit_cache_env(entry), fun)) {
 		jit_info.envcount++;
-		if (jit_expr_match(jit_cache_expr(entry), BODY(fun))) {
+		/* The formals have to match as well: the compiler treats
+		   variables assigned in default arguments as local, and
+		   the environment of the entry does not record them. */
+		if (jit_expr_match(jit_cache_expr(entry), BODY(fun)) &&
+		    jit_expr_match(jit_cache_formals(entry), FORMALS(fun))) {
 		    jit_info.bdcount++;
 		    /* if function body has a srcref, all srcrefs compiled
 		       in that function only depend on the body srcref;

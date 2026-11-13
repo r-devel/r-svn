@@ -4506,26 +4506,33 @@ f1(1); f1(1)
 if(is.compiled(f1)) { # not when the JIT is disabled
     f2 <- function(x, y) { for (i in x) NULL }
     f2(1); f2(1)
-    fn <- quote(function(x) { for (i in x) x <- i; max(x) })
+    ## `(` is inlined without a guard, so f5 cannot use the code of f3
+    fn <- quote(function(x) { for (i in x) x <- i; (x) })
     f3 <- eval(fn, new.env())
     f4 <- eval(fn, new.env())
-    f5 <- eval(fn, list2env(list(max = function(...) "local")))
+    f5 <- eval(fn, list2env(list("(" = function(...) "local")))
     f6 <- eval(fn, new.env())
     for(i in 1:3)
         r <- list(f3(1:3), f4(1:3), f5(1:3), f6(1:3))
     stopifnot(is.compiled(f2), is.compiled(f3), is.compiled(f4),
               is.compiled(f5), is.compiled(f6),
               identical(r, list(3L, 3L, "local", 3L)))
+    ## nor can a function defining `(` in a default argument
+    f7 <- function(x = 1:3) { for (i in x) NULL; (i) }
+    f8 <- function(x = { `(` <- function(...) "local"; 1:3 })
+        { for (i in x) NULL; (i) }
+    r <- list(f7(), f7(), f8(), f8())
+    stopifnot(is.compiled(f8), identical(r, list(3L, 3L, "local", "local")))
     ## environments that do not lead to a top level environment
-    f7 <- f8 <- function(x) { for (i in x) NULL }
-    environment(f7) <- new.env(hash = FALSE, parent = emptyenv())
-    environment(f8) <- list2env(list("{" = function(...) "local"),
-                                parent = emptyenv())
+    f9 <- f10 <- function(x) { for (i in x) NULL }
+    environment(f9) <- new.env(hash = FALSE, parent = emptyenv())
+    environment(f10) <- list2env(list("{" = function(...) "local"),
+                                 parent = emptyenv())
     for(i in 1:3)
-        r <- list(tryCid(f7(1)), f8(1))
+        r <- list(tryCid(f9(1)), f10(1))
     stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
 }
-## f2, f4, f5 and f6 were never compiled, and f7 hung, in R <= 4.6.2
+## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
 
 
 
