@@ -1720,6 +1720,19 @@ static R_INLINE SEXP make_cached_cmpenv(SEXP fun)
     }
 }
 
+/* The formals kept with a cache entry for jit_formals_match, which only
+   looks at default arguments that are calls: other defaults are dropped,
+   so that the cache does not keep possibly large values alive. */
+static SEXP jit_cache_formals_snapshot(SEXP formals)
+{
+    SEXP val = PROTECT(shallow_duplicate(formals));
+    for (SEXP frmls = val; frmls != R_NilValue; frmls = CDR(frmls))
+	if (TYPEOF(CAR(frmls)) != LANGSXP)
+	    SETCAR(frmls, R_MissingArg);
+    UNPROTECT(1); /* val */
+    return val;
+}
+
 /* Cache entries are pairlists of the body, the environment, the Srcref
    and the formals. */
 static R_INLINE void set_jit_cache_entry(R_exprhash_t hash, SEXP val)
@@ -1728,10 +1741,11 @@ static R_INLINE void set_jit_cache_entry(R_exprhash_t hash, SEXP val)
 
     PROTECT(val);
     SEXP cmpenv = PROTECT(make_cached_cmpenv(val));
+    SEXP formals = PROTECT(jit_cache_formals_snapshot(FORMALS(val)));
     SEXP srcref = getAttrib(val, R_SrcrefSymbol);
-    SEXP entry = list4(BODY(val), cmpenv, srcref, FORMALS(val));
+    SEXP entry = list4(BODY(val), cmpenv, srcref, formals);
     SET_VECTOR_ELT(JIT_cache, hashidx, entry);
-    UNPROTECT(2); /* val, cmpenv */
+    UNPROTECT(3); /* val, cmpenv, formals */
 
     JIT_cache_hashes[hashidx] = hash;
 }
