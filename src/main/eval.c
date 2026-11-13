@@ -9205,6 +9205,53 @@ FILE *R_OpenCompiledFile(char *fname, char *buf, size_t bsize)
 }
 #endif
 
+/* For the compiler: find the frame that binds a variable, walking the
+   environment chain from env together with the compiler's list of the
+   variables it knows will be bound in each of the first frames (extra:
+   one hashed environment per frame). Returns NULL, or a list of the
+   frame, its 1-based position in the chain, and whether the frame
+   itself (rather than the extra list) binds the variable. One call
+   replaces a loop of exists() calls per frame in findCenvVar(). */
+attribute_hidden SEXP do_findcenvframe(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP name = CAR(args), rho = CADR(args), extra = CADDR(args);
+    if (! isString(name) || LENGTH(name) != 1)
+	error(_("invalid '%s' argument"), "name");
+    if (TYPEOF(rho) != ENVSXP)
+	error(_("invalid '%s' argument"), "env");
+    if (TYPEOF(extra) != VECSXP)
+	error(_("invalid '%s' argument"), "extra");
+
+    SEXP sym = installTrChar(STRING_ELT(name, 0));
+    int nextra = LENGTH(extra);
+    for (int i = 0; rho != R_EmptyEnv; rho = ENCLOS(rho), i++) {
+	Rboolean bound = R_existsVarInFrame(rho, sym);
+	if (! bound) {
+	    if (i >= nextra)
+		continue;
+	    SEXP ex = VECTOR_ELT(extra, i);
+	    if (TYPEOF(ex) != ENVSXP)
+		error(_("invalid '%s' argument"), "extra");
+	    if (! R_existsVarInFrame(ex, sym))
+		continue;
+	}
+
+	SEXP ans = PROTECT(allocVector(VECSXP, 3));
+	SET_VECTOR_ELT(ans, 0, rho);
+	SET_VECTOR_ELT(ans, 1, ScalarInteger(i + 1));
+	SET_VECTOR_ELT(ans, 2, ScalarLogical(bound));
+	SEXP nms = PROTECT(allocVector(STRSXP, 3));
+	SET_STRING_ELT(nms, 0, mkChar("frame"));
+	SET_STRING_ELT(nms, 1, mkChar("index"));
+	SET_STRING_ELT(nms, 2, mkChar("bound"));
+	setAttrib(ans, R_NamesSymbol, nms);
+	UNPROTECT(2);
+	return ans;
+    }
+    return R_NilValue;
+}
+
 attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, ans;
@@ -9223,10 +9270,196 @@ attribute_hidden SEXP do_growconst(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+/* The constant pool is deduplicated: putconst() returns the index of an
+   existing entry identical to the new constant when there is one.
+   Scanning the pool with R_compute_identical() made adding a constant
+   cost time linear in the pool size, and compiling a large function
+   quadratic. The pool is therefore indexed by a hash table kept in a
+   hidden attribute of the buffer. The table is an integer vector of nb
+   bucket heads followed by one chain link per buffer slot, both holding
+   1-based pool indices with 0 for none. growconst() returns a fresh
+   buffer without the attribute, so the table is rebuilt after a grow. */
+
+#define CONST_HASH_DEPTH 3
+/* elements of a vector or call that are hashed; calls differing only
+   further along collide, so the bound trades the cost of hashing a wide
+   constant against the cost of comparing colliding ones */
+#define CONST_HASH_WIDTH 8
+
+static R_INLINE unsigned int hash_mix(unsigned int h, unsigned int v)
+{
+    return (h ^ v) * 0x9e3779b1u;
+}
+
+/* consistent with the num.eq comparison of identical(): 0 and -0 agree,
+   as do all NaN payloads other than NA */
+static R_INLINE unsigned int hash_double(double d)
+{
+    if (d == 0)
+	return 0;
+    else if (R_IsNA(d))
+	return 1;
+    else if (ISNAN(d))
+	return 2;
+    else {
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof bits);
+	return (unsigned int) (bits ^ (bits >> 32));
+    }
+}
+
+/* Constants that R_compute_identical(x, y, 16) considers identical must
+   hash alike, so only what it compares exactly is hashed: attributes,
+   argument tags, non-ASCII strings and NaN payloads are left out. */
+static unsigned int const_hash(SEXP x, int depth)
+{
+    unsigned int h = hash_mix(2166136261u, (unsigned int) TYPEOF(x));
+    if (OBJECT(x))
+	h = hash_mix(h, 1);
+
+    switch (TYPEOF(x)) {
+    case SYMSXP:
+    case ENVSXP:
+    case WEAKREFSXP:
+	h = hash_mix(h, (unsigned int) ((uintptr_t) x >> 4));
+	break;
+    case SPECIALSXP:
+    case BUILTINSXP:
+	h = hash_mix(h, (unsigned int) PRIMOFFSET(x));
+	break;
+    case LGLSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+	    h = hash_mix(h, (unsigned int) LOGICAL_ELT(x, i));
+	break;
+    }
+    case INTSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+	    h = hash_mix(h, (unsigned int) INTEGER_ELT(x, i));
+	break;
+    }
+    case REALSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+	    h = hash_mix(h, hash_double(REAL_ELT(x, i)));
+	break;
+    }
+    case CPLXSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++) {
+	    Rcomplex z = COMPLEX_ELT(x, i);
+	    h = hash_mix(h, hash_double(z.r));
+	    h = hash_mix(h, hash_double(z.i));
+	}
+	break;
+    }
+    case STRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++) {
+	    SEXP s = STRING_ELT(x, i);
+	    if (s == NA_STRING)
+		h = hash_mix(h, 1);
+	    else if (IS_ASCII(s)) {
+		/* the hash of the string is cached on the CHARSXP, as
+		   the environment code does, so a long constant is not
+		   hashed again for every instruction that refers to it */
+		if (! HASHASH(s)) {
+		    SET_HASHVALUE(s, R_Newhashpjw(CHAR(s)));
+		    SET_HASHASH(s, 1);
+		}
+		h = hash_mix(h, (unsigned int) HASHVALUE(s));
+	    }
+	}
+	break;
+    }
+    case VECSXP:
+    case EXPRSXP: {
+	R_xlen_t n = XLENGTH(x);
+	h = hash_mix(h, (unsigned int) n);
+	if (depth > 0)
+	    for (R_xlen_t i = 0; i < n && i < CONST_HASH_WIDTH; i++)
+		h = hash_mix(h, const_hash(VECTOR_ELT(x, i), depth - 1));
+	break;
+    }
+    case LANGSXP:
+    case LISTSXP: {
+	/* the length is counted up to a bound: a long call is hashed by
+	   every promise compiled for one of its arguments */
+	int n = 0;
+	for (SEXP p = x; p != R_NilValue && n < 8; p = CDR(p))
+	    n++;
+	h = hash_mix(h, (unsigned int) n);
+	if (depth > 0) {
+	    int i = 0;
+	    for (SEXP p = x; p != R_NilValue && i < CONST_HASH_WIDTH;
+		 p = CDR(p), i++)
+		h = hash_mix(h, const_hash(CAR(p), depth - 1));
+	}
+	break;
+    }
+    case BCODESXP:
+	if (depth > 0) {
+	    h = hash_mix(h, const_hash(BCODE_CODE(x), depth - 1));
+	    h = hash_mix(h, const_hash(BCODE_CONSTS(x), depth - 1));
+	}
+	break;
+    default:
+	break;
+    }
+
+    /* The multiplications above only move bits upward, and the bucket
+       is taken from the low bits: without a final mix, values whose low
+       bits agree, such as the doubles 1, 2, ..., 1000, would share a
+       bucket. */
+    h ^= h >> 16;
+    h *= 0x85ebca6bu;
+    h ^= h >> 13;
+    h *= 0xc2b2ae35u;
+    h ^= h >> 16;
+    return h;
+}
+
+static SEXP ConstIndexSymbol = NULL;
+
+/* Return the hash table for constBuf, building it when the buffer has
+   none (a new or grown buffer) over the constCount entries in use. */
+static SEXP const_index(SEXP constBuf, int constCount)
+{
+    if (ConstIndexSymbol == NULL)
+	ConstIndexSymbol = install(".constIndex");
+
+    int cap = LENGTH(constBuf);
+    SEXP idx = getAttrib(constBuf, ConstIndexSymbol);
+    if (TYPEOF(idx) == INTSXP && LENGTH(idx) > cap)
+	return idx;
+
+    int nb = 16;
+    while (nb < 2 * cap)
+	nb *= 2;
+    idx = PROTECT(allocVector(INTSXP, nb + cap));
+    int *tab = INTEGER(idx);
+    memset(tab, 0, (nb + cap) * sizeof(int));
+    for (int i = 0; i < constCount; i++) {
+	unsigned int b = const_hash(VECTOR_ELT(constBuf, i), CONST_HASH_DEPTH)
+	    & (unsigned int) (nb - 1);
+	tab[nb + i] = tab[b];
+	tab[b] = i + 1;
+    }
+    setAttrib(constBuf, ConstIndexSymbol, idx);
+    UNPROTECT(1);
+    return idx;
+}
+
 attribute_hidden SEXP do_putconst(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP constBuf, x;
-    int i, constCount;
+    int constCount;
 
     checkArity(op, args);
 
@@ -9240,20 +9473,70 @@ attribute_hidden SEXP do_putconst(SEXP call, SEXP op, SEXP args, SEXP env)
 
     x = CADDR(args);
 
+    SEXP idx = const_index(constBuf, constCount);
+    int *tab = INTEGER(idx);
+    int nb = LENGTH(idx) - LENGTH(constBuf);
+    unsigned int b = const_hash(x, CONST_HASH_DEPTH) & (unsigned int) (nb - 1);
+
     /* check for a match and return index if one is found */
-    for (i = 0; i < constCount; i++) {
-	SEXP y = VECTOR_ELT(constBuf, i);
+    for (int j = tab[b]; j != 0; j = tab[nb + j - 1]) {
+	SEXP y = VECTOR_ELT(constBuf, j - 1);
 	/* 16 - take closure environments into account, this is necessary
 	        as closures (closure literals) can get into the AST when
 	        the AST is generated by a program (e.g. distr package)
 	*/
 	if (x == y || R_compute_identical(x, y, 16))
-	    return ScalarInteger(i);
+	    return ScalarInteger(j - 1);
     }
 
     /* otherwise insert the constant and return index */
     SET_VECTOR_ELT(constBuf, constCount, x);
+    tab[nb + constCount] = tab[b];
+    tab[b] = constCount + 1;
     return ScalarInteger(constCount);
+}
+
+/* The code buffer: append the words in 'new' after the 'count' words
+   already in codeBuf, and record the index of the current expression
+   and srcref for each of them in the parallel buffers (NULL when that
+   tracking is off). The buffers are modified in place; the compiler
+   grows them before calling. Returns the new count. */
+attribute_hidden SEXP do_putcode(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP codeBuf = CAR(args); args = CDR(args);
+    int count = asInteger(CAR(args)); args = CDR(args);
+    SEXP new = CAR(args); args = CDR(args);
+    SEXP exprBuf = CAR(args); args = CDR(args);
+    SEXP exprIdx = CAR(args); args = CDR(args);
+    SEXP srcrefBuf = CAR(args); args = CDR(args);
+    SEXP srcrefIdx = CAR(args);
+
+    if (TYPEOF(codeBuf) != VECSXP || TYPEOF(new) != VECSXP)
+	error(_("code buffer must be a generic vector"));
+    int n = LENGTH(new);
+    if (count < 0 || count + n > LENGTH(codeBuf))
+	error("bad codeCount value");
+    for (int i = 0; i < n; i++)
+	SET_VECTOR_ELT(codeBuf, count + i, VECTOR_ELT(new, i));
+
+    if (exprBuf != R_NilValue) {
+	if (TYPEOF(exprBuf) != INTSXP || LENGTH(exprBuf) < count + n)
+	    error(_("invalid '%s' argument"), "exprBuf");
+	int idx = asInteger(exprIdx);
+	int *p = INTEGER(exprBuf);
+	for (int i = 0; i < n; i++)
+	    p[count + i] = idx;
+    }
+    if (srcrefBuf != R_NilValue) {
+	if (TYPEOF(srcrefBuf) != INTSXP || LENGTH(srcrefBuf) < count + n)
+	    error(_("invalid '%s' argument"), "srcrefBuf");
+	int idx = asInteger(srcrefIdx);
+	int *p = INTEGER(srcrefBuf);
+	for (int i = 0; i < n; i++)
+	    p[count + i] = idx;
+    }
+    return ScalarInteger(count + n);
 }
 
 attribute_hidden SEXP do_getconst(SEXP call, SEXP op, SEXP args, SEXP env)
