@@ -226,7 +226,6 @@ typedef struct {
     size_t count;
     Rboolean heap;	/* may the table grow onto the heap? */
     Rboolean overflow;	/* it had to but could not: abandon the walk */
-    Rboolean full;	/* growing failed: record nothing more */
     int altrep;		/* ALTREP lists being walked: record nothing */
     SEXP initial[1 << SEEN_INITIAL_K];
 } seen_set;
@@ -239,7 +238,6 @@ static void seen_init(seen_set *seen, SEXP root, Rboolean heap)
     seen->count = 0;
     seen->heap = heap;
     seen->overflow = FALSE;
-    seen->full = FALSE;
     seen->altrep = 0;
 }
 
@@ -263,11 +261,8 @@ static void seen_grow(seen_set *seen)
     int K = seen->K + 1;
     size_t n = (size_t) 1 << K;
     SEXP *tab = calloc(n, sizeof(SEXP));
-    if (tab == NULL) {
-	/* not recording a node only means expanding it again */
-	seen->full = TRUE;
-	return;
-    }
+    if (tab == NULL)
+	error(_("cannot allocate memory for cycle detection"));
 
     for (size_t i = 0; i < n / 2; i++) {
 	SEXP x = seen->tab[i];
@@ -299,7 +294,7 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
 	if (seen->tab[i] == x)
 	    return TRUE;
 
-    if (! seen->full && seen->altrep == 0) {
+    if (seen->altrep == 0) {
 	seen->tab[i] = x;
 	if (2 * ++seen->count > mask + 1) {
 	    if (! seen->heap) {
@@ -315,74 +310,52 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
 /* Detect cycles that would be created by assigning 'child' as a
    component of 's' in a complex assignment without duplicating
    'child'.  This is called quite often but almost always returns
-   FALSE. Could be made more efficient, at least with partial
-   inlining, but probably not worth while until it starts showing up
-   significantly in profiling. Based on code from Michael Lawrence.
+   FALSE. Based on code from Michael Lawrence.
 
    A node reachable from 'child' along several paths, as in the result
    of 'for (k in 1:50) e <- call("+", e, e)', is expanded only once, so
    the cost is linear in the number of nodes rather than of paths.
    Such a node is referenced more than once, so only nodes with
-   REFCNT > 1 are recorded and tree-shaped values record nothing.  The
-   root is recorded too, as a cycle through the attributes of an
-   environment can lead back to it. */
+   REFCNT > 1 are recorded, apart from the root, which is recorded too
+   as a cycle through the attributes of an environment can lead back
+   to it. */
 static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
 {
-    if (s == child) {
-	switch (TYPEOF(child)) {
-	case NILSXP:
-	case SYMSXP:
-	case ENVSXP:
-	case SPECIALSXP:
-	case BUILTINSXP:
-	case EXTPTRSXP:
-	case BCODESXP:
-	case WEAKREFSXP:
-	    /* it's a cycle but one that is OK */
-	    return FALSE;
-	default:
-	return TRUE;
-	}
-    }
-
-    if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
-	(child == R_NilValue || ! isPairList(child)))
-	return FALSE;
-    /* on overflow, unwind to R_cycle_detected() at once */
-    if ((MAYBE_SHARED(child) || child == seen->root) &&
-	seen_before(seen, child))
-	return seen->overflow;
-
-    if (ATTRIB(child) != R_NilValue) {
-	if (cycle_detected(s, ATTRIB(child), seen))
+    for (;;) {
+	if (s == child)
 	    return TRUE;
-    }
-    if (isPairList(child)) {
-	SEXP el = child;
-	while(el != R_NilValue) {
-	    if (s == el || cycle_detected(s, CAR(el), seen))
+	if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
+	    (child == R_NilValue || ! isPairList(child)))
+	    return FALSE;
+	/* on overflow, unwind to R_cycle_detected() at once */
+	if ((MAYBE_SHARED(child) || child == seen->root) &&
+	    seen_before(seen, child))
+	    return seen->overflow;
+
+	if (ATTRIB(child) != R_NilValue) {
+	    if (cycle_detected(s, ATTRIB(child), seen))
 		return TRUE;
-	    if (ATTRIB(el) != R_NilValue && cycle_detected(s, ATTRIB(el), seen))
-		return TRUE;
-	    el = CDR(el);
-	    /* the rest of a shared tail has been or is being checked */
-	    if (el != R_NilValue && MAYBE_SHARED(el) && seen_before(seen, el))
-		return seen->overflow;
 	}
-    } else if (isVectorList(child)) {
-	/* The elements of an ALTREP list can be new objects, which a GC
-	   during the walk may free and whose addresses may be reused, so
-	   nothing below one is recorded.  Nodes recorded elsewhere are
-	   reachable from the root without one, so they stay alive and
-	   looking them up remains safe. */
-	int altrep = ALTREP(child) ? 1 : 0;
-	seen->altrep += altrep;
-	for(int i = 0 ; i < length(child); i++)
-	    if (cycle_detected(s, VECTOR_ELT(child, i), seen))
+	if (isPairList(child)) {
+	    if (cycle_detected(s, CAR(child), seen))
 		return TRUE;
-	seen->altrep -= altrep;
+	    child = CDR(child);
+	    continue;
+	} else if (isVectorList(child)) {
+	    /* The elements of an ALTREP list can be new objects, which a GC
+	       during the walk may free and whose addresses may be reused, so
+	       nothing below one is recorded.  Nodes recorded elsewhere are
+	       reachable from the root without one, so they stay alive and
+	       looking them up remains safe. */
+	    int altrep = ALTREP(child) ? 1 : 0;
+	    seen->altrep += altrep;
+	    for(int i = 0 ; i < length(child); i++)
+		if (cycle_detected(s, VECTOR_ELT(child, i), seen))
+		    return TRUE;
+	    seen->altrep -= altrep;
+	}
+	return FALSE;
     }
-    return FALSE;
 }
 
 typedef struct {
@@ -398,6 +371,19 @@ static SEXP cycle_detected_heap(void *data)
 }
 
 attribute_hidden Rboolean R_cycle_detected(SEXP s, SEXP child) {
+    switch (TYPEOF(s)) {
+    case NILSXP:
+    case SYMSXP:
+    case ENVSXP:
+    case SPECIALSXP:
+    case BUILTINSXP:
+    case EXTPTRSXP:
+    case BCODESXP:
+    case WEAKREFSXP:
+	/* Cycles through these objects are OK. */
+	return FALSE;
+    }
+
     seen_set seen;
     seen_init(&seen, child, FALSE);
     Rboolean ans = cycle_detected(s, child, &seen);
