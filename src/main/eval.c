@@ -1177,7 +1177,7 @@ SEXP eval(SEXP e, SEXP rho)
 	    R_ObjectNotFoundError(e, getLexicalCall(rho), NULL);
 	else if (tmp == R_MissingArg) {
 	    /* the error signaled here for a missing ..d matches the one
-	       signaled in getvar() for byte compiled code, but ...elt()
+	       signaled in getvar_force() for byte compiled code, but ...elt()
 	       signals a slightly different error (see PR18661) */
 	    R_MissingArgError(e, getLexicalCall(rho), "evalError");
 	}
@@ -2742,6 +2742,27 @@ static R_INLINE SEXP GET_BINDING_CELL(SEXP symbol, SEXP rho)
 	return (! R_VARLOC_IS_NULL(loc) && ! IS_ACTIVE_BINDING(loc.cell)) ?
 	    loc.cell : R_NilValue;
     }
+}
+
+/* GET_BINDING_CELL(), also setting *from to where a full value search
+   should start.  R_NilValue is returned for active bindings and user
+   databases as well as for symbols not in rho's frame; only in the
+   last case can the search skip rho and start at ENCLOS(rho). */
+static R_INLINE SEXP GET_BINDING_CELL_FROM(SEXP symbol, SEXP rho, SEXP *from)
+{
+    *from = rho;
+    if (rho == R_BaseEnv || rho == R_BaseNamespace || IS_USER_DATABASE(rho))
+	return R_NilValue;
+
+    R_varloc_t loc = R_findVarLocInFrame(rho, symbol);
+    if (R_VARLOC_IS_NULL(loc)) {
+	/* R_findVarLoc() uses the global cache when started at R_GlobalEnv */
+	if (rho != R_GlobalEnv && rho != R_EmptyEnv)
+	    *from = ENCLOS(rho);
+	return R_NilValue;
+    }
+    else
+	return IS_ACTIVE_BINDING(loc.cell) ? R_NilValue : loc.cell;
 }
 
 static R_INLINE Rboolean SET_BINDING_VALUE(SEXP loc, SEXP value) {
@@ -5805,14 +5826,9 @@ NORET static void UNBOUND_VARIABLE_ERROR(SEXP symbol, SEXP rho)
     R_ObjectNotFoundError(symbol, getLexicalCall(rho), NULL);
 }
 
-static R_INLINE SEXP FIND_VAR_NO_CACHE(SEXP symbol, SEXP rho, SEXP cell)
+static R_INLINE SEXP FIND_VAR_NO_CACHE(SEXP symbol, SEXP rho)
 {
-    R_varloc_t loc =  R_findVarLoc(symbol, rho);
-    if (loc.cell && IS_ACTIVE_BINDING(loc.cell)) {
-	SEXP value = R_GetVarLocValue(loc);
-	return value;
-    }
-    else return R_GetVarLocValue(loc);
+    return R_GetVarLocValue(R_findVarLoc(symbol, rho));
 }
 
 /* findVar variant that handles dd vars and cached bindings */
@@ -5825,7 +5841,7 @@ static R_INLINE SEXP findVarEX(SEXP symbol, SEXP rho, Rboolean dd,
 	SEXP cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);
 	SEXP value = BINDING_VALUE(cell);
 	if (value == R_UnboundValue)
-	    return FIND_VAR_NO_CACHE(symbol, rho, cell);
+	    return FIND_VAR_NO_CACHE(symbol, rho);
 	else
 	    return value;
     }
@@ -5842,12 +5858,9 @@ static R_INLINE SEXP findVarEX(SEXP symbol, SEXP rho, Rboolean dd,
 #define PROMISE_IVAL BNDCELL_IVAL
 #define PROMISE_LVAL BNDCELL_LVAL
 
-static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
-			    Rboolean dd, Rboolean keepmiss,
-			    R_binding_cache_t vcache, int sidx)
+static R_INLINE SEXP getvar_force(SEXP symbol, SEXP rho,
+				  SEXP value, Rboolean keepmiss)
 {
-    SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);
-
     if (value == R_UnboundValue)
 	UNBOUND_VARIABLE_ERROR(symbol, rho);
     else if (value == R_MissingArg) {
@@ -5876,6 +5889,14 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     }
 }
 
+static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
+			    Rboolean dd, Rboolean keepmiss,
+			    R_binding_cache_t vcache, int sidx)
+{
+    SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);
+    return getvar_force(symbol, rho, value, keepmiss);
+}
+
 #ifdef IMMEDIATE_PROMISE_VALUES
 # define SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval)  do {		\
 	SEXP value;							\
@@ -5900,6 +5921,13 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 
 #define INLINE_GETVAR
 #ifdef INLINE_GETVAR
+/* At the end of DO_GETVAR's inline code, the smallcache slot is still
+   empty only if GET_BINDING_CELL_FROM() ran, found no cell to cache,
+   and set 'from'. */
+#define SMALLCACHE_MISSED(dd, vcache, sidx)				\
+    (! (dd) && smallcache &&						\
+     GET_SMALLCACHE_BINDING_CELL(vcache, sidx) == R_NilValue)
+
 /* Try to handle the most common case as efficiently as possible.  If
    smallcache is true then a modulus operation on the index is not
    needed, nor is a check that a non-null value corresponds to the
@@ -5907,16 +5935,26 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
    not needed. Active bindings will have functions as their values.
    Skipping SYMSXP values rules out R_MissingArg and R_UnboundValue as
    these are implemented as symbols.  It also rules other symbols, but
-   as those are rare they are handled by the getvar() call. */
+   as those are rare they are handled by the getvar_force() call.
+   After SMALLCACHE_MISSED() the search continues from 'from', so that
+   rho's frame is not searched again. */
 #define DO_GETVAR(dd,keepmiss) do { \
     int sidx = GETOP(); \
+    /* 'from' is deliberately left unset; it is only read after */	\
+    /* GET_BINDING_CELL_FROM() sets it.  Initializing it adds a */	\
+    /* store to every variable read (+0.6% instructions on a */	\
+    /* cached-local loop, clang and gcc alike), and a version not */	\
+    /* passed by address added 14% with clang. */			\
+    SEXP from; \
     R_Visible = TRUE;	     \
     if (!dd && smallcache) {						\
 	SEXP cell = GET_SMALLCACHE_BINDING_CELL(vcache, sidx);		\
 	if (cell == R_NilValue) {					\
 	    /* make sure local variable cells are cached */		\
 	    SEXP symbol = GETCONST(constants, sidx);			\
-	    cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);	\
+	    cell = GET_BINDING_CELL_FROM(symbol, rho, &from);		\
+	    if (cell != R_NilValue)					\
+		SET_CACHED_BINDING(vcache, sidx, cell);			\
 	}								\
 	/* handle immediate binings */					\
 	switch (BNDCELL_TAG(cell)) {					\
@@ -5961,7 +5999,11 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	}								\
     }									\
     SEXP symbol = GETCONST(constants, sidx);				\
-    SEXP value = findVarEX(symbol, rho, dd, vcache, sidx);		\
+    SEXP value;								\
+    if (SMALLCACHE_MISSED(dd, vcache, sidx))				\
+	value = FIND_VAR_NO_CACHE(symbol, from);			\
+    else								\
+	value = findVarEX(symbol, rho, dd, vcache, sidx);		\
     if (! keepmiss && TYPEOF(value) == PROMSXP &&			\
 	! PRSEEN(value) && ! PROMISE_IS_EVALUATED(value) &&		\
 	TYPEOF(PRCODE(value)) == BCODESXP) {				\
@@ -5969,7 +6011,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
 	NEXT();								\
 	/* return cleanup is in DO_GETVAR_FORCE_PROMISE_RETURN */	\
     }									\
-    BCNPUSH(getvar(symbol, rho, dd, keepmiss, vcache, sidx));		\
+    BCNPUSH(getvar_force(symbol, rho, value, keepmiss));		\
     NEXT();								\
 } while (0)
 #else
