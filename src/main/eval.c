@@ -5576,10 +5576,8 @@ static R_INLINE void BCNPOP_AND_END_CNTXT(void) {
 /* Use the node stack as a pool for builtin contexts. Active contexts
    have stable addresses, and a non-local jump restores the node stack
    position saved in the target context. */
-#ifdef __GNUC__
-__attribute__((noinline))
-#endif
-static SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
+static R_NOINLINE
+SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     RCNTXT *cntxt = BCNALLOC_CNTXT();
     SEXP oldref = R_Srcref;

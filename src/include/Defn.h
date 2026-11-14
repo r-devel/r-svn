@@ -82,6 +82,17 @@
 # endif
 #endif
 
+/* The opposite of R_INLINE: for a function that must stay out of line,
+   e.g. because it holds a large buffer that should not be part of its
+   caller's stack frame. */
+#define R_NOINLINE
+#ifdef __has_attribute
+# if __has_attribute(noinline)
+#  undef R_NOINLINE
+#  define R_NOINLINE __attribute__((noinline))
+# endif
+#endif
+
 #define MAXELTSIZE 8192 /* Used as a default for string buffer sizes,
 			   and occasionally as a limit. */
 
