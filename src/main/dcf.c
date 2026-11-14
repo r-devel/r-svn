@@ -40,16 +40,15 @@ static void transferVector(SEXP s, SEXP t);
    already-valid input is handled without conversion.
 
    The escaping is done with utf8Valid()'s rules rather than by iconv():
-   glibc and libiconv pass 4-byte sequences above U+10FFFF through,
-   which utf8Valid() rejects, so an iconv() round trip could leave the
-   result invalid and do_readDCF() would then re-encode the whole field
-   value for every further continuation line. */
-static SEXP mkCharUTF8sub(const char *s)
+   glibc and libiconv pass 4-byte sequences above U+10FFFF and the
+   withdrawn 5- and 6-byte forms through, which utf8Valid() rejects, so
+   an iconv() round trip could leave the result invalid and
+   do_readDCF() would then re-encode the whole field value for every
+   further continuation line.  The same rules repair each input line
+   before field names are matched, so a repaired name matches its
+   later occurrences. */
+static char *escapeInvalidUTF8(const char *s)
 {
-    if (utf8Valid(s))
-	return mkCharCE(s, CE_UTF8);
-
-    const void *vmax = vmaxget();
     char *out = R_alloc(4 * strlen(s) + 1, sizeof(char)); /* all escaped */
     char *q = out;
     for (const char *p = s; *p; ) {
@@ -69,8 +68,16 @@ static SEXP mkCharUTF8sub(const char *s)
 	}
     }
     *q = '\0';
+    return out;
+}
 
-    SEXP ans = mkCharCE(out, CE_UTF8);
+static SEXP mkCharUTF8sub(const char *s)
+{
+    if (utf8Valid(s))
+	return mkCharCE(s, CE_UTF8);
+
+    const void *vmax = vmaxget();
+    SEXP ans = mkCharCE(escapeInvalidUTF8(s), CE_UTF8);
     vmaxset(vmax);
     return ans;
 }
@@ -130,7 +137,7 @@ static char *Rconn_getline2(Rconnection con, char *buf, int bufsize)
 
 attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    int nwhat, nret, nc, nr, m, k, lastm, need, i, n_eblanklines = 0;
+    int nwhat, nwhatcap, nret, nc, nr, m, k, lastm, need, i, n_eblanklines = 0;
     bool blank_skip, field_skip = false;
     int whatlen, dynwhat, buflen = 8096; // was 100, but that re-alloced often
     char *line, *buf = NULL;
@@ -180,8 +187,12 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     buf = (char *) malloc(buflen);
     if(!buf) error(_("could not allocate memory for 'read.dcf'"));
     nret = 20;
-    /* it is easier if we first have a record per column */
-    PROTECT(retval = allocMatrixNA(STRSXP, LENGTH(what), nret));
+    /* it is easier if we first have a record per column.  The rows are
+       the fields: an exact count when 'fields' was given, otherwise a
+       capacity that doubles as fields are discovered, with nwhat of its
+       rows (and entries of 'what') in use. */
+    nwhatcap = nwhat;
+    PROTECT(retval = allocMatrixNA(STRSXP, nwhatcap, nret));
 
     /* These used to use [:blank:] and [:space:] but those are locale-dependent
        and :blank: can match \xa0 as part of a UTF-8 character
@@ -202,10 +213,13 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* Repair invalid UTF-8 in the whole line before matching, as the
 	   all = TRUE R code does: a new field name is recorded repaired, so
 	   matching its later occurrences against the raw bytes would fail
-	   and add a duplicate column for each.  The repaired copy comes from
-	   R_alloc() and may be shorter than 21 bytes. */
+	   and add a duplicate column for each.  The repair must use the
+	   rules mkCharUTF8sub() records the name with: iconv() passes
+	   5- and 6-byte forms through, which left such a line unrepaired
+	   and the name unmatched.  The repaired copy comes from R_alloc()
+	   and may be shorter than 21 bytes. */
 	if(!utf8Valid(line))
-	    line = (char *) reEnc3(line, "UTF-8", "UTF-8", 1);
+	    line = escapeInvalidUTF8(line);
 	if(strlen(line) == 0 ||
 	   tre_regexecb(&blankline, line, 0, 0, 0) == 0) {
 	    /* A blank line.  The first one after a record ends a new
@@ -214,7 +228,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		k++;
 		if(k > nret - 1){
 		    nret *= 2;
-		    PROTECT(retval2 = allocMatrixNA(STRSXP, LENGTH(what), nret));
+		    PROTECT(retval2 = allocMatrixNA(STRSXP, nwhatcap, nret));
 		    transferVector(retval2, retval);
 		    retval = retval2;
 		    UNPROTECT(2); /* retval, retval2 */
@@ -241,7 +255,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		if(lastm >= 0) {
 		    need = (int) strlen(CHAR(STRING_ELT(retval,
-							lastm + nwhat * k))) + 2;
+							lastm + nwhatcap * k))) + 2;
 		    if(tre_regexecb(&eblankline, line, 0, NULL, 0) == 0) {
 			is_eblankline = true;
 			if(field_fold) {
@@ -269,7 +283,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			buf = tmp;
 			buflen = need;
 		    }
-		    strcpy(buf, CHAR(STRING_ELT(retval, lastm + nwhat * k)));
+		    strcpy(buf, CHAR(STRING_ELT(retval, lastm + nwhatcap * k)));
 		    if(strlen(buf) || !field_fold)
 			strcat(buf, "\n");
 		    if(!is_eblankline) {
@@ -281,7 +295,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			}
 			strcat(buf, line + offset);
 		    }
-		    SET_STRING_ELT(retval, lastm + nwhat * k, mkCharUTF8sub(buf));
+		    SET_STRING_ELT(retval, lastm + nwhatcap * k, mkCharUTF8sub(buf));
 		}
 	    } else {
 		if(tre_regexecb(&regline, line, 1, regmatch, 0) == 0) {
@@ -307,7 +321,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 						 regmatch, 0) == 0))
 				    line[regmatch[0].rm_so] = '\0';
 			    }
-			    SET_STRING_ELT(retval, m + nwhat * k,
+			    SET_STRING_ELT(retval, m + nwhatcap * k,
 					   mkCharUTF8sub(line + offset));
 			    break;
 			} else {
@@ -320,26 +334,29 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 			/* A previously unseen field and we are
 			 * recording all fields */
 			field_skip = false;
-			PROTECT(what2 = allocVector(STRSXP, nwhat+1));
-			PROTECT(retval2 = allocMatrixNA(STRSXP,
-							nrows(retval)+1,
-							ncols(retval)));
-			if(nwhat > 0) {
-			    copyVector(what2, what);
-			    for(nr = 0; nr < nrows(retval); nr++){
-				for(nc = 0; nc < ncols(retval); nc++){
-				    SET_STRING_ELT(retval2, nr+nc*nrows(retval2),
-						   STRING_ELT(retval,
-							      nr+nc*nrows(retval)));
-				}
+			if(nwhat == nwhatcap) {
+			    /* Double the row capacity.  Growing by one
+			       row per field copied the whole matrix for
+			       every new field, quadratic in their number:
+			       7000 fields in one record took 7 s. */
+			    int oldcap = nwhatcap;
+			    nwhatcap = oldcap ? 2 * oldcap : 16;
+			    PROTECT(what2 = allocVector(STRSXP, nwhatcap));
+			    PROTECT(retval2 = allocMatrixNA(STRSXP, nwhatcap, nret));
+			    for(nr = 0; nr < nwhat; nr++) {
+				SET_STRING_ELT(what2, nr, STRING_ELT(what, nr));
+				/* only the columns up to this record hold data */
+				for(nc = 0; nc <= k; nc++)
+				    SET_STRING_ELT(retval2, nr + nc * nwhatcap,
+						   STRING_ELT(retval, nr + nc * oldcap));
 			    }
+			    retval = retval2;
+			    what = what2;
+			    UNPROTECT(5); /* what, fold_excludes, retval, what2, retval2 */
+			    PROTECT(what);
+			    PROTECT(fold_excludes);
+			    PROTECT(retval);
 			}
-			retval = retval2;
-			what = what2;
-			UNPROTECT(5); /* what, fold_excludes, retval, what2, retval2 */
-			PROTECT(what);
-			PROTECT(fold_excludes);
-			PROTECT(retval);
 			/* Make sure enough space was used */
 			need = (int) (Rf_strchr(line, ':') - line + 1);
 			if(buflen < need){
@@ -368,7 +385,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 					     regmatch, 0) == 0))
 				line[regmatch[0].rm_so] = '\0';
 			}
-			SET_STRING_ELT(retval, lastm + nwhat * k,
+			SET_STRING_ELT(retval, lastm + nwhatcap * k,
 				       mkCharUTF8sub(line + offset));
 		    }
 		} else {
@@ -386,14 +403,25 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if(!blank_skip) k++;
 
-    /* and now transpose the whole matrix */
-    PROTECT(retval2 = allocMatrixNA(STRSXP, k, LENGTH(what)));
-    copyMatrix(retval2, retval, 1);
+    /* and now transpose the whole matrix, dropping the spare rows */
+    PROTECT(retval2 = allocMatrixNA(STRSXP, k, nwhat));
+    for(nr = 0; nr < nwhat; nr++)
+	for(nc = 0; nc < k; nc++)
+	    SET_STRING_ELT(retval2, nc + nr * k,
+			   STRING_ELT(retval, nr + nc * nwhatcap));
+    if(LENGTH(what) > nwhat) {
+	what = lengthgets(what, nwhat);
+	UNPROTECT(4); /* what, fold_excludes, retval, retval2 */
+	PROTECT(what);
+	PROTECT(fold_excludes);
+	PROTECT(retval);
+	PROTECT(retval2);
+    }
 
     PROTECT(dimnames = allocVector(VECSXP, 2));
     PROTECT(dims = allocVector(INTSXP, 2));
     INTEGER(dims)[0] = k;
-    INTEGER(dims)[1] = LENGTH(what);
+    INTEGER(dims)[1] = nwhat;
     SET_VECTOR_ELT(dimnames, 1, what);
     setAttrib(retval2, R_DimSymbol, dims);
     setAttrib(retval2, R_DimNamesSymbol, dimnames);
