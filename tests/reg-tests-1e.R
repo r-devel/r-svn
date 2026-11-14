@@ -4499,8 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## byte-compiled code: variables that are removed, re-created, locked or
-## replaced by an active binding after their binding has been cached
+## bytecode binding cache: variables removed, re-created, locked or made active
 x <- "global"
 f <- compiler::cmpfun(function() {
     x <- 1; a <- x + 1 # 'x' is cached from here on
