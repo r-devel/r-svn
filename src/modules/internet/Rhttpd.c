@@ -91,6 +91,7 @@
 #else
 /* --- Windows-only --- */
 # include <winsock2.h>
+# include <ws2tcpip.h> /* inet_pton */
 # include <windows.h>
 # include <string.h>
 
@@ -119,7 +120,11 @@ static struct sockaddr *build_sin(struct sockaddr_in *sa, const char *ip, int po
     memset(sa, 0, sizeof(struct sockaddr_in));
     sa->sin_family = AF_INET;
     sa->sin_port = htons(port);
-    sa->sin_addr.s_addr = (ip) ? inet_addr(ip) : htonl(INADDR_ANY);
+    if (ip) {
+	if (inet_pton(AF_INET, ip, &sa->sin_addr) != 1)
+	    return NULL; /* not a valid IPv4 address */
+    } else
+	sa->sin_addr.s_addr = htonl(INADDR_ANY);
     return (struct sockaddr*)sa;
 }
 
@@ -1349,6 +1354,10 @@ int in_R_HTTPDCreate(const char *ip, int port)
     if (needs_init) /* initialization may need to be performed on first use */
 	first_init();
 
+    /* check the address before touching a server which may be running */
+    if (!build_sin(&srv_sa, ip, port))
+	Rf_error("invalid IPv4 address '%s'", ip);
+
 #ifdef _WIN32
     /* on Windows stop the server thread if it exists */
     stop_server_thread();
@@ -1371,7 +1380,7 @@ int in_R_HTTPDCreate(const char *ip, int port)
 #endif
 
     /* bind to the desired port */
-    if (bind(srv_sock, build_sin(&srv_sa, ip, port), sizeof(srv_sa))) {
+    if (bind(srv_sock, (SA*) &srv_sa, sizeof(srv_sa))) {
 #ifndef _WIN32
 	if (sockerrno == EADDRINUSE) {
 #else
