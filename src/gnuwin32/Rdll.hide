@@ -151,6 +151,7 @@
  R_DefCallbacks
  R_DevicesSymbol
  R_DisableNLinBrowser
+ R_DispatchInternalMethod
  R_DotEnvSymbol
  R_EnsureFDLimit
  R_ErrorCon
@@ -198,6 +199,7 @@
  R_LoadFromFile
  R_LoadRconsole
  R_Log10
+ R_LookupInternalMethod
  R_LookupMethod
  R_Matprod
  R_NHeap
@@ -304,6 +306,7 @@
  R_findBCInterpreterSrcref
  R_findExecContext
  R_findParentContext
+ R_findS3Signature
  R_fixslash
  R_flexiblas_info
  R_gc_running
