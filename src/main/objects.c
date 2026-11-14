@@ -547,6 +547,45 @@ int usemethod(const char *generic, SEXP obj, SEXP call, SEXP args,
     return 0;
 }
 
+NORET static attribute_noinline
+void noApplicableMethodError(SEXP call, SEXP generic, SEXP obj)
+{
+#define CLLEN 1024
+    char cl[CLLEN] = {0};
+    SEXP klass = PROTECT(R_data_class2(obj));
+    int nclass = length(klass);
+    if(!nclass)
+	errorcall(call, _("illegal class of length 0 when using method for '%s'"),
+		  translateChar(STRING_ELT(generic, 0)));
+    const char *c_name = translateChar(STRING_ELT(klass, 0));
+    if (nclass == 1) {
+	strncpy(cl, c_name, CLLEN-1); cl[CLLEN-1] = '\0';
+    } else { // nclass >= 2
+	size_t cl_count = 3; // 3 : "c(" + \0
+	strcpy(cl, "c('");
+	for (int i = 0; i < nclass; i++) {
+	    if(i > 0) {
+		c_name = translateChar(STRING_ELT(klass, i));
+		cl_count += 4; // "', '"
+		if (cl_count < CLLEN) strcat(cl, "', '");
+	    }
+	    size_t len_nm = strlen(c_name);
+	    if (cl_count + len_nm >= CLLEN) {
+		cl_count += 2;
+		if(cl_count < CLLEN) strcat(cl, "..");
+		break;
+	    }
+	    // else
+	    cl_count += len_nm;
+	    strcat(cl, c_name);
+	}
+	if (++cl_count < CLLEN) strcat(cl, "'");
+	if (++cl_count < CLLEN) strcat(cl, ")");
+    }
+    errorcall(call, _("no applicable method for '%s' applied to an object of class \"%s\""),
+	      translateChar(STRING_ELT(generic, 0)), cl);
+}
+
 /* Note: "do_usemethod" is not the only entry point to
    "usemethod". Things like [ and [[ call usemethod directly,
    hence do_usemethod should just be an interface to usemethod.
@@ -599,40 +638,7 @@ SEXP do_usemethod(SEXP call, SEXP op, SEXP args, SEXP env)
 	findcontext(CTXT_RETURN, env, ans); /* does not return */
     }
     else { // no method found
-#define CLLEN 1024
-	char cl[CLLEN] = {0};
-	SEXP klass = PROTECT(R_data_class2(obj));
-	int nclass = length(klass);
-	if(!nclass)
-	    errorcall(call, _("illegal class of length 0 when using method for '%s'"),
-		      translateChar(STRING_ELT(generic, 0)));
-	const char *c_name = translateChar(STRING_ELT(klass, 0));
-	if (nclass == 1) {
-	    strncpy(cl, c_name, CLLEN-1); cl[CLLEN-1] = '\0';
-	} else { // nclass >= 2
-	    size_t cl_count = 3; // 3 : "c(" + \0
-	    strcpy(cl, "c('");
-	    for (int i = 0; i < nclass; i++) {
-		if(i > 0) {
-		    c_name = translateChar(STRING_ELT(klass, i));
-		    cl_count += 4; // "', '"
-		    if (cl_count < CLLEN) strcat(cl, "', '");
-		}
-		size_t len_nm = strlen(c_name);
-		if (cl_count + len_nm >= CLLEN) {
-		    cl_count += 2;
-		    if(cl_count < CLLEN) strcat(cl, "..");
-		    break;
-		}
-		// else
-		cl_count += len_nm;
-		strcat(cl, c_name);
-	    }
-	    if (++cl_count < CLLEN) strcat(cl, "'");
-	    if (++cl_count < CLLEN) strcat(cl, ")");
-	}
-	errorcall(call, _("no applicable method for '%s' applied to an object of class \"%s\""),
-		  translateChar(STRING_ELT(generic, 0)), cl);
+	noApplicableMethodError(call, generic, obj);
     }
 }
 
