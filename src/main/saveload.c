@@ -509,6 +509,13 @@ static void RemakeNextSEXP(FILE *fp, NodeInfo *node, int version, InputRoutines 
     SEXP s = R_NilValue;	/* -Wall */
 
     idx = m->InInteger(fp, d);
+    if (idx >= (unsigned int) node->NTotal)
+	error(_("corrupt data file: node index out of range"));
+    /* the second pass restores each record into the node at its index:
+       a repeated index would have it write one record's contents into
+       an object allocated, with a different length, from another */
+    if (VECTOR_ELT(node->NewAddress, idx) != R_NilValue)
+	error(_("corrupt data file: duplicate node index"));
     type = FixupType(m->InInteger(fp, d), version);
 
     /* skip over OBJECT, LEVELS, and ATTRIB */
