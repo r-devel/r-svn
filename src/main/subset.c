@@ -1160,8 +1160,8 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
    Interpreting such a call costs far more than the extraction, so its
    value is taken from the vector when the call can only reach the code
    above: `[[` is the primitive, x is a list or atomic vector without a
-   class and i a single index in range.  That runs no R code, so it is
-   decided for each call from what evaluating it in rho would find. */
+   class and i a single index in range.  That is decided for each call
+   from what evaluating it in rho would find, without running R code. */
 
 /* The value of a constant, or of a variable in the frame of rho (where
    those functions keep theirs), or NULL if getting it would run R code:
@@ -1198,11 +1198,6 @@ attribute_hidden SEXP R_subset2Direct(SEXP e, SEXP rho)
 	TAG(args) != R_NilValue || TAG(CDR(args)) != R_NilValue)
 	return NULL;
 
-    /* the lookup eval() does */
-    SEXP fun = findFun3(R_Bracket2Symbol, rho, e);
-    if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 || RTRACE(fun))
-	return NULL;
-
     /* a list or atomic vector; expressions and pairlists are evaluated */
     SEXP x = CAR(args);
     x = (TYPEOF(x) == LANGSXP) ? R_subset2Direct(x, rho) : knownValue(x, rho);
@@ -1215,8 +1210,17 @@ attribute_hidden SEXP R_subset2Direct(SEXP e, SEXP rho)
     R_xlen_t len = XLENGTH(x);
     SEXP s = knownValue(CADR(args), rho);
     R_xlen_t offset = (s == NULL) ? -1 : scalarIndex(s) - 1;
+
+    /* The function is looked up as eval() does it, but last: this is the
+       one step that can run R code (a promise or an active binding), and
+       a call that is evaluated after all must not look it up twice. */
     if (offset >= 0 && offset < len) {
-	if (TYPEOF(x) == VECSXP) {
+	SEXP fun = findFun3(R_Bracket2Symbol, rho, e);
+	if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 ||
+	    RTRACE(fun)) {
+	    /* not the primitive, or traced */
+	}
+	else if (TYPEOF(x) == VECSXP) {
 	    ans = VECTOR_ELT(x, offset);
 	}
 	else {
