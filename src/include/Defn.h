@@ -2177,6 +2177,7 @@ SEXP evalListKeepMissing(SEXP, SEXP);
 int factorsConform(SEXP, SEXP);
 NORET void findcontext(int, SEXP, SEXP);
 SEXP findVar1(SEXP, SEXP, SEXPTYPE, int);
+SEXP R_forceEltsAndCall(SEXP, int, SEXP, bool *);
 void FrameClassFix(SEXP);
 SEXP frameSubscript(int, SEXP, SEXP);
 R_xlen_t get1index(SEXP, SEXP, R_xlen_t, int, int, SEXP);

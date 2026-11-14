@@ -102,6 +102,8 @@ do_mapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     SEXP ans = PROTECT(allocVector(VECSXP, longest)); nprot++;
 
+    bool direct = true; /* until dots[[j]][[i]] has to be evaluated */
+
     for (int i = 0; i < longest; i++) {
 	for (int j = 0; j < m; j++) {
 	    counters[j] = (++counters[j] > lengths[j]) ? 1 : counters[j];
@@ -110,7 +112,8 @@ do_mapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    else
 		INTEGER(VECTOR_ELT(nindex, j))[0] = (int) counters[j];
 	}
-	SEXP tmp = R_forceAndCall(fcall, m, rho);
+	SEXP tmp = direct ? R_forceEltsAndCall(fcall, m, rho, &direct) :
+	    R_forceAndCall(fcall, m, rho);
 	if (MAYBE_REFERENCED(tmp))
 	    tmp = lazy_duplicate(tmp);
 	SET_VECTOR_ELT(ans, i, tmp);
