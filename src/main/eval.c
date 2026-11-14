@@ -4222,9 +4222,14 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
 	else
 	    pt = NULL;
 
-	if (pt == NULL || strcmp(pt,".default")) {
+	/* Most classed objects have no method for an internal generic,
+	   so look for it before setting up the dispatch. */
+	R_S3lookup_t found;
+	if ((pt == NULL || strcmp(pt,".default")) &&
+	    R_LookupInternalMethod(generic, x, rho, &found)) {
 	    RCNTXT cntxt;
 	    SEXP pargs, rho1;
+	    PROTECT(found.fun); nprotect++;
 	    PROTECT(pargs = promiseArgs(args, rho)); nprotect++;
 	    /* The context set up here is needed because of the way
 	       usemethod() is written.  DispatchGroup() repeats some
@@ -4244,7 +4249,8 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
 	    PROTECT(rho1 = NewEnvironment(R_NilValue, R_NilValue, rho)); nprotect++;
 	    IF_PROMSXP_SET_PRVALUE(CAR(pargs), x);
 	    begincontext(&cntxt, CTXT_RETURN, call, rho1, rho, pargs, op);
-	    if(usemethod(generic, x, call, pargs, rho1, rho, R_BaseEnv, ans))
+	    if(R_DispatchInternalMethod(generic, x, call, pargs, rho1, rho,
+					&found, ans))
 	    {
 		endcontext(&cntxt);
 		UNPROTECT(nprotect);
@@ -6074,11 +6080,35 @@ static R_INLINE SEXP CLOSURE_CALL_FRAME_ARGS(void)
 	    SET_TAG(__cell__, t);			\
     } while (0)
 
-static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
+/* Dispatch for the instructions of the internal generics.  rhs is the
+   value for an assignment function, which its method gets as a promise
+   in a copy of the call, and NULL otherwise.
+
+   Most classed objects have no method for an internal generic, so the
+   method is looked up before anything is set up for the dispatch. */
+static int tryDispatchRHS(char *generic, SEXP call, SEXP x, SEXP rho,
+			  SEXP *pv, SEXP rhs)
 {
   RCNTXT cntxt;
   SEXP pargs, rho1;
   int dispatched = FALSE;
+  R_S3lookup_t found;
+
+  if (! R_LookupInternalMethod(generic, x, rho, &found))
+    return FALSE;
+  PROTECT(found.fun);
+
+  if (rhs != NULL) {
+    SEXP last;
+    PROTECT(call = duplicate(call));
+    last = call;
+    while (CDR(last) != R_NilValue)
+      last = CDR(last);
+    SETCAR(last, mkRHSPROMISE(CAR(last), rhs));
+  } else {
+    PROTECT(call);
+  }
+
   SEXP op = SYMVALUE(install(generic)); /**** avoid this */
 
   PROTECT(pargs = promiseArgs(CDR(call), rho));
@@ -6092,7 +6122,7 @@ static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
     SEXP val = R_possible_dispatch(call, op, pargs, rho, TRUE);
     if (val) {
       *pv = val;
-      UNPROTECT(1);
+      UNPROTECT(3);
       return TRUE;
     }
   }
@@ -6100,10 +6130,10 @@ static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
   /* See comment at first usemethod() call in this file. LT */
   PROTECT(rho1 = NewEnvironment(R_NilValue, R_NilValue, rho));
   begincontext(&cntxt, CTXT_RETURN, call, rho1, rho, pargs, op);
-  if (usemethod(generic, x, call, pargs, rho1, rho, R_BaseEnv, pv))
+  if (R_DispatchInternalMethod(generic, x, call, pargs, rho1, rho, &found, pv))
     dispatched = TRUE;
   endcontext(&cntxt);
-  UNPROTECT(2);
+  UNPROTECT(4);
 #ifdef ADJUST_ENVIR_REFCNTS
   R_CleanupEnvir(rho1, dispatched ? *pv : R_NilValue);
   unpromiseArgs(pargs);
@@ -6113,21 +6143,15 @@ static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
   return dispatched;
 }
 
+static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
+{
+    return tryDispatchRHS(generic, call, x, rho, pv, NULL);
+}
+
 static int tryAssignDispatch(char *generic, SEXP call, SEXP lhs, SEXP rhs,
 			     SEXP rho, SEXP *pv)
 {
-    int result;
-    SEXP ncall, last, prom;
-
-    PROTECT(ncall = duplicate(call));
-    last = ncall;
-    while (CDR(last) != R_NilValue)
-	last = CDR(last);
-    prom = mkRHSPROMISE(CAR(last), rhs);
-    SETCAR(last, prom);
-    result = tryDispatch(generic, ncall, lhs, rho, pv);
-    UNPROTECT(1);
-    return result;
+    return tryDispatchRHS(generic, call, lhs, rho, pv, rhs);
 }
 
 #define DO_STARTDISPATCH(generic) do { \

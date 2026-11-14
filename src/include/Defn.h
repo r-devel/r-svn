@@ -1176,6 +1176,8 @@ extern int putenv(char *string);
 			   in bytes excluding terminator.
 			   Was 256 prior to 2.13.0, now just a sanity check.
 			*/
+#define MAXS3SIGSIZE 512 /* Buffer size for the name of an S3 method,
+			    "generic.class", including terminator. */
 
 /* The type of the do_xxxx functions. */
 /* These are the built-in R functions. */
@@ -1820,6 +1822,7 @@ int Rf_FixupWidth (SEXP, warn_type);
 void Rf_gsetVar(SEXP, SEXP, SEXP);
 SEXP Rf_installDDVAL(int i);
 SEXP Rf_installS3Signature(const char *, const char *);
+SEXP R_findS3Signature(const char *, const char *);
 bool Rf_isFree(SEXP);
 Rboolean Rf_isUnmodifiedSpecSym(SEXP sym, SEXP env);
 SEXP Rf_matchE(SEXP, SEXP, int, SEXP);
@@ -2304,6 +2307,18 @@ void unmarkPhase(void);
 #endif
 SEXP R_LookupMethod(SEXP, SEXP, SEXP, SEXP);
 int usemethod(const char *, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP*);
+
+/* An S3 method an internal generic looked up before setting up the
+   dispatch to it */
+typedef struct {
+    SEXP fun;	/* the method, or R_NilValue: usemethod() has yet to look */
+    SEXP name;	/* its symbol */
+    SEXP klass;	/* the class vector dispatched on */
+    int which;	/* index of its class, the number of classes for a default */
+} R_S3lookup_t;
+Rboolean R_LookupInternalMethod(const char *, SEXP, SEXP, R_S3lookup_t *);
+int R_DispatchInternalMethod(const char *, SEXP, SEXP, SEXP, SEXP, SEXP,
+			     const R_S3lookup_t *, SEXP *);
 SEXP vectorIndex(SEXP, SEXP, int, int, int, SEXP, Rboolean);
 
 #ifdef R_USE_SIGNALS

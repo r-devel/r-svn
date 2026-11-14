@@ -1335,35 +1335,68 @@ SEXP installNoTrChar(SEXP charSXP)
     return (sym);
 }
 
-#define maxLength 512
-attribute_hidden
-SEXP installS3Signature(const char *className, const char *methodName) {
-
+#define maxLength MAXS3SIGSIZE
+/* Writes "className.methodName" to signature, a buffer of maxLength
+   bytes, and returns FALSE if it does not fit. */
+static Rboolean S3Signature(char *signature, const char *className,
+			    const char *methodName)
+{
     const char *src;
-    char signature[maxLength];
 
     int i = 0;
     for(src = className; *src; src++) {
 	if (i == maxLength)
-	    error(_("class name too long in '%s'"), className);
+	    return FALSE;
 	signature[i++] = *src;
     }
 
     if (i == maxLength)
-	error(_("class name too long in '%s'"), className);
+	return FALSE;
     signature[i++] = '.';
 
     for(src = methodName; *src; src++) {
 	if (i == maxLength)
-	    error(_("class name too long in '%s'"), className);
+	    return FALSE;
 	signature[i++] = *src;
     }
 
     if (i == maxLength)
-	error(_("class name too long in '%s'"), className);
+	return FALSE;
     signature[i] = 0;
 
+    return TRUE;
+}
+
+attribute_hidden
+SEXP installS3Signature(const char *className, const char *methodName) {
+
+    char signature[maxLength];
+
+    if (! S3Signature(signature, className, methodName))
+	error(_("class name too long in '%s'"), className);
+
     return install(signature);
+}
+
+/* The symbol installS3Signature() would return, if it exists already,
+   and R_NilValue otherwise: the symbol is not created.  A name that is
+   too long is left to installS3Signature(), for the error. */
+attribute_hidden
+SEXP R_findS3Signature(const char *className, const char *methodName)
+{
+    char signature[maxLength];
+
+    if (! S3Signature(signature, className, methodName))
+	return installS3Signature(className, methodName);
+
+    int hashcode = R_Newhashpjw(signature);
+    for (SEXP sym = R_SymbolTable[hashcode % HSIZE];
+	 sym != R_NilValue;
+	 sym = CDR(sym)) {
+	if (strcmp(signature, CHAR(PRINTNAME(CAR(sym)))) == 0)
+	    return CAR(sym);
+    }
+    return R_NilValue;
 }
 
 

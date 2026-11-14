@@ -4499,6 +4499,60 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## internal generics look for the S3 method before setting up its dispatch
+mkO <- function(cl) structure(list(a = 1, bb = 2), class = cl)
+setClass("S4lst", contains = "list")
+for (compiled in c(FALSE, TRUE)) {
+    Get <- function(o) list(o$a, o[["bb"]], unclass(o[2L]), length(o), names(o))
+    Set <- function(o) {
+        o$a <- 10; o[["bb"]] <- 20; o[1L] <- list(5); unclass(o) }
+    Loc <- function(o) { `$.cl_loc` <- function(x, name) "local"; o$a }
+    Dfl <- local({ length.default <- function(x) -1L
+                   function(o) c(length(o), length(1:3)) })
+    if (compiled) {
+        Get <- compiler::cmpfun(Get); Set <- compiler::cmpfun(Set)
+        Loc <- compiler::cmpfun(Loc); Dfl <- compiler::cmpfun(Dfl)
+    }
+    dflt <- list(1, 2, list(bb = 2), 2L, c("a", "bb"))
+    o <- mkO("cl_late")
+    stopifnot(identical(Get(o), dflt), identical(Set(o), list(a = 5, bb = 20)))
+    ## methods defined after a dispatch that found none, and removed again
+    `$.cl_late` <- function(x, name) paste0("$", name)
+    `[[.cl_late` <- function(x, i) paste0("[[", i)
+    `[.cl_late` <- function(x, i) paste0("[", i)
+    length.cl_late <- function(x) 99L
+    `$<-.cl_late` <- function(x, name, value) { attr(x, "set") <- name; x }
+    stopifnot(identical(Get(o), list("$a", "[[bb", "[2", 99L, c("a", "bb"))),
+              identical(Set(o), structure(list(a = 5, bb = 20), set = "a")))
+    rm(list = c("$.cl_late", "[[.cl_late", "[.cl_late", "length.cl_late",
+                "$<-.cl_late"))
+    stopifnot(identical(Get(o), dflt), identical(Set(o), list(a = 5, bb = 20)))
+    ## a registered method, for the second class
+    registerS3method("[[", "cl_two", function(x, i) "registered")
+    stopifnot(identical(Get(mkO(c("cl_one", "cl_two"))),
+                        replace(dflt, 2L, list("registered"))))
+    ## a method in the frame of the caller, and a default method
+    stopifnot(identical(Loc(mkO("cl_loc")), "local"),
+              identical(Get(mkO("cl_loc")), dflt),
+              identical(Dfl(mkO("cl_dfl")), c(-1L, 3L)),
+              identical(Get(mkO("cl_dfl")), dflt))
+    ## NextMethod() to the internal default
+    `[.cl_nxt` <- function(x, i) structure(unclass(NextMethod()), via = "[")
+    length.cl_nxt <- function(x) 100L + NextMethod()
+    stopifnot(identical(Get(mkO("cl_nxt")),
+                        list(1, 2, structure(list(bb = 2), via = "["), 102L,
+                             c("a", "bb"))))
+    rm(list = c("[.cl_nxt", "length.cl_nxt"))
+    ## S4 objects
+    s4 <- new("S4lst", list(a = 1, bb = 2))
+    stopifnot(identical(Get(s4)[-3L], dflt[-3L]))
+    setMethod("length", "S4lst", function(x) 7L)
+    stopifnot(identical(Get(s4)[[4L]], 7L), removeMethod("length", "S4lst"))
+}
+stopifnot(removeClass("S4lst"))
+## the dispatch was set up first, to find no method in most cases, in R <= 4.6.2
+
+
 
 
 ## keep at end
