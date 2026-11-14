@@ -28,7 +28,6 @@
 #include <config.h>
 #endif
 
-#define INLINE_VMAX
 #include <Defn.h>
 #include <Internal.h>
 
