@@ -3476,9 +3476,11 @@ attribute_hidden SEXP do_eapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     defineVar(isym, ind, rho);
     INCREMENT_NAMED(ind);
 
+    bool direct = true; /* until X[[i]] has to be evaluated */
     for(i = 0; i < k2; i++) {
 	INTEGER(ind)[0] = i+1;
-	SEXP tmp = R_forceAndCall(R_fcall, 1, rho);
+	SEXP tmp = direct ? R_forceEltsAndCall(R_fcall, 1, rho, &direct) :
+	    R_forceAndCall(R_fcall, 1, rho);
 	if (MAYBE_REFERENCED(tmp))
 	    tmp = lazy_duplicate(tmp);
 	SET_VECTOR_ELT(ans, i, tmp);

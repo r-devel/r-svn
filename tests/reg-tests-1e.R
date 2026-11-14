@@ -4499,6 +4499,63 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## lapply(), vapply(), mapply(), eapply() take X[[i]] of a vector without class directly
+`[[.revd` <- function(x, i) .subset2(x, length(x) + 1L - i)
+L <- list(a = 1:2, b = NULL, c = "z")
+rL <- structure(L, class = "revd")
+Xi <- quote(X[[i]])
+stopifnot(exprs = {
+    ## FUN still gets the promise X[[i]], in the call FUN(X[[i]], ...)
+    identical(lapply(1:2, function(x) substitute(x)), list(Xi, Xi))
+    identical(lapply(1, function(x) sys.call()), list(quote(FUN(X[[i]], ...))))
+    identical(eapply(list2env(list(v = 1)), function(x) substitute(x)), list(v = Xi))
+    identical(mapply(function(u, v) deparse(substitute(v)), 1:2, 3:4),
+              c("dots[[2L]][[1L]]", "dots[[2L]][[2L]]"))
+    identical(tryCatch(vapply(1:2, function(x) stop("boom"), 0), error = conditionCall),
+              quote(FUN(X[[i]], ...)))
+    identical(sapply(c(a = 1, b = 2), function(x) eval.parent(quote(names(X)[i]))),
+              c(a = "a", b = "b"))
+    identical(lapply(1, function(x, y) c(missing(x), missing(y))), list(c(FALSE, TRUE)))
+    identical(vapply(lapply(1:3, function(x) function() x), function(f) f(), 0L), 1:3)
+    ## list elements as they are, others as vectors of length one without attributes
+    identical(lapply(L, function(x) x), L)
+    identical(lapply(c(a = TRUE, b = NA), function(x) x), list(a = TRUE, b = NA))
+    identical(lapply(c(a = 1.5), attributes), list(a = NULL))
+    identical(vapply(c(1i, NA), function(x) x, 0i), c(1i, NA))
+    identical(vapply(as.raw(1:2), function(x) x, raw(1)), as.raw(1:2))
+    identical(vapply(as.character(1:3), function(x) x, "", USE.NAMES = FALSE),
+              c("1", "2", "3"))
+    identical(unlist(lapply(1:100, function(i) i)), 1:100)
+    identical(mapply(function(x, y) x + y, 1:4, c(10, 20)), c(11, 22, 13, 24))
+    identical(Map(function(x, y) y, c(a = "u", b = "v"), list(NULL, 1:2)),
+              list(a = NULL, b = 1:2))
+    identical(lapply(list(), stop), list())
+    identical(mapply(function(x, y) stop(), integer(), 1:3), list())
+    ## dispatch for a class of X, of an element of dots, or of dots
+    identical(lapply(rL, function(x) x), list(a = "z", b = NULL, c = 1:2))
+    identical(mapply(function(x, y) x, rL, 1:3), list(a = "z", b = NULL, c = 1:2))
+    identical(.mapply(function(x, y) c(x, y), structure(list(1:2, 3:4), class = "revd"), NULL),
+              list(c(3L, 1L), c(4L, 2L)))
+    identical(.mapply(function(x, y) paste(x, y), data.frame(x = 1:2, y = c("a", "b")), NULL),
+              list("1 a", "2 b"))
+    ## primitive FUN, expressions
+    identical(lapply(list(1:3, 4:6), sum), list(6L, 15L))
+    identical(vapply(L, length, 0L), c(a = 2L, b = 0L, c = 1L))
+    identical(vapply(expression(a + b, c), class, ""), c("call", "name"))
+    ## FUN changing X or `[[` where lapply() looks for them
+    identical(lapply(1:3, function(x) { assign("X", 11:13, parent.frame()); x }),
+              list(1L, 12L, 13L))
+    identical(lapply(1:3, function(x) { assign("[[", function(x, i) 0L, parent.frame()); x }),
+              list(1L, 0L, 0L))
+})
+f <- function(x) x; n <- 0L
+trace(f, quote(n <<- n + 1L), print = FALSE)
+stopifnot(identical(lapply(1:3, f), list(1L, 2L, 3L)), n == 3L)
+untrace(f)
+rm(list = "[[.revd")
+## all as when X[[i]] was evaluated for every element, in R <= 4.6.2
+
+
 
 
 ## keep at end

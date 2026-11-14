@@ -30,6 +30,158 @@ static SEXP checkArgIsSymbol(SEXP x) {
     return x;
 }
 
+/* lapply(), vapply(), mapply() and eapply() call FUN(X[[i]], ...) with
+   the element arguments forced before the call.  Interpreting X[[i]]
+   costs far more than the extraction, so its value is taken from the
+   vector when the call can only reach the default method of the `[[`
+   primitive: for a vector without a class and a single index in range.
+   That runs no R code, so it is decided for each promise from what
+   evaluating its expression in rho would find at that point. */
+
+/* The value of a constant, or of a variable in the frame of rho (where
+   the apply functions keep theirs), or NULL if it takes evaluating.
+   The callers' type checks reject an unbound or missing variable. */
+static R_INLINE SEXP knownValue(SEXP e, SEXP rho)
+{
+    if (TYPEOF(e) != SYMSXP)
+	return e;
+    if (DDVAL(e)) /* ..1 is looked up in ... */
+	return NULL;
+
+    SEXP val = R_findVarInFrame(rho, e);
+    if (TYPEOF(val) == PROMSXP)
+	return PROMISE_IS_EVALUATED(val) ? PRVALUE(val) : NULL;
+    return val;
+}
+
+/* What get1index() gives for a single positive index in range, else -1 */
+static R_INLINE R_xlen_t positiveIndex(SEXP s, R_xlen_t len)
+{
+    if (s == NULL)
+	return -1;
+
+    if (IS_SCALAR(s, INTSXP)) {
+	int i = SCALAR_IVAL(s);
+	if (i >= 1 && i <= len)
+	    return i - 1;
+    }
+    else if (IS_SCALAR(s, REALSXP)) {
+	double d = SCALAR_DVAL(s);
+	if (d >= 1 && d <= (double) len)
+	    return (R_xlen_t)(d - 1);
+    }
+    return -1;
+}
+
+/* The value of the call x[[i]] as do_subset2_dflt() gives it, or NULL
+   if the call has to be evaluated.  x may be a call of the same form. */
+static SEXP subset2Direct(SEXP e, SEXP rho)
+{
+    if (TYPEOF(e) != LANGSXP || CAR(e) != R_Bracket2Symbol)
+	return NULL;
+
+    /* two arguments, and no tag that could be 'exact' or 'drop' */
+    SEXP args = CDR(e);
+    if (CDR(args) == R_NilValue || CDDR(args) != R_NilValue ||
+	TAG(args) != R_NilValue || TAG(CDR(args)) != R_NilValue)
+	return NULL;
+
+    /* The lookup eval() does.  It skips a frame without special symbols,
+       which for a closure of the base namespace leaves the base value. */
+    SEXP fun = (NO_SPECIAL_SYMBOLS(rho) && ENCLOS(rho) == R_BaseNamespace) ?
+	SYMVALUE(R_Bracket2Symbol) : findFun3(R_Bracket2Symbol, rho, e);
+    if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 || RTRACE(fun))
+	return NULL;
+
+    /* a list or atomic vector; expressions and pairlists are evaluated */
+    SEXP x = CAR(args);
+    x = (TYPEOF(x) == LANGSXP) ? subset2Direct(x, rho) : knownValue(x, rho);
+    if (x == NULL || OBJECT(x) || !(isVectorAtomic(x) || TYPEOF(x) == VECSXP))
+	return NULL;
+    PROTECT(x); /* new if it is itself an element of an atomic vector */
+
+    /* the length first: the index is not protected */
+    SEXP ans = NULL;
+    R_xlen_t len = XLENGTH(x);
+    R_xlen_t offset = positiveIndex(knownValue(CADR(args), rho), len);
+    if (offset >= 0 && TYPEOF(x) == VECSXP) {
+	ans = VECTOR_ELT(x, offset);
+    }
+    else if (offset >= 0) {
+	PROTECT(ans = allocVector(TYPEOF(x), 1));
+	switch (TYPEOF(x)) {
+	case LGLSXP:
+	    LOGICAL0(ans)[0] = LOGICAL_ELT(x, offset);
+	    break;
+	case INTSXP:
+	    INTEGER0(ans)[0] = INTEGER_ELT(x, offset);
+	    break;
+	case REALSXP:
+	    REAL0(ans)[0] = REAL_ELT(x, offset);
+	    break;
+	case CPLXSXP:
+	    COMPLEX0(ans)[0] = COMPLEX_ELT(x, offset);
+	    break;
+	case STRSXP:
+	    SET_STRING_ELT(ans, 0, STRING_ELT(x, offset));
+	    break;
+	case RAWSXP:
+	    RAW0(ans)[0] = RAW_ELT(x, offset);
+	    break;
+	default:
+	    UNIMPLEMENTED_TYPE("subset2Direct", x);
+	}
+	UNPROTECT(1);
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+/* R_forceAndCall() for a call whose first n arguments are elements of
+   vectors.  *direct is cleared if the function is not a closure or an
+   argument had to be evaluated, which tells the caller to go back to
+   R_forceAndCall() for its remaining elements. */
+attribute_hidden
+SEXP R_forceEltsAndCall(SEXP e, int n, SEXP rho, bool *direct)
+{
+    SEXP fun = CAR(e);
+    if (TYPEOF(fun) == SYMSXP)
+	fun = findFun(fun, rho);
+
+    if (TYPEOF(fun) != CLOSXP) {
+	*direct = false;
+	return R_forceAndCall(e, n, rho);
+    }
+    PROTECT(fun);
+
+    SEXP pargs = PROTECT(promiseArgs(CDR(e), rho));
+    SEXP a = pargs;
+    for (int i = 0; i < n && a != R_NilValue; a = CDR(a), i++) {
+	SEXP p = CAR(a);
+	SEXP val = (TYPEOF(p) == PROMSXP) ? subset2Direct(PRCODE(p), rho) : NULL;
+	if (val != NULL) {
+	    /* the state forcePromise() leaves a promise in */
+	    SET_PRVALUE(p, val);
+	    ENSURE_NAMEDMAX(val);
+	    SET_PRENV(p, R_NilValue);
+	}
+	else if (TYPEOF(p) == PROMSXP) {
+	    *direct = false;
+	    eval(p, rho);
+	}
+	else if (p == R_MissingArg) {
+	    errorcall(e, _("argument %d is empty"), i + 1);
+	}
+	else {
+	    error("something weird happened");
+	}
+    }
+
+    SEXP val = applyClosure(e, fun, pargs, rho, R_NilValue, TRUE);
+    UNPROTECT(2);
+    return val;
+}
+
 /* .Internal(lapply(X, FUN)) */
 
 /* This is a special .Internal, so has unevaluated arguments.  It is
@@ -68,11 +220,13 @@ attribute_hidden SEXP do_lapply(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_varloc_t loc = R_findVarLocInFrame(rho, isym);
     PROTECT_WITH_INDEX(loc.cell, &cidx);
 
+    bool direct = true; /* until X[[i]] has to be evaluated */
 
     for(R_xlen_t i = 0; i < n; i++) {
 	if (realIndx) REAL(ind)[0] = (double)(i + 1);
 	else INTEGER(ind)[0] = (int)(i + 1);
-	tmp = R_forceAndCall(R_fcall, 1, rho);
+	tmp = direct ? R_forceEltsAndCall(R_fcall, 1, rho, &direct) :
+	    R_forceAndCall(R_fcall, 1, rho);
 	if (MAYBE_REFERENCED(tmp)) tmp = lazy_duplicate(tmp);
 	SET_VECTOR_ELT(ans, i, tmp);
 	if (ind != R_GetVarLocValue(loc) || MAYBE_SHARED(ind)) {
@@ -165,12 +319,14 @@ attribute_hidden SEXP do_vapply(SEXP call, SEXP op, SEXP args, SEXP rho)
 				LCONS(tmp, LCONS(R_DotsSymbol, R_NilValue))));
 
 	int common_len_offset = 0;
+	bool direct = true; /* until X[[i]] has to be evaluated */
 	for(i = 0; i < n; i++) {
 	    SEXP val; SEXPTYPE valType;
 	    PROTECT_INDEX indx;
 	    if (realIndx) REAL(ind)[0] = (double)(i + 1);
 	    else INTEGER(ind)[0] = (int)(i + 1);
-	    val = R_forceAndCall(R_fcall, 1, rho);
+	    val = direct ? R_forceEltsAndCall(R_fcall, 1, rho, &direct) :
+		R_forceAndCall(R_fcall, 1, rho);
 	    if (MAYBE_REFERENCED(val))
 		val = lazy_duplicate(val); // Need to duplicate? Copying again anyway
 	    PROTECT_WITH_INDEX(val, &indx);
