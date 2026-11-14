@@ -1300,6 +1300,16 @@ static SEXP NewReadItem (SEXP sym_table, SEXP env_table, FILE *fp,
     default:
 	error(_("NewReadItem: unknown type %i"), type);
     }
+    /* A symbol item resolves to the interned symbol, and an index of 0
+       (or an unrecognized primitive) to R_NilValue: both are shared, so
+       the levels, object bit and attributes in the file must not be
+       applied to them.  The writer still emits an attribute item for
+       every object, so read it to stay in step with the stream. */
+    if (TYPEOF(s) == SYMSXP || s == R_NilValue) {
+	NewReadItem(sym_table, env_table, fp, m, d);
+	UNPROTECT(1); /* s */
+	return s;
+    }
     SETLEVELS(s, (unsigned short) levs);
     SET_OBJECT(s, objf);
     SET_ATTRIB(s, NewReadItem(sym_table, env_table, fp, m, d));
