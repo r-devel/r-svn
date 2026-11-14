@@ -351,6 +351,11 @@ scientific(const double *x, int *neg, int *kpower, int *nsig, bool *roundingwide
         }
 #  ifdef HAVE_POWL
 	// powl is C99 but only added to FreeBSD in 2017.
+	// Split subnormal powers into two normal halves: some powl()
+	// implementations (musl on aarch64) only have double precision.
+	else if (kp <= R_dec_min_exponent)
+	    r_prec /= powl(10.0, (long double) (kp/2)) *
+		powl(10.0, (long double) (kp - kp/2));
 	else
             r_prec /= powl(10.0, (long double) kp);
 #  else
