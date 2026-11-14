@@ -4499,7 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## %% and %/% on scalars: same values, types and warnings as on vectors
+## %% and %/% on scalars: same values, types and warnings as on vectors -- PR#19321
 local({
     oldjit <- compiler::enableJIT(0)
     on.exit(compiler::enableJIT(oldjit))
