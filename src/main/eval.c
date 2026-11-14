@@ -6952,8 +6952,7 @@ static R_INLINE Rboolean baseFunSurelyVisible(SEXP sym, SEXP rho)
 	value = PRVALUE(value);
     }
 
-    return TYPEOF(value) == BUILTINSXP || TYPEOF(value) == SPECIALSXP ||
-	TYPEOF(value) == CLOSXP;
+    return isFunction(value);
 }
 
 #define DO_BASEGUARD() do {				\
