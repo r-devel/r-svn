@@ -282,6 +282,17 @@ static Rboolean seen_before(seen_set *seen, SEXP x)
     return FALSE;
 }
 
+/* Does 'x' have anything a cycle could pass through: attributes, or
+   the elements of a list or a pairlist? */
+static R_INLINE Rboolean has_components(SEXP x)
+{
+    if (ATTRIB(x) != R_NilValue || isVectorList(x))
+	return TRUE;
+
+    /* isPairList() is true for R_NilValue */
+    return x != R_NilValue && isPairList(x);
+}
+
 /* Detect cycles that would be created by assigning 'child' as a
    component of 's' in a complex assignment without duplicating
    'child'.  This is called quite often but almost always returns
@@ -299,8 +310,7 @@ static Rboolean cycle_detected(SEXP s, SEXP child, seen_set *seen)
     for (;;) {
 	if (s == child)
 	    return TRUE;
-	if (ATTRIB(child) == R_NilValue && ! isVectorList(child) &&
-	    (child == R_NilValue || ! isPairList(child)))
+	if (! has_components(child))
 	    return FALSE;
 	if ((MAYBE_SHARED(child) || child == seen->root) &&
 	    seen_before(seen, child))
