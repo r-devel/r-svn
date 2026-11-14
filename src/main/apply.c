@@ -100,8 +100,10 @@ static SEXP subset2Direct(SEXP e, SEXP rho)
 	return NULL;
     PROTECT(x); /* new if it is itself an element of an atomic vector */
 
+    /* the length first: the index is not protected */
     SEXP ans = NULL;
-    R_xlen_t offset = positiveIndex(knownValue(CADR(args), rho), XLENGTH(x));
+    R_xlen_t len = XLENGTH(x);
+    R_xlen_t offset = positiveIndex(knownValue(CADR(args), rho), len);
     if (offset >= 0 && TYPEOF(x) == VECSXP) {
 	ans = VECTOR_ELT(x, offset);
     }
