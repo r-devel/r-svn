@@ -4499,6 +4499,64 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## `$` and `[[` on lists, now matching most names without translating them
+l <- list(alpha = 1, beta = 2, alphabet = 3, alpha = 4, 5, 6)
+names(l)[5:6] <- c(NA, "")
+f <- compiler::cmpfun(function(x) list(x$alpha, x$be, x[["beta"]], x[["be"]]))
+stopifnot(exprs = {
+    identical(l$alpha, 1) # the first exact match
+    identical(l[["alpha"]], 1)
+    identical(l$alphab, 3) # a unique partial match
+    identical(l$be, 2)
+    identical(l[["be", exact = FALSE]], 2)
+    is.null(l[["be"]])
+    is.null(l$al) # ambiguous
+    is.null(l[["al", exact = FALSE]])
+    is.null(l$zz)
+    is.null(l[["zz"]])
+    is.null(l[[NA_character_]]) # NA and "" match no name
+    is.null(l[[""]])
+    identical(.subset2(l, "alphabet"), 3)
+    identical(f(l), list(1, 2, 2, NULL))
+})
+op <- options(warnPartialMatchDollar = TRUE)
+assertWarnV(l$bet)
+options(op)
+assertWarnV(l[["bet", exact = NA]])
+## names in different encodings match if they are equal after translation
+utf <- intToUtf8(c(110, 97, 239, 118, 101))
+lat <- iconv(utf, "UTF-8", "latin1")
+l <- structure(list(1, 2, 3), names = c(lat, utf, "na"))
+same <- identical(enc2native(lat), enc2native(utf)) # not in a C locale
+stopifnot(exprs = {
+    identical(l[[lat]], 1)
+    identical(l[[utf]], if(same) 1 else 2)
+    identical(do.call(`$`, list(l, utf)), if(same) 1 else 2)
+    identical(l$na, 3)
+    identical(l[["na"]], 3)
+})
+## a name with "bytes" encoding cannot be translated, but need not be reached
+b <- "\xff"; Encoding(b) <- "bytes"
+l <- structure(list(1, 2), names = c("a", b))
+stopifnot(identical(l$a, 1), identical(l[["a"]], 1))
+assertErrV(l$z)
+assertErrV(l[["z"]])
+## pairlists, calls and dimnames
+cl <- quote(f(aa = 1, ab = 2))
+a <- array(1:8, c(2, 2, 2),
+           dimnames = list(c("a", "b"), c("c", "d"), c("e", "f")))
+stopifnot(exprs = {
+    identical(cl$aa, 1)
+    identical(cl$ab, 2)
+    is.null(cl$a)
+    identical(cl[["ab"]], 2)
+    identical(formals(function(x, yy = 2) NULL)$y, 2)
+    identical(a[["a", "d", "f"]], 7L)
+    identical(a[["b", "c", "e"]], 2L)
+})
+## same results as before, which took 2-4 times as long for the tenth name
+
+
 
 
 ## keep at end

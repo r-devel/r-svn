@@ -960,6 +960,35 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t offset = 0;
 
     PROTECT(args);
+
+    /* Fast path for x[["name"]] where x is a list without dims: two
+       untagged arguments leave no 'drop' or 'exact' to extract, and
+       what remains of the general code below is done here. */
+    x = CAR(args);
+    subs = CDR(args);
+    if (TYPEOF(CAR(subs)) == STRSXP && XLENGTH(CAR(subs)) == 1 &&
+	CDR(subs) == R_NilValue && TAG(subs) == R_NilValue &&
+	TYPEOF(x) == VECSXP && TAG(args) == R_NilValue &&
+	getAttrib(x, R_DimSymbol) == R_NilValue) {
+	SEXP thesub = CAR(subs);
+	SEXP xnames = PROTECT(getAttrib(x, R_NamesSymbol));
+	offset = get1index(thesub, xnames, XLENGTH(x),
+			   /*partial ok*/FALSE, -1, call);
+	UNPROTECT(1); /* xnames */
+	if (offset < 0) {
+	    UNPROTECT(1); /* args */
+	    return R_NilValue;
+	}
+	if (offset >= XLENGTH(x))
+	    errorcallOutOfBoundsSEXP(x, -1, thesub, call);
+	ans = VECTOR_ELT(x, offset);
+#ifndef SWITCH_TO_REFCNT
+	RAISE_NAMED(ans, NAMED(x));
+#endif
+	UNPROTECT(1); /* args */
+	return ans;
+    }
+
     ExtractDropArg(args, &drop);
     /* Is partial matching ok?  When the exact arg is NA, a warning is
        issued if partial matching occurs.
@@ -1171,16 +1200,16 @@ enum pmatch {
     PARTIAL_MATCH
 };
 
-/* A helper to partially match tags against a candidate.
+/* A helper to partially match tags against a candidate, which the
+   caller has translated: 'si', of length 'slen'.
    Tags are always in the native charset.
  */
 /* Returns: */
 static
 enum pmatch
-pstrmatch(SEXP target, SEXP input, size_t slen)
+pstrmatch(SEXP target, const char *si, size_t slen)
 {
     const char *st = "";
-    const char *si = "";
     const void *vmax = vmaxget();
 
     if(target == R_NilValue)
@@ -1194,7 +1223,6 @@ pstrmatch(SEXP target, SEXP input, size_t slen)
 	st = translateChar(target);
 	break;
     }
-    si = translateChar(input);
     if(si[0] != '\0' && strncmp(st, si, slen) == 0) {
 	vmaxset(vmax);
 	return (strlen(st) == slen) ?  EXACT_MATCH : PARTIAL_MATCH;
@@ -1202,6 +1230,28 @@ pstrmatch(SEXP target, SEXP input, size_t slen)
 	vmaxset(vmax);
 	return NO_MATCH;
     }
+}
+
+/* pstrmatch() for the names of a vector list, where 'si' is the
+   translated input and 'slen', its length, is not zero.  Names are
+   mostly ASCII strings from the CHARSXP cache: the same CHARSXP is an
+   exact match, and an ASCII name needs no translation.
+ */
+static R_INLINE enum pmatch
+pstrmatchName(SEXP target, SEXP input, const char *si, size_t slen)
+{
+    if (target == input)
+	return EXACT_MATCH;
+
+    if (IS_ASCII(target)) {
+	const char *st = CHAR(target);
+	/* most names differ in the first character */
+	if (st[0] != si[0] || strncmp(st, si, slen) != 0)
+	    return NO_MATCH;
+	return (st[slen] == '\0') ? EXACT_MATCH : PARTIAL_MATCH;
+    }
+
+    return pstrmatch(target, si, slen);
 }
 
 attribute_hidden SEXP
@@ -1281,7 +1331,8 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
     PROTECT(x);
 
     /* Optimisation to prevent repeated recalculation */
-    size_t slen = strlen(translateChar(input));
+    const char *si = translateChar(input);
+    size_t slen = strlen(si);
     /* The mechanism to allow a class extending "environment" */
     if( IS_S4_OBJECT(x) && TYPEOF(x) == OBJSXP ){
 	x = R_getS4DataSlot(x, ANYSXP);
@@ -1298,7 +1349,7 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 	int havematch;
 	havematch = 0;
 	for (y = x ; y != R_NilValue ; y = CDR(y)) {
-	    switch(pstrmatch(TAG(y), input, slen)) {
+	    switch(pstrmatch(TAG(y), si, slen)) {
 	    case EXACT_MATCH:
 		y = CAR(y);
 		RAISE_NAMED(y, NAMED(x));
@@ -1342,8 +1393,14 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 
 	n = xlength(nlist);
 	havematch = 0;
+	/* An empty input matches nothing, but each name is still
+	   translated, which fails for a "bytes" one: that is left to
+	   pstrmatch(). */
+	bool fast = (slen > 0 && TYPEOF(nlist) == STRSXP);
 	for (i = 0 ; i < n ; i = i + 1) {
-	    switch(pstrmatch(STRING_ELT(nlist, i), input, slen)) {
+	    SEXP name = STRING_ELT(nlist, i);
+	    switch(fast ? pstrmatchName(name, input, si, slen) :
+		   pstrmatch(name, si, slen)) {
 	    case EXACT_MATCH:
 		y = VECTOR_ELT(x, i);
 		RAISE_NAMED(y, NAMED(x));
