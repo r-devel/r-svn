@@ -2415,6 +2415,7 @@ void orderVector1(int *indx, int n, SEXP key, bool nalast,
 		  bool decreasing, SEXP rho);
 
 /* main/subset.c */
+SEXP R_subset2Direct(SEXP, SEXP);
 SEXP R_subset3_dflt(SEXP, SEXP, SEXP);
 
 /* main/subassign.c */

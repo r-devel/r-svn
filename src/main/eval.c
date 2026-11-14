@@ -2457,11 +2457,25 @@ SEXP R_forceAndCall(SEXP e, int n, SEXP rho)
 	int i;
 	for (a = tmp, i = 0; i < n && a != R_NilValue; a = CDR(a), i++) {
 	    SEXP p = CAR(a);
-	    if (TYPEOF(p) == PROMSXP)
-		eval(p, rho);
-	    else if (p == R_MissingArg)
+	    if (TYPEOF(p) == PROMSXP) {
+		/* an element x[[i]] may need no evaluation */
+		SEXP val = R_subset2Direct(PRCODE(p), rho);
+		if (val != NULL) {
+		    /* the state forcePromise() leaves a promise in */
+		    SET_PRVALUE(p, val);
+		    ENSURE_NAMEDMAX(val);
+		    SET_PRENV(p, R_NilValue);
+		}
+		else {
+		    eval(p, rho);
+		}
+	    }
+	    else if (p == R_MissingArg) {
 		errorcall(e, _("argument %d is empty"), i + 1);
-	    else error("something weird happened");
+	    }
+	    else {
+		error("something weird happened");
+	    }
 	}
 	SEXP pargs = tmp;
 	tmp = applyClosure(e, fun, pargs, rho, R_NilValue, TRUE);
