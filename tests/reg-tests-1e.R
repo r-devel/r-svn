@@ -4527,6 +4527,11 @@ local({
                     stopifnot(is.na(s[[1L]]), is.na(v[[1L]]))
                 else
                     stopifnot(identical(s, v, num.eq = FALSE))
+                if (is.integer(x) && is.integer(y)) { # as for doubles
+                    d <- f(as.double(x), as.double(y))
+                    is.na(d) <- !is.finite(d) # zero divisor
+                    stopifnot(identical(s[[1L]], as.integer(d)))
+                }
             }
     }
     ## attributes are kept, and methods dispatched to

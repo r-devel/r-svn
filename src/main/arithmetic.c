@@ -374,6 +374,42 @@ static R_INLINE double R_integer_divide(int x, int y)
 	return (double) x / (double) y;
 }
 
+static R_INLINE int R_integer_mod(int x, int y)
+{
+    if (x == NA_INTEGER || y == NA_INTEGER || y == 0)
+	return NA_INTEGER;
+    else /* till 0.63.2: x % y */
+	return (x >= 0 && y > 0) ? x % y :
+	    (int) myfmod((double) x, (double) y);
+}
+
+static R_INLINE int R_integer_idiv(int x, int y)
+{
+    /* This had x %/% 0 == 0 prior to 2.14.1, but
+       it seems conventionally to be undefined */
+    if (x == NA_INTEGER || y == NA_INTEGER || y == 0)
+	return NA_INTEGER;
+    else
+	return (int) floor((double) x / (double) y);
+}
+
+/* x1 op x2 for the operators do_arith() applies to scalars itself;
+   false for the others. myfmod() can warn, so callers allocate the
+   result after this. */
+static R_INLINE bool real_scalar_arith(int code, double x1, double x2,
+				       double *val)
+{
+    switch (code) {
+    case PLUSOP: *val = x1 + x2; return true;
+    case MINUSOP: *val = x1 - x2; return true;
+    case TIMESOP: *val = x1 * x2; return true;
+    case DIVOP: *val = x1 / x2; return true;
+    case MODOP: *val = myfmod(x1, x2); return true;
+    case IDIVOP: *val = myfloor(x1, x2); return true;
+    default: return false;
+    }
+}
+
 static R_INLINE SEXP ScalarValue1(SEXP x)
 {
     if (NO_REFERENCES(x))
@@ -419,39 +455,21 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 	    double x1 = SCALAR_DVAL(arg1);
 	    if (IS_SCALAR(arg2, REALSXP)) {
 		double x2 = SCALAR_DVAL(arg2);
-		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
-		    /* as in real_binary(); myfmod() can warn, so compute
-		       before allocating */
-		    double val = (PRIMVAL(op) == MODOP) ?
-			myfmod(x1, x2) : myfloor(x1, x2);
+		double val;
+		if (real_scalar_arith(PRIMVAL(op), x1, x2, &val)) {
 		    ans = ScalarValue2(arg1, arg2);
 		    SET_SCALAR_DVAL(ans, val);
 		    return ans;
-		}
-		ans = ScalarValue2(arg1, arg2);
-		switch (PRIMVAL(op)) {
-		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
-		case MINUSOP: SET_SCALAR_DVAL(ans, x1 - x2); return ans;
-		case TIMESOP: SET_SCALAR_DVAL(ans, x1 * x2); return ans;
-		case DIVOP: SET_SCALAR_DVAL(ans, x1 / x2); return ans;
 		}
 	    }
 	    else if (IS_SCALAR(arg2, INTSXP)) {
 		int i2 = SCALAR_IVAL(arg2);
 		double x2 = i2 != NA_INTEGER ? (double) i2 : NA_REAL;
-		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
-		    double val = (PRIMVAL(op) == MODOP) ?
-			myfmod(x1, x2) : myfloor(x1, x2);
+		double val;
+		if (real_scalar_arith(PRIMVAL(op), x1, x2, &val)) {
 		    ans = ScalarValue1(arg1);
 		    SET_SCALAR_DVAL(ans, val);
 		    return ans;
-		}
-		ans = ScalarValue1(arg1);
-		switch (PRIMVAL(op)) {
-		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
-		case MINUSOP: SET_SCALAR_DVAL(ans, x1 - x2); return ans;
-		case TIMESOP: SET_SCALAR_DVAL(ans, x1 * x2); return ans;
-		case DIVOP: SET_SCALAR_DVAL(ans, x1 / x2); return ans;
 		}
 	    }
 	}
@@ -460,24 +478,17 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (IS_SCALAR(arg2, REALSXP)) {
 		double x1 = i1 != NA_INTEGER ? (double) i1 : NA_REAL;
 		double x2 = SCALAR_DVAL(arg2);
-		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
-		    double val = (PRIMVAL(op) == MODOP) ?
-			myfmod(x1, x2) : myfloor(x1, x2);
+		double val;
+		if (real_scalar_arith(PRIMVAL(op), x1, x2, &val)) {
 		    ans = ScalarValue1(arg2);
 		    SET_SCALAR_DVAL(ans, val);
 		    return ans;
-		}
-		ans = ScalarValue1(arg2);
-		switch (PRIMVAL(op)) {
-		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
-		case MINUSOP: SET_SCALAR_DVAL(ans, x1 - x2); return ans;
-		case TIMESOP: SET_SCALAR_DVAL(ans, x1 * x2); return ans;
-		case DIVOP: SET_SCALAR_DVAL(ans, x1 / x2); return ans;
 		}
 	    }
 	    else if (IS_SCALAR(arg2, INTSXP)) {
 		bool naflag = false;
 		int i2 = SCALAR_IVAL(arg2);
+		int ival;
 		switch (PRIMVAL(op)) {
 		case PLUSOP:
 		    ans = ScalarValue2(arg1, arg2);
@@ -497,30 +508,15 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 		case DIVOP:
 		    return ScalarReal(R_integer_divide(i1, i2));
 		case MODOP:
-		    {
-			/* as in integer_binary() */
-			int val;
-			if (i1 == NA_INTEGER || i2 == NA_INTEGER || i2 == 0)
-			    val = NA_INTEGER;
-			else if (i1 >= 0 && i2 > 0)
-			    val = i1 % i2;
-			else
-			    val = (int) myfmod((double) i1, (double) i2);
-			ans = ScalarValue2(arg1, arg2);
-			SET_SCALAR_IVAL(ans, val);
-			return ans;
-		    }
+		    /* before allocating, as this can call myfmod() */
+		    ival = R_integer_mod(i1, i2);
+		    ans = ScalarValue2(arg1, arg2);
+		    SET_SCALAR_IVAL(ans, ival);
+		    return ans;
 		case IDIVOP:
-		    {
-			int val;
-			if (i1 == NA_INTEGER || i2 == NA_INTEGER || i2 == 0)
-			    val = NA_INTEGER;
-			else
-			    val = (int) floor((double) i1 / (double) i2);
-			ans = ScalarValue2(arg1, arg2);
-			SET_SCALAR_IVAL(ans, val);
-			return ans;
-		    }
+		    ans = ScalarValue2(arg1, arg2);
+		    SET_SCALAR_IVAL(ans, R_integer_idiv(i1, i2));
+		    return ans;
 		}
 	    }
 	}
@@ -955,15 +951,7 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    if (x1 == NA_INTEGER || x2 == NA_INTEGER || x2 == 0)
-			pa[i] = NA_INTEGER;
-		    else {
-			pa[i] = /* till 0.63.2:	x1 % x2 */
-			    (x1 >= 0 && x2 > 0) ? x1 % x2 :
-			    (int)myfmod((double)x1,(double)x2);
-		    }
+		    pa[i] = R_integer_mod(px1[i1], px2[i2]);
 		});
 	}
 	break;
@@ -973,14 +961,7 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
 	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    /* This had x %/% 0 == 0 prior to 2.14.1, but
-		       it seems conventionally to be undefined */
-		    if (x1 == NA_INTEGER || x2 == NA_INTEGER || x2 == 0)
-			pa[i] = NA_INTEGER;
-		    else
-			pa[i] = (int) floor((double)x1 / (double)x2);
+		    pa[i] = R_integer_idiv(px1[i1], px2[i2]);
 		});
 	}
 	break;
