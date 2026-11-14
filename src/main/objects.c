@@ -31,14 +31,6 @@
 #include <Internal.h>
 #include <R_ext/RS.h> /* for R_Calloc, R_Realloc and for S4 object bit, R_allocObject() */
 
-/* For rarely run code with a large buffer: kept out of line, the buffer
-   is not part of the stack frame of every S3 dispatch. */
-#ifdef __GNUC__
-# define attribute_noinline __attribute__((noinline))
-#else
-# define attribute_noinline
-#endif
-
 static SEXP GetObject(RCNTXT *cptr)
 {
     SEXP s, b, formals, tag;
@@ -360,7 +352,9 @@ SEXP createS3Vars(SEXP dotGeneric, SEXP dotGroup, SEXP dotClass, SEXP dotMethod,
 }
 
 #ifndef USEMETHOD_FORWARD_LOCALS
-static attribute_noinline
+/* Out of line: its buffer would otherwise be part of the stack frame
+   of every S3 dispatch. */
+static R_NOINLINE
 SEXP forwardedVarErrorPromise(SEXP sym, const char *generic) {
 
     char buf[8192];
@@ -547,7 +541,8 @@ int usemethod(const char *generic, SEXP obj, SEXP call, SEXP args,
     return 0;
 }
 
-NORET static attribute_noinline
+/* Out of line, for the same reason as forwardedVarErrorPromise(). */
+NORET static R_NOINLINE
 void noApplicableMethodError(SEXP call, SEXP generic, SEXP obj)
 {
 #define CLLEN 1024
