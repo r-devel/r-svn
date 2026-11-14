@@ -1198,6 +1198,11 @@ attribute_hidden SEXP R_subset2Direct(SEXP e, SEXP rho)
 	TAG(args) != R_NilValue || TAG(CDR(args)) != R_NilValue)
 	return NULL;
 
+    /* the lookup eval() does, and first as there: it may force a promise */
+    SEXP fun = findFun3(R_Bracket2Symbol, rho, e);
+    if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 || RTRACE(fun))
+	return NULL;
+
     /* a list or atomic vector; expressions and pairlists are evaluated */
     SEXP x = CAR(args);
     x = (TYPEOF(x) == LANGSXP) ? R_subset2Direct(x, rho) : knownValue(x, rho);
@@ -1210,17 +1215,8 @@ attribute_hidden SEXP R_subset2Direct(SEXP e, SEXP rho)
     R_xlen_t len = XLENGTH(x);
     SEXP s = knownValue(CADR(args), rho);
     R_xlen_t offset = (s == NULL) ? -1 : scalarIndex(s) - 1;
-
-    /* The function is looked up as eval() does it, but last: this is the
-       one step that can run R code (a promise or an active binding), and
-       a call that is evaluated after all must not look it up twice. */
     if (offset >= 0 && offset < len) {
-	SEXP fun = findFun3(R_Bracket2Symbol, rho, e);
-	if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 ||
-	    RTRACE(fun)) {
-	    /* not the primitive, or traced */
-	}
-	else if (TYPEOF(x) == VECSXP) {
+	if (TYPEOF(x) == VECSXP) {
 	    ans = VECTOR_ELT(x, offset);
 	}
 	else {
