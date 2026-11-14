@@ -269,6 +269,20 @@ static int has_tags(SEXP e)
     return FALSE;
 }
 
+/* identical(x, TRUE) */
+static R_INLINE int identical_true(SEXP x)
+{
+    return TYPEOF(x) == LGLSXP && XLENGTH(x) == 1 && LOGICAL(x)[0] == TRUE &&
+	ATTRIB(x) == R_NilValue && ! OBJECT(x) && ! IS_S4_OBJECT(x);
+}
+
+/* identical(x, FALSE) */
+static R_INLINE int identical_false(SEXP x)
+{
+    return TYPEOF(x) == LGLSXP && XLENGTH(x) == 1 && LOGICAL(x)[0] == FALSE &&
+	ATTRIB(x) == R_NilValue && ! OBJECT(x) && ! IS_S4_OBJECT(x);
+}
+
 /* is.ddsym(name): ..N */
 static int is_ddsym(SEXP sym)
 {
@@ -603,8 +617,7 @@ static SEXP find_home_ns(SEXP sym, SEXP ns)
     for (R_xlen_t i = XLENGTH(imports) - 1; i >= 0; i--) {
 	SEXP ins = PROTECT(get_namespace(STRING_ELT(inames, i)));
 	SEXP imp = VECTOR_ELT(imports, i);
-	if (TYPEOF(imp) == LGLSXP && XLENGTH(imp) == 1 &&
-	    LOGICAL(imp)[0] == TRUE && ATTRIB(imp) == R_NilValue) {
+	if (identical_true(imp)) {
 	    SEXP exports;
 	    if (ins == R_BaseNamespace) {
 		exports = R_BaseNamespace;
@@ -2303,18 +2316,6 @@ static int cmp_special(SEXP e, CodeBuf *cb, Cntxt *cntxt);
 static void cmp_builtin_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int missingOK);
 static void cmp_call_args(SEXP args, CodeBuf *cb, Cntxt *cntxt, int nse);
 
-static R_INLINE int identical_true(SEXP x)
-{
-    return TYPEOF(x) == LGLSXP && XLENGTH(x) == 1 && LOGICAL(x)[0] == TRUE &&
-	ATTRIB(x) == R_NilValue && ! OBJECT(x) && ! IS_S4_OBJECT(x);
-}
-
-static R_INLINE int identical_false(SEXP x)
-{
-    return TYPEOF(x) == LGLSXP && XLENGTH(x) == 1 && LOGICAL(x)[0] == FALSE &&
-	ATTRIB(x) == R_NilValue && ! OBJECT(x) && ! IS_S4_OBJECT(x);
-}
-
 /* cmpConst(val, cb, cntxt) */
 static void cmp_const(SEXP val, CodeBuf *cb, Cntxt *cntxt)
 {
@@ -3468,8 +3469,7 @@ static int cmp_simple_internal(SEXP e, CodeBuf *cb, Cntxt *cntxt, int op)
 	return FALSE;
     SEXP def = find_fun_def(CAR(e), cntxt->env);
     /* checkCall(def, e, NULL) */
-    if (def == NULL || TYPEOF(def) == BUILTINSXP || TYPEOF(def) == SPECIALSXP ||
-	TYPEOF(def) != CLOSXP)
+    if (def == NULL || TYPEOF(def) != CLOSXP)
 	/* checkCall() returns NA for these and the R code errors on it */
 	Rf_errorcall(cntxt->call,
 		     _("missing value where TRUE/FALSE needed"));
