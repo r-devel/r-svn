@@ -4499,6 +4499,57 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## %% and %/% on scalars: same values, types and warnings as on vectors
+local({
+    oldjit <- compiler::enableJIT(0)
+    on.exit(compiler::enableJIT(oldjit))
+    imax <- .Machine$integer.max
+    vals <- c(as.list(c(NA, -imax, -7L, -2L, -1L, 0L, 1L, 2L, 7L, imax)),
+              as.list(c(NA, NaN, -Inf, -1e300, -1e18, -7.5, -2, -0.3, -1e-300,
+                        -0, 0, 5e-324, 0.3, 1, 2, 7.5, 1e18, 1e300, Inf)))
+    run <- function(f, x, y) {
+        msgs <- character()
+        val <- withCallingHandlers(f(x, y), warning = function(w) {
+            msgs <<- c(msgs, conditionMessage(w), deparse(conditionCall(w)))
+            invokeRestart("muffleWarning")
+        })
+        list(val[1L], msgs)
+    }
+    for (op in c("%%", "%/%")) {
+        fun <- function(x, y) NULL
+        body(fun) <- call(op, quote(x), quote(y))
+        for (f in list(fun, compiler::cmpfun(fun)))
+            for (x in vals) for (y in vals) {
+                s <- run(f, x, y)
+                v <- run(f, c(x, 1L), c(y, 1L)) # 1st element, as vectors
+                if (is.na(x) && is.na(y) && is.nan(x) != is.nan(y))
+                    ## NA with NaN may give either, see ?NA
+                    stopifnot(is.na(s[[1L]]), is.na(v[[1L]]))
+                else
+                    stopifnot(identical(s, v, num.eq = FALSE))
+            }
+    }
+    ## attributes are kept, and methods dispatched to
+    Ops.foo <- function(e1, e2) paste(.Generic, "method")
+    foo <- structure(7L, class = "foo")
+    stopifnot(identical(foo %% 2L, "%% method"),
+              identical(2 %/% foo, "%/% method"),
+              identical(c(a = 7L) %% 2L, c(a = 1L)),
+              identical(7 %/% c(b = 2), c(b = 3)),
+              identical(matrix(7L) %/% 2, matrix(3)),
+              identical(structure(7, class = "bar") %% 2L,
+                        structure(1, class = "bar")))
+})
+setClass("num4", contains = "numeric")
+setMethod("Arith", c("num4", "numeric"),
+          function(e1, e2) paste(.Generic, "method"))
+stopifnot(identical(new("num4", 7) %% 2, "%% method"),
+          identical(new("num4", 7) %/% 2L, "%/% method"),
+          identical(7 %% new("num4", 2), new("num4", 1)),
+          removeMethod("Arith", c("num4", "numeric")), removeClass("num4"))
+## scalars took the general code in R <= 4.6.2
+
+
 
 
 ## keep at end

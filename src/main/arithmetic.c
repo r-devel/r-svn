@@ -419,6 +419,15 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 	    double x1 = SCALAR_DVAL(arg1);
 	    if (IS_SCALAR(arg2, REALSXP)) {
 		double x2 = SCALAR_DVAL(arg2);
+		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
+		    /* as in real_binary(); myfmod() can warn, so compute
+		       before allocating */
+		    double val = (PRIMVAL(op) == MODOP) ?
+			myfmod(x1, x2) : myfloor(x1, x2);
+		    ans = ScalarValue2(arg1, arg2);
+		    SET_SCALAR_DVAL(ans, val);
+		    return ans;
+		}
 		ans = ScalarValue2(arg1, arg2);
 		switch (PRIMVAL(op)) {
 		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
@@ -430,6 +439,13 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else if (IS_SCALAR(arg2, INTSXP)) {
 		int i2 = SCALAR_IVAL(arg2);
 		double x2 = i2 != NA_INTEGER ? (double) i2 : NA_REAL;
+		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
+		    double val = (PRIMVAL(op) == MODOP) ?
+			myfmod(x1, x2) : myfloor(x1, x2);
+		    ans = ScalarValue1(arg1);
+		    SET_SCALAR_DVAL(ans, val);
+		    return ans;
+		}
 		ans = ScalarValue1(arg1);
 		switch (PRIMVAL(op)) {
 		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
@@ -444,6 +460,13 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (IS_SCALAR(arg2, REALSXP)) {
 		double x1 = i1 != NA_INTEGER ? (double) i1 : NA_REAL;
 		double x2 = SCALAR_DVAL(arg2);
+		if (PRIMVAL(op) == MODOP || PRIMVAL(op) == IDIVOP) {
+		    double val = (PRIMVAL(op) == MODOP) ?
+			myfmod(x1, x2) : myfloor(x1, x2);
+		    ans = ScalarValue1(arg2);
+		    SET_SCALAR_DVAL(ans, val);
+		    return ans;
+		}
 		ans = ScalarValue1(arg2);
 		switch (PRIMVAL(op)) {
 		case PLUSOP: SET_SCALAR_DVAL(ans, x1 + x2); return ans;
@@ -473,6 +496,31 @@ attribute_hidden SEXP do_arith(SEXP call, SEXP op, SEXP args, SEXP env)
 		    return ans;
 		case DIVOP:
 		    return ScalarReal(R_integer_divide(i1, i2));
+		case MODOP:
+		    {
+			/* as in integer_binary() */
+			int val;
+			if (i1 == NA_INTEGER || i2 == NA_INTEGER || i2 == 0)
+			    val = NA_INTEGER;
+			else if (i1 >= 0 && i2 > 0)
+			    val = i1 % i2;
+			else
+			    val = (int) myfmod((double) i1, (double) i2);
+			ans = ScalarValue2(arg1, arg2);
+			SET_SCALAR_IVAL(ans, val);
+			return ans;
+		    }
+		case IDIVOP:
+		    {
+			int val;
+			if (i1 == NA_INTEGER || i2 == NA_INTEGER || i2 == 0)
+			    val = NA_INTEGER;
+			else
+			    val = (int) floor((double) i1 / (double) i2);
+			ans = ScalarValue2(arg1, arg2);
+			SET_SCALAR_IVAL(ans, val);
+			return ans;
+		    }
 		}
 	    }
 	}
