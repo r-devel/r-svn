@@ -1076,6 +1076,22 @@ static void handle_eval_depth_overflow(void)
     R_signalErrorCondition(cond, R_NilValue);
 }
 
+/* Keep the context for profiling and foreign-call tracebacks off the
+   evaluators' stacks when it is not needed. */
+static R_NOINLINE
+SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    RCNTXT cntxt;
+    SEXP oldref = R_Srcref;
+    begincontext(&cntxt, CTXT_BUILTIN, call,
+		 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
+    R_Srcref = NULL;
+    SEXP value = PRIMFUN(op) (call, op, args, rho);
+    R_Srcref = oldref;
+    endcontext(&cntxt);
+    return value;
+}
+
 /* Return value of "e" evaluated in "rho". */
 
 /* some places, e.g. deparse2buff, call this with a promise and rho = NULL */
@@ -1245,19 +1261,12 @@ SEXP eval(SEXP e, SEXP rho)
 	else if (TYPEOF(op) == BUILTINSXP) {
 	    int save = R_PPStackTop, flag = PRIMPRINT(op);
 	    const void *vmax = vmaxget();
-	    RCNTXT cntxt;
 	    PROTECT(tmp = evalList(CDR(e), rho, e, 0));
 	    if (flag < 2) R_Visible = flag != 1;
 	    /* We used to insert a context only if profiling,
 	       but helps for tracebacks on .C etc. */
 	    if (R_Profiling || (PPINFO(op).kind == PP_FOREIGN)) {
-		SEXP oldref = R_Srcref;
-		begincontext(&cntxt, CTXT_BUILTIN, e,
-			     R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-		R_Srcref = NULL;
-		tmp = PRIMFUN(op) (e, op, tmp, rho);
-		R_Srcref = oldref;
-		endcontext(&cntxt);
+		tmp = eval_builtin_with_context(e, op, tmp, rho);
 	    } else {
 		tmp = PRIMFUN(op) (e, op, tmp, rho);
 	    }
@@ -2437,14 +2446,7 @@ SEXP R_forceAndCall(SEXP e, int n, SEXP rho)
 	/* We used to insert a context only if profiling,
 	   but helps for tracebacks on .C etc. */
 	if (R_Profiling || (PPINFO(fun).kind == PP_FOREIGN)) {
-	    RCNTXT cntxt;
-	    SEXP oldref = R_Srcref;
-	    begincontext(&cntxt, CTXT_BUILTIN, e,
-			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-	    R_Srcref = NULL;
-	    tmp = PRIMFUN(fun) (e, fun, tmp, rho);
-	    R_Srcref = oldref;
-	    endcontext(&cntxt);
+	    tmp = eval_builtin_with_context(e, fun, tmp, rho);
 	} else {
 	    tmp = PRIMFUN(fun) (e, fun, tmp, rho);
 	}
@@ -8142,14 +8144,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	R_Visible = flag != 1;
 	SEXP value;
 	if (R_Profiling && IS_TRUE_BUILTIN(fun)) {
-	    RCNTXT cntxt;
-	    SEXP oldref = R_Srcref;
-	    begincontext(&cntxt, CTXT_BUILTIN, call,
-			 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
-	    R_Srcref = NULL;
-	    value = PRIMFUN(fun) (call, fun, args, rho);
-	    R_Srcref = oldref;
-	    endcontext(&cntxt);
+	    value = eval_builtin_with_context(call, fun, args, rho);
 	} else {
 	    value = PRIMFUN(fun) (call, fun, args, rho);
 	}
