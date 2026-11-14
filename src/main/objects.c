@@ -477,9 +477,6 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
     return ans;
 }
 
-#define IS_USER_DATABASE(rho) \
-    (OBJECT((rho)) && inherits((rho), "UserDefinedDatabase"))
-
 /* A method is bound to a symbol, so if no symbol of its name exists
    there is no method, and no need to create the symbol or to look.
    The exception is a user-defined database, which is asked by name and
@@ -503,7 +500,7 @@ static Rboolean methodsHaveSymbols(SEXP callrho, SEXP defrho)
 
 /* R_LookupMethod() for the method generic.klass, with *method set to its
    symbol.  If probe is TRUE and that symbol does not exist, it is not
-   created and nothing is looked up. */
+   created (*method is NULL) and nothing is looked up. */
 static SEXP lookupS3Signature(const char *generic, const char *klass,
 			      Rboolean probe,
 			      SEXP rho, SEXP callrho, SEXP defrho,
@@ -511,7 +508,7 @@ static SEXP lookupS3Signature(const char *generic, const char *klass,
 {
     *method = probe ? R_findS3Signature(generic, klass)
 	: installS3Signature(generic, klass);
-    if (*method == R_NilValue)
+    if (*method == NULL)
 	return R_UnboundValue;
     return R_LookupMethod(*method, rho, callrho, defrho);
 }

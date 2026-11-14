@@ -1264,6 +1264,16 @@ attribute_hidden void InitNames(void)
 }
 
 
+/* The symbol named "name" in bucket i of the symbol table, or NULL if
+   that symbol does not exist. */
+static R_INLINE SEXP findSymbol(const char *name, int i)
+{
+    for (SEXP sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
+	if (strcmp(name, CHAR(PRINTNAME(CAR(sym)))) == 0)
+	    return CAR(sym);
+    return NULL;
+}
+
 /*  install - probe the symbol table */
 /*  If "name" is not found, it is installed in the symbol table.
     The symbol corresponding to the string "name" is returned. */
@@ -1276,8 +1286,9 @@ SEXP install(const char *name)
     hashcode = R_Newhashpjw(name);
     i = hashcode % HSIZE;
     /* Check to see if the symbol is already present;  if it is, return it. */
-    for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
-	if (strcmp(name, CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
+    sym = findSymbol(name, i);
+    if (sym != NULL)
+	return sym;
     /* Create a new symbol node and link it into the table. */
     if (*name == '\0')
 	error(_("attempt to use zero-length variable name"));
@@ -1309,8 +1320,9 @@ SEXP installNoTrChar(SEXP charSXP)
     }
     i = hashcode % HSIZE;
     /* Check to see if the symbol is already present;  if it is, return it. */
-    for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
-	if (strcmp(CHAR(charSXP), CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
+    sym = findSymbol(CHAR(charSXP), i);
+    if (sym != NULL)
+	return sym;
     /* Create a new symbol node and link it into the table. */
     int len = LENGTH(charSXP);
     if (len == 0)
@@ -1379,8 +1391,8 @@ SEXP installS3Signature(const char *className, const char *methodName) {
 }
 
 /* The symbol installS3Signature() would return, if it exists already,
-   and R_NilValue otherwise: the symbol is not created.  A name that is
-   too long is left to installS3Signature(), for the error. */
+   and NULL otherwise: the symbol is not created.  A name that is too
+   long is left to installS3Signature(), for the error. */
 attribute_hidden
 SEXP R_findS3Signature(const char *className, const char *methodName)
 {
@@ -1389,14 +1401,7 @@ SEXP R_findS3Signature(const char *className, const char *methodName)
     if (! S3Signature(signature, className, methodName))
 	return installS3Signature(className, methodName);
 
-    int hashcode = R_Newhashpjw(signature);
-    for (SEXP sym = R_SymbolTable[hashcode % HSIZE];
-	 sym != R_NilValue;
-	 sym = CDR(sym)) {
-	if (strcmp(signature, CHAR(PRINTNAME(CAR(sym)))) == 0)
-	    return CAR(sym);
-    }
-    return R_NilValue;
+    return findSymbol(signature, R_Newhashpjw(signature) % HSIZE);
 }
 
 

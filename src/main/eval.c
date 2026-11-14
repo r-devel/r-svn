@@ -1641,8 +1641,6 @@ static R_INLINE Rboolean R_CheckJIT(SEXP fun)
 
 
 /* FIXME: this should not depend on internals from envir.c but does for now. */
-/* copied from envir.c for now */
-#define IS_USER_DATABASE(rho)  (OBJECT((rho)) && inherits((rho), "UserDefinedDatabase"))
 #define IS_STANDARD_UNHASHED_FRAME(e) (! IS_USER_DATABASE(e) && HASHTAB(e) == R_NilValue)
 #define IS_STANDARD_HASHED_FRAME(e) (! IS_USER_DATABASE(e) && HASHTAB(e) != R_NilValue)
 
@@ -2729,9 +2727,6 @@ attribute_hidden SEXP do_if(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     return (eval(Stmt, rho));
 }
-
-#define IS_USER_DATABASE(rho)					\
-    (OBJECT((rho)) && inherits((rho), "UserDefinedDatabase"))
 
 static R_INLINE SEXP GET_BINDING_CELL(SEXP symbol, SEXP rho)
 {

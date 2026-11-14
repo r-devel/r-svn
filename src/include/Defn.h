@@ -537,6 +537,10 @@ typedef union {
 
 #endif /* USE_RINTERNALS */
 
+/* An environment that looks variables up through an R_ObjectTable */
+#define IS_USER_DATABASE(rho) \
+    (OBJECT((rho)) && inherits((rho), "UserDefinedDatabase"))
+
 #define INCREMENT_LINKS(x) do {			\
 	SEXP il__x__ = (x);			\
 	INCREMENT_NAMED(il__x__);		\
