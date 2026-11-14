@@ -4499,7 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## `$` and `[[` on lists, now matching most names without translating them
+## `$` and `[[` on lists, now matching most names without translating them -- PR#19322
 l <- list(alpha = 1, beta = 2, alphabet = 3, alpha = 4, 5, 6)
 names(l)[5:6] <- c(NA, "")
 f <- compiler::cmpfun(function(x) list(x$alpha, x$be, x[["beta"]], x[["be"]]))
