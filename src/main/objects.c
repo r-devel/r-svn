@@ -31,6 +31,14 @@
 #include <Internal.h>
 #include <R_ext/RS.h> /* for R_Calloc, R_Realloc and for S4 object bit, R_allocObject() */
 
+/* For rarely run code with a large buffer: kept out of line, the buffer
+   is not part of the stack frame of every S3 dispatch. */
+#ifdef __GNUC__
+# define attribute_noinline __attribute__((noinline))
+#else
+# define attribute_noinline
+#endif
+
 static SEXP GetObject(RCNTXT *cptr)
 {
     SEXP s, b, formals, tag;
@@ -351,6 +359,22 @@ SEXP createS3Vars(SEXP dotGeneric, SEXP dotGroup, SEXP dotClass, SEXP dotMethod,
     return v;
 }
 
+#ifndef USEMETHOD_FORWARD_LOCALS
+static attribute_noinline
+SEXP forwardedVarErrorPromise(SEXP sym, const char *generic) {
+
+    char buf[8192];
+
+    snprintf(buf, sizeof(buf),
+	     "stop(\"getting UseMethod variable '%s' "
+	     "from generic '%s'; "
+	     "this is no longer supported\")",
+	     CHAR(PRINTNAME(sym)),
+	     generic);
+
+    return mkPROMISE(R_ParseString(buf), R_GlobalEnv);
+}
+#endif
 
 static
 SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
@@ -406,7 +430,6 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
 		    }
 		}
 		SEXP val;
-		char buf[8192];
 		switch(option) {
 		case 0: // forward all, as in the past before R 4.4.0
 		    UNPROTECT(1); /* newvars */
@@ -439,13 +462,7 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
 				CHAR(PRINTNAME(TAG(s))),
 				generic);
 #endif
-		    snprintf(buf, sizeof(buf),
-			     "stop(\"getting UseMethod variable '%s' "
-			     "from generic '%s'; "
-			     "this is no longer supported\")",
-			     CHAR(PRINTNAME(TAG(s))),
-			     generic);
-		    val = mkPROMISE(R_ParseString(buf), R_GlobalEnv);
+		    val = forwardedVarErrorPromise(TAG(s), generic);
 		    UNPROTECT(1); /* newvars */
 		    newvars = PROTECT(CONS(val, newvars));
 		    SET_TAG(newvars, TAG(s));
