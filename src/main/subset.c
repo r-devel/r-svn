@@ -952,6 +952,26 @@ attribute_hidden SEXP do_subset2(SEXP call, SEXP op, SEXP args, SEXP rho)
     return do_subset2_dflt(call, op, ans, rho);
 }
 
+/* Are the arguments of [[ those of x[["name"]], for a list 'x' without
+   dims? */
+static R_INLINE bool isListNameSubset2(SEXP args)
+{
+    SEXP x = CAR(args);
+    SEXP subs = CDR(args);
+    SEXP thesub = CAR(subs);
+
+    /* a single string is the only subscript */
+    if (TYPEOF(thesub) != STRSXP || XLENGTH(thesub) != 1 ||
+	CDR(subs) != R_NilValue)
+	return false;
+
+    /* without tags there is no 'drop' or 'exact' argument */
+    if (TAG(args) != R_NilValue || TAG(subs) != R_NilValue)
+	return false;
+
+    return TYPEOF(x) == VECSXP && getAttrib(x, R_DimSymbol) == R_NilValue;
+}
+
 attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, dims, dimnames, indx, subs, x;
@@ -961,30 +981,25 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     PROTECT(args);
 
-    /* Fast path for x[["name"]] where x is a list without dims: two
-       untagged arguments leave no 'drop' or 'exact' to extract, and
-       what remains of the general code below is done here. */
-    x = CAR(args);
-    subs = CDR(args);
-    if (TYPEOF(CAR(subs)) == STRSXP && XLENGTH(CAR(subs)) == 1 &&
-	CDR(subs) == R_NilValue && TAG(subs) == R_NilValue &&
-	TYPEOF(x) == VECSXP && TAG(args) == R_NilValue &&
-	getAttrib(x, R_DimSymbol) == R_NilValue) {
-	SEXP thesub = CAR(subs);
+    /* Fast path for x[["name"]]: the general code below reduces to this
+       for a list without dims. */
+    if (isListNameSubset2(args)) {
+	x = CAR(args);
+	SEXP thesub = CADR(args);
 	SEXP xnames = PROTECT(getAttrib(x, R_NamesSymbol));
 	offset = get1index(thesub, xnames, XLENGTH(x),
 			   /*partial ok*/FALSE, -1, call);
 	UNPROTECT(1); /* xnames */
+
 	if (offset < 0) {
 	    UNPROTECT(1); /* args */
 	    return R_NilValue;
 	}
 	if (offset >= XLENGTH(x))
 	    errorcallOutOfBoundsSEXP(x, -1, thesub, call);
+
 	ans = VECTOR_ELT(x, offset);
-#ifndef SWITCH_TO_REFCNT
 	RAISE_NAMED(ans, NAMED(x));
-#endif
 	UNPROTECT(1); /* args */
 	return ans;
     }
@@ -1233,13 +1248,18 @@ pstrmatch(SEXP target, const char *si, size_t slen)
 }
 
 /* pstrmatch() for the names of a vector list, where 'si' is the
-   translated input and 'slen', its length, is not zero.  Names are
-   mostly ASCII strings from the CHARSXP cache: the same CHARSXP is an
-   exact match, and an ASCII name needs no translation.
+   translated 'input'.  Names are mostly ASCII strings from the CHARSXP
+   cache: the same CHARSXP is an exact match, and an ASCII name needs no
+   translation.
  */
 static R_INLINE enum pmatch
 pstrmatchName(SEXP target, SEXP input, const char *si, size_t slen)
 {
+    /* An empty input matches nothing, but the name is still translated,
+       which fails for a "bytes" one. */
+    if (slen == 0)
+	return pstrmatch(target, si, slen);
+
     if (target == input)
 	return EXACT_MATCH;
 
@@ -1393,14 +1413,8 @@ attribute_hidden SEXP R_subset3_dflt(SEXP x, SEXP input, SEXP call)
 
 	n = xlength(nlist);
 	havematch = 0;
-	/* An empty input matches nothing, but each name is still
-	   translated, which fails for a "bytes" one: that is left to
-	   pstrmatch(). */
-	bool fast = (slen > 0 && TYPEOF(nlist) == STRSXP);
 	for (i = 0 ; i < n ; i = i + 1) {
-	    SEXP name = STRING_ELT(nlist, i);
-	    switch(fast ? pstrmatchName(name, input, si, slen) :
-		   pstrmatch(name, si, slen)) {
+	    switch(pstrmatchName(STRING_ELT(nlist, i), input, si, slen)) {
 	    case EXACT_MATCH:
 		y = VECTOR_ELT(x, i);
 		RAISE_NAMED(y, NAMED(x));

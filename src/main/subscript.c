@@ -203,6 +203,20 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
     return indx;
 }
 
+/* Is the name 'name' the string 'key', which translates to 'ss'?  Names
+   are mostly ASCII strings from the CHARSXP cache: the same CHARSXP is
+   a match, and an ASCII name needs no translation.
+ */
+static R_INLINE bool isSameName(SEXP name, SEXP key, const char *ss)
+{
+    if (name == key)
+	return true;
+
+    const char *sn = IS_ASCII(name) ? CHAR(name) : translateChar(name);
+    /* most names differ in the first character */
+    return sn[0] == ss[0] && streql(sn, ss);
+}
+
 /* used here and in subset.c and subassign.c */
 attribute_hidden R_xlen_t
 get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
@@ -282,17 +296,10 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	R_xlen_t nnames = xlength(names);
 	for (R_xlen_t i = 0; i < nnames; i++) {
 	    SEXP name = STRING_ELT(names, i);
-	    if (name == NA_STRING)
-		continue;
-	    /* The same CHARSXP is a match, and an ASCII name needs no
-	       translation. */
-	    if (name != key) {
-		cur_name = IS_ASCII(name) ? CHAR(name) : translateChar(name);
-		if (cur_name[0] != ss[0] || !streql(cur_name, ss))
-		    continue;
+	    if (name != NA_STRING && isSameName(name, key, ss)) {
+		indx = i;
+		break;
 	    }
-	    indx = i;
-	    break;
 	}
 	/* Try for partial match */
 	if (pok && indx < 0) {
