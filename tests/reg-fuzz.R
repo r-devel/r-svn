@@ -176,6 +176,13 @@ tools::assertError(format(y, "%Y", usetz = TRUE))
 ## overflowed a stack buffer, typically aborting, in R <= 4.6.2
 
 
+## strptime(<day-of-year>, "%j") with day 366 in a non-leap year
+year <- as.POSIXlt(Sys.time())$year + 1900L
+leap <- year %% 4L == 0L && (year %% 100L != 0L || year %% 400L == 0L)
+stopifnot(is.na(strptime("366", "%j")) == !leap)
+## read past the end of month_days[] in R <= 4.6.2
+
+
 
 
 ## keep at end
