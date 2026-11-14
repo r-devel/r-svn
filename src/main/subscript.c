@@ -269,21 +269,31 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	break;
     }
     case STRSXP:
+    {
+	SEXP key = STRING_ELT(s, pos);
 	/* NA matches nothing */
-	if(STRING_ELT(s, pos) == NA_STRING) break;
+	if(key == NA_STRING) break;
 	/* "" matches nothing: see names.Rd */
-	if(!CHAR(STRING_ELT(s, pos))[0]) break;
+	if(!CHAR(key)[0]) break;
 
 	/* Try for exact match */
 	vmax = vmaxget();
-	ss = translateChar(STRING_ELT(s, pos));
-	for (R_xlen_t i = 0; i < xlength(names); i++)
-	    if (STRING_ELT(names, i) != NA_STRING) {
-		if (streql(translateChar(STRING_ELT(names, i)), ss)) {
-		    indx = i;
-		    break;
-		}
+	ss = translateChar(key);
+	R_xlen_t nnames = xlength(names);
+	for (R_xlen_t i = 0; i < nnames; i++) {
+	    SEXP name = STRING_ELT(names, i);
+	    if (name == NA_STRING)
+		continue;
+	    /* The same CHARSXP is a match, and an ASCII name needs no
+	       translation. */
+	    if (name != key) {
+		cur_name = IS_ASCII(name) ? CHAR(name) : translateChar(name);
+		if (cur_name[0] != ss[0] || !streql(cur_name, ss))
+		    continue;
 	    }
+	    indx = i;
+	    break;
+	}
 	/* Try for partial match */
 	if (pok && indx < 0) {
 	    size_t len = strlen(ss);
@@ -317,6 +327,7 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	}
 	vmaxset(vmax);
 	break;
+    }
     case SYMSXP:
 	if (s == R_MissingArg) {
 	    ECALL_MissingSubs(call);
