@@ -1078,10 +1078,8 @@ static void handle_eval_depth_overflow(void)
 
 /* Keep the context for profiling and foreign-call tracebacks off the
    evaluators' stacks when it is not needed. */
-#ifdef __GNUC__
-__attribute__((noinline))
-#endif
-static SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
+static R_NOINLINE
+SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     RCNTXT cntxt;
     SEXP oldref = R_Srcref;
