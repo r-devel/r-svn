@@ -477,57 +477,173 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
     return ans;
 }
 
+#define IS_USER_DATABASE(rho) \
+    (OBJECT((rho)) && inherits((rho), "UserDefinedDatabase"))
+
+/* A method is bound to a symbol, so if no symbol of its name exists
+   there is no method, and no need to create the symbol or to look.
+   The exception is a user-defined database, which is asked by name and
+   can supply a value for any name: FALSE if the lookup could reach
+   one.  R_LookupMethod() searches from callrho to the global
+   environment at most, then the base environment; the registry in
+   defrho is an environment R creates itself. */
+static Rboolean methodsHaveSymbols(SEXP callrho, SEXP defrho)
+{
+    /* R_LookupMethod() signals an error for what is not an environment */
+    if (TYPEOF(defrho) != ENVSXP || IS_USER_DATABASE(defrho))
+	return FALSE;
+    for (SEXP env = callrho; env != R_EmptyEnv; env = ENCLOS(env)) {
+	if (TYPEOF(env) != ENVSXP || IS_USER_DATABASE(env))
+	    return FALSE;
+	if (env == R_GlobalEnv)
+	    break;
+    }
+    return TRUE;
+}
+
+/* R_LookupMethod() for the method generic.klass, with *method set to its
+   symbol.  If probe is TRUE and that symbol does not exist, it is not
+   created and nothing is looked up. */
+static SEXP lookupS3Signature(const char *generic, const char *klass,
+			      Rboolean probe,
+			      SEXP rho, SEXP callrho, SEXP defrho,
+			      SEXP *method)
+{
+    *method = probe ? R_findS3Signature(generic, klass)
+	: installS3Signature(generic, klass);
+    if (*method == R_NilValue)
+	return R_UnboundValue;
+    return R_LookupMethod(*method, rho, callrho, defrho);
+}
+
+/* The method usemethod() dispatches to for the class vector klass, or
+   R_UnboundValue if there is none.  *method is set to its symbol and
+   *which to the index of its class, the number of classes for a
+   default method. */
+static SEXP findS3Method(const char *generic, SEXP klass,
+			 SEXP rho, SEXP callrho, SEXP defrho,
+			 SEXP *method, int *which)
+{
+    int nclass = length(klass);
+    Rboolean probe = methodsHaveSymbols(callrho, defrho);
+
+    for (int i = 0; i < nclass; i++) {
+	const void *vmax = vmaxget();
+	const char *ss = translateChar(STRING_ELT(klass, i));
+	SEXP sxp = lookupS3Signature(generic, ss, probe,
+				     rho, callrho, defrho, method);
+	vmaxset(vmax);
+	if (isFunction(sxp)) {
+	    if(*method == R_SortListSymbol && CLOENV(sxp) == R_BaseNamespace)
+		continue; /* kludge because sort.list is not a method */
+	    *which = i;
+	    return sxp;
+	}
+    }
+    *which = nclass;
+    return lookupS3Signature(generic, "default", probe,
+			     rho, callrho, defrho, method);
+}
+
+/* Dispatch from the context of the generic to a method that
+   findS3Method() found. */
+static SEXP dispatchS3Method(SEXP sxp, SEXP method, SEXP klass, int which,
+			     const char *generic,
+			     SEXP rho, SEXP callrho, SEXP defrho)
+{
+    RCNTXT *cptr = R_GlobalContext;
+    SEXP dotClass = klass, ans;
+    int nprotect = 1;
+
+    PROTECT(sxp);
+    if (which >= length(klass)) {
+	dotClass = R_NilValue; /* default method */
+    } else if (which > 0) {
+	PROTECT(dotClass = stringSuffix(klass, which)); nprotect++;
+	setAttrib(dotClass, R_PreviousSymbol, klass);
+    }
+    ans = dispatchMethod(cptr->callfun, sxp, dotClass, cptr, method, generic,
+			 rho, callrho, defrho);
+    UNPROTECT(nprotect); /* sxp, dotClass */
+    return ans;
+}
+
 attribute_hidden
 int usemethod(const char *generic, SEXP obj, SEXP call, SEXP args,
 	      SEXP rho, SEXP callrho, SEXP defrho, SEXP *ans)
 {
     SEXP klass, method, sxp;
-    SEXP op;
-    int i, nclass;
+    int which;
     RCNTXT *cptr;
 
     /* Get the context which UseMethod was called from. */
 
     cptr = R_GlobalContext;
-    op = cptr->callfun;
     PROTECT(klass = R_data_class2(obj));
 
-    nclass = length(klass);
-    for (i = 0; i < nclass; i++) {
-	const void *vmax = vmaxget();
-	const char *ss = translateChar(STRING_ELT(klass, i));
-	method = installS3Signature(generic, ss);
-	vmaxset(vmax);
-	sxp = R_LookupMethod(method, rho, callrho, defrho);
-	if (isFunction(sxp)) {
-	    if(method == R_SortListSymbol && CLOENV(sxp) == R_BaseNamespace)
-		continue; /* kludge because sort.list is not a method */
-	    PROTECT(sxp);
-	    if (i > 0) {
-		SEXP dotClass = PROTECT(stringSuffix(klass, i));
-		setAttrib(dotClass, R_PreviousSymbol, klass);
-		*ans = dispatchMethod(op, sxp, dotClass, cptr, method, generic,
-				      rho, callrho, defrho);
-		UNPROTECT(1); /* dotClass */
-	    } else {
-		*ans = dispatchMethod(op, sxp, klass, cptr, method, generic,
-				      rho, callrho, defrho);
-	    }
-	    UNPROTECT(2); /* klass, sxp */
-	    return 1;
-	}
-    }
-    method = installS3Signature(generic, "default");
-    PROTECT(sxp = R_LookupMethod(method, rho, callrho, defrho));
+    sxp = findS3Method(generic, klass, rho, callrho, defrho, &method, &which);
     if (isFunction(sxp)) {
-	*ans = dispatchMethod(op, sxp, R_NilValue, cptr, method, generic,
-			      rho, callrho, defrho);
-	UNPROTECT(2); /* klass, sxp */
+	*ans = dispatchS3Method(sxp, method, klass, which, generic,
+				rho, callrho, defrho);
+	UNPROTECT(1); /* klass */
 	return 1;
     }
-    UNPROTECT(2); /* klass, sxp */
+    UNPROTECT(1); /* klass */
     cptr->callflag = CTXT_RETURN;
     return 0;
+}
+
+/* Internal generics dispatch from a context they set up for that, with
+   promises for their arguments, and most classed objects have no
+   method for them.  So they look for the method first: FALSE means
+   that usemethod() would find none.  Otherwise found->fun is the
+   method, or R_NilValue if the lookup is left to usemethod(): for S4
+   objects, and for class names it translates or signals an error for,
+   which has to happen in the context of the dispatch. */
+attribute_hidden
+Rboolean R_LookupInternalMethod(const char *generic, SEXP x, SEXP rho,
+				R_S3lookup_t *found)
+{
+    found->fun = R_NilValue;
+    if (IS_S4_OBJECT(x))
+	return TRUE;
+
+    SEXP klass = getAttrib(x, R_ClassSymbol);
+    if (TYPEOF(klass) != STRSXP || LENGTH(klass) == 0)
+	return TRUE;
+
+    int nclass = LENGTH(klass);
+    size_t ngeneric = strlen(generic);
+    for (int i = 0; i < nclass; i++) {
+	SEXP s = STRING_ELT(klass, i);
+	if (! IS_ASCII(s) || ngeneric + LENGTH(s) + 1 >= MAXS3SIGSIZE)
+	    return TRUE;
+    }
+
+    SEXP sxp = findS3Method(generic, klass, rho, rho, R_BaseEnv,
+			    &found->name, &found->which);
+    if (! isFunction(sxp))
+	return FALSE;
+
+    found->fun = sxp;
+    found->klass = klass;
+    return TRUE;
+}
+
+/* usemethod() for an internal generic, from the context it has set up,
+   given the result of R_LookupInternalMethod(). */
+attribute_hidden
+int R_DispatchInternalMethod(const char *generic, SEXP obj, SEXP call,
+			     SEXP args, SEXP rho, SEXP callrho,
+			     const R_S3lookup_t *found, SEXP *ans)
+{
+    if (found->fun == R_NilValue)
+	return usemethod(generic, obj, call, args, rho, callrho, R_BaseEnv,
+			 ans);
+
+    *ans = dispatchS3Method(found->fun, found->name, found->klass,
+			    found->which, generic, rho, callrho, R_BaseEnv);
+    return 1;
 }
 
 /* Note: "do_usemethod" is not the only entry point to
@@ -869,15 +985,16 @@ attribute_hidden SEXP do_nextmethod(SEXP call, SEXP op, SEXP args, SEXP env)
 	   how many classes to drop. */
 
     sg = translateChar(STRING_ELT(generic, 0));
+    Rboolean probe = methodsHaveSymbols(callenv, defenv);
     for (i = j ; i < LENGTH(klass); i++) {
 	sk = translateChar(STRING_ELT(klass, i));
-	nextfunSignature = installS3Signature(sg, sk);
-	nextfun = R_LookupMethod(nextfunSignature, env, callenv, defenv);
+	nextfun = lookupS3Signature(sg, sk, probe, env, callenv, defenv,
+				    &nextfunSignature);
 	if (isFunction(nextfun)) break;
 	if (group != R_UnboundValue) {
 	    /* if not Generic.foo, look for Group.foo */
-	    nextfunSignature = installS3Signature(sb, sk);
-	    nextfun = R_LookupMethod(nextfunSignature, env, callenv, defenv);
+	    nextfun = lookupS3Signature(sb, sk, probe, env, callenv, defenv,
+					&nextfunSignature);
 	    if(isFunction(nextfun))
 		break;
 	}
