@@ -4499,7 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## internal generics look for the S3 method before setting up its dispatch
+## internal generics look for the S3 method before setting up its dispatch -- PR#19320
 mkO <- function(cl) structure(list(a = 1, bb = 2), class = cl)
 setClass("S4lst", contains = "list")
 for (compiled in c(FALSE, TRUE)) {
