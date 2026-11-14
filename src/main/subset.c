@@ -1161,7 +1161,7 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
    value is taken from the vector when the call can only reach the code
    above: `[[` is the primitive, x is a list or atomic vector without a
    class and i a single index in range.  That is decided for each call
-   from what evaluating it in rho would find, without running R code. */
+   from what evaluating it in rho would find. */
 
 /* The value of a constant, or of a variable in the frame of rho (where
    those functions keep theirs), or NULL if getting it would run R code:
