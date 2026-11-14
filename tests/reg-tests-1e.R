@@ -4499,6 +4499,73 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## JIT compilation of functions sharing a cached function's body -- PR#19308
+is.compiled <- function(f) typeof(.Internal(bodyCode(f))) == "bytecode"
+f1 <- function(x) { for (i in x) NULL }
+f1(1); f1(1)
+if(is.compiled(f1)) { # not when the JIT is disabled
+    f2 <- function(x, y) { for (i in x) NULL }
+    f2(1); f2(1)
+    ## `(` is inlined without a guard, so f5 cannot use the code of f3
+    fn <- quote(function(x) { for (i in x) x <- i; (x) })
+    f3 <- eval(fn, new.env())
+    f4 <- eval(fn, new.env())
+    f5 <- eval(fn, list2env(list("(" = function(...) "local")))
+    f6 <- eval(fn, new.env())
+    for(i in 1:3)
+        r <- list(f3(1:3), f4(1:3), f5(1:3), f6(1:3))
+    stopifnot(is.compiled(f2), is.compiled(f3), is.compiled(f4),
+              is.compiled(f5), is.compiled(f6),
+              identical(r, list(3L, 3L, "local", 3L)))
+    ## nor can a function defining `(` in a default argument
+    f7 <- function(x = 1:3) { for (i in x) NULL; (i) }
+    f8 <- function(x = { `(` <- function(...) "local"; 1:3 })
+        { for (i in x) NULL; (i) }
+    r <- list(f7(), f7(), f8(), f8())
+    stopifnot(is.compiled(f8), identical(r, list(3L, 3L, "local", "local")))
+    ## environments that do not lead to a top level environment
+    f9 <- f10 <- function(x) { for (i in x) NULL }
+    environment(f9) <- new.env(hash = FALSE, parent = emptyenv())
+    environment(f10) <- list2env(list("{" = function(...) "local"),
+                                 parent = emptyenv())
+    for(i in 1:3)
+        r <- list(tryCid(f9(1)), f10(1))
+    stopifnot(inherits(r[[1]], "error"), identical(r[[2]], "local"))
+    ## defaults are compared: neither a long vector nor deep nesting nor
+    ## shared subexpressions there may break a call supplying the argument
+    deep <- function(n) { e <- quote(x); for(k in 1:n) e <- call("(", e); e }
+    dag <- function(n) { e <- quote(x); for(k in 1:n) e <- call("+", e, e); e }
+    nest <- function(n) { l <- list(); for(k in 1:n) l <- list(l); l }
+    defaults <- list(structure(1, a = nest(10000)),
+                     structure(1, a = nest(10000)),
+                     call("function", NULL, deep(10000)),
+                     call("function", NULL, deep(10000)),
+                     call("function", NULL, dag(50)),
+                     call("function", NULL, dag(50)),
+                     call("quote", as.character(1:10))) # deferred strings
+    if(.Machine$sizeof.pointer >= 8)
+        defaults <- c(list(1:2147483648), defaults) # a compact sequence
+    for(d in defaults) {
+        ## not with formals<-, which copies shared subexpressions
+        f11 <- eval(call("function", as.pairlist(list(x = d)),
+                         quote({ for (i in 1L) NULL; x })))
+        stopifnot(identical(f11(0L), 0L), is.compiled(f11))
+    }
+    ## nor keep them alive, nor the environment of a formula, nor
+    ## attributes of the formals
+    fin <- 0
+    e1 <- new.env(); e2 <- new.env(); e3 <- new.env()
+    for(e in list(e1, e2, e3)) reg.finalizer(e, function(e) fin <<- fin + 1)
+    fo <- ~ x
+    environment(fo) <- e2
+    fs <- structure(as.pairlist(list(x = e1, y = fo)), payload = e3)
+    f12 <- eval(call("function", fs, quote({ for (i in 1L) NULL; x })))
+    f12(0L)
+    rm(e, e1, e2, e3, fo, fs, f12); invisible(gc())
+    stopifnot(fin == 3)
+}
+## f2 and f4-f6 were never compiled, f8 gave 3L and f9 hung in R <= 4.6.2
+
 
 
 ## keep at end
