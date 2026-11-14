@@ -2236,6 +2236,21 @@ static R_INLINE SEXP handle_exec_continuation(SEXP val)
 static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
                                    SEXP rho, SEXP arglist, SEXP op);
 
+/* Is 'e' its own value?  Only these types need evaluating. */
+static R_INLINE Rboolean isSelfEvaluating(SEXP e)
+{
+    switch (TYPEOF(e)) {
+    case SYMSXP:
+    case LANGSXP:
+    case PROMSXP:
+    case BCODESXP:
+    case DOTSXP:
+	return FALSE;
+    default:
+	return TRUE;
+    }
+}
+
 static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 				  SEXP suppliedvars)
 {
@@ -2292,22 +2307,12 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
     while (f != R_NilValue) {
 	if (CAR(a) == R_MissingArg && CAR(f) != R_MissingArg) {
 	    SEXP dflt = CAR(f);
-	    switch (TYPEOF(dflt)) {
-	    case SYMSXP:
-	    case LANGSXP:
-	    case PROMSXP:
-	    case BCODESXP:
-	    case DOTSXP:
+	    if (constDefaults && isSelfEvaluating(dflt)) {
+		MARK_NOT_MUTABLE(dflt);
+		SETCAR(a, dflt);
+	    }
+	    else {
 		SETCAR(a, mkPROMISE(dflt, newrho));
-		break;
-	    default:
-		if (constDefaults) {
-		    MARK_NOT_MUTABLE(dflt);
-		    SETCAR(a, dflt);
-		}
-		else {
-		    SETCAR(a, mkPROMISE(dflt, newrho));
-		}
 	    }
 	    SET_MISSING(a, 2);
 	}
