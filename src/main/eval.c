@@ -5755,15 +5755,22 @@ static R_INLINE SEXP BINDING_VALUE(SEXP loc)
 # define CACHE_ON_STACK
 # ifdef CACHE_ON_STACK
 typedef R_bcstack_t * R_binding_cache_t;
+/* An empty entry is NULL rather than R_NilValue, so that a new cache
+   can be cleared with memset(). The cache itself is never NULL. */
+#  define VCACHE_EMPTY NULL
+/* Entries of a new cache that are cleared inline; memset() is only
+   called for a larger cache. Most caches are no larger, as the code
+   of a promise rarely has more than a few constants. */
+#  define VCACHE_NCLEAR 12
 #  define VCACHE(i) GETSTACK_SXPVAL_PTR(vcache + (i))
-#  define GET_CACHED_BINDING_CELL(vcache, sidx) \
-    (vcache ? VCACHE(CACHEIDX(sidx)) : R_NilValue)
+#  define GET_CACHED_BINDING_CELL(vcache, sidx) VCACHE(CACHEIDX(sidx))
 #  define GET_SMALLCACHE_BINDING_CELL(vcache, sidx) VCACHE(sidx)
 
 #  define SET_CACHED_BINDING(vcache, sidx, cell) \
-    do { if (vcache) VCACHE(CACHEIDX(sidx)) = (cell); } while (0)
+    do { VCACHE(CACHEIDX(sidx)) = (cell); } while (0)
 # else
 typedef SEXP R_binding_cache_t;
+#  define VCACHE_EMPTY R_NilValue
 #  define GET_CACHED_BINDING_CELL(vcache, sidx) \
     (vcache ? VECTOR_ELT(vcache, CACHEIDX(sidx)) : R_NilValue)
 #  define GET_SMALLCACHE_BINDING_CELL(vcache, sidx) \
@@ -5774,6 +5781,7 @@ typedef SEXP R_binding_cache_t;
 # endif
 #else
 typedef void *R_binding_cache_t;
+# define VCACHE_EMPTY R_NilValue
 # define GET_CACHED_BINDING_CELL(vcache, sidx) R_NilValue
 # define GET_SMALLCACHE_BINDING_CELL(vcache, sidx) R_NilValue
 
@@ -5785,17 +5793,17 @@ static R_INLINE SEXP GET_BINDING_CELL_CACHE(SEXP symbol, SEXP rho,
 {
     SEXP cell = GET_CACHED_BINDING_CELL(vcache, idx);
     /* The value returned by GET_CACHED_BINDING_CELL is either a
-       binding cell or R_NilValue.  TAG(R_NilValue) is R_NilValue, and
-       that will not equal symbol. So a separate test for cell !=
-       R_NilValue is not needed. */
-    if (TAG(cell) == symbol && ! BNDCELL_UNBOUND(cell))
+       binding cell or VCACHE_EMPTY. That can be NULL, so it has to
+       be tested for before looking at the cell. */
+    if (cell != VCACHE_EMPTY &&
+	TAG(cell) == symbol && ! BNDCELL_UNBOUND(cell))
 	return cell;
     else {
 	SEXP ncell = GET_BINDING_CELL(symbol, rho);
 	if (ncell != R_NilValue)
 	    SET_CACHED_BINDING(vcache, idx, ncell);
-	else if (cell != R_NilValue && BNDCELL_UNBOUND(cell))
-	    SET_CACHED_BINDING(vcache, idx, R_NilValue);
+	else if (cell != VCACHE_EMPTY && BNDCELL_UNBOUND(cell))
+	    SET_CACHED_BINDING(vcache, idx, VCACHE_EMPTY);
 	return ncell;
     }
 }
@@ -5913,7 +5921,7 @@ static R_INLINE SEXP getvar(SEXP symbol, SEXP rho,
     R_Visible = TRUE;	     \
     if (!dd && smallcache) {						\
 	SEXP cell = GET_SMALLCACHE_BINDING_CELL(vcache, sidx);		\
-	if (cell == R_NilValue) {					\
+	if (cell == VCACHE_EMPTY) {					\
 	    /* make sure local variable cells are cached */		\
 	    SEXP symbol = GETCONST(constants, sidx);			\
 	    cell = GET_BINDING_CELL_CACHE(symbol, rho, vcache, sidx);	\
@@ -7370,18 +7378,19 @@ static R_INLINE struct vcache_info setup_vcache(SEXP body)
     }
 # endif
 # ifdef CACHE_ON_STACK
-    /* initialize binding cache on the stack */
-    if (R_BCNodeStackTop + n + 1 > R_BCNodeStackEnd)
+    /* initialize binding cache on the stack; the fixed-size clear can
+       run past the end of a small cache, into stack that is not in
+       use, so there has to be room for it */
+    if (R_BCNodeStackTop + n + 1 + VCACHE_NCLEAR > R_BCNodeStackEnd)
 	nodeStackOverflow();
     R_BCNodeStackTop->u.ival = (int) n;
     R_BCNodeStackTop->tag = CACHESZ_TAG;
     R_BCNodeStackTop++;
     vcache = R_BCNodeStackTop;
-    while (n > 0) {
-	SETSTACK_NLNK(0, R_NilValue);
-	R_BCNodeStackTop++;
-	n--;
-    }
+    memset(vcache, 0, VCACHE_NCLEAR * sizeof(R_bcstack_t));
+    if (n > VCACHE_NCLEAR)
+	memset(vcache, 0, n * sizeof(R_bcstack_t));
+    R_BCNodeStackTop += n;
 # else
     /* allocate binding cache and protect on stack */
     vcache = allocVector(VECSXP, n);
@@ -7897,7 +7906,9 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	R_bcstack_t *s = R_BCNodeStackTop - 1;
 	int tag = s->tag;
 
-	if (tag == BNDCELL_TAG_WR(loc))
+	if (loc == VCACHE_EMPTY)
+	    loc = R_NilValue; /* no cell yet: defineVar() below */
+	else if (tag == BNDCELL_TAG_WR(loc))
 	    switch (tag) {
 	    case REALSXP: SET_BNDCELL_DVAL(loc, s->u.dval); NEXT();
 	    case INTSXP: SET_BNDCELL_IVAL(loc, s->u.ival); NEXT();

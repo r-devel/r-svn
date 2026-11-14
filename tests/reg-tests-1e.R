@@ -4499,6 +4499,52 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## bytecode binding cache: variables removed, re-created, locked or made active
+x <- "global"
+f <- compiler::cmpfun(function() {
+    x <- 1; a <- x + 1 # 'x' is cached from here on
+    rm(x); b <- x; e <- exists("x", inherits = FALSE)
+    x <- 3; d <- x
+    rm(x); x <- 4L; rm(x); x <- TRUE
+    list(a, b, e, d, x)
+})
+stopifnot(identical(f(), list(2, "global", FALSE, 3, TRUE)))
+f <- compiler::cmpfun(function() {
+    y <- 1; z <- y; rm(y); n <- 5
+    makeActiveBinding("y", function(v) if (missing(v)) 2 * n else n <<- v,
+                      environment())
+    r <- y; y <- 10
+    c(r, y, z)
+})
+stopifnot(identical(f(), c(10, 20, 1)))
+f <- compiler::cmpfun(function() {
+    v <- 1; w <- v; lockBinding("v", environment())
+    r <- tryCatch(v <- 2, error = function(e) "locked")
+    unlockBinding("v", environment()); v <- 3
+    list(r, v, w)
+})
+stopifnot(identical(f(), list("locked", 3, 1)))
+## the code of a promise has a cache of its own
+g <- compiler::cmpfun(function(a) a)
+f <- compiler::cmpfun(function() {
+    p <- 1; r1 <- g(p <- p + 1)
+    r2 <- g({ q <- p * 10; rm(p); q })
+    list(r1, r2, exists("p", inherits = FALSE), q)
+})
+stopifnot(identical(f(), list(2, 20, FALSE, 20)))
+## with more than 256 constants, cache entries are shared
+v <- paste0("v", 1:300)
+f <- compiler::cmpfun(eval(parse(text = c(
+    "function() {", sprintf("%s <- %dL", v, 1:300),
+    sprintf("s <- sum(%s)", paste(v, collapse = ", ")),
+    "rm(v1, v150, v300); v150 <- -150L",
+    sprintf("list(s, exists('v1', inherits = FALSE), sum(%s))",
+            paste(v[2:299], collapse = ", ")),
+    "}"))))
+stopifnot(identical(f(), list(45150L, FALSE, sum(2:299) - 300L)))
+## these have always worked
+
+
 
 
 ## keep at end
