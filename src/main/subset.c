@@ -952,6 +952,34 @@ attribute_hidden SEXP do_subset2(SEXP call, SEXP op, SEXP args, SEXP rho)
     return do_subset2_dflt(call, op, ans, rho);
 }
 
+/* Store one element of the atomic vector x in ans, a new vector of the
+   same type and of length one.  A macro since the compiler does not
+   inline a function with two callers, and `[[` needs to be fast. */
+#define SET_ATOMIC_ELT(ans, x, offset) do {			\
+	switch (TYPEOF(x)) {					\
+	case LGLSXP:						\
+	    LOGICAL0(ans)[0] = LOGICAL_ELT(x, offset);		\
+	    break;						\
+	case INTSXP:						\
+	    INTEGER0(ans)[0] = INTEGER_ELT(x, offset);		\
+	    break;						\
+	case REALSXP:						\
+	    REAL0(ans)[0] = REAL_ELT(x, offset);		\
+	    break;						\
+	case CPLXSXP:						\
+	    COMPLEX0(ans)[0] = COMPLEX_ELT(x, offset);		\
+	    break;						\
+	case STRSXP:						\
+	    SET_STRING_ELT(ans, 0, STRING_ELT(x, offset));	\
+	    break;						\
+	case RAWSXP:						\
+	    RAW0(ans)[0] = RAW_ELT(x, offset);			\
+	    break;						\
+	default:						\
+	    UNIMPLEMENTED_TYPE("do_subset2", x);		\
+	}							\
+    } while (0)
+
 attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, dims, dimnames, indx, subs, x;
@@ -1120,31 +1148,79 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
 #endif
     } else {
 	ans = PROTECT(allocVector(TYPEOF(x), 1));
-	switch (TYPEOF(x)) {
-	case LGLSXP:
-	    LOGICAL0(ans)[0] = LOGICAL_ELT(x, offset);
-	    break;
-	case INTSXP:
-	    INTEGER0(ans)[0] = INTEGER_ELT(x, offset);
-	    break;
-	case REALSXP:
-	    REAL0(ans)[0] = REAL_ELT(x, offset);
-	    break;
-	case CPLXSXP:
-	    COMPLEX0(ans)[0] = COMPLEX_ELT(x, offset);
-	    break;
-	case STRSXP:
-	    SET_STRING_ELT(ans, 0, STRING_ELT(x, offset));
-	    break;
-	case RAWSXP:
-	    RAW0(ans)[0] = RAW_ELT(x, offset);
-	    break;
-	default:
-	    UNIMPLEMENTED_TYPE("do_subset2", x);
-	}
+	SET_ATOMIC_ELT(ans, x, offset);
 	UNPROTECT(1); /* ans */
     }
     UNPROTECT(2); /* args, x */
+    return ans;
+}
+
+/* R_forceAndCall() forces arguments of the form x[[i]] before a call,
+   for lapply(), vapply(), mapply(), eapply() and Reduce() among others.
+   Interpreting such a call costs far more than the extraction, so its
+   value is taken from the vector when the call can only reach the code
+   above: `[[` is the primitive, x is a list or atomic vector without a
+   class and i a single index in range.  That runs no R code, so it is
+   decided for each call from what evaluating it in rho would find. */
+
+/* The value of a constant, or of a variable in the frame of rho (where
+   those functions keep theirs), or NULL if it takes evaluating.  The
+   caller's type checks reject an unbound or missing variable. */
+static R_INLINE SEXP knownValue(SEXP e, SEXP rho)
+{
+    if (TYPEOF(e) != SYMSXP)
+	return e;
+    if (DDVAL(e)) /* ..1 is looked up in ... */
+	return NULL;
+
+    SEXP val = R_findVarInFrame(rho, e);
+    if (TYPEOF(val) == PROMSXP)
+	return PROMISE_IS_EVALUATED(val) ? PRVALUE(val) : NULL;
+    return val;
+}
+
+/* The value of the call x[[i]] as do_subset2_dflt() gives it, or NULL
+   if the call has to be evaluated.  x may be a call of the same form. */
+attribute_hidden SEXP R_subset2Direct(SEXP e, SEXP rho)
+{
+    if (TYPEOF(e) != LANGSXP || CAR(e) != R_Bracket2Symbol)
+	return NULL;
+
+    /* two arguments, and no tag that could be 'exact' or 'drop' */
+    SEXP args = CDR(e);
+    if (CDR(args) == R_NilValue || CDDR(args) != R_NilValue ||
+	TAG(args) != R_NilValue || TAG(CDR(args)) != R_NilValue)
+	return NULL;
+
+    /* the lookup eval() does */
+    SEXP fun = findFun3(R_Bracket2Symbol, rho, e);
+    if (TYPEOF(fun) != SPECIALSXP || PRIMFUN(fun) != do_subset2 || RTRACE(fun))
+	return NULL;
+
+    /* a list or atomic vector; expressions and pairlists are evaluated */
+    SEXP x = CAR(args);
+    x = (TYPEOF(x) == LANGSXP) ? R_subset2Direct(x, rho) : knownValue(x, rho);
+    if (x == NULL || OBJECT(x) || !(isVectorAtomic(x) || TYPEOF(x) == VECSXP))
+	return NULL;
+    PROTECT(x); /* new if it is itself an element of an atomic vector */
+
+    /* the length first: the index is not protected */
+    SEXP ans = NULL;
+    R_xlen_t len = XLENGTH(x);
+    SEXP s = knownValue(CADR(args), rho);
+    R_xlen_t offset = (s == NULL) ? -1 : scalarIndex(s) - 1;
+    if (offset >= 0 && offset < len) {
+	if (TYPEOF(x) == VECSXP) {
+	    ans = VECTOR_ELT(x, offset);
+	}
+	else {
+	    ans = PROTECT(allocVector(TYPEOF(x), 1));
+	    SET_ATOMIC_ELT(ans, x, offset);
+	    UNPROTECT(1); /* ans */
+	}
+    }
+
+    UNPROTECT(1); /* x */
     return ans;
 }
 

@@ -4499,7 +4499,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## lapply(), vapply(), mapply(), eapply() take X[[i]] of a vector without class directly
+## lapply(), mapply(), Reduce(), forceAndCall() etc take x[[i]] of a vector without class directly
 `[[.revd` <- function(x, i) .subset2(x, length(x) + 1L - i)
 L <- list(a = 1:2, b = NULL, c = "z")
 rL <- structure(L, class = "revd")
@@ -4547,6 +4547,16 @@ stopifnot(exprs = {
               list(1L, 12L, 13L))
     identical(lapply(1:3, function(x) { assign("[[", function(x, i) 0L, parent.frame()); x }),
               list(1L, 0L, 0L))
+    ## Reduce() and forceAndCall(); apply() forces newX[, i]
+    identical(Reduce(function(a, b) substitute(b), 1:3), quote(x[[i]]))
+    identical(Reduce(function(a, b) sys.call(), 1:3), quote(f(init, x[[i]])))
+    identical(Reduce(function(a, b) a + b, c(1.5, 2.5, 3), accumulate = TRUE), c(1.5, 4, 7))
+    identical(Reduce(function(a, b) paste0(a, b), structure(list("p", "q", "r"), class = "revd")),
+              "rqp")
+    identical(Reduce(function(a, b) { assign("x", 11:13, parent.frame()); a + b }, 1:3), 16L)
+    identical((function(x, i) forceAndCall(1, function(v) list(v, substitute(v)), x[[i]]))(L, 3),
+              list("z", quote(x[[i]])))
+    identical(apply(diag(2), 2, function(v) substitute(v)), rep(list(quote(newX[, i])), 2))
 })
 f <- function(x) x; n <- 0L
 trace(f, quote(n <<- n + 1L), print = FALSE)
