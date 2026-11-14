@@ -3593,7 +3593,8 @@ static int text_fgetc(Rconnection con)
 	return c;
     }
     if(this->cur >= this->nchars) return R_EOF;
-    else return (int) (this->data[this->cur++]);
+    /* as unsigned, or a 0xff byte reads as R_EOF where char is signed */
+    else return (unsigned char) this->data[this->cur++];
 }
 
 static double text_seek(Rconnection con, double where, int origin, int rw)
