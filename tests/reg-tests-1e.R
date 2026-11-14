@@ -4557,6 +4557,11 @@ stopifnot(exprs = {
     identical((function(x, i) forceAndCall(1, function(v) list(v, substitute(v)), x[[i]]))(L, 3),
               list("z", quote(x[[i]])))
     identical(apply(diag(2), 2, function(v) substitute(v)), rep(list(quote(newX[, i])), 2))
+    ## an active binding is read once, also when x[[i]] is evaluated after all
+    identical((function(i, n = 0L) {
+        makeActiveBinding("x", function() { n <<- n + 1L; 4:6 }, environment())
+        c(forceAndCall(1, function(v) v, x[[i]]), n)
+    })(2L), c(5L, 1L))
 })
 f <- function(x) x; n <- 0L
 trace(f, quote(n <<- n + 1L), print = FALSE)

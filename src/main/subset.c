@@ -1164,16 +1164,22 @@ attribute_hidden SEXP do_subset2_dflt(SEXP call, SEXP op, SEXP args, SEXP rho)
    decided for each call from what evaluating it in rho would find. */
 
 /* The value of a constant, or of a variable in the frame of rho (where
-   those functions keep theirs), or NULL if it takes evaluating.  The
-   caller's type checks reject an unbound or missing variable. */
+   those functions keep theirs), or NULL if getting it would run R code:
+   a promise that is not forced yet, or an active binding, whose function
+   would run again if the call is evaluated after all.  The caller's
+   type checks reject an unbound or missing variable. */
 static R_INLINE SEXP knownValue(SEXP e, SEXP rho)
 {
     if (TYPEOF(e) != SYMSXP)
 	return e;
-    if (DDVAL(e)) /* ..1 is looked up in ... */
+    if (DDVAL(e) || OBJECT(rho)) /* ..1 is in ...; a user database */
 	return NULL;
 
-    SEXP val = R_findVarInFrame(rho, e);
+    R_varloc_t loc = R_findVarLocInFrame(rho, e);
+    if (loc.cell == NULL || IS_ACTIVE_BINDING(loc.cell))
+	return NULL;
+
+    SEXP val = R_GetVarLocValue(loc);
     if (TYPEOF(val) == PROMSXP)
 	return PROMISE_IS_EVALUATED(val) ? PRVALUE(val) : NULL;
     return val;
