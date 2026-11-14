@@ -2413,6 +2413,7 @@ static unsigned long long ZSTD_decompressBound(const void* src, size_t srcSize) 
 #endif
 
 #include <zstd.h>
+#include <zstd_errors.h> /* ZSTD_getErrorCode; older zstd.h lacks it */
 
 typedef struct zstdfileconn {
     FILE *fp;
@@ -7490,8 +7491,24 @@ do_memDecompress(SEXP call, SEXP op, SEXP args, SEXP env)
 	    outlen = ZSTD_decompressBound(p, inlen);
 	if (outlen == ZSTD_CONTENTSIZE_ERROR)
 	    error("internal error in memDecompress(%s)", "type = \"zstd\"");
-	buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
-	res = ZSTD_decompress(buf, outlen, p, inlen);
+	/* The size in the frame header is not checked against the data and
+	   covers only the first frame, so start no larger than the other
+	   types do and grow the buffer when the output does not fit.  Each
+	   attempt starts afresh, so the previous buffer can be released. */
+	if (outlen > 3*inlen)
+	    outlen = 3*inlen;
+	const void *vmax = vmaxget();
+	while(1) {
+	    vmaxset(vmax);
+	    buf = (Bytef *) R_alloc(outlen, sizeof(Bytef));
+	    res = ZSTD_decompress(buf, outlen, p, inlen);
+	    if (ZSTD_getErrorCode(res) == ZSTD_error_dstSize_tooSmall
+		&& outlen < SIZE_MAX/2) {
+		outlen = (outlen < 3*inlen) ? 3*inlen : 2*outlen;
+		continue;
+	    }
+	    break;
+	}
 	if (ZSTD_isError(res))
 	    error("internal error in memDecompress(%s)", ZSTD_getErrorName(res));
 	ans = allocVector(RAWSXP, res);
