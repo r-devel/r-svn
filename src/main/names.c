@@ -1264,6 +1264,16 @@ attribute_hidden void InitNames(void)
 }
 
 
+/* The symbol named "name" in bucket i of the symbol table, or NULL if
+   that symbol does not exist. */
+static R_INLINE SEXP findSymbol(const char *name, int i)
+{
+    for (SEXP sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
+	if (strcmp(name, CHAR(PRINTNAME(CAR(sym)))) == 0)
+	    return CAR(sym);
+    return NULL;
+}
+
 /*  install - probe the symbol table */
 /*  If "name" is not found, it is installed in the symbol table.
     The symbol corresponding to the string "name" is returned. */
@@ -1276,8 +1286,9 @@ SEXP install(const char *name)
     hashcode = R_Newhashpjw(name);
     i = hashcode % HSIZE;
     /* Check to see if the symbol is already present;  if it is, return it. */
-    for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
-	if (strcmp(name, CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
+    sym = findSymbol(name, i);
+    if (sym != NULL)
+	return sym;
     /* Create a new symbol node and link it into the table. */
     if (*name == '\0')
 	error(_("attempt to use zero-length variable name"));
@@ -1309,8 +1320,9 @@ SEXP installNoTrChar(SEXP charSXP)
     }
     i = hashcode % HSIZE;
     /* Check to see if the symbol is already present;  if it is, return it. */
-    for (sym = R_SymbolTable[i]; sym != R_NilValue; sym = CDR(sym))
-	if (strcmp(CHAR(charSXP), CHAR(PRINTNAME(CAR(sym)))) == 0) return (CAR(sym));
+    sym = findSymbol(CHAR(charSXP), i);
+    if (sym != NULL)
+	return sym;
     /* Create a new symbol node and link it into the table. */
     int len = LENGTH(charSXP);
     if (len == 0)
@@ -1335,35 +1347,61 @@ SEXP installNoTrChar(SEXP charSXP)
     return (sym);
 }
 
-#define maxLength 512
-attribute_hidden
-SEXP installS3Signature(const char *className, const char *methodName) {
-
+#define maxLength MAXS3SIGSIZE
+/* Writes "className.methodName" to signature, a buffer of maxLength
+   bytes, and returns FALSE if it does not fit. */
+static Rboolean S3Signature(char *signature, const char *className,
+			    const char *methodName)
+{
     const char *src;
-    char signature[maxLength];
 
     int i = 0;
     for(src = className; *src; src++) {
 	if (i == maxLength)
-	    error(_("class name too long in '%s'"), className);
+	    return FALSE;
 	signature[i++] = *src;
     }
 
     if (i == maxLength)
-	error(_("class name too long in '%s'"), className);
+	return FALSE;
     signature[i++] = '.';
 
     for(src = methodName; *src; src++) {
 	if (i == maxLength)
-	    error(_("class name too long in '%s'"), className);
+	    return FALSE;
 	signature[i++] = *src;
     }
 
     if (i == maxLength)
-	error(_("class name too long in '%s'"), className);
+	return FALSE;
     signature[i] = 0;
 
+    return TRUE;
+}
+
+attribute_hidden
+SEXP installS3Signature(const char *className, const char *methodName) {
+
+    char signature[maxLength];
+
+    if (! S3Signature(signature, className, methodName))
+	error(_("class name too long in '%s'"), className);
+
     return install(signature);
+}
+
+/* The symbol installS3Signature() would return, if it exists already,
+   and NULL otherwise: the symbol is not created.  A name that is too
+   long is left to installS3Signature(), for the error. */
+attribute_hidden
+SEXP R_findS3Signature(const char *className, const char *methodName)
+{
+    char signature[maxLength];
+
+    if (! S3Signature(signature, className, methodName))
+	return installS3Signature(className, methodName);
+
+    return findSymbol(signature, R_Newhashpjw(signature) % HSIZE);
 }
 
 
