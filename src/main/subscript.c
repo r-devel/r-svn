@@ -203,6 +203,20 @@ OneIndex(SEXP x, SEXP s, R_xlen_t nx, int partial, SEXP *newname,
     return indx;
 }
 
+/* Is the name 'name' the string 'key', which translates to 'ss'?  Names
+   are mostly ASCII strings from the CHARSXP cache: the same CHARSXP is
+   a match, and an ASCII name needs no translation.
+ */
+static R_INLINE bool isSameName(SEXP name, SEXP key, const char *ss)
+{
+    if (name == key)
+	return true;
+
+    const char *sn = IS_ASCII(name) ? CHAR(name) : translateChar(name);
+    /* most names differ in the first character */
+    return sn[0] == ss[0] && streql(sn, ss);
+}
+
 /* used here and in subset.c and subassign.c */
 attribute_hidden R_xlen_t
 get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
@@ -269,21 +283,24 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	break;
     }
     case STRSXP:
+    {
+	SEXP key = STRING_ELT(s, pos);
 	/* NA matches nothing */
-	if(STRING_ELT(s, pos) == NA_STRING) break;
+	if(key == NA_STRING) break;
 	/* "" matches nothing: see names.Rd */
-	if(!CHAR(STRING_ELT(s, pos))[0]) break;
+	if(!CHAR(key)[0]) break;
 
 	/* Try for exact match */
 	vmax = vmaxget();
-	ss = translateChar(STRING_ELT(s, pos));
-	for (R_xlen_t i = 0; i < xlength(names); i++)
-	    if (STRING_ELT(names, i) != NA_STRING) {
-		if (streql(translateChar(STRING_ELT(names, i)), ss)) {
-		    indx = i;
-		    break;
-		}
+	ss = translateChar(key);
+	R_xlen_t nnames = xlength(names);
+	for (R_xlen_t i = 0; i < nnames; i++) {
+	    SEXP name = STRING_ELT(names, i);
+	    if (name != NA_STRING && isSameName(name, key, ss)) {
+		indx = i;
+		break;
 	    }
+	}
 	/* Try for partial match */
 	if (pok && indx < 0) {
 	    size_t len = strlen(ss);
@@ -317,6 +334,7 @@ get1index(SEXP s, SEXP names, R_xlen_t len, int pok, int pos, SEXP call)
 	}
 	vmaxset(vmax);
 	break;
+    }
     case SYMSXP:
 	if (s == R_MissingArg) {
 	    ECALL_MissingSubs(call);
