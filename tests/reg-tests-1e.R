@@ -4525,6 +4525,14 @@ for(n in c(310L, 4931L, 5000L, 20000L)) {
 }
 ## gave Inf or NaN in R <= 4.6.2 (from about 4932 digits, or 309 where
 ## long double is double)
+## The byte compiler's constant pool treated 0 and -0 as the same
+## constant, so a folded -0 could be loaded as 0
+f <- function() { s <- 0; -(0 * 0) }
+fc <- compiler::cmpfun(f)
+stopifnot(identical(1/f(), -Inf), identical(1/fc(), -Inf))
+g <- function() c(0, -(0 * 0), 0 * -1)
+stopifnot(identical(1/compiler::cmpfun(g)(), c(Inf, -Inf, -Inf)))
+## the compiled versions gave 0 in R <= 4.6.2
 
 
 ## as(object, name) for informally defined class(object)[1L],
