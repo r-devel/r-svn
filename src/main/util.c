@@ -2168,6 +2168,13 @@ attribute_hidden int Rf_AdobeSymbol2ucs2(int n)
    documented in R-exts only since R 4.4.1 )
 */
 
+/* Significant digits beyond these are far below the precision of the
+   LDOUBLE accumulator (DBL_DIG is 15), and 10^MAX_SIG_DIGITS (and
+   16^MAX_SIG_HEXDIGITS) is well inside its range even where LDOUBLE
+   is double. */
+#define MAX_SIG_DIGITS 40
+#define MAX_SIG_HEXDIGITS 30
+
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact)
 {
@@ -2214,16 +2221,23 @@ double R_strtod5(const char *str, char **endptr, char dec,
 
 	   Changed following PR#18805
 	 */
-	int exph = -1;
+	int exph = -1, nsig = 0;
 
-	/* This will overflow to Inf if appropriate */
+	/* Only the first MAX_SIG_HEXDIGITS significant digits are
+	   accumulated, so that a long mantissa such as 0x1.000...0 does
+	   not overflow 'ans'.  Further integer digits scale by 16. */
 	for(p += 2; p; p++) {
-	    if('0' <= *p && *p <= '9') ans = 16*ans + (*p -'0');
-	    else if('a' <= *p && *p <= 'f') ans = 16*ans + (*p -'a' + 10);
-	    else if('A' <= *p && *p <= 'F') ans = 16*ans + (*p -'A' + 10);
+	    int d;
+	    if('0' <= *p && *p <= '9') d = *p - '0';
+	    else if('a' <= *p && *p <= 'f') d = *p - 'a' + 10;
+	    else if('A' <= *p && *p <= 'F') d = *p - 'A' + 10;
 	    else if(*p == dec) {exph = 0; continue;}
 	    else break;
-	    if (exph >= 0) exph += 4;
+	    if (nsig < MAX_SIG_HEXDIGITS) {
+		ans = 16*ans + d;
+		if (ans != 0.0) nsig++;
+		if (exph >= 0) exph += 4;
+	    } else if (exph < 0) expn += 4;
 	}
 #define strtod_EXACT_CLAUSE						\
 	if(exact && ans > 0x1.fffffffffffffp52) {			\
@@ -2286,11 +2300,38 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	goto done;
     } // end {hexadecimal case}
 
-    int ndigits = 0;
-    for ( ; *p >= '0' && *p <= '9'; p++, ndigits++) ans = 10*ans + (*p - '0');
-    if (*p == dec)
-	for (p++; *p >= '0' && *p <= '9'; p++, ndigits++, expn--)
-	    ans = 10*ans + (*p - '0');
+    /* Accumulating every digit would overflow 'ans' (to Inf, or NaN
+       after scaling) for long digit strings such as "2.5000...0",
+       even when the value is small.  So only the first MAX_SIG_DIGITS
+       significant digits are accumulated; for later ones only their
+       position is counted.  Zeros after a significant digit are only
+       accumulated once a non-zero digit follows, so that trailing
+       zeros do not make 'ans' inexact (except when 'exact', whose
+       check is on the accumulated digits).
+
+       The value is ans * 10^expn: an integer digit increments expn
+       and an accumulated digit decrements it. */
+    int ndigits = 0, nacc = 0, nsig = 0, nzero = 0;
+    Rboolean frac = FALSE;
+    for ( ; ; p++) {
+	if (*p == dec && !frac) { frac = TRUE; continue; }
+	if (*p < '0' || *p > '9') break;
+	ndigits++;
+	int d = *p - '0';
+	if (!frac) expn++;
+	if (d == 0 && ans != 0.0 && !exact) { nzero++; continue; }
+	for ( ; nzero > 0 && nsig < MAX_SIG_DIGITS; nzero--, nsig++, nacc++) {
+	    ans *= 10;
+	    expn--;
+	}
+	nzero = 0;
+	if (nsig < MAX_SIG_DIGITS) {
+	    ans = 10*ans + d;
+	    if (ans != 0.0) nsig++;
+	    nacc++;
+	    expn--;
+	}
+    }
     if (ndigits == 0) {
 	ans = NA_REAL;
 	p = str; /* back out */
@@ -2326,9 +2367,9 @@ double R_strtod5(const char *str, char **endptr, char dec,
     }
 
     /* avoid unnecessary underflow for large negative exponents */
-    if (expn + ndigits < -300) {
-	for (n = 0; n < ndigits; n++) ans /= 10.0;
-	expn += ndigits;
+    if (expn + nacc < -300) {
+	for (n = 0; n < nacc; n++) ans /= 10.0;
+	expn += nacc;
     }
     LDOUBLE p10 = 10., fac = 1.0;
     if (expn < -307) { /* use underflow, not overflow */
