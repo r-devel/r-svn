@@ -199,6 +199,9 @@ gzFile R_gzopen (const char *path, const char *mode)
     s->stream.zalloc = (alloc_func) 0;
     s->stream.zfree = (free_func) 0;
     s->stream.opaque = (voidpf) 0;
+    /* destroy() tests this; inflateInit2/deflateInit2 leave it unset
+       when their first allocation fails. */
+    s->stream.state = Z_NULL;
     s->stream.next_in = s->buffer;
     s->stream.next_out = s->buffer;
     s->stream.avail_in = s->stream.avail_out = 0;
