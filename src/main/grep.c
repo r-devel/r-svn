@@ -253,6 +253,9 @@ static void R_pcre_exec_error(int rc, R_xlen_t i)
 {
     if (rc >= 0 || rc == PCRE2_ERROR_NOMATCH)
 	return;
+    /* a failed match is not "no match" */
+    if (rc == PCRE2_ERROR_NOMEMORY)
+	error(_("out of memory in PCRE matching for element %d"), (int) i + 1);
     // too much effort to handle long-vector indices, including on Windows
     char buf[256];
     pcre2_get_error_message(rc, (PCRE2_UCHAR *)buf, sizeof(buf));
@@ -1131,7 +1134,7 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		}
 		SET_VECTOR_ELT(ans, i,
@@ -1146,7 +1149,7 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		    if (regmatch[0].rm_eo > 0) {
 			/* Match was non-empty. */
@@ -1477,7 +1480,7 @@ attribute_hidden SEXP do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (rc == 0) LOGICAL(ind)[i] = 1;
 		// AFAICS the only possible error report is REG_ESPACE
 		if (rc == REG_ESPACE)
-		    warning("Out-of-memory error in regexp matching for element %d",
+		    error(_("out of memory in regexp matching for element %d"),
 			    (int) i + 1);
 	    }
 	}
@@ -2468,7 +2471,7 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	    // AFAICS the only possible error report is REG_ESPACE
 	    if (rc == REG_ESPACE)
-		warning("Out-of-memory error in regexp matching for element %d",
+		error(_("out of memory in regexp matching for element %d"),
 			(int) i + 1);
 
 	    if (nmatch == 0)
@@ -2656,7 +2659,7 @@ gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
 	eflags = REG_NOTBOL;
 	// AFAICS the only possible error report is REG_ESPACE
 	if (rc == REG_ESPACE)
-	    warning("Out-of-memory error in regexp matching for element %d",
+	    error(_("out of memory in regexp matching for element %d"),
 		    (int) i + 1);
     }
     PROTECT(ans = allocVector(INTSXP, matchIndex + 1));
@@ -3262,7 +3265,7 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    } else INTEGER(ans)[i] = INTEGER(matchlen)[i] = -1;
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		}
 	    }
@@ -3493,7 +3496,7 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 		 */
 		// AFAICS the only possible error report is REG_ESPACE
 		if (rc == REG_ESPACE)
-		    warning("Out-of-memory error in regexp matching for element %d",
+		    error(_("out of memory in regexp matching for element %d"),
 			    (int) i + 1);
 		PROTECT(matchpos = ScalarInteger(-1));
 		PROTECT(matchlen = ScalarInteger(-1));
