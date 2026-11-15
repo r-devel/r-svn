@@ -819,7 +819,8 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 			       dcall, CHAR(STRING_ELT(srcloc, 0)));
 	}
 
-	Rvsnprintf_mbcs(tmp, max(msg_len - strlen(head), 0), format, ap);
+	int pval = Rvsnprintf_mbcs(tmp, msg_len, format, ap);
+	RprintTrunc(tmp, pval >= msg_len);
 	if (strlen(tmp2) + strlen(tail) + strlen(tmp) < BUFSIZE) {
 	    if(len) Rsnprintf_mbcs(errbuf, BUFSIZE,
 				   _("Error in %s (from %s) : "),
@@ -854,9 +855,11 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	UNPROTECT(protected);
     }
     else {
+	char tmp[BUFSIZE];
+	int pval = Rvsnprintf_mbcs(tmp, msg_len, format, ap);
+	RprintTrunc(tmp, pval >= msg_len);
 	Rsnprintf_mbcs(errbuf, BUFSIZE, _("Error: "));
-	char *p = errbuf + strlen(errbuf);
-	Rvsnprintf_mbcs(p, max(msg_len - strlen(errbuf), 0), format, ap);
+	ERRBUFCAT(tmp);
     }
     /* Approximate truncation detection, may produce false positives.  Assumes
        R_MB_CUR_MAX > 0. Note: approximation is fine, as the string may include
@@ -958,8 +961,10 @@ void error(const char *format, ...)
 
     va_list(ap);
     va_start(ap, format);
-    Rvsnprintf_mbcs(buf, min(BUFSIZE, R_WarnLength), format, ap);
+    size_t psize = min(BUFSIZE, R_WarnLength+1);
+    int pval = Rvsnprintf_mbcs(buf, psize, format, ap);
     va_end(ap);
+    RprintTrunc(buf, pval >= psize);
     SEXP call = PROTECT(getCurrentCall()); // unprotected by the jump
     errorcall(call, "%s", buf);
 }
