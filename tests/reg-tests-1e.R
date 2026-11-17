@@ -4520,6 +4520,14 @@ stopifnot(identical(y, x), identical(y0, y), identical(y1, unclass(y)))
 ## in R <= 4.6.2
 
 
+## x^3 and x^4 for non-integer |x| <= 11: within 1 ulp, as from pow()
+stopifnot(5.69^3 %in% c(0x1.7070a50507a6dp+7, 0x1.7070a50507a6ep+7),
+          1.3^4 %in% c(0x1.6d94af4f0d845p+1, 0x1.6d94af4f0d846p+1))
+x <- as.double(-11:11)
+stopifnot(x^3 == x*x*x, x^4 == x*x*x*x) # exact for small integers
+## were x*x*x and x*x*x*x, more than 1 ulp off, in R 4.6.x
+
+
 
 
 ## keep at end
