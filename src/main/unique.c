@@ -220,7 +220,7 @@ static R_INLINE hlen shash(SEXP x, R_xlen_t indx, HashData *d)
 	const void *vmax = vmaxget();
 	p = noTrans ? CHAR(xi) : translateCharUTF8(xi);
 	k = 0;
-	while (*p++)
+	for (; *p; p++)
 	    /* multiplier was 8 but 11 isn't a power of 2 */
 	    k = 11 * k + (unsigned int) *p;
 	vmaxset(vmax); /* discard any memory used by translateChar */
@@ -231,7 +231,7 @@ static R_INLINE hlen shash(SEXP x, R_xlen_t indx, HashData *d)
     /* Not having d->useCache really should not happen anymore. */
     p = translateCharUTF8(STRING_ELT(x, indx));
     k = 0;
-    while (*p++)
+    for (; *p; p++)
 	k = 11 * k + (unsigned int) *p; /* was 8 but 11 isn't a power of 2 */
     vmaxset(vmax); /* discard any memory used by translateChar */
     return scatter(k, d);
