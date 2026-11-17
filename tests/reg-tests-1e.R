@@ -4491,6 +4491,18 @@ stopifnot(length(cl) == 1L,
 tools::assertWarning(contourLines(matrix(-1, 3, 3)), verbose = TRUE)
 
 
+## toupper() and encodeString() of a long UTF-8 string
+x <- intToUtf8(rep(0xe9, 2e5)) # marked UTF-8 in any locale
+system.time(toupper(x))      # 1 s or so in R 4.6.2
+system.time(encodeString(x)) # ditto
+##  0.003 or so after fixing; were quadratic in the number of characters
+for (b in list(0xc3, c(0xe2, 0x82), c(0xf0, 0x9f, 0x98))) { # truncated: still invalid
+    s <- rawToChar(as.raw(c(0x61, b)))
+    Encoding(s) <- "UTF-8"
+    assertErrV(toupper(s))
+}
+
+
 ## as.environment(x), pos.to.env(x) for numeric 'x' (PR#19306)
 x <- c(-1L, -1L) # length(x) >= 2
 tools::assertError(as.environment(x)) # returned list
