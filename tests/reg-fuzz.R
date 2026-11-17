@@ -202,6 +202,14 @@ local({
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
 
 
+## TRE: nested bounded repetitions multiply when expanded
+r <- tryCid(suppressWarnings(grepl("(?:a{2,101,})(?:a{2,101,}){100}{100}", "aaaa")))
+stopifnot(inherits(r, "error"),
+          ## the limit leaves room for the longest case-insensitive pattern
+          !grepl(strrep("a", 65536L), "b", ignore.case = TRUE))
+## allocated ~8.5 GB to compile the 36-byte pattern in R <= 4.6.2
+
+
 
 
 ## keep at end

@@ -1,15 +1,29 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit 899ad4894a747fcee66ce3dbf6cad2145ab58e47 of the
+taken from git commit aab2f7182c0257b62c04283e7afc0bc37298e70c of the
 integration branch at https://github.com/kevinushey/tre/tree/r-integration.
 That branch is upstream master (2026-05-23, post-0.9.0) plus the following
-pull requests pending upstream, which restore behaviors R's previous
-bundled copy (based on TRE 0.8.0) had patched in locally:
+pull requests pending upstream.  The first five restore behaviors R's
+previous bundled copy (based on TRE 0.8.0) had patched in locally:
 
   #144  Convert tre_ast_to_tnfa() to iteration over a tre_stack
   #145  Grow the delete-handling deque in tre_tnfa_run_approx() dynamically
   #146  Make REG_LITERAL match the empty pattern
   #148  Fix pointer truncation and under-alignment in ALIGN() on LLP64
   #149  Do not use the system wctype() on Windows
+
+and the others fix bugs present in both copies:
+
+  #131  Fix parser out-of-bounds reads (supersedes the PR#18995 patch)
+  #142  Protect against combinatorial explosion (TRE_MAX_POS, TRE_MAX_TRANS)
+
+plus two branches of kevinushey/tre that follow up on these:
+
+  bugfix/bracket-class-end  stop "[[:alpha:" reading past the end of the
+                            pattern, a case #131 misses
+  bugfix/expand-ast-max-pos enforce TRE_MAX_POS while bounded repetitions
+                            are expanded, so that nested bounds such as
+                            ((a{255}){255}){255} are rejected before their
+                            copies are allocated
 
 The files in lib/ and include/tre/tre.h were copied verbatim into this
 flat directory, except for the R-specific changes listed below.  Files
@@ -35,6 +49,11 @@ tre-internal.h:
    additionally supplies Ri18n_towlower/Ri18n_towupper, which TRE uses
    for case-insensitive matching because the system versions are
    deficient there (the UCRT ones fail for e.g. \ue9/\uc9);
+ - TRE_MAX_POS is 1<<18 rather than upstream's 1<<20.  At 1<<20 the
+   36-byte pattern "(?:a{2,101,})(?:a{2,101,}){100}{100}" still compiles,
+   using 3-4 GB; 1<<18 keeps such patterns near the ~1 GB that
+   TRE_MAX_TRANS already allows, and still fits a REG_ICASE pattern of
+   TRE_MAX_RE letters (two literals per letter, plus an end marker);
  - HAVE_ISWBLANK is asserted here rather than in tre-config.h.  Upstream's
    configure tests iswblank(); R's tests isblank() but not iswblank(),
    which is C99 and required by R.  Defining it in tre-config.h would
@@ -51,9 +70,14 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-899ad48"), since these sources are
+   carries the upstream commit ("0.9.0-aab2f71"), since these sources are
    post-0.9.0 plus the pull requests above; update it whenever the copy
    is refreshed.
+
+Patterns whose expansion exceeds TRE_MAX_POS positions or TRE_MAX_TRANS
+transitions now fail to compile with REG_ESPACE ("Out of memory").  The
+0.8.0 copy had no such limits: nested bounds multiply, and it would
+allocate many gigabytes for short patterns such as the one above.
 
 Behavior changes in bound expressions, from upstream's parser rewrite:
 

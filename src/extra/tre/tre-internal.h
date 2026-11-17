@@ -43,9 +43,15 @@ extern void Rf_error(const char *str, ...);
 #undef assert
 #define assert(e) R_assert(e)
 
-#define TRE_MAX_RE	65536
+#define TRE_MAX_RE	(1<<16)
 #define TRE_MAX_STRING	INT_MAX
-#define TRE_MAX_STACK	1048576
+#define TRE_MAX_STACK	(1<<20)
+/* R change: upstream allows 1<<20 positions, at which a 36-byte pattern
+   of nested bounds takes 3-4 GB to compile.  1<<18 keeps that cost near
+   the ~1 GB TRE_MAX_TRANS already allows, and still fits a REG_ICASE
+   pattern of TRE_MAX_RE letters (two literals per letter). */
+#define TRE_MAX_POS	(1<<18)
+#define TRE_MAX_TRANS	(1<<24)
 
 #ifdef TRE_DEBUG
 #include <stdio.h>
