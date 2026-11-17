@@ -4526,6 +4526,20 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
+## an error in a clipping path function left the PDF device locked
+pdf(tf <- tempfile(fileext = ".pdf"))
+plot.new()
+try(grDevices:::.setClipPath(function() stop("no path"), NULL), silent = TRUE)
+w <- NULL
+withCallingHandlers(dev.off(), warning = function(e) {
+    w <<- conditionMessage(e)
+    invokeRestart("muffleWarning")
+})
+stopifnot(is.null(w))
+unlink(tf)
+## dev.off() warned "Killing locked device" in R <= 4.6.*
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
