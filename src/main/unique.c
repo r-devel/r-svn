@@ -77,7 +77,8 @@ struct _HashData {
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
-    SEXP utf8; /* if not NULL, isDuplicated() hashes this translation of x */
+    Rboolean translate; /* some string of x needs translating to UTF-8 */
+    SEXP utf8; /* if not NULL, translations cached by isDuplicated() */
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -532,35 +533,75 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 /* Collision resolution is by linear probing */
 /* The table is guaranteed large so this is sufficient */
 
-/* Store x[indx] in d->utf8, translated to UTF-8 if it needs to be.
+/* Whether translateCharUTF8() translates s, as needsTranslationUTF8()
+   in sysutils.c decides it for strings not in bytes encoding.  It only
+   decides what is cached, so only speed depends on this agreeing. */
+static R_INLINE Rboolean needsUTF8(SEXP s)
+{
+    if (IS_UTF8(s) || IS_ASCII(s) || s == NA_STRING)
+	return FALSE;
+    return IS_LATIN1(s) || !utf8locale;
+}
+
+/* Cache translateCharUTF8(x[indx]) in d->utf8 if it is a translation.
+   Elsewhere d->utf8 keeps R_BlankString, which no translation can be.
    isDuplicated() compares an element only with elements it added
-   before, so translating each one as it is added translates each
-   once, and anyDuplicated() still stops at the first duplicate. */
+   before, so caching each one as it is added translates each once,
+   and anyDuplicated() still stops at the first duplicate. */
 static void translateElt(SEXP x, R_xlen_t indx, HashData *d)
 {
     SEXP xi = STRING_ELT(x, indx);
+    if (needsUTF8(xi)) {
+	const void *vmax = vmaxget();
+	const char *s = translateCharUTF8(xi);
+	if (s != CHAR(xi))
+	    SET_STRING_ELT(d->utf8, indx, mkCharCE(s, CE_UTF8));
+	vmaxset(vmax);
+    }
+}
+
+/* sequal(x, i, x, j), with the translations Seql() compares taken from
+   tr where cached.  The pre-tests still look at x: comparing the
+   cached CHARSXPs instead would change results, as "\x90" in a C
+   locale translates to "<90>". */
+static int sequalTr(SEXP x, SEXP tr, R_xlen_t i, R_xlen_t j)
+{
+    if (i < 0 || j < 0) return 0;
+    SEXP xi = STRING_ELT(x, i);
+    SEXP xj = STRING_ELT(x, j);
+    if (xi == xj) return 1;
+    if (xi == NA_STRING || xj == NA_STRING)
+	return 0;
+    if (IS_CACHED(xi) && IS_CACHED(xj) && ENC_KNOWN(xi) == ENC_KNOWN(xj))
+	return 0;
+    SEXP ti = STRING_ELT(tr, i);
+    SEXP tj = STRING_ELT(tr, j);
     const void *vmax = vmaxget();
-    const char *s = translateCharUTF8(xi);
-    /* translateCharUTF8() returns CHAR(xi) itself when xi needs no
-       translation: UTF-8, ASCII, NA, or native in a UTF-8 locale */
-    if (s != CHAR(xi))
-	xi = mkCharCE(s, CE_UTF8);
+    const char *si = ti != R_BlankString ? CHAR(ti) : translateCharUTF8(xi);
+    const char *sj = tj != R_BlankString ? CHAR(tj) : translateCharUTF8(xj);
+    int res = !strcmp(si, sj);
     vmaxset(vmax);
-    SET_STRING_ELT(d->utf8, indx, xi);
+    return res;
 }
 
 static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 {
-    if (d->utf8) {
+    /* With translations cached, hash the cached one, which is what
+       shash() would translate x[indx] to, and compare with sequalTr() */
+    SEXP tr = d->utf8;
+    SEXP hx = x;
+    if (tr) {
 	translateElt(x, indx, d);
-	x = d->utf8;
+	if (STRING_ELT(tr, indx) != R_BlankString)
+	    hx = tr;
     }
 #ifdef LONG_VECTOR_SUPPORT
     if (d->isLong) {
 	double *h = HTDATA_DBL(d);
-	hlen i = d->hash(x, indx, d);
+	hlen i = d->hash(hx, indx, d);
 	while (h[i] != NIL) {
-	    if (d->equal(x, (R_xlen_t) h[i], x, indx))
+	    if (tr ? sequalTr(x, tr, (R_xlen_t) h[i], indx)
+		   : d->equal(x, (R_xlen_t) h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
 	    i = (i + 1) % d->M;
 	}
@@ -570,9 +611,9 @@ static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 #endif
     {
 	int *h = HTDATA_INT(d);
-	hlen i = d->hash(x, indx, d);
+	hlen i = d->hash(hx, indx, d);
 	while (h[i] != NIL) {
-	    if (d->equal(x, h[i], x, indx))
+	    if (tr ? sequalTr(x, tr, h[i], indx) : d->equal(x, h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
 	    i = (i + 1) % d->M;
 	}
@@ -597,6 +638,8 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
 	    if(ENC_KNOWN(STRING_ELT(x, i))) {
 		d->useUTF8 = TRUE;
 	    }
+	    if(needsUTF8(STRING_ELT(x, i)))
+		d->translate = TRUE;
 	    /* uncached strings are currently not properly supported */
 	    if(!IS_CACHED(STRING_ELT(x, i))) {
 		d->useCache = FALSE;
@@ -653,19 +696,25 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     }
 }
 
-/* With marked encodings, shash() and sequal() would translate to UTF-8
-   on every probe, so a long string probed past repeatedly is translated
-   again each time: instead isDuplicated() translates each element once,
-   into data.utf8 (match() translates up front, PR#17965).  useUTF8 &&
+/* Whether isDuplicated() should cache the UTF-8 translations of x:
+   with marked encodings, shash() and sequal() would translate on every
+   probe, so a long string probed past repeatedly is translated again
+   each time (match() translates up front, PR#17965).  useUTF8 &&
    useCache means duplicatedInit() saw every element, so none is in
-   bytes encoding.  PROTECTs data.HashTable and data.utf8. */
+   bytes encoding. */
+static R_INLINE Rboolean cacheTranslations(SEXP x, HashData *d)
+{
+    return TYPEOF(x) == STRSXP && d->useUTF8 && d->useCache && d->translate;
+}
+
+/* PROTECTs data.HashTable and data.utf8 */
 #define DUPLICATED_INIT						\
     HashData data = { 0 };					\
     HashTableSetup(x, &data, nmax);				\
     PROTECT(data.HashTable);					\
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
     duplicatedInit(x, &data);					\
-    if (TYPEOF(x) == STRSXP && data.useUTF8 && data.useCache)	\
+    if (cacheTranslations(x, &data))				\
 	data.utf8 = allocVector(STRSXP, XLENGTH(x));		\
     PROTECT(data.utf8 ? data.utf8 : R_NilValue);
 
