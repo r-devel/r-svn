@@ -165,6 +165,12 @@ static Rboolean isInChunk(cntxtchunk *c, RCNTXT *p)
     return u >= (uintptr_t) c->base && u <= (uintptr_t) c->end;
 }
 
+/* Set while the chunk ahead is missing and its error is not yet
+   reported; R_Expressions is lowered meanwhile, so that the next
+   evaluation depth check reports it. */
+static Rboolean cntxtStackShort = FALSE;
+static int cntxtStackSavedExpressions;
+
 /* Make 'top' the top of the context stack. It lies in the current
    chunk or an earlier one; NULL is the bottom. */
 static void resetContextStack(RCNTXT *top)
@@ -184,21 +190,26 @@ static void resetContextStack(RCNTXT *top)
     }
     R_CntxtChunk = c;
     R_CntxtStackTop = top;
+    if (cntxtStackShort && c->next != NULL) {
+	/* back below the spare chunk, so there is nothing to report */
+	cntxtStackShort = FALSE;
+	R_Expressions = cntxtStackSavedExpressions;
+    }
 }
-
-static Rboolean cntxtStackShort = FALSE;
 
 static RCNTXT *allocContext(void)
 {
     if (R_CntxtStackTop == R_CntxtChunk->end) {
-	if (R_CntxtChunk->next == NULL)
+	if (R_CntxtChunk->next == NULL &&
+	    newContextChunk(R_CntxtChunk) == NULL)
 	    /* the spare chunk is used up as well */
 	    R_Suicide("cannot allocate memory for the context stack");
 	R_CntxtChunk = R_CntxtChunk->next;
 	R_CntxtStackTop = R_CntxtChunk->base;
 	if (R_CntxtChunk->next == NULL &&
-	    newContextChunk(R_CntxtChunk) == NULL) {
+	    newContextChunk(R_CntxtChunk) == NULL && ! cntxtStackShort) {
 	    cntxtStackShort = TRUE;
+	    cntxtStackSavedExpressions = R_Expressions;
 	    R_Expressions = R_EvalDepth; /* fail the next depth check */
 	}
     }
@@ -294,8 +305,8 @@ static void R_restore_globals(RCNTXT *cptr)
        handling a stack overflow. */
     R_Expressions = R_Expressions_keep;
     R_BCNodeStackTop = cptr->nodestack;
-    resetContextStack(cptr->cntxtstacktop);
     cntxtStackShort = FALSE; /* R_Expressions was reset above */
+    resetContextStack(cptr->cntxtstacktop);
     R_Srcref = cptr->srcref;
     R_BCProtReset(cptr->bcprottop);
 }

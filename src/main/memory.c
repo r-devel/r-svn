@@ -2294,11 +2294,13 @@ attribute_hidden void InitMemory(void)
     R_BCNodeStackTop = R_BCNodeStackBase;
     R_BCNodeStackEnd = R_BCNodeStackBase + R_BCNODESTACKSIZE;
     R_BCProtTop = R_BCNodeStackTop;
-    R_InitContextStack();
 
     R_weak_refs = R_NilValue;
 
     R_HandlerStack = R_RestartStack = R_NilValue;
+
+    /* after R_weak_refs: R_Suicide() runs the exit finalizers */
+    R_InitContextStack();
 
     /*  Unbound values which are to be preserved through GCs */
     R_PreciousList = R_NilValue;

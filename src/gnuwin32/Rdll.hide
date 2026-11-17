@@ -146,6 +146,7 @@
  R_CommentSymbol
  R_ConnIdSymbol
  R_ConsoleIob
+ R_ContextStackShort
  R_CurrentExpr
  R_Decode2Long
  R_DefCallbacks

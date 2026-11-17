@@ -983,12 +983,12 @@ static void jump_to_top_ex(Rboolean traceback,
 			   Rboolean resetConsole,
 			   Rboolean ignoreRestartContexts)
 {
-    RCNTXT *cntxt;
     SEXP s;
     int haveHandler, oldInError;
 
-    /* set up a context to restore inError value on exit */
-    cntxt = codecontext(&restore_inError, &oldInError);
+    /* set up a context to restore inError value on exit; the jump at
+       the end releases it */
+    codecontext(&restore_inError, &oldInError);
 
     oldInError = inError;
 
