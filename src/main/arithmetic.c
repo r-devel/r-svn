@@ -215,7 +215,9 @@ double R_pow(double x, double y) /* = x ^ y */
 	else if(y < 0) return(R_PosInf);
 	else return(y); /* NA or NaN, we assert */
     }
-    if (x >= -11. && x <= 11.) {
+    /* exact for small integers, whatever the system pow(); for other x,
+       the repeated products are less accurate than pow() */
+    if (x >= -11. && x <= 11. && x == (int) x) {
 	if(y == 4.)
 	    return x * x * x * x;
 	if(y == 3.)
