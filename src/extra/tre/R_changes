@@ -1,5 +1,5 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit aab2f7182c0257b62c04283e7afc0bc37298e70c of the
+taken from git commit 512d52fcefc757e955837a363c2fc19a1a8c47a6 of the
 integration branch at https://github.com/kevinushey/tre/tree/r-integration.
 That branch is upstream master (2026-05-23, post-0.9.0) plus the following
 pull requests pending upstream.  The first five restore behaviors R's
@@ -13,17 +13,14 @@ previous bundled copy (based on TRE 0.8.0) had patched in locally:
 
 and the others fix bugs present in both copies:
 
-  #131  Fix parser out-of-bounds reads (supersedes the PR#18995 patch)
+  #131  Fix parser out-of-bounds reads
+  #167  Fix two parser out-of-bounds reads that #131 misses ("[[:alpha:"
+        and the cost equation of approximate bounds); with #131, this
+        supersedes the PR#18995 patch
   #142  Protect against combinatorial explosion (TRE_MAX_POS, TRE_MAX_TRANS)
-
-plus two branches of kevinushey/tre that follow up on these:
-
-  bugfix/bracket-class-end  stop "[[:alpha:" reading past the end of the
-                            pattern, a case #131 misses
-  bugfix/expand-ast-max-pos enforce TRE_MAX_POS while bounded repetitions
-                            are expanded, so that nested bounds such as
-                            ((a{255}){255}){255} are rejected before their
-                            copies are allocated
+  #168  Enforce TRE_MAX_POS while bounded repetitions are expanded, so
+        that nested bounds such as ((a{255}){255}){255} are rejected
+        before their copies are allocated
 
 The files in lib/ and include/tre/tre.h were copied verbatim into this
 flat directory, except for the R-specific changes listed below.  Files
@@ -70,7 +67,7 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-aab2f71"), since these sources are
+   carries the upstream commit ("0.9.0-512d52f"), since these sources are
    post-0.9.0 plus the pull requests above; update it whenever the copy
    is refreshed.
 

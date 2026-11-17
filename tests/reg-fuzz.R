@@ -74,7 +74,8 @@ local({
 
 
 ## grepRaw() with truncated TRE patterns -- PR#18995
-for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4"))
+for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4",
+            "a{ 1i + 1d < ", "a{ 1i + 12"))
     tryCatch(grepRaw(p, "abc"), error = function(e) NULL)
 ## read past the end of the pattern in R <= 4.6.2 (visible under ASan)
 

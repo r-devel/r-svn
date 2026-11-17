@@ -28,4 +28,4 @@
 /* TRE version string.  The sources are post-0.9.0 upstream plus the pull
    requests listed in R_changes, so the commit they were taken from is
    included to keep extSoftVersion() unambiguous; update both together. */
-#define TRE_VERSION "0.9.0-aab2f71"
+#define TRE_VERSION "0.9.0-512d52f"
