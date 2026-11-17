@@ -220,26 +220,23 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
     arg_i = 0;
     while (f != R_NilValue) {
       SEXP ftag = TAG(f);
-      const char *ftag_name = CHAR(PRINTNAME(ftag));
       if (ftag != R_DotsSymbol && ftag != R_NilValue) {
 	    for (b = supplied, i = 1; b != R_NilValue; b = CDR(b), i++) {
-	      SEXP btag = TAG(b);
-	      if (btag != R_NilValue) {
-		  const char *btag_name = CHAR(PRINTNAME(btag));
-		  if (streql( ftag_name, btag_name )) {
-		      if (fargused[arg_i] == 2)
-			  errorcall(call,
-	                      _("formal argument \"%s\" matched by multiple actual arguments"),
-	                      CHAR(PRINTNAME(TAG(f))));
-		      if (ARGUSED(b) == 2)
-			  errorcall(call,
-	                      _("argument %d matches multiple formal arguments"),
-                              i);
-		      SETCAR(a, CAR(b));
-		      if(CAR(b) != R_MissingArg) SET_MISSING(a, 0);
-		      SET_ARGUSED(b, 2);
-		      fargused[arg_i] = 2;
-		  }
+	      /* install() keeps one symbol per name, so names that are
+		 equal byte for byte are the same symbol */
+	      if (TAG(b) == ftag) {
+		  if (fargused[arg_i] == 2)
+		      errorcall(call,
+	                  _("formal argument \"%s\" matched by multiple actual arguments"),
+	                  CHAR(PRINTNAME(TAG(f))));
+		  if (ARGUSED(b) == 2)
+		      errorcall(call,
+	                  _("argument %d matches multiple formal arguments"),
+                          i);
+		  SETCAR(a, CAR(b));
+		  if(CAR(b) != R_MissingArg) SET_MISSING(a, 0);
+		  SET_ARGUSED(b, 2);
+		  fargused[arg_i] = 2;
 	      }
 	    }
 	}
