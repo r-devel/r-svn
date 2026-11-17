@@ -1560,7 +1560,7 @@ static Rboolean RunFinalizers(void)
 	SEXP next = WEAKREF_NEXT(s);
 	if (IS_READY_TO_FINALIZE(s)) {
 	    /**** use R_ToplevelExec here? */
-	    RCNTXT thiscontext;
+	    RCNTXT *thiscontext;
 	    RCNTXT * volatile saveToplevelContext;
 	    volatile int savestack;
 	    volatile SEXP topExp, oldHStack, oldRStack, oldRVal;
@@ -1577,8 +1577,7 @@ static Rboolean RunFinalizers(void)
 	    /* A top level context is established for the finalizer to
 	       insure that any errors that might occur do not spill
 	       into the call that triggered the collection. */
-	    begincontext(&thiscontext, CTXT_TOPLEVEL, R_NilValue, R_GlobalEnv,
-			 R_BaseEnv, R_NilValue, R_NilValue);
+	    thiscontext = simplecontext(CTXT_TOPLEVEL, R_GlobalEnv);
 	    saveToplevelContext = R_ToplevelContext;
 	    PROTECT(topExp = R_CurrentExpr);
 	    savestack = R_PPStackTop;
@@ -1586,8 +1585,8 @@ static Rboolean RunFinalizers(void)
 	       for this routine to be called recursively from a
 	       gc triggered by a finalizer. */
 	    PROTECT(next);
-	    if (! SETJMP(thiscontext.cjmpbuf)) {
-		R_GlobalContext = R_ToplevelContext = &thiscontext;
+	    if (! SETJMP(thiscontext->cjmpbuf)) {
+		R_GlobalContext = R_ToplevelContext = thiscontext;
 
 		/* The entry in the weak reference list is removed
 		   before running the finalizer.  This insures that a
@@ -1599,7 +1598,7 @@ static Rboolean RunFinalizers(void)
 		    SET_WEAKREF_NEXT(last, next);
 		R_RunWeakRefFinalizer(s);
 	    }
-	    endcontext(&thiscontext);
+	    freecontext(thiscontext);
 	    UNPROTECT(1); /* next */
 	    R_ToplevelContext = saveToplevelContext;
 	    R_PPStackTop = savestack;
@@ -2295,6 +2294,7 @@ attribute_hidden void InitMemory(void)
     R_BCNodeStackTop = R_BCNodeStackBase;
     R_BCNodeStackEnd = R_BCNodeStackBase + R_BCNODESTACKSIZE;
     R_BCProtTop = R_BCNodeStackTop;
+    R_InitContextStack();
 
     R_weak_refs = R_NilValue;
 
@@ -3404,13 +3404,10 @@ static void reset_pp_stack(void *data)
 
 NORET void R_signal_protect_error(void)
 {
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     int oldpps = R_PPStackSize;
 
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &reset_pp_stack;
-    cntxt.cenddata = &oldpps;
+    cntxt = codecontext(&reset_pp_stack, &oldpps);
 
     /* condition is pre-allocated and protected with R_PreserveObject */
     SEXP cond = R_getProtectStackOverflowError();
@@ -3425,7 +3422,7 @@ NORET void R_signal_protect_error(void)
        overflow/SEGFAULT so treat them as failed and skip them */
     R_signalErrorConditionEx(cond, R_NilValue, TRUE);
 
-    endcontext(&cntxt); /* not reached */
+    freecontext(cntxt); /* not reached */
 }
 
 NORET void R_signal_unprotect_error(void)

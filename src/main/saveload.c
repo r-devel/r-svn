@@ -1119,7 +1119,7 @@ static void NewDataSave (SEXP s, FILE *fp, OutputRoutines *m, SaveLoadData *d)
 {
     SEXP sym_table, env_table, iterator;
     int sym_count, env_count;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     OutputCtxtData cinfo;
     cinfo.fp = fp; cinfo.methods = m;  cinfo.data = d;
 
@@ -1131,10 +1131,7 @@ static void NewDataSave (SEXP s, FILE *fp, OutputRoutines *m, SaveLoadData *d)
 
     m->OutInit(fp, d);
     /* set up a context which will call OutTerm if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &newdatasave_cleanup;
-    cntxt.cenddata = &cinfo;
+    cntxt = codecontext(&newdatasave_cleanup, &cinfo);
 
     m->OutInteger(fp, sym_count = HASH_TABLE_COUNT(sym_table), d); m->OutSpace(fp, 1, d);
     m->OutInteger(fp, env_count = HASH_TABLE_COUNT(env_table), d); m->OutNewline(fp, d);
@@ -1157,7 +1154,7 @@ static void NewDataSave (SEXP s, FILE *fp, OutputRoutines *m, SaveLoadData *d)
 
     /* end the context after anything that could raise an error but before
        calling OutTerm so it doesn't get called twice */
-    endcontext(&cntxt);
+    freecontext(cntxt);
 
     m->OutTerm(fp, d);
     UNPROTECT(2);
@@ -1318,17 +1315,14 @@ static SEXP NewDataLoad (FILE *fp, InputRoutines *m, SaveLoadData *d)
 {
     int sym_count, env_count, count;
     SEXP sym_table, env_table, obj;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     InputCtxtData cinfo;
     cinfo.fp = fp; cinfo.methods = m; cinfo.data = d;
 
     m->InInit(fp, d);
 
     /* set up a context which will call InTerm if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &newdataload_cleanup;
-    cntxt.cenddata = &cinfo;
+    cntxt = codecontext(&newdataload_cleanup, &cinfo);
 
     /* Read the table sizes */
     sym_count = m->InInteger(fp, d);
@@ -1360,7 +1354,7 @@ static SEXP NewDataLoad (FILE *fp, InputRoutines *m, SaveLoadData *d)
 
     /* end the context after anything that could raise an error but before
        calling InTerm so it doesn't get called twice */
-    endcontext(&cntxt);
+    freecontext(cntxt);
 
     /* Wrap up */
     m->InTerm(fp, d);
@@ -2035,7 +2029,7 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP s, t, source, tmp;
     int len, j, version, ep;
     FILE *fp;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2066,10 +2060,7 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     /* set up a context which will close the file if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &saveload_cleanup;
-    cntxt.cenddata = fp;
+    cntxt = codecontext(&saveload_cleanup, fp);
 
     len = length(CAR(args));
     PROTECT(s = allocList(len));
@@ -2093,7 +2084,7 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(1);
     /* end the context after anything that could raise an error but before
        closing the file so it doesn't get done twice */
-    endcontext(&cntxt);
+    freecontext(cntxt);
     fclose(fp);
     return R_NilValue;
 }
@@ -2165,7 +2156,7 @@ attribute_hidden SEXP do_load(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP fname, aenv, val;
     FILE *fp;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2186,16 +2177,13 @@ attribute_hidden SEXP do_load(SEXP call, SEXP op, SEXP args, SEXP env)
     if (!fp) error(_("unable to open file"));
 
     /* set up a context which will close the file if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &saveload_cleanup;
-    cntxt.cenddata = fp;
+    cntxt = codecontext(&saveload_cleanup, fp);
 
     PROTECT(val = R_LoadSavedData(fp, aenv));
 
     /* end the context after anything that could raise an error but before
        closing the file so it doesn't get done twice */
-    endcontext(&cntxt);
+    freecontext(cntxt);
     fclose(fp);
     UNPROTECT(1);
     return val;
@@ -2340,7 +2328,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     struct R_outpstream_st out;
     R_pstream_format_t type;
     char magic[6];
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2378,10 +2366,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	strcpy(con->mode, mode);
 	/* set up a context which will close the connection
 	   if there is an error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
     }
     if(!con->canwrite)
 	error(_("connection not open for writing"));
@@ -2430,7 +2415,10 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     R_Serialize(s, &out);
-    if (!wasopen) con->close(con);
+    if (!wasopen) {
+	freecontext(cntxt);
+	con->close(con);
+    }
     UNPROTECT(1);
     return R_NilValue;
 }
@@ -2448,7 +2436,7 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
     unsigned char buf[6];
     size_t count;
     bool wasopen;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2463,10 +2451,7 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 	strcpy(con->mode, mode);
 	/* set up a context which will close the connection
 	   if there is an error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
     }
     if(!con->canread) error(_("connection not open for reading"));
     if(con->text) error(_("can only load() from a binary connection"));
@@ -2502,7 +2487,7 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!wasopen) {
 	    /* PROTECT is paranoia: some close() method might allocate */
 	    PROTECT(res);
-	    endcontext(&cntxt);
+	    freecontext(cntxt);
 	    con->close(con);
 	    UNPROTECT(1);
 	}

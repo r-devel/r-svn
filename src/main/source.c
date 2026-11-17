@@ -231,13 +231,10 @@ attribute_hidden SEXP do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
     pci.con = NULL;
     pci.old_latin1 = known_to_be_latin1;
     pci.old_utf8 = known_to_be_utf8;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     /* set up context to recover known_to_be_* and to close connection on
        error if opened by do_parse */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &parse_cleanup;
-    cntxt.cenddata = &pci;
+    cntxt = codecontext(&parse_cleanup, &pci);
 
     known_to_be_latin1 = known_to_be_utf8 = false;
     bool allKnown = true;
@@ -314,7 +311,7 @@ attribute_hidden SEXP do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
     known_to_be_latin1 = pci.old_latin1;
     known_to_be_utf8 = pci.old_utf8;
     PROTECT(s);
-    endcontext(&cntxt);
+    freecontext(cntxt);
     UNPROTECT(3);
     return s;
 }

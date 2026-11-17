@@ -111,6 +111,75 @@
 #include <Defn.h>
 #include <Internal.h>
 
+/* Contexts made by newcontext() live on a stack of their own. It grows
+   by chunks, so that active contexts never move, and chunks are kept
+   for reuse. A context is released by freecontext() or by a jump to an
+   older context. */
+
+typedef struct cntxtchunk {
+    struct cntxtchunk *prev, *next;
+    RCNTXT *end;
+    RCNTXT base[];
+} cntxtchunk;
+
+#define CNTXT_CHUNK_SIZE 512
+
+static cntxtchunk *R_CntxtChunk = NULL;
+static RCNTXT *R_CntxtStackTop = NULL;
+
+static cntxtchunk *newContextChunk(cntxtchunk *prev)
+{
+    cntxtchunk *c =
+	malloc(sizeof(cntxtchunk) + CNTXT_CHUNK_SIZE * sizeof(RCNTXT));
+    if (c == NULL)
+	R_Suicide("cannot allocate the context stack");
+    c->prev = prev;
+    c->next = NULL;
+    c->end = c->base + CNTXT_CHUNK_SIZE;
+    if (prev)
+	prev->next = c;
+    return c;
+}
+
+attribute_hidden void R_InitContextStack(void)
+{
+    R_CntxtChunk = newContextChunk(NULL);
+    R_CntxtStackTop = R_CntxtChunk->base;
+}
+
+/* Make 'top' the top of the context stack. It lies in the current
+   chunk or an earlier one; NULL is the bottom. */
+static void resetContextStack(RCNTXT *top)
+{
+    cntxtchunk *c = R_CntxtChunk;
+    if (top == NULL) {
+	while (c->prev)
+	    c = c->prev;
+	top = c->base;
+    }
+    else {
+	while (top < c->base || top > c->end) {
+	    c = c->prev;
+	    if (c == NULL)
+		R_Suicide("bad context stack position");
+	}
+    }
+    R_CntxtChunk = c;
+    R_CntxtStackTop = top;
+}
+
+static RCNTXT *allocContext(void)
+{
+    if (R_CntxtStackTop == R_CntxtChunk->end) {
+	cntxtchunk *c = R_CntxtChunk->next;
+	if (c == NULL)
+	    c = newContextChunk(R_CntxtChunk);
+	R_CntxtChunk = c;
+	R_CntxtStackTop = c->base;
+    }
+    return R_CntxtStackTop++;
+}
+
 /* R_run_onexits - runs the conexit/cend code for all contexts from
    R_GlobalContext down to but not including the argument context.
    This routine does not stop at a CTXT_TOPLEVEL--the code that
@@ -191,6 +260,7 @@ static void R_restore_globals(RCNTXT *cptr)
        handling a stack overflow. */
     R_Expressions = R_Expressions_keep;
     R_BCNodeStackTop = cptr->nodestack;
+    resetContextStack(cptr->cntxtstacktop);
     R_Srcref = cptr->srcref;
     R_BCProtReset(cptr->bcprottop);
 }
@@ -274,6 +344,7 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->restartstack = R_RestartStack;
     cptr->prstack = R_PendingPromises;
     cptr->nodestack = R_BCNodeStackTop;
+    cptr->cntxtstacktop = R_CntxtStackTop;
     cptr->bcprottop = R_BCProtTop;
     cptr->srcref = R_Srcref;
     cptr->browserfinish = R_GlobalContext->browserfinish;
@@ -329,6 +400,44 @@ void endcontext(RCNTXT * cptr)
 	R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
 
     R_GlobalContext = cptr->nextcontext;
+}
+
+
+/* newcontext, simplecontext, codecontext, freecontext - contexts
+   off the C stack */
+
+/* The caller still sets the jump target, with SETJMP(cntxt->cjmpbuf). */
+RCNTXT *newcontext(int flags, SEXP syscall, SEXP env, SEXP sysp,
+		   SEXP promargs, SEXP callfun)
+{
+    RCNTXT *cptr = allocContext();
+    begincontext(cptr, flags, syscall, env, sysp, promargs, callfun);
+    return cptr;
+}
+
+/* A context without a call or a function, such as a loop or a
+   restart target */
+RCNTXT *simplecontext(int flags, SEXP env)
+{
+    return newcontext(flags, R_NilValue, env, R_BaseEnv,
+		      R_NilValue, R_NilValue);
+}
+
+/* A context that only runs cend(cenddata) if it is jumped over */
+RCNTXT *codecontext(void (*cend)(void *), void *cenddata)
+{
+    RCNTXT *cptr = simplecontext(CTXT_CCODE, R_BaseEnv);
+    cptr->cend = cend;
+    cptr->cenddata = cenddata;
+    return cptr;
+}
+
+/* End a context made by newcontext() and release it. Fields of the
+   context must not be used afterwards. */
+void freecontext(RCNTXT *cptr)
+{
+    endcontext(cptr);
+    resetContextStack(cptr);
 }
 
 
@@ -782,7 +891,7 @@ RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
 
 Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
 {
-    RCNTXT thiscontext;
+    RCNTXT *thiscontext;
     RCNTXT * volatile saveToplevelContext;
     volatile SEXP topExp, oldHStack, oldRStack, oldRVal;
     volatile Rboolean oldvis;
@@ -798,16 +907,15 @@ Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
     R_RestartStack = R_NilValue;
     saveToplevelContext = R_ToplevelContext;
 
-    begincontext(&thiscontext, CTXT_TOPLEVEL, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    if (SETJMP(thiscontext.cjmpbuf))
+    thiscontext = simplecontext(CTXT_TOPLEVEL, R_GlobalEnv);
+    if (SETJMP(thiscontext->cjmpbuf))
 	result = FALSE;
     else {
-	R_GlobalContext = R_ToplevelContext = &thiscontext;
+	R_GlobalContext = R_ToplevelContext = thiscontext;
 	fun(data);
 	result = TRUE;
     }
-    endcontext(&thiscontext);
+    freecontext(thiscontext);
 
     R_ToplevelContext = saveToplevelContext;
     R_CurrentExpr = topExp;
@@ -913,17 +1021,14 @@ SEXP R_tryEvalSilent(SEXP e, SEXP env, int *ErrorOccurred)
 SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
 		       void (*cleanfun)(void *), void *cleandata)
 {
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     SEXP result;
 
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = cleanfun;
-    cntxt.cenddata = cleandata;
+    cntxt = codecontext(cleanfun, cleandata);
 
     PROTECT(result = fun(data));
     cleanfun(cleandata);
-    endcontext(&cntxt);
+    freecontext(cntxt);
     UNPROTECT(1);
 
     return result;
@@ -955,7 +1060,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 		     void (*cleanfun)(void *data, Rboolean jump),
 		     void *cleandata, SEXP cont)
 {
-    RCNTXT thiscontext;
+    RCNTXT *thiscontext;
     volatile SEXP result;
     Rboolean jump;
 
@@ -970,22 +1075,21 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 	return result;
     }
 
-    begincontext(&thiscontext, CTXT_UNWIND, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    if (SETJMP(thiscontext.cjmpbuf)) {
+    thiscontext = simplecontext(CTXT_UNWIND, R_GlobalEnv);
+    if (SETJMP(thiscontext->cjmpbuf)) {
 	jump = TRUE;
 	SETCAR(cont, R_ReturnedValue);
 	unwind_cont_t *u = RAWDATA(CDR(cont));
-	u->jumpmask = thiscontext.jumpmask;
-	u->jumptarget = thiscontext.jumptarget;
-	thiscontext.jumptarget = NULL;
+	u->jumpmask = thiscontext->jumpmask;
+	u->jumptarget = thiscontext->jumptarget;
+	thiscontext->jumptarget = NULL;
     }
     else {
 	result = fun(data);
 	SETCAR(cont, result);
 	jump = FALSE;
     }
-    endcontext(&thiscontext);
+    freecontext(thiscontext);
 
     cleanfun(cleandata, jump);
 

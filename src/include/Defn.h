@@ -1445,6 +1445,7 @@ typedef struct RCNTXT {
     R_bcstack_t returnValue;    /* only set during on.exit calls */
     struct RCNTXT *jumptarget;	/* target for a continuing jump */
     int jumpmask;               /* associated LONGJMP argument */
+    struct RCNTXT *cntxtstacktop; /* context stack top at inception */
 } RCNTXT, *context;
 
 /* The Various Context Types.
@@ -1864,6 +1865,7 @@ int R_XDRDecodeInteger(void *buf);
 # define begincontext		Rf_begincontext
 # define BindDomain		Rf_BindDomain
 # define check_stack_balance	Rf_check_stack_balance
+# define codecontext		Rf_codecontext
 # define check1arg		Rf_check1arg
 # define CheckFormals		Rf_CheckFormals
 # define CleanEd		Rf_CleanEd
@@ -1902,6 +1904,7 @@ int R_XDRDecodeInteger(void *buf);
 # define findVar1		Rf_findVar1
 # define FrameClassFix		Rf_FrameClassFix
 # define framedepth		Rf_framedepth
+# define freecontext		Rf_freecontext
 # define frameSubscript		Rf_frameSubscript
 # define get1index		Rf_get1index
 # define GetOptionCutoff       	Rf_GetOptionCutoff
@@ -1958,6 +1961,7 @@ int R_XDRDecodeInteger(void *buf);
 # define mkQUOTE		Rf_mkQUOTE
 # define mkSYMSXP		Rf_mkSYMSXP
 # define mkTrue			Rf_mkTrue
+# define newcontext		Rf_newcontext
 # define NewEnvironment		Rf_NewEnvironment
 # define OneIndex		Rf_OneIndex
 # define onintr			Rf_onintr
@@ -1983,6 +1987,7 @@ int R_XDRDecodeInteger(void *buf);
 # define Seql			Rf_Seql
 # define sexptype2char		Rf_sexptype2char
 # define Scollate		Rf_Scollate
+# define simplecontext		Rf_simplecontext
 # define sortVector		Rf_sortVector
 # define SrcrefPrompt		Rf_SrcrefPrompt
 # define ssort			Rf_ssort
@@ -2308,6 +2313,10 @@ SEXP vectorIndex(SEXP, SEXP, int, int, int, SEXP, Rboolean);
 
 #ifdef R_USE_SIGNALS
 void begincontext(RCNTXT*, int, SEXP, SEXP, SEXP, SEXP, SEXP);
+RCNTXT *newcontext(int, SEXP, SEXP, SEXP, SEXP, SEXP);
+RCNTXT *simplecontext(int, SEXP);
+RCNTXT *codecontext(void (*)(void *), void *);
+void freecontext(RCNTXT *);
 SEXP dynamicfindVar(SEXP, RCNTXT*);
 void endcontext(RCNTXT*);
 int framedepth(RCNTXT*);
@@ -2322,6 +2331,8 @@ RCNTXT *R_findParentContext(RCNTXT *, int);
 
 void R_run_onexits(RCNTXT *);
 NORET void R_jumpctxt(RCNTXT *, int, SEXP);
+
+void R_InitContextStack(void);
 #endif
 
 /* ../main/bind.c */

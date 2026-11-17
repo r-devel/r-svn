@@ -550,7 +550,7 @@ static void cat_cleanup(void *data)
 attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     cat_info ci;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     SEXP objs, file, fill, sepr, labs, s;
     int ifile;
     Rconnection con;
@@ -624,10 +624,7 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
     ci.con = con;
 
     /* set up a context which will close the connection if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &cat_cleanup;
-    cntxt.cenddata = &ci;
+    cntxt = codecontext(&cat_cleanup, &ci);
 
     nobjs = length(objs);
     width = 0;
@@ -707,7 +704,7 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* end the context after anything that could raise an error but before
        doing the cleanup so the cleanup doesn't get done twice */
-    endcontext(&cntxt);
+    freecontext(cntxt);
 
     cat_cleanup(&ci);
 

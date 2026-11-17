@@ -1554,16 +1554,13 @@ static void cend_con_destroy(void *data)
 static void checked_open(int ncon)
 {
     Rconnection con = Connections[ncon];
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     /* Set up a context which will destroy the connection on error,
        including warning turned into error (PR#18491) */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &cend_con_destroy;
-    cntxt.cenddata = &ncon;
+    cntxt = codecontext(&cend_con_destroy, &ncon);
     Rboolean success = con->open(con);
-    endcontext(&cntxt);
+    freecontext(cntxt);
     if(!success) {
 	con_destroy(ncon);
 	error(_("cannot open the connection"));
@@ -4444,7 +4441,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean wasopen;
     char *buf = NULL;
     const char *encoding;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     R_xlen_t i, n, nn, nnn, nread;
 
     checkArity(op, args);
@@ -4469,10 +4466,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 
     /* Clean up the current buffer and any connection opened here on error. */
     readLines_data data = {&buf, NULL};
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &readLines_cleanup;
-    cntxt.cenddata = &data;
+    cntxt = codecontext(&readLines_cleanup, &data);
 
     wasopen = con->isopen;
     if(!wasopen) {
@@ -4545,7 +4539,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	data.con = NULL; /* do not close again if closing raises an error */
 	con->close(con);
     }
-    endcontext(&cntxt);
+    freecontext(cntxt);
     UNPROTECT(1);
     free(buf);
     return ans;
@@ -4567,7 +4561,7 @@ no_more_lines:
 			con->description);
 	}
     }
-    endcontext(&cntxt);
+    freecontext(cntxt);
     free(buf);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
@@ -4586,7 +4580,7 @@ attribute_hidden SEXP do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
     Rconnection con=NULL;
     const char *ssep;
     SEXP text, sep;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
     text = CAR(args);
@@ -4610,10 +4604,7 @@ attribute_hidden SEXP do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
 	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
     }
     if(!con->canwrite) error(_("cannot write to this connection"));
     /* NB: translateChar0() is the same as CHAR() for IS_BYTES strings */
@@ -4645,7 +4636,7 @@ attribute_hidden SEXP do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if(!wasopen) {
-    	endcontext(&cntxt);
+    	freecontext(cntxt);
     	checkClose(con);
     }
     return R_NilValue;
@@ -4737,7 +4728,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean wasopen = TRUE, isRaw = FALSE;
     Rconnection con = NULL;
     Rbyte *bytes = NULL;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     R_xlen_t i, n,  m = 0, nbytes = 0, np = 0;
 
     checkArity(op, args);
@@ -4775,10 +4766,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    strcpy(con->mode, mode);
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    cntxt = codecontext(&con_cleanup, con);
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
     }
@@ -4976,7 +4964,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	}
     }
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {freecontext(cntxt); con->close(con);}
     if(m < n)
 	ans = xlengthgets(ans, m);
     UNPROTECT(1);
@@ -5022,7 +5010,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 #endif
 
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     if(!wasopen) {
 	/* Documented behaviour */
 	char mode[5];
@@ -5031,10 +5019,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
 	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
 	if(!con->canwrite) error(_("cannot write to this connection"));
     }
 
@@ -5214,7 +5199,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if(!wasopen) {
-        endcontext(&cntxt);
+        freecontext(cntxt);
         checkClose(con);
     }
     if(isRaw) {
@@ -5332,7 +5317,7 @@ attribute_hidden SEXP do_readchar(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean wasopen = TRUE, isRaw = FALSE, warnOnNul = TRUE;
     Rconnection con = NULL;
     Rbyte *bytes = NULL;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     checkArity(op, args);
 
     if(TYPEOF(CAR(args)) == RAWSXP) {
@@ -5362,10 +5347,7 @@ attribute_hidden SEXP do_readchar(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    strcpy(con->mode, mode);
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    cntxt = codecontext(&con_cleanup, con);
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
     }
@@ -5390,7 +5372,7 @@ attribute_hidden SEXP do_readchar(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else break;
     }
 
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {freecontext(cntxt); con->close(con);}
     if(m < n) {
 	PROTECT(ans = xlengthgets(ans, m));
 	UNPROTECT(1);
@@ -5411,7 +5393,7 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
     Rboolean wasopen = TRUE, usesep, isRaw = FALSE;
     Rconnection con = NULL;
     mbstate_t mb_st;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
     object = CAR(args);
@@ -5514,10 +5496,7 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
 	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
 	if(!con->canwrite) error(_("cannot write to this connection"));
     }
 
@@ -5593,7 +5572,7 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     if(!wasopen) {
-        endcontext(&cntxt);
+        freecontext(cntxt);
         checkClose(con);
     }
     if(isRaw) {

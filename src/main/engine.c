@@ -3984,19 +3984,17 @@ static void clearLockFlag(void *data)
 	dd->lock = FALSE;
 }
 
-static void lockDevice(RCNTXT *cntxt, pGEDevDesc dd)
+static RCNTXT *lockDevice(pGEDevDesc dd)
 {
-    cntxt->cend = &clearLockFlag;
-    cntxt->cenddata = dd;
-    begincontext(cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
+    RCNTXT *cntxt = codecontext(&clearLockFlag, dd);
     dd->lock = TRUE;
+    return cntxt;
 }
 
 static void unlockDevice(RCNTXT *cntxt)
 {
     pGEDevDesc dd = (pGEDevDesc) cntxt->cenddata;
-    endcontext(cntxt);
+    freecontext(cntxt);
     clearLockFlag(dd);
 }
 
@@ -4005,13 +4003,13 @@ SEXP eval_with_gd(SEXP e, SEXP rho, pGEDevDesc dd)
     if (!dd)
         dd = GEcurrentDevice();
     bool lock = dd->lock;
-    RCNTXT cntxt;
+    RCNTXT *cntxt = NULL;
     SEXP result;
     if (!lock)
-        lockDevice(&cntxt, dd);
+        cntxt = lockDevice(dd);
     PROTECT(result = eval(e, rho));
     if (!lock)
-        unlockDevice(&cntxt);
+        unlockDevice(cntxt);
     UNPROTECT(1);
     return result;
 }

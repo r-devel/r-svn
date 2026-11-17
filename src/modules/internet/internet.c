@@ -292,7 +292,7 @@ typedef struct {
     window wprog;
     progressbar pb;
     label l_url;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     int pc;
 } winprogressbar;
 
@@ -451,10 +451,7 @@ static SEXP in_do_download(SEXP args)
 		    setprogressbar(pbar.pb, 0);
 		    settext(pbar.wprog, "Download progress");
 		    show(pbar.wprog);
-		    begincontext(&(pbar.cntxt), CTXT_CCODE, R_NilValue, R_NilValue,
-				 R_NilValue, R_NilValue, R_NilValue);
-		    pbar.cntxt.cend = &doneprogressbar;
-		    pbar.cntxt.cenddata = &pbar;
+		    pbar.cntxt = codecontext(&doneprogressbar, &pbar);
 		    pbar.pc = 0;
 		}
 	    }
@@ -497,7 +494,7 @@ static SEXP in_do_download(SEXP args)
 	    }
 	    R_FlushConsole();
 	    if(R_Interactive && !quiet) {
-		endcontext(&(pbar.cntxt));
+		freecontext(pbar.cntxt);
 		doneprogressbar(&pbar);
 	    }
 	    if (total > 0 && total != nbytes)

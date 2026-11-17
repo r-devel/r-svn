@@ -172,19 +172,17 @@ static void onintrEx(Rboolean resumeOK)
     if (resumeOK) {
 	SEXP rho = R_GlobalContext->cloenv;
 	int dbflag = RDEBUG(rho);
-	RCNTXT restartcontext;
-	begincontext(&restartcontext, CTXT_RESTART, R_NilValue, R_GlobalEnv,
-		     R_BaseEnv, R_NilValue, R_NilValue);
-	if (SETJMP(restartcontext.cjmpbuf)) {
+	RCNTXT *restartcontext = simplecontext(CTXT_RESTART, R_GlobalEnv);
+	if (SETJMP(restartcontext->cjmpbuf)) {
 	    SET_RDEBUG(rho, dbflag); /* in case browser() has messed with it */
 	    R_ReturnedValue = R_NilValue;
 	    R_Visible = FALSE;
-	    endcontext(&restartcontext);
+	    freecontext(restartcontext);
 	    return;
 	}
-	addInternalRestart(&restartcontext, "resume");
+	addInternalRestart(restartcontext, "resume");
 	signalInterrupt();
-	endcontext(&restartcontext);
+	freecontext(restartcontext);
     }
     else signalInterrupt();
 
@@ -448,7 +446,7 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
     const char *dcall;
     char buf[BUFSIZE];
     RCNTXT *cptr;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     size_t psize;
     int pval;
 
@@ -477,9 +475,7 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
 	return;
 
     /* set up a context which will restore inWarning if there is an exit */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &reset_inWarning;
+    cntxt = codecontext(&reset_inWarning, NULL);
 
     inWarning = 1;
 
@@ -542,7 +538,7 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
 	}
     }
     /* else:  w <= -1 */
-    endcontext(&cntxt);
+    freecontext(cntxt);
     inWarning = 0;
 }
 
@@ -590,7 +586,7 @@ void PrintWarnings(void)
     int i;
     char *header;
     SEXP names, s, t;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     if (R_CollectWarnings == 0)
 	return;
@@ -605,9 +601,7 @@ void PrintWarnings(void)
 
     /* set up a context which will restore inPrintWarnings if there is
        an exit */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &cleanup_PrintWarnings;
+    cntxt = codecontext(&cleanup_PrintWarnings, NULL);
 
     inPrintWarnings = 1;
     header = ngettext("Warning message:", "Warning messages:",
@@ -699,7 +693,7 @@ void PrintWarnings(void)
     SET_SYMVALUE(install("last.warning"), s);
     UNPROTECT(2);
 
-    endcontext(&cntxt);
+    freecontext(cntxt);
 
     inPrintWarnings = 0;
     R_CollectWarnings = 0;
@@ -783,12 +777,8 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
     }
 
     /* set up a context to restore inError value on exit */
-    RCNTXT cntxt;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
     int oldInError;
-    cntxt.cend = &restore_inError;
-    cntxt.cenddata = &oldInError;
+    RCNTXT *cntxt = codecontext(&restore_inError, &oldInError);
     oldInError = inError;
     inError = 1;
 
@@ -897,7 +887,7 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
     jump_to_top_ex(TRUE, TRUE, TRUE, TRUE, FALSE);
 
     /* not reached */
-    endcontext(&cntxt);
+    freecontext(cntxt);
     inError = oldInError;
 }
 
@@ -993,15 +983,12 @@ static void jump_to_top_ex(Rboolean traceback,
 			   Rboolean resetConsole,
 			   Rboolean ignoreRestartContexts)
 {
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     SEXP s;
     int haveHandler, oldInError;
 
     /* set up a context to restore inError value on exit */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &restore_inError;
-    cntxt.cenddata = &oldInError;
+    cntxt = codecontext(&restore_inError, &oldInError);
 
     oldInError = inError;
 

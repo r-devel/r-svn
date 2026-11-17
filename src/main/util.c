@@ -1231,15 +1231,13 @@ attribute_hidden SEXP do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     PROTECT(ans = duplicate(x));
 #ifdef Win32
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     bool havecontext = FALSE;
     /* do_encodeString is not printing, but returning a string, it therefore
        must not produce Rgui escapes (do_encodeString may get called as part
        of print dispatch with WinUTF8out being already set to TRUE). */
     if (WinUTF8out) {
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &encode_cleanup;
+	cntxt = codecontext(&encode_cleanup, NULL);
 	havecontext = true;
 	WinUTF8out = FALSE;
     }
@@ -1261,7 +1259,7 @@ attribute_hidden SEXP do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef Win32
     if (havecontext) {
 	encode_cleanup(NULL);
-	endcontext(&cntxt);
+	freecontext(cntxt);
     }
 #endif
     UNPROTECT(1);

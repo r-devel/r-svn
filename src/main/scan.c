@@ -854,7 +854,7 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
     int c, flush, fill, blskip, multiline, escapes, skipNul;
     R_xlen_t nmax, nlines, nskip;
     const char *p, *encoding;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     LocalData data = {NULL, 0, 0, '.', NULL, NO_COMCHAR, 0, NULL, false,
 		      false, 0, false, false, false, false, false, {false}};
     data.NAstrings = R_NilValue;
@@ -927,10 +927,10 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* set up a context which will close the connection if there is
        an error or user interrupt */
-    begincontext(&cntxt, CTXT_CCODE, R_GlobalContext->call, R_BaseEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    cntxt.cend = &scan_cleanup;
-    cntxt.cenddata = &data;
+    cntxt = newcontext(CTXT_CCODE, R_GlobalContext->call, R_BaseEnv,
+		       R_BaseEnv, R_NilValue, R_NilValue);
+    cntxt->cend = &scan_cleanup;
+    cntxt->cenddata = &data;
 
     if (isString(quotes)) {
 	const char *sc = translateChar(STRING_ELT(quotes, 0));
@@ -1010,7 +1010,7 @@ attribute_hidden SEXP do_scan(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("invalid '%s' argument"), "what");
     }
     PROTECT(ans);
-    endcontext(&cntxt);
+    freecontext(cntxt);
 
     /* we might have a character that was unscanchar-ed.
        So pushback if possible */

@@ -305,7 +305,7 @@ SEXP in_RX11_dataentry(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP colmodes, tnames, tvec, tvec2, work2;
     SEXPTYPE type;
     int i, j, cnt, len, nprotect;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     char *title = "R Data Editor";
     destruct DE1;
     DEstruct DE = &DE1;
@@ -379,10 +379,7 @@ SEXP in_RX11_dataentry(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, "unable to start data editor");
 
     /* set up a context which will close the window if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &closewin_cend;
-    cntxt.cenddata = (void *) DE;
+    cntxt = codecontext(&closewin_cend, (void *) DE);
 
     highlightrect(DE);
 
@@ -390,7 +387,7 @@ SEXP in_RX11_dataentry(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     eventloop(DE);
 
-    endcontext(&cntxt);
+    freecontext(cntxt);
     closewin(DE);
     if(nView == 0) {
 	if(fdView >= 0) { /* might be open after viewers, but unlikely */
@@ -462,7 +459,7 @@ SEXP in_R_X11_dataviewer(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP stitle;
     SEXPTYPE type;
     int i, nprotect;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     // FIXME: this should be checked
     DEstruct DE = (DEstruct) malloc(sizeof(destruct));
     if(!DE) error("allocation failed in in_R_X11_dataviewer");
@@ -516,10 +513,7 @@ SEXP in_R_X11_dataviewer(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, "unable to start data viewer");
 
     /* set up a context which will close the window if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &dv_closewin_cend;
-    cntxt.cenddata = (void *) DE;
+    cntxt = codecontext(&dv_closewin_cend, (void *) DE);
 
     highlightrect(DE);
 
@@ -535,6 +529,7 @@ SEXP in_R_X11_dataviewer(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     R_PreserveObject(DE->work); /* also preserves names */
     R_PreserveObject(DE->lens);
+    freecontext(cntxt);
     UNPROTECT(nprotect);
     return R_NilValue;
 }

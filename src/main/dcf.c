@@ -139,7 +139,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP file, what, what2, retval, retval2, dims, dimnames;
     Rconnection con = NULL;
     bool wasopen, is_eblankline;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     dcf_info di = {
 	.buf = &buf,
 	.regex = { &blankline, &trailblank, &contline, &regline, &eblankline },
@@ -162,10 +162,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
        and free the line buffer and regexps, on error */
     di.con = con;
     di.wasopen = wasopen;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &dcf_cleanup;
-    cntxt.cenddata = &di;
+    cntxt = codecontext(&dcf_cleanup, &di);
     if(!con->canread) error(_("cannot read from this connection"));
 
     args = CDR(args);
@@ -381,7 +378,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     vmaxset(vmax);
-    endcontext(&cntxt);
+    freecontext(cntxt);
     dcf_cleanup(&di);
 
     if(!blank_skip) k++;

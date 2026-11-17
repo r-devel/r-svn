@@ -3212,7 +3212,7 @@ static void GA_onExit(pDevDesc dd);
 static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
 {
     gadesc *xd = (gadesc *) dd->deviceSpecific;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     if (xd->kind != SCREEN)
 	return FALSE;
@@ -3232,11 +3232,8 @@ static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
     setstatus(G_("Locator is active"));
 
     /* set up a context which will clean up if there's an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_NilValue, R_NilValue,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &donelocator;
-    cntxt.cenddata = xd;
-    xd->cntxt = (void *) &cntxt;
+    cntxt = codecontext(&donelocator, xd);
+    xd->cntxt = (void *) cntxt;
 
     /* and an exit handler in case the window gets closed */
     dd->onExit = GA_onExit;
@@ -3255,7 +3252,7 @@ static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
     dd->onExit = NULL;
     xd->cntxt = NULL;
 
-    endcontext(&cntxt);
+    freecontext(cntxt);
     donelocator((void *)xd);
 
     if (xd->clicked == 1) {

@@ -401,7 +401,7 @@ attribute_hidden SEXP do_dput(SEXP call, SEXP op, SEXP args, SEXP rho)
     int ifile = asInteger(CADR(args));
     if (ifile != 1) {
 	Rconnection con = getConnection(ifile);
-	RCNTXT cntxt;
+	RCNTXT *cntxt;
 	bool wasopen = con->isopen;
 	if(!wasopen) {
 	    char mode[5];
@@ -410,10 +410,7 @@ attribute_hidden SEXP do_dput(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    strcpy(con->mode, mode);
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-			 R_NilValue, R_NilValue);
-	    cntxt.cend = &con_cleanup;
-	    cntxt.cenddata = con;
+	    cntxt = codecontext(&con_cleanup, con);
 	}
 	if(!con->canwrite) error(_("cannot write to this connection"));
 	bool havewarned = false;
@@ -425,7 +422,7 @@ attribute_hidden SEXP do_dput(SEXP call, SEXP op, SEXP args, SEXP rho)
 		havewarned = true;
 	    }
 	}
-	if(!wasopen) {endcontext(&cntxt); con->close(con);}
+	if(!wasopen) {freecontext(cntxt); con->close(con);}
     }
     else { // ifile == 1 : "Stdout"
 	for (int i = 0; i < LENGTH(tval); i++)
@@ -488,7 +485,7 @@ attribute_hidden SEXP do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
 	else {
 	    Rconnection con = getConnection(INTEGER(file)[0]);
 	    bool wasopen = con->isopen;
-	    RCNTXT cntxt;
+	    RCNTXT *cntxt;
 	    if(!wasopen) {
 		char mode[5];
 		strcpy(mode, con->mode);
@@ -496,10 +493,7 @@ attribute_hidden SEXP do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
 		if(!con->open(con)) error(_("cannot open the connection"));
 		strcpy(con->mode, mode);
 		/* Set up a context which will close the connection on error */
-		begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-			     R_NilValue, R_NilValue);
-		cntxt.cend = &con_cleanup;
-		cntxt.cenddata = con;
+		cntxt = codecontext(&con_cleanup, con);
 	    }
 	    if(!con->canwrite) error(_("cannot write to this connection"));
 	    bool havewarned = false;
@@ -530,7 +524,7 @@ attribute_hidden SEXP do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
 		UNPROTECT(1); /* tval */
 		o = CDR(o);
 	    }
-	    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+	    if(!wasopen) {freecontext(cntxt); con->close(con);}
 	}
     }
 
