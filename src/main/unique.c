@@ -77,8 +77,6 @@ struct _HashData {
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
-    Rboolean translate; /* some string of x needs translating to UTF-8 */
-    SEXP utf8; /* if not NULL, translations cached by isDuplicated() */
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -302,6 +300,15 @@ static R_INLINE int sequal(SEXP x, R_xlen_t i, SEXP y, R_xlen_t j)
     /* another pre-test to avoid the call to Seql */
     if (IS_CACHED(xi) && IS_CACHED(yj) && ENC_KNOWN(xi) == ENC_KNOWN(yj))
 	return 0;
+    /* Translating latin1 to UTF-8 never shortens a string, so a shorter
+       string that needs no translation (ASCII, UTF-8, or native in a
+       UTF-8 locale) cannot equal it: this spares translating a long
+       latin1 string on every probe past it. */
+    if (IS_LATIN1(xi) != IS_LATIN1(yj)) {
+	SEXP l = IS_LATIN1(xi) ? xi : yj, o = IS_LATIN1(xi) ? yj : xi;
+	if (LENGTH(o) < LENGTH(l) && (utf8locale || IS_ASCII(o) || IS_UTF8(o)))
+	    return 0;
+    }
     return Seql(xi, yj);
 }
 
@@ -533,75 +540,14 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 /* Collision resolution is by linear probing */
 /* The table is guaranteed large so this is sufficient */
 
-/* Whether translateCharUTF8() translates s, as needsTranslationUTF8()
-   in sysutils.c decides it for strings not in bytes encoding.  It only
-   decides what is cached, so only speed depends on this agreeing. */
-static R_INLINE Rboolean needsUTF8(SEXP s)
-{
-    if (IS_UTF8(s) || IS_ASCII(s) || s == NA_STRING)
-	return FALSE;
-    return IS_LATIN1(s) || !utf8locale;
-}
-
-/* Cache translateCharUTF8(x[indx]) in d->utf8 if it is a translation.
-   Elsewhere d->utf8 keeps R_BlankString, which no translation can be.
-   isDuplicated() compares an element only with elements it added
-   before, so caching each one as it is added translates each once,
-   and anyDuplicated() still stops at the first duplicate. */
-static void translateElt(SEXP x, R_xlen_t indx, HashData *d)
-{
-    SEXP xi = STRING_ELT(x, indx);
-    if (needsUTF8(xi)) {
-	const void *vmax = vmaxget();
-	const char *s = translateCharUTF8(xi);
-	if (s != CHAR(xi))
-	    SET_STRING_ELT(d->utf8, indx, mkCharCE(s, CE_UTF8));
-	vmaxset(vmax);
-    }
-}
-
-/* sequal(x, i, x, j), with the translations Seql() compares taken from
-   tr where cached.  The pre-tests still look at x: comparing the
-   cached CHARSXPs instead would change results, as "\x90" in a C
-   locale translates to "<90>". */
-static int sequalTr(SEXP x, SEXP tr, R_xlen_t i, R_xlen_t j)
-{
-    if (i < 0 || j < 0) return 0;
-    SEXP xi = STRING_ELT(x, i);
-    SEXP xj = STRING_ELT(x, j);
-    if (xi == xj) return 1;
-    if (xi == NA_STRING || xj == NA_STRING)
-	return 0;
-    if (IS_CACHED(xi) && IS_CACHED(xj) && ENC_KNOWN(xi) == ENC_KNOWN(xj))
-	return 0;
-    SEXP ti = STRING_ELT(tr, i);
-    SEXP tj = STRING_ELT(tr, j);
-    const void *vmax = vmaxget();
-    const char *si = ti != R_BlankString ? CHAR(ti) : translateCharUTF8(xi);
-    const char *sj = tj != R_BlankString ? CHAR(tj) : translateCharUTF8(xj);
-    int res = !strcmp(si, sj);
-    vmaxset(vmax);
-    return res;
-}
-
 static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 {
-    /* With translations cached, hash the cached one, which is what
-       shash() would translate x[indx] to, and compare with sequalTr() */
-    SEXP tr = d->utf8;
-    SEXP hx = x;
-    if (tr) {
-	translateElt(x, indx, d);
-	if (STRING_ELT(tr, indx) != R_BlankString)
-	    hx = tr;
-    }
 #ifdef LONG_VECTOR_SUPPORT
     if (d->isLong) {
 	double *h = HTDATA_DBL(d);
-	hlen i = d->hash(hx, indx, d);
+	hlen i = d->hash(x, indx, d);
 	while (h[i] != NIL) {
-	    if (tr ? sequalTr(x, tr, (R_xlen_t) h[i], indx)
-		   : d->equal(x, (R_xlen_t) h[i], x, indx))
+	    if (d->equal(x, (R_xlen_t) h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
 	    i = (i + 1) % d->M;
 	}
@@ -611,9 +557,9 @@ static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 #endif
     {
 	int *h = HTDATA_INT(d);
-	hlen i = d->hash(hx, indx, d);
+	hlen i = d->hash(x, indx, d);
 	while (h[i] != NIL) {
-	    if (tr ? sequalTr(x, tr, h[i], indx) : d->equal(x, h[i], x, indx))
+	    if (d->equal(x, h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
 	    i = (i + 1) % d->M;
 	}
@@ -638,8 +584,6 @@ static Rboolean duplicatedInit(SEXP x, HashData *d)
 	    if(ENC_KNOWN(STRING_ELT(x, i))) {
 		d->useUTF8 = TRUE;
 	    }
-	    if(needsUTF8(STRING_ELT(x, i)))
-		d->translate = TRUE;
 	    /* uncached strings are currently not properly supported */
 	    if(!IS_CACHED(STRING_ELT(x, i))) {
 		d->useCache = FALSE;
@@ -696,27 +640,11 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     }
 }
 
-/* Whether isDuplicated() should cache the UTF-8 translations of x:
-   with marked encodings, shash() and sequal() would translate on every
-   probe, so a long string probed past repeatedly is translated again
-   each time (match() translates up front, PR#17965).  useUTF8 &&
-   useCache means duplicatedInit() saw every element, so none is in
-   bytes encoding. */
-static R_INLINE Rboolean cacheTranslations(SEXP x, HashData *d)
-{
-    return TYPEOF(x) == STRSXP && d->useUTF8 && d->useCache && d->translate;
-}
-
-/* PROTECTs data.HashTable and data.utf8 */
 #define DUPLICATED_INIT						\
     HashData data = { 0 };					\
     HashTableSetup(x, &data, nmax);				\
-    PROTECT(data.HashTable);					\
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
-    duplicatedInit(x, &data);					\
-    if (cacheTranslations(x, &data))				\
-	data.utf8 = allocVector(STRSXP, XLENGTH(x));		\
-    PROTECT(data.utf8 ? data.utf8 : R_NilValue);
+    duplicatedInit(x, &data);
 
 /* used in scan() */
 SEXP duplicated(SEXP x, Rboolean from_last)
@@ -726,9 +654,9 @@ SEXP duplicated(SEXP x, Rboolean from_last)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
-    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
+    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -744,7 +672,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
 	    v[i] = isDuplicated(x, i, &data);
 	}
 
-    UNPROTECT(3);
+    UNPROTECT(2);
     return ans;
 }
 
@@ -920,9 +848,9 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     if(DUP_KNOWN_SORTED(x)) {
     	return sorted_Duplicated(x, from_last, nmax);
     }
-    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
+    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -938,7 +866,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
 	    v[i] = isDuplicated(x, i, &data);
 	}
 
-    UNPROTECT(3);
+    UNPROTECT(2);
     return ans;
 }
 
@@ -1072,8 +1000,8 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     	return sorted_any_duplicated(x, from_last);
     }
 
-    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
+    PROTECT(data.HashTable);
 
     if(from_last) {
 	for (i = n-1; i >= 0; i--) {
@@ -1084,7 +1012,7 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 	    if(isDuplicated(x, i, &data)) { result = ++i; break; }
 	}
     }
-    UNPROTECT(2);
+    UNPROTECT(1);
     return result;
 }
 
@@ -1097,9 +1025,9 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
-    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
+    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -1125,7 +1053,7 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	    }
 	UNPROTECT(1);
     }
-    UNPROTECT(3);
+    UNPROTECT(2);
     return ans;
 }
 
@@ -1136,8 +1064,8 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
-    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
+    PROTECT(data.HashTable);
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
@@ -1154,7 +1082,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 			isDup = FALSE; break;		\
 		    }					\
 		if(isDup) {				\
-		    UNPROTECT(3);			\
+		    UNPROTECT(2);			\
 		    return ++i;				\
 		}					\
 		/* else continue */			\
@@ -1167,7 +1095,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 	}
     }
 
-    UNPROTECT(3);
+    UNPROTECT(2);
     return 0;
 }
 
