@@ -4423,6 +4423,19 @@ dev.off(d); options(op)
 ## returned c("null device" = 1L) in R <= 4.6.2
 
 
+## forcing a long chain of forwarded variable promises
+mk <- function(v) environment()
+step <- compiler::compile(quote(mk(v))) # a promise for the variable 'v'
+e <- mk(1)
+for(i in 1:100) e <- eval(step, e)
+stopifnot(identical(e$v, 1))
+for(i in 1:1e5) e <- eval(step, e)
+r <- tryCatch(e$v, error = identity)
+stopifnot(identical(r, 1) || inherits(r, "error"))
+rm(mk, step, e, r)
+## C stack overflow with an earlier version of the change
+
+
 ## str(<difftime>, digits.d = *) -- PR#19294
 (dd <- .difftime(2500+pi, units="days"))
 di <- 1:15
