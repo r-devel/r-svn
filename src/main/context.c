@@ -114,7 +114,11 @@
 
 /* Contexts live on a stack of their own. It grows by chunks, so that
    active contexts never move, and chunks are kept for reuse. A context
-   is released by endcontext() or by a jump to an older context. */
+   is released by endcontext() or by a jump to an older context.
+
+   The chunk after the current one always exists, so that when a new
+   chunk cannot be allocated, the error that reports it still has room
+   for the contexts its handling needs. */
 
 typedef struct cntxtchunk {
     struct cntxtchunk *prev, *next;
@@ -132,7 +136,7 @@ static cntxtchunk *newContextChunk(cntxtchunk *prev)
     cntxtchunk *c =
 	malloc(sizeof(cntxtchunk) + CNTXT_CHUNK_SIZE * sizeof(RCNTXT));
     if (c == NULL)
-	R_Suicide("cannot allocate the context stack");
+	return NULL;
     c->prev = prev;
     c->next = NULL;
     c->end = c->base + CNTXT_CHUNK_SIZE;
@@ -144,7 +148,16 @@ static cntxtchunk *newContextChunk(cntxtchunk *prev)
 attribute_hidden void R_InitContextStack(void)
 {
     R_CntxtChunk = newContextChunk(NULL);
+    if (R_CntxtChunk == NULL || newContextChunk(R_CntxtChunk) == NULL)
+	R_Suicide("cannot allocate the context stack");
     R_CntxtStackTop = R_CntxtChunk->base;
+}
+
+/* Chunks are separate allocations, so compare addresses as integers. */
+static Rboolean isInChunk(cntxtchunk *c, RCNTXT *p)
+{
+    uintptr_t u = (uintptr_t) p;
+    return u >= (uintptr_t) c->base && u <= (uintptr_t) c->end;
 }
 
 /* Make 'top' the top of the context stack. It lies in the current
@@ -158,7 +171,7 @@ static void resetContextStack(RCNTXT *top)
 	top = c->base;
     }
     else {
-	while (top < c->base || top > c->end) {
+	while (! isInChunk(c, top)) {
 	    c = c->prev;
 	    if (c == NULL)
 		R_Suicide("bad context stack position");
@@ -171,11 +184,11 @@ static void resetContextStack(RCNTXT *top)
 static RCNTXT *allocContext(void)
 {
     if (R_CntxtStackTop == R_CntxtChunk->end) {
-	cntxtchunk *c = R_CntxtChunk->next;
-	if (c == NULL)
-	    c = newContextChunk(R_CntxtChunk);
-	R_CntxtChunk = c;
-	R_CntxtStackTop = c->base;
+	R_CntxtChunk = R_CntxtChunk->next;
+	R_CntxtStackTop = R_CntxtChunk->base;
+	if (R_CntxtChunk->next == NULL &&
+	    newContextChunk(R_CntxtChunk) == NULL)
+	    error(_("cannot allocate memory for the context stack"));
     }
     return R_CntxtStackTop++;
 }

@@ -2408,18 +2408,20 @@ static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
 
     R_Srcref = cntxt->srcref;
     /* final once endcontext() returns; see there */
-    R_bcstack_t value = cntxt->returnValue;
+    SEXP value = STACKVAL_TO_SEXP(cntxt->returnValue);
     endcontext(cntxt);
 
     if (dbg) {
+	PROTECT(value);
 	Rprintf("exiting from: ");
 	PrintCall(call, rho);
+	UNPROTECT(1);
     }
 
     /* clear R_ReturnedValue to allow GC to reclaim old value */
     R_ReturnedValue = R_NilValue;
 
-    return STACKVAL_TO_SEXP(value);
+    return value;
 }
 
 SEXP R_forceAndCall(SEXP e, int n, SEXP rho)

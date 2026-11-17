@@ -3205,6 +3205,7 @@ static void donelocator(void *data)
     addto(xd->gawin);
     setstatus(_("R Graphics"));
     xd->locator = FALSE;
+    xd->cntxt = NULL; /* the locator's context is ended or being unwound */
 }
 
 static void GA_onExit(pDevDesc dd);
@@ -3875,7 +3876,13 @@ static void GA_onExit(pDevDesc dd)
     xd->confirmation = FALSE;
     dd->gettingEvent = FALSE;
 
-    if (xd->cntxt) endcontext((RCNTXT *)xd->cntxt);
+    /* Newer contexts may still be active here, so leave the locator's
+       context to GA_Locator() or to the jump that follows, and only stop
+       it from running donelocator() a second time. */
+    if (xd->cntxt) {
+	((RCNTXT *)xd->cntxt)->cend = NULL;
+	xd->cntxt = NULL;
+    }
     if (xd->locator) donelocator((void *)xd);
 
     addto(xd->gawin);
