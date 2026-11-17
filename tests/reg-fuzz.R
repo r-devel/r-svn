@@ -202,6 +202,29 @@ local({
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
 
 
+## duplicated(), unique() and anyDuplicated() with marked encodings
+## translated strings to UTF-8 again on every hash probe
+local({
+    l1 <- "fa\xE7ile"; Encoding(l1) <- "latin1"
+    u1 <- enc2utf8(l1)
+    long <- strrep("\xE9", 5000); Encoding(long) <- "latin1"
+    x <- c(long, rep(c("", "a", "b", l1), 500), u1, enc2utf8(long))
+    stopifnot(exprs = {
+        identical(unique(x), c(long, "", "a", "b", l1))
+        identical(which(!duplicated(x)), 1:5)
+        identical(which(!duplicated(x, fromLast = TRUE)),
+                  c(1998L, 1999L, 2000L, 2002L, 2003L))
+        identical(anyDuplicated(x), 6L)
+        identical(anyDuplicated(x, fromLast = TRUE), 2001L)
+        identical(duplicated(c(l1, u1, "a", "a"), incomparables = l1),
+                  c(FALSE, FALSE, FALSE, TRUE))
+        identical(anyDuplicated(c(l1, "a", u1, "a"), incomparables = l1), 4L)
+    })
+})
+## took seconds on a fuzzed 7 KB input (a long latin1 string among many
+## short ones) in R <= 4.6.2
+
+
 
 
 ## keep at end

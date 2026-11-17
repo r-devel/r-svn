@@ -77,6 +77,7 @@ struct _HashData {
     Rboolean useCloEnv;
     Rboolean extptrAsRef;
     Rboolean inHashtab;
+    SEXP utf8; /* if not NULL, isDuplicated() hashes this translation of x */
 };
 
 #define HTDATA_INT(d) (INTEGER0((d)->HashTable))
@@ -531,8 +532,29 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 /* Collision resolution is by linear probing */
 /* The table is guaranteed large so this is sufficient */
 
+/* Store x[indx] in d->utf8, translated to UTF-8 if it needs to be.
+   isDuplicated() compares an element only with elements it added
+   before, so translating each one as it is added translates each
+   once, and anyDuplicated() still stops at the first duplicate. */
+static void translateElt(SEXP x, R_xlen_t indx, HashData *d)
+{
+    SEXP xi = STRING_ELT(x, indx);
+    const void *vmax = vmaxget();
+    const char *s = translateCharUTF8(xi);
+    /* translateCharUTF8() returns CHAR(xi) itself when xi needs no
+       translation: UTF-8, ASCII, NA, or native in a UTF-8 locale */
+    if (s != CHAR(xi))
+	xi = mkCharCE(s, CE_UTF8);
+    vmaxset(vmax);
+    SET_STRING_ELT(d->utf8, indx, xi);
+}
+
 static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 {
+    if (d->utf8) {
+	translateElt(x, indx, d);
+	x = d->utf8;
+    }
 #ifdef LONG_VECTOR_SUPPORT
     if (d->isLong) {
 	double *h = HTDATA_DBL(d);
@@ -631,11 +653,21 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
     }
 }
 
+/* With marked encodings, shash() and sequal() would translate to UTF-8
+   on every probe, so a long string probed past repeatedly is translated
+   again each time: instead isDuplicated() translates each element once,
+   into data.utf8 (match() translates up front, PR#17965).  useUTF8 &&
+   useCache means duplicatedInit() saw every element, so none is in
+   bytes encoding.  PROTECTs data.HashTable and data.utf8. */
 #define DUPLICATED_INIT						\
     HashData data = { 0 };					\
     HashTableSetup(x, &data, nmax);				\
+    PROTECT(data.HashTable);					\
     data.useUTF8 = FALSE; data.useCache = TRUE;			\
-    duplicatedInit(x, &data);
+    duplicatedInit(x, &data);					\
+    if (TYPEOF(x) == STRSXP && data.useUTF8 && data.useCache)	\
+	data.utf8 = allocVector(STRSXP, XLENGTH(x));		\
+    PROTECT(data.utf8 ? data.utf8 : R_NilValue);
 
 /* used in scan() */
 SEXP duplicated(SEXP x, Rboolean from_last)
@@ -645,9 +677,9 @@ SEXP duplicated(SEXP x, Rboolean from_last)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
+    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
-    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -663,7 +695,7 @@ SEXP duplicated(SEXP x, Rboolean from_last)
 	    v[i] = isDuplicated(x, i, &data);
 	}
 
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -839,9 +871,9 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
     if(DUP_KNOWN_SORTED(x)) {
     	return sorted_Duplicated(x, from_last, nmax);
     }
+    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
-    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -857,7 +889,7 @@ static SEXP Duplicated(SEXP x, Rboolean from_last, int nmax)
 	    v[i] = isDuplicated(x, i, &data);
 	}
 
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -991,8 +1023,8 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     	return sorted_any_duplicated(x, from_last);
     }
 
+    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
-    PROTECT(data.HashTable);
 
     if(from_last) {
 	for (i = n-1; i >= 0; i--) {
@@ -1003,7 +1035,7 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 	    if(isDuplicated(x, i, &data)) { result = ++i; break; }
 	}
     }
-    UNPROTECT(1);
+    UNPROTECT(2);
     return result;
 }
 
@@ -1016,9 +1048,9 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
+    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
 
-    PROTECT(data.HashTable);
     PROTECT(ans = allocVector(LGLSXP, n));
 
     v = LOGICAL(ans);
@@ -1044,7 +1076,7 @@ static SEXP duplicated3(SEXP x, SEXP incomp, Rboolean from_last, int nmax)
 	    }
 	UNPROTECT(1);
     }
-    UNPROTECT(2);
+    UNPROTECT(3);
     return ans;
 }
 
@@ -1055,8 +1087,8 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 
     if (!isVector(x)) error(_("'duplicated' applies only to vectors"));
     R_xlen_t i, n = XLENGTH(x);
+    /* PROTECTs data.HashTable and data.utf8 */
     DUPLICATED_INIT;
-    PROTECT(data.HashTable);
 
     if(!m) error(_("any_duplicated3(., <0-length incomp>)"));
 
@@ -1073,7 +1105,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 			isDup = FALSE; break;		\
 		    }					\
 		if(isDup) {				\
-		    UNPROTECT(2);			\
+		    UNPROTECT(3);			\
 		    return ++i;				\
 		}					\
 		/* else continue */			\
@@ -1086,7 +1118,7 @@ R_xlen_t any_duplicated3(SEXP x, SEXP incomp, Rboolean from_last)
 	}
     }
 
-    UNPROTECT(2);
+    UNPROTECT(3);
     return 0;
 }
 
