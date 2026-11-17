@@ -47,6 +47,64 @@ static R_INLINE double R_log(double x) {
    optional in C99.  Some systems return -Inf for log(x < 0), e.g.
    libsunmath on Solaris.
 */
+
+/* For tiny |x|, use the leading Taylor terms so that results near 0 do
+   not depend on the system math library.  Each cutoff is the largest
+   double T such that the shortcut, in IEEE double arithmetic, is the
+   correctly rounded f(x) for all |x| <= T.  For f(x) ~= x the next term
+   must stay below half an ulp of x, which is tightest just below a power
+   of 2.  Shared by do_math1() and the byte-code engine, so that both give
+   the same results (PR#19286). */
+
+static R_INLINE double R_exp(double x)
+{
+    /* exact for |x| < 2^-53; 1 + 2^-53 ties down, exp(2^-53) rounds up */
+    return fabs(x) < 0x1p-53 ? 1. + x : exp(x);
+}
+
+static R_INLINE double R_expm1(double x)
+{
+    /* expm1(x) - x ~= x^2/2 < 2^-106  <==>  |x| < sqrt(2) * 2^-53 */
+    return fabs(x) <= 0x1.6a09e667f3bccp-53 ? x : expm1(x);
+}
+
+static R_INLINE double R_log1p(double x)
+{
+    /* x - log1p(x) ~= x^2/2: as for expm1() */
+    return fabs(x) <= 0x1.6a09e667f3bccp-53 ? x : log1p(x);
+}
+
+static R_INLINE double R_sin(double x)
+{
+    /* x - sin(x) ~= x^3/6 < 2^-79  <==>  |x| < cbrt(3) * 2^-26 */
+    return fabs(x) <= 0x1.7137449123ef6p-26 ? x : sin(x);
+}
+
+static R_INLINE double R_asin(double x)
+{
+    /* asin(x) - x ~= x^3/6: as for sin(), one ulp lower from the x^5 term */
+    return fabs(x) <= 0x1.7137449123ef5p-26 ? x : asin(x);
+}
+
+static R_INLINE double R_tan(double x)
+{
+    /* tan(x) - x ~= x^3/3 < 2^-80  <==>  |x| < cbrt(6) * 2^-27, just
+       below 2^-26 where the ulp is half the one above */
+    return fabs(x) <= 0x1.d12ed0af1a27ep-27 ? x : tan(x);
+}
+
+static R_INLINE double R_atan(double x)
+{
+    /* x - atan(x) ~= x^3/3: as for tan() */
+    return fabs(x) <= 0x1.d12ed0af1a27fp-27 ? x : atan(x);
+}
+
+static R_INLINE double R_cos(double x)
+{
+    /* at the next double up, x*x*0.5 is 3.5 ulps of 1 - 2^-53 and the
+       subtraction ties to even, away from cos(x) */
+    return fabs(x) <= 0x1.deeea11683f48p-26 ? 1. - x*x*0.5 : cos(x);
+}
 static R_INLINE double logbase(double x, double base)
 {
 #ifdef HAVE_LOG10

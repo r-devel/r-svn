@@ -5280,15 +5280,16 @@ static struct { const char *name; SEXP sym; double (*fun)(double); }
 	{"ceiling", NULL, ceil},
 	{"sign", NULL, sign},
 
-	{"expm1", NULL, expm1},
-	{"log1p", NULL, log1p},
+	/* the R_* wrappers from arithmetic.h, as in do_math1() */
+	{"expm1", NULL, R_expm1},
+	{"log1p", NULL, R_log1p},
 
-	{"cos", NULL, cos},
-	{"sin", NULL, sin},
-	{"tan", NULL, tan},
+	{"cos", NULL, R_cos},
+	{"sin", NULL, R_sin},
+	{"tan", NULL, R_tan},
 	{"acos", NULL, acos},
-	{"asin", NULL, asin},
-	{"atan", NULL, atan},
+	{"asin", NULL, R_asin},
+	{"atan", NULL, R_atan},
 
 	{"cosh", NULL, cosh},
 	{"sinh", NULL, sinh},
@@ -8203,7 +8204,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
     OP(DIV, 1): FastBinary(R_DIV, DIVOP, R_DivSym);
     OP(EXPT, 1): FastBinary(R_POW, POWOP, R_ExptSym);
     OP(SQRT, 1): FastMath1(sqrt, R_SqrtSym);
-    OP(EXP, 1): FastMath1(exp, R_ExpSym);
+    OP(EXP, 1): FastMath1(R_exp, R_ExpSym);
     OP(EQ, 1): FastRelop2(==, EQOP, R_EqSym);
     OP(NE, 1): FastRelop2(!=, NEOP, R_NeSym);
     OP(LT, 1): FastRelop2(<, LTOP, R_LtSym);
