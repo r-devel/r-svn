@@ -1870,7 +1870,7 @@ SEXP R_Parse1Buffer(IoBuffer *buffer, int gencode, ParseStatus *status)
 	}
     }
     PROTECT(R_CurrentExpr);
-    freecontext(cntxt);
+    endcontext(cntxt);
     R_FinalizeSrcRefState();
     UNPROTECT(1); /* R_CurrentExpr */
     return R_CurrentExpr;
@@ -1921,7 +1921,7 @@ static SEXP R_Parse(int n, ParseStatus *status, SEXP srcfile)
 	    UNPROTECT(1); /* t */
 	    if (ParseState.keepSrcRefs && ParseState.keepParseData)
 	        finalizeData();
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 	    R_FinalizeSrcRefState();	    
 	    return R_NilValue;
 	    break;
@@ -1944,7 +1944,7 @@ finish:
     }
     UNPROTECT(2); /* t, rval */
     PROTECT(rval);
-    freecontext(cntxt);
+    endcontext(cntxt);
     R_FinalizeSrcRefState();
     UNPROTECT(1); /* rval */
     *status = PARSE_OK;
@@ -2078,7 +2078,7 @@ SEXP R_ParseBuffer(IoBuffer *buffer, int n, ParseStatus *status, SEXP prompt,
 	case PARSE_ERROR:
 	    UNPROTECT(1); /* t */
 	    R_IoBufferWriteReset(buffer);
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 	    R_FinalizeSrcRefState();
 	    return R_NilValue;
 	    break;
@@ -2100,7 +2100,7 @@ finish:
     }
     UNPROTECT(2); /* t, rval */
     PROTECT(rval);
-    freecontext(cntxt);
+    endcontext(cntxt);
     R_FinalizeSrcRefState();
     UNPROTECT(1); /* rval */
     *status = PARSE_OK;

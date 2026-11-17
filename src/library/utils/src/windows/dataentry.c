@@ -321,7 +321,7 @@ SEXP Win_dataentry(SEXP args)
 	R_ProcessEvents();
     }
 
-    freecontext(cntxt);
+    endcontext(cntxt);
 
     /* drop out unused columns */
     for(i = 0, cnt = 0; i < DE->xmaxused; i++)
@@ -1940,7 +1940,7 @@ SEXP Win_dataviewer(SEXP args)
 
     R_PreserveObject(DE->work); /* also preserves names */
     R_PreserveObject(DE->lens);
-    freecontext(cntxt);
+    endcontext(cntxt);
     UNPROTECT(nprotect);
     return R_NilValue;
 }

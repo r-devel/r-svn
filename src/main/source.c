@@ -311,7 +311,7 @@ attribute_hidden SEXP do_parse(SEXP call, SEXP op, SEXP args, SEXP env)
     known_to_be_latin1 = pci.old_latin1;
     known_to_be_utf8 = pci.old_utf8;
     PROTECT(s);
-    freecontext(cntxt);
+    endcontext(cntxt);
     UNPROTECT(3);
     return s;
 }

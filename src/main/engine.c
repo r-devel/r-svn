@@ -3994,7 +3994,7 @@ static RCNTXT *lockDevice(pGEDevDesc dd)
 static void unlockDevice(RCNTXT *cntxt)
 {
     pGEDevDesc dd = (pGEDevDesc) cntxt->cenddata;
-    freecontext(cntxt);
+    endcontext(cntxt);
     clearLockFlag(dd);
 }
 

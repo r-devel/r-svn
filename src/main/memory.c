@@ -1598,7 +1598,7 @@ static Rboolean RunFinalizers(void)
 		    SET_WEAKREF_NEXT(last, next);
 		R_RunWeakRefFinalizer(s);
 	    }
-	    freecontext(thiscontext);
+	    endcontext(thiscontext);
 	    UNPROTECT(1); /* next */
 	    R_ToplevelContext = saveToplevelContext;
 	    R_PPStackTop = savestack;
@@ -3422,7 +3422,7 @@ NORET void R_signal_protect_error(void)
        overflow/SEGFAULT so treat them as failed and skip them */
     R_signalErrorConditionEx(cond, R_NilValue, TRUE);
 
-    freecontext(cntxt); /* not reached */
+    endcontext(cntxt); /* not reached */
 }
 
 NORET void R_signal_unprotect_error(void)

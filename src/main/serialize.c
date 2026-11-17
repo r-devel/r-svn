@@ -2322,7 +2322,7 @@ SEXP R_Unserialize(R_inpstream_t stream)
 
     obj = ReadItem(ref_table, stream);
 
-    freecontext(cntxt);
+    endcontext(cntxt);
     CloseInStreamConverters(stream);
     UNPROTECT(1);
 
@@ -2690,7 +2690,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     R_InitConnOutPStream(&out, con, type, version, hook, fun);
     R_Serialize(object, &out);
-    if(!wasopen) {freecontext(cntxt); con->close(con);}
+    if(!wasopen) {endcontext(cntxt); con->close(con);}
 
     return R_NilValue;
 }
@@ -2744,7 +2744,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = PRIMVAL(op) == 0 ? R_Unserialize(&in) : R_SerializeInfo(&in);
     if(!wasopen) {
 	PROTECT(ans); /* paranoia about next line */
-	freecontext(cntxt);
+	endcontext(cntxt);
 	con->close(con);
 	UNPROTECT(1);
     }
@@ -3000,7 +3000,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 
 	/* end the context after anything that could raise an error but before
 	   calling OutTerm so it doesn't get called twice */
-	freecontext(cntxt);
+	endcontext(cntxt);
 
 	UNPROTECT(1); /* val */
 	return val;

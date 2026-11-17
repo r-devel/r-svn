@@ -620,7 +620,7 @@ static int R_pclose_timeout(FILE *fp)
 
     saveerrno = errno;
     wres = timeout_wait(&wstatus);
-    freecontext(tost.cntxt);
+    endcontext(tost.cntxt);
 
     if (wres < 0)
 	return -1;

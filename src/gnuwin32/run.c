@@ -691,7 +691,7 @@ int runcmd_timeout(const char *cmd, cetype_t enc, int wait, int visible,
 	    RCNTXT *cntxt = codecontext(&terminate_process, &pi);
 	    DWORD timeoutMillis = (DWORD) (1000*timeout);
 	    ret = pwait2(&pi, timeoutMillis, timedout);
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 	    snprintf(RunError, 501, _("Exit code was %d"), ret);
 	    ret &= 0xffff;
 	} else ret = 0;

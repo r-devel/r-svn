@@ -378,7 +378,7 @@ attribute_hidden SEXP do_readDCF(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     vmaxset(vmax);
-    freecontext(cntxt);
+    endcontext(cntxt);
     dcf_cleanup(&di);
 
     if(!blank_skip) k++;

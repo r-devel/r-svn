@@ -347,7 +347,7 @@ zipunzip(const char *zipname, const char *dest, int nfiles, const char **files,
 	}
     }
     *pnames = names;
-    freecontext(cntxt);
+    endcontext(cntxt);
     unzClose(uf);
     UNPROTECT(1); /* names */
     return err;
@@ -400,7 +400,7 @@ static SEXP ziplist(const char *zipname)
 		error("error %d with zipfile in unzGoToNextFile\n", err);
 	}
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     unzClose(uf);
 
     UNPROTECT(1);

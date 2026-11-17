@@ -108,7 +108,7 @@ static void R_ReplFile(FILE *fp, SEXP rho)
 	    parseError(R_NilValue, R_ParseError);
 	    break;
 	case PARSE_EOF:
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 	    R_FinalizeSrcRefState();
 	    return;
 	    break;
@@ -1513,8 +1513,8 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* browser prompt.  The (optional) second one */
     /* acts as a target for error returns. */
 
-    returncontext = newcontext(CTXT_BROWSER, call, rho,
-			       R_BaseEnv, argList, R_NilValue);
+    returncontext = begincontext(CTXT_BROWSER, call, rho,
+				 R_BaseEnv, argList, R_NilValue);
     if (!SETJMP(returncontext->cjmpbuf)) {
 	thiscontext = simplecontext(CTXT_RESTART, rho);
 	if (SETJMP(thiscontext->cjmpbuf)) {
@@ -1541,9 +1541,9 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 #else
 	R_ReplConsole(rho, savestack, browselevel + 1);
 #endif
-	freecontext(thiscontext);
+	endcontext(thiscontext);
     }
-    freecontext(returncontext);
+    endcontext(returncontext);
 
     /* Reset the interpreter state. */
 

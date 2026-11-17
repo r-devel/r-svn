@@ -422,7 +422,7 @@ attribute_hidden SEXP do_dput(SEXP call, SEXP op, SEXP args, SEXP rho)
 		havewarned = true;
 	    }
 	}
-	if(!wasopen) {freecontext(cntxt); con->close(con);}
+	if(!wasopen) {endcontext(cntxt); con->close(con);}
     }
     else { // ifile == 1 : "Stdout"
 	for (int i = 0; i < LENGTH(tval); i++)
@@ -524,7 +524,7 @@ attribute_hidden SEXP do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
 		UNPROTECT(1); /* tval */
 		o = CDR(o);
 	    }
-	    if(!wasopen) {freecontext(cntxt); con->close(con);}
+	    if(!wasopen) {endcontext(cntxt); con->close(con);}
 	}
     }
 

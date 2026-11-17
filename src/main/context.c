@@ -72,17 +72,18 @@
  *
  *  A context is created with a call to
  *
- *	void begincontext(RCNTXT *cptr, int flags,
- *			  SEXP syscall, SEXP env, SEXP
- *			  sysp, SEXP promargs, SEXP callfun)
+ *	RCNTXT *begincontext(int flags,
+ *			     SEXP syscall, SEXP env, SEXP
+ *			     sysp, SEXP promargs, SEXP callfun)
  *
- *  which sets up the context pointed to by cptr in the appropriate way.
- *  When the context goes "out-of-scope" a call to
+ *  which allocates it on the context stack and sets it up in the
+ *  appropriate way; simplecontext() and codecontext() are shorthands
+ *  for common kinds.  When the context goes "out-of-scope" a call to
  *
  *	void endcontext(RCNTXT *cptr)
  *
  *  restores the previous context (i.e. it adjusts the R_GlobalContext
- *  pointer).
+ *  pointer) and releases the context.
  *
  *  The non-local jump to a given context takes place in a call to
  *
@@ -111,10 +112,9 @@
 #include <Defn.h>
 #include <Internal.h>
 
-/* Contexts made by newcontext() live on a stack of their own. It grows
-   by chunks, so that active contexts never move, and chunks are kept
-   for reuse. A context is released by freecontext() or by a jump to an
-   older context. */
+/* Contexts live on a stack of their own. It grows by chunks, so that
+   active contexts never move, and chunks are kept for reuse. A context
+   is released by endcontext() or by a jump to an older context. */
 
 typedef struct cntxtchunk {
     struct cntxtchunk *prev, *next;
@@ -317,11 +317,14 @@ NORET attribute_hidden void R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 
 /* begincontext - begin an execution context */
 
-/* begincontext and endcontext are used in dataentry.c and modules */
-void begincontext(RCNTXT * cptr, int flags,
-		  SEXP syscall, SEXP env, SEXP sysp,
-		  SEXP promargs, SEXP callfun)
+/* begincontext and endcontext are also used in base packages and
+   modules. The caller sets the jump target, with
+   SETJMP(cntxt->cjmpbuf). */
+RCNTXT *begincontext(int flags,
+		     SEXP syscall, SEXP env, SEXP sysp,
+		     SEXP promargs, SEXP callfun)
 {
+    RCNTXT *cptr = allocContext();
     cptr->cstacktop = R_PPStackTop;
     cptr->gcenabled = R_GCEnabled;
     cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
@@ -354,10 +357,17 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->jumpmask = 0;
 
     R_GlobalContext = cptr;
+    return cptr;
 }
 
 
-/* endcontext - end an execution context */
+/* endcontext - end an execution context and release it
+
+   The context must not be used afterwards. A caller that needs its
+   returnValue reads it just before the call: endcontext() returns only
+   once the value is final, because a return() in on.exit code jumps
+   back to the context, whose handler stores the new value and calls
+   endcontext() again. */
 
 void endcontext(RCNTXT * cptr)
 {
@@ -400,27 +410,16 @@ void endcontext(RCNTXT * cptr)
 	R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
 
     R_GlobalContext = cptr->nextcontext;
+    resetContextStack(cptr);
 }
 
-
-/* newcontext, simplecontext, codecontext, freecontext - contexts
-   off the C stack */
-
-/* The caller still sets the jump target, with SETJMP(cntxt->cjmpbuf). */
-RCNTXT *newcontext(int flags, SEXP syscall, SEXP env, SEXP sysp,
-		   SEXP promargs, SEXP callfun)
-{
-    RCNTXT *cptr = allocContext();
-    begincontext(cptr, flags, syscall, env, sysp, promargs, callfun);
-    return cptr;
-}
 
 /* A context without a call or a function, such as a loop or a
    restart target */
 RCNTXT *simplecontext(int flags, SEXP env)
 {
-    return newcontext(flags, R_NilValue, env, R_BaseEnv,
-		      R_NilValue, R_NilValue);
+    return begincontext(flags, R_NilValue, env, R_BaseEnv,
+			R_NilValue, R_NilValue);
 }
 
 /* A context that only runs cend(cenddata) if it is jumped over */
@@ -430,14 +429,6 @@ RCNTXT *codecontext(void (*cend)(void *), void *cenddata)
     cptr->cend = cend;
     cptr->cenddata = cenddata;
     return cptr;
-}
-
-/* End a context made by newcontext() and release it. Fields of the
-   context must not be used afterwards. */
-void freecontext(RCNTXT *cptr)
-{
-    endcontext(cptr);
-    resetContextStack(cptr);
 }
 
 
@@ -915,7 +906,7 @@ Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
 	fun(data);
 	result = TRUE;
     }
-    freecontext(thiscontext);
+    endcontext(thiscontext);
 
     R_ToplevelContext = saveToplevelContext;
     R_CurrentExpr = topExp;
@@ -1028,7 +1019,7 @@ SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
 
     PROTECT(result = fun(data));
     cleanfun(cleandata);
-    freecontext(cntxt);
+    endcontext(cntxt);
     UNPROTECT(1);
 
     return result;
@@ -1089,7 +1080,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 	SETCAR(cont, result);
 	jump = FALSE;
     }
-    freecontext(thiscontext);
+    endcontext(thiscontext);
 
     cleanfun(cleandata, jump);
 

@@ -1904,7 +1904,6 @@ int R_XDRDecodeInteger(void *buf);
 # define findVar1		Rf_findVar1
 # define FrameClassFix		Rf_FrameClassFix
 # define framedepth		Rf_framedepth
-# define freecontext		Rf_freecontext
 # define frameSubscript		Rf_frameSubscript
 # define get1index		Rf_get1index
 # define GetOptionCutoff       	Rf_GetOptionCutoff
@@ -1961,7 +1960,6 @@ int R_XDRDecodeInteger(void *buf);
 # define mkQUOTE		Rf_mkQUOTE
 # define mkSYMSXP		Rf_mkSYMSXP
 # define mkTrue			Rf_mkTrue
-# define newcontext		Rf_newcontext
 # define NewEnvironment		Rf_NewEnvironment
 # define OneIndex		Rf_OneIndex
 # define onintr			Rf_onintr
@@ -2312,11 +2310,9 @@ int usemethod(const char *, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP*);
 SEXP vectorIndex(SEXP, SEXP, int, int, int, SEXP, Rboolean);
 
 #ifdef R_USE_SIGNALS
-void begincontext(RCNTXT*, int, SEXP, SEXP, SEXP, SEXP, SEXP);
-RCNTXT *newcontext(int, SEXP, SEXP, SEXP, SEXP, SEXP);
+RCNTXT *begincontext(int, SEXP, SEXP, SEXP, SEXP, SEXP);
 RCNTXT *simplecontext(int, SEXP);
 RCNTXT *codecontext(void (*)(void *), void *);
-void freecontext(RCNTXT *);
 SEXP dynamicfindVar(SEXP, RCNTXT*);
 void endcontext(RCNTXT*);
 int framedepth(RCNTXT*);

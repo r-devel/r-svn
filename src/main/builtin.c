@@ -704,7 +704,7 @@ attribute_hidden SEXP do_cat(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     /* end the context after anything that could raise an error but before
        doing the cleanup so the cleanup doesn't get done twice */
-    freecontext(cntxt);
+    endcontext(cntxt);
 
     cat_cleanup(&ci);
 

@@ -4645,16 +4645,16 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
 	s = R_ParseRd(con, &status, source, fragment, macros);
-	if(!wasopen) freecontext(conn_cntxt);
+	if(!wasopen) endcontext(conn_cntxt);
 	PopState();
 	/* End the context before parseError(), so its long jump cannot run
 	   PopStateOnError() a second time. */
-	freecontext(state_cntxt);
+	endcontext(state_cntxt);
 	if (status != PARSE_OK) parseError(call, R_ParseError);
     }
     else {
       PopState();
-      freecontext(state_cntxt);
+      endcontext(state_cntxt);
       error(_("invalid Rd file"));
     }
     return s;

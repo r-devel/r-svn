@@ -177,12 +177,12 @@ static void onintrEx(Rboolean resumeOK)
 	    SET_RDEBUG(rho, dbflag); /* in case browser() has messed with it */
 	    R_ReturnedValue = R_NilValue;
 	    R_Visible = FALSE;
-	    freecontext(restartcontext);
+	    endcontext(restartcontext);
 	    return;
 	}
 	addInternalRestart(restartcontext, "resume");
 	signalInterrupt();
-	freecontext(restartcontext);
+	endcontext(restartcontext);
     }
     else signalInterrupt();
 
@@ -538,7 +538,7 @@ static void vwarningcall_dflt(SEXP call, const char *format, va_list ap)
 	}
     }
     /* else:  w <= -1 */
-    freecontext(cntxt);
+    endcontext(cntxt);
     inWarning = 0;
 }
 
@@ -693,7 +693,7 @@ void PrintWarnings(void)
     SET_SYMVALUE(install("last.warning"), s);
     UNPROTECT(2);
 
-    freecontext(cntxt);
+    endcontext(cntxt);
 
     inPrintWarnings = 0;
     R_CollectWarnings = 0;
@@ -887,7 +887,7 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
     jump_to_top_ex(TRUE, TRUE, TRUE, TRUE, FALSE);
 
     /* not reached */
-    freecontext(cntxt);
+    endcontext(cntxt);
     inError = oldInError;
 }
 

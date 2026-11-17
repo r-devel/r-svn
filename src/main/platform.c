@@ -1625,7 +1625,7 @@ attribute_hidden SEXP do_listfiles(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    R_closedir(dir);
 	}
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     search_cleanup(&pb);
     REPROTECT(ans = lengthgets(ans, count), idx);
     if (pattern) tre_regfree(&reg);
@@ -1718,7 +1718,7 @@ attribute_hidden SEXP do_listdirs(SEXP call, SEXP op, SEXP args, SEXP rho)
 	          &countmax, idx, recursive, dir);
 	R_closedir(dir);
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     search_cleanup(&pb);
     REPROTECT(ans = lengthgets(ans, count), idx);
     ssort(STRING_PTR(ans), count); /* STRING_PTR is safe here */

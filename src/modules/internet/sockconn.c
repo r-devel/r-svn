@@ -69,7 +69,7 @@ static Rboolean sock_open(Rconnection con)
 		/* set up a context which will close socket on jump. */
 		cntxt = codecontext(&listencleanup, &sock1);
 		sock = R_SockListen(sock1, buf, 256, timeout); /* accept() */
-		freecontext(cntxt);
+		endcontext(cntxt);
 	    }
 	    R_SockClose(sock1);
 	    if(sock < 0) {

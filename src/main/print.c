@@ -984,7 +984,7 @@ done:
 
 #ifdef Win32
     if (havecontext)
-	freecontext(cntxt);
+	endcontext(cntxt);
     print_cleanup(&saveWinUTF8out);
 #endif
     return; /* needed when Win32 is not defined */

@@ -768,7 +768,7 @@ typedef struct tzset_info {
     bool settz;	/* TZ variable was set by us */
     RCNTXT *cntxt;
     bool end_context_on_reset;
-			/* should freecontext() be called from reset_tz()? */
+			/* should endcontext() be called from reset_tz()? */
 } tzset_info;
 
 static void reset_tz(tzset_info *si);
@@ -866,7 +866,7 @@ static bool set_tz(const char *tz, tzset_info *si)
 static void reset_tz(tzset_info *si)
 {
     if (si->end_context_on_reset) {
-	freecontext(si->cntxt);
+	endcontext(si->cntxt);
 	si->end_context_on_reset = false; /* guard against double reset */
     }
     if (!si->settz)

@@ -387,7 +387,7 @@ SEXP in_RX11_dataentry(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     eventloop(DE);
 
-    freecontext(cntxt);
+    endcontext(cntxt);
     closewin(DE);
     if(nView == 0) {
 	if(fdView >= 0) { /* might be open after viewers, but unlikely */
@@ -529,7 +529,7 @@ SEXP in_R_X11_dataviewer(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     R_PreserveObject(DE->work); /* also preserves names */
     R_PreserveObject(DE->lens);
-    freecontext(cntxt);
+    endcontext(cntxt);
     UNPROTECT(nprotect);
     return R_NilValue;
 }

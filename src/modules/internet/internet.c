@@ -494,7 +494,7 @@ static SEXP in_do_download(SEXP args)
 	    }
 	    R_FlushConsole();
 	    if(R_Interactive && !quiet) {
-		freecontext(pbar.cntxt);
+		endcontext(pbar.cntxt);
 		doneprogressbar(&pbar);
 	    }
 	    if (total > 0 && total != nbytes)

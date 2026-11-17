@@ -1560,7 +1560,7 @@ static void checked_open(int ncon)
        including warning turned into error (PR#18491) */
     cntxt = codecontext(&cend_con_destroy, &ncon);
     Rboolean success = con->open(con);
-    freecontext(cntxt);
+    endcontext(cntxt);
     if(!success) {
 	con_destroy(ncon);
 	error(_("cannot open the connection"));
@@ -4539,7 +4539,7 @@ attribute_hidden SEXP do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 	data.con = NULL; /* do not close again if closing raises an error */
 	con->close(con);
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     UNPROTECT(1);
     free(buf);
     return ans;
@@ -4561,7 +4561,7 @@ no_more_lines:
 			con->description);
 	}
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     free(buf);
     if(nread < nnn && !ok)
 	error(_("too few lines read in readLines"));
@@ -4636,7 +4636,7 @@ attribute_hidden SEXP do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if(!wasopen) {
-    	freecontext(cntxt);
+    	endcontext(cntxt);
     	checkClose(con);
     }
     return R_NilValue;
@@ -4964,7 +4964,7 @@ attribute_hidden SEXP do_readbin(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	}
     }
-    if(!wasopen) {freecontext(cntxt); con->close(con);}
+    if(!wasopen) {endcontext(cntxt); con->close(con);}
     if(m < n)
 	ans = xlengthgets(ans, m);
     UNPROTECT(1);
@@ -5199,7 +5199,7 @@ attribute_hidden SEXP do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if(!wasopen) {
-        freecontext(cntxt);
+        endcontext(cntxt);
         checkClose(con);
     }
     if(isRaw) {
@@ -5372,7 +5372,7 @@ attribute_hidden SEXP do_readchar(SEXP call, SEXP op, SEXP args, SEXP env)
 	} else break;
     }
 
-    if(!wasopen) {freecontext(cntxt); con->close(con);}
+    if(!wasopen) {endcontext(cntxt); con->close(con);}
     if(m < n) {
 	PROTECT(ans = xlengthgets(ans, m));
 	UNPROTECT(1);
@@ -5572,7 +5572,7 @@ attribute_hidden SEXP do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
     }
     if(!wasopen) {
-        freecontext(cntxt);
+        endcontext(cntxt);
         checkClose(con);
     }
     if(isRaw) {

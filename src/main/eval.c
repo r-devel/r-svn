@@ -1081,12 +1081,12 @@ static void handle_eval_depth_overflow(void)
 static SEXP eval_builtin_with_context(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP oldref = R_Srcref;
-    RCNTXT *cntxt = newcontext(CTXT_BUILTIN, call,
-			       R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
+    RCNTXT *cntxt = begincontext(CTXT_BUILTIN, call,
+				 R_BaseEnv, R_BaseEnv, R_NilValue, R_NilValue);
     R_Srcref = NULL;
     SEXP value = PRIMFUN(op) (call, op, args, rho);
     R_Srcref = oldref;
-    freecontext(cntxt);
+    endcontext(cntxt);
     return value;
 }
 
@@ -2356,7 +2356,7 @@ static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
     RCNTXT *cntxt;
     volatile Rboolean dbg = FALSE;
 
-    cntxt = newcontext(CTXT_RETURN, call, newrho, sysparent, arglist, op);
+    cntxt = begincontext(CTXT_RETURN, call, newrho, sysparent, arglist, op);
 
     body = BODY(op);
     if (R_CheckJIT(op)) {
@@ -2394,22 +2394,22 @@ static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
     /*  Set a longjmp target which will catch any explicit returns
 	from the function body.  */
 
-    SEXP value;
     if ((SETJMP(cntxt->cjmpbuf))) {
 	if (!cntxt->jumptarget) {
 	    /* ignores intermediate jumps for on.exits */
-	    value = R_ReturnedValue;
+	    cntxt->returnValue = SEXP_TO_STACKVAL(R_ReturnedValue);
 	}
 	else
-	    value = NULL; /* undefined */
+	    cntxt->returnValue = SEXP_TO_STACKVAL(NULL); /* undefined */
     }
     else
-	value = eval(body, newrho);
-    /* make it available to on.exit and implicitly protect */
-    cntxt->returnValue = SEXP_TO_STACKVAL(value);
+	/* make it available to on.exit and implicitly protect */
+	cntxt->returnValue = SEXP_TO_STACKVAL(eval(body, newrho));
 
     R_Srcref = cntxt->srcref;
-    freecontext(cntxt);
+    /* final once endcontext() returns; see there */
+    R_bcstack_t value = cntxt->returnValue;
+    endcontext(cntxt);
 
     if (dbg) {
 	Rprintf("exiting from: ");
@@ -2419,7 +2419,7 @@ static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
     /* clear R_ReturnedValue to allow GC to reclaim old value */
     R_ReturnedValue = R_NilValue;
 
-    return value;
+    return STACKVAL_TO_SEXP(value);
 }
 
 SEXP R_forceAndCall(SEXP e, int n, SEXP rho)
@@ -2889,7 +2889,7 @@ attribute_hidden SEXP do_for(SEXP call, SEXP op, SEXP args, SEXP rho)
 	; /* needed for strict ISO C compliance, according to gcc 2.95.2 */
     }
  for_break:
-    freecontext(cntxt);
+    endcontext(cntxt);
     DECREMENT_LINKS(val);
     UNPROTECT(5);
     SET_RDEBUG(rho, dbg);
@@ -2937,7 +2937,7 @@ attribute_hidden SEXP do_while(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    }
 	}
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     SET_RDEBUG(rho, dbg);
     return R_NilValue;
 }
@@ -2966,7 +2966,7 @@ attribute_hidden SEXP do_repeat(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    eval(body, rho);
 	}
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     SET_RDEBUG(rho, dbg);
     return R_NilValue;
 }
@@ -3459,8 +3459,8 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* Now set up a context to remove it when we are done, even in the
      * case of an error.  This all helps error() provide a better call.
      */
-    cntxt = newcontext(CTXT_CCODE, call, R_BaseEnv, R_BaseEnv,
-		       R_NilValue, R_NilValue);
+    cntxt = begincontext(CTXT_CCODE, call, R_BaseEnv, R_BaseEnv,
+			 R_NilValue, R_NilValue);
     cntxt->cend = &tmp_cleanup;
     cntxt->cenddata = rho;
 
@@ -3543,7 +3543,7 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     INCREMENT_NAMED(value);
     R_Visible = FALSE;
 
-    freecontext(cntxt); /* which does not run the remove */
+    endcontext(cntxt); /* which does not run the remove */
     if (oldTmpval == NULL)
 	unbindVar(R_TmpvalSymbol, rho);
     else
@@ -3970,23 +3970,23 @@ attribute_hidden SEXP do_eval(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (isLanguage(expr) || isSymbol(expr) || isByteCode(expr)) { */
     if (TYPEOF(expr) == LANGSXP || TYPEOF(expr) == SYMSXP || isByteCode(expr)) {
 	PROTECT(expr);
-	cntxt = newcontext(CTXT_RETURN, R_GlobalContext->call,
-			   env, rho, args, op);
+	cntxt = begincontext(CTXT_RETURN, R_GlobalContext->call,
+			     env, rho, args, op);
 	if (!SETJMP(cntxt->cjmpbuf))
 	    expr = eval(expr, env);
 	else
 	    expr = R_ReturnedValue;
 	UNPROTECT(1);
 	PROTECT(expr);
-	freecontext(cntxt);
+	endcontext(cntxt);
 	UNPROTECT(1);
     }
     else if (TYPEOF(expr) == EXPRSXP) {
 	volatile SEXP srcrefs = getBlockSrcrefs(expr);
 	PROTECT(expr);
 	tmp = R_NilValue;
-	cntxt = newcontext(CTXT_RETURN, R_GlobalContext->call,
-			   env, rho, args, op);
+	cntxt = begincontext(CTXT_RETURN, R_GlobalContext->call,
+			     env, rho, args, op);
 	if (!SETJMP(cntxt->cjmpbuf)) {
 	    int n = LENGTH(expr);
 	    for(int i = 0 ; i < n ; i++) {
@@ -3998,7 +3998,7 @@ attribute_hidden SEXP do_eval(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    tmp = R_ReturnedValue;
 	UNPROTECT(1);
 	PROTECT(tmp);
-	freecontext(cntxt);
+	endcontext(cntxt);
 	UNPROTECT(1);
 	expr = tmp;
     }
@@ -4242,10 +4242,10 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
 	       new environment rho1 is created and used.  LT */
 	    PROTECT(rho1 = NewEnvironment(R_NilValue, R_NilValue, rho)); nprotect++;
 	    IF_PROMSXP_SET_PRVALUE(CAR(pargs), x);
-	    cntxt = newcontext(CTXT_RETURN, call, rho1, rho, pargs, op);
+	    cntxt = begincontext(CTXT_RETURN, call, rho1, rho, pargs, op);
 	    if(usemethod(generic, x, call, pargs, rho1, rho, R_BaseEnv, ans))
 	    {
-		freecontext(cntxt);
+		endcontext(cntxt);
 		UNPROTECT(nprotect);
 #ifdef ADJUST_ENVIR_REFCNTS
 		R_CleanupEnvir(rho1, *ans);
@@ -4253,7 +4253,7 @@ int DispatchOrEval(SEXP call, SEXP op, const char *generic, SEXP args,
 #endif
 		return 1;
 	    }
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 #ifdef ADJUST_ENVIR_REFCNTS
 	    R_CleanupEnvir(rho1, R_NilValue);
 	    unpromiseArgs(pargs);
@@ -5569,21 +5569,6 @@ static R_INLINE void BCNPOP_ALLOC(size_t size)
     R_BCNodeStackTop -= nelems + 1; /* '+ 1' is for the RAWMEM_TAG */
 }
 
-static R_INLINE void *BCNALLOC_BASE(size_t size)
-{
-    size_t nelems = (size + sizeof(R_bcstack_t) - 1) / sizeof(R_bcstack_t);
-    return R_BCNodeStackTop - nelems;
-}
-
-/* Allocate R context on the node stack */
-#define BCNALLOC_CNTXT() (RCNTXT *) BCNALLOC(sizeof(RCNTXT))
-
-static R_INLINE void BCNPOP_AND_END_CNTXT(void) {
-    RCNTXT* cntxt = BCNALLOC_BASE(sizeof(RCNTXT));
-    endcontext(cntxt);
-    BCNPOP_ALLOC(sizeof(RCNTXT));
-}
-
 static SEXP bytecodeExpr(SEXP e)
 {
     if (isByteCode(e)) {
@@ -6098,10 +6083,10 @@ static int tryDispatch(char *generic, SEXP call, SEXP x, SEXP rho, SEXP *pv)
 
   /* See comment at first usemethod() call in this file. LT */
   PROTECT(rho1 = NewEnvironment(R_NilValue, R_NilValue, rho));
-  cntxt = newcontext(CTXT_RETURN, call, rho1, rho, pargs, op);
+  cntxt = begincontext(CTXT_RETURN, call, rho1, rho, pargs, op);
   if (usemethod(generic, x, call, pargs, rho1, rho, R_BaseEnv, pv))
     dispatched = TRUE;
-  freecontext(cntxt);
+  endcontext(cntxt);
   UNPROTECT(2);
 #ifdef ADJUST_ENVIR_REFCNTS
   R_CleanupEnvir(rho1, dispatched ? *pv : R_NilValue);
@@ -7282,18 +7267,25 @@ struct bcEval_locals {
 struct cntxt_loop_locals {
     struct bcEval_locals locals;
     BCODE *break_pc;
+    RCNTXT *cntxt;
 };
 
-#define PUSH_LOOP_LOCALS(bpc) do {				\
-	struct cntxt_loop_locals *loc =				\
-	    BCNALLOC(sizeof(struct cntxt_loop_locals));		\
-	SAVE_BCEVAL_LOCALS(&(loc->locals));			\
-	loc->break_pc = (bpc);					\
+#define PUSH_LOOP_LOCALS(bpc, loc) do {				\
+	(loc) = BCNALLOC(sizeof(struct cntxt_loop_locals));	\
+	SAVE_BCEVAL_LOCALS(&((loc)->locals));			\
+	(loc)->break_pc = (bpc);				\
     } while (0)
 
-#define POP_LOOP_LOCALS() do {					\
-	BCNPOP_ALLOC(sizeof(struct cntxt_loop_locals));		\
-    } while (0)
+/* Pop the loop state and return the loop's context. */
+static R_INLINE RCNTXT *POP_LOOP_LOCALS(void)
+{
+    int offset = NELEMS_FOR_SIZE(sizeof(struct cntxt_loop_locals));
+    struct cntxt_loop_locals *saved =
+	(struct cntxt_loop_locals *) (R_BCNodeStackTop - offset);
+    RCNTXT *cntxt = saved->cntxt;
+    BCNPOP_ALLOC(sizeof(struct cntxt_loop_locals));
+    return cntxt;
+}
 
 static R_INLINE
 struct bcEval_locals recover_loop_locals(int skip, Rboolean isbreak)
@@ -7332,25 +7324,22 @@ struct R_bcFrame {
 #define BCFRAME_PRSTACK() (&(R_BCFrame->u.promvars.prstack))
 
 /* Allocate activation frame for inline calls on the node stack */
-static R_INLINE R_bcFrame_type *PUSH_BCFRAME(Rboolean need_cntxt)
+/* The frame of an inline closure call gets its context in
+   setup_bcframe_call(); a promise frame has none. */
+static R_INLINE R_bcFrame_type *PUSH_BCFRAME(void)
 {
     R_bcstack_t *oldtop = R_BCNodeStackTop;
-    RCNTXT *pcntxt = need_cntxt ? BCNALLOC_CNTXT() : NULL;
     R_bcFrame_type *rec = (R_bcFrame_type *) BCNALLOC(sizeof(R_bcFrame_type));
     save_bcEval_globals(&(rec->globals));
     /* modify saved stack top to the value before pushing the frame */
     rec->globals.oldntop = oldtop; // must come after save_bcEval_globals!!
-    rec->pcntxt = pcntxt;
+    rec->pcntxt = NULL;
     return rec;
 }
 
-static R_INLINE R_bcstack_t POP_BCFRAME(Rboolean has_cntxt)
+static R_INLINE void POP_BCFRAME(void)
 {
-    R_bcstack_t val = has_cntxt ?
-	BCFRAME_CNTXT()->returnValue :
-	R_BCNodeStackTop[-1];
     restore_bcEval_globals(BCFRAME_GLOBALS());
-    return val;
 }
 
 struct vcache_info { R_binding_cache_t vcache; Rboolean smallcache; };
@@ -7411,8 +7400,9 @@ setup_bcframe_call(SEXP call, SEXP fun, SEXP args, SEXP rho)
 {
     SEXP newrho = make_applyClosure_env(call, fun, args, rho, R_NilValue);
     PROTECT(newrho);
-    R_BCFrame = PUSH_BCFRAME(TRUE);
-    begincontext(BCFRAME_CNTXT(), CTXT_RETURN, call, newrho, rho, args, fun);
+    R_BCFrame = PUSH_BCFRAME();
+    R_BCFrame->pcntxt =
+	begincontext(CTXT_RETURN, call, newrho, rho, args, fun);
     INCREMENT_EVAL_DEPTH();
     SET_BCFRAME_NEWRHO(newrho);
     SET_BCFRAME_CALL(call);
@@ -7431,11 +7421,13 @@ setup_bcframe_call(SEXP call, SEXP fun, SEXP args, SEXP rho)
 
 static R_INLINE void finish_inline_closure_call(void)
 {
+    /* final once endcontext() returns; see there */
+    R_bcstack_t unboxed_val = BCFRAME_CNTXT()->returnValue;
     endcontext(BCFRAME_CNTXT());
     SEXP newrho = BCFRAME_NEWRHO();
     SEXP args = BCFRAME_ARGS();
     SEXP call = BCFRAME_CALL();
-    R_bcstack_t unboxed_val = POP_BCFRAME(TRUE);
+    POP_BCFRAME();
 
     if (unboxed_val.tag) {
 #ifdef ADJUST_ENVIR_REFCNTS
@@ -7477,7 +7469,7 @@ static R_INLINE struct bcEval_locals setup_bcframe_prom(SEXP prom)
 {
     PROTECT(prom);
     SET_PRSEEN(prom, 1);
-    R_BCFrame = PUSH_BCFRAME(FALSE);
+    R_BCFrame = PUSH_BCFRAME();
     INCREMENT_EVAL_DEPTH();
     SET_BCFRAME_PROMISE(prom);
     PUSH_PENDING_PROMISE(prom, BCFRAME_PRSTACK());
@@ -7496,7 +7488,8 @@ static R_INLINE void finish_force_promise(void)
 {
     POP_PENDING_PROMISE(BCFRAME_PRSTACK());
     SEXP prom = BCFRAME_PROMISE();
-    R_bcstack_t ubval = POP_BCFRAME(FALSE);
+    R_bcstack_t ubval = R_BCNodeStackTop[-1];
+    POP_BCFRAME();
     BCNPUSH_STACKVAL(ubval); /* push early to protect */
     SET_PROMISE_VALUE_FROM_STACKVAL(prom, ubval);
     SET_PRSEEN(prom, 0);
@@ -7600,12 +7593,12 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 	{
 	    int is_for_loop = GETOP();
 	    R_bcstack_t *oldtop = R_BCNodeStackTop;
-	    RCNTXT *cntxt = BCNALLOC_CNTXT();
 	    int break_offset = GETOP();
 	    BCODE *break_pc = codebase + break_offset;
 	    struct bcEval_locals locals;
 	    SAVE_BCEVAL_LOCALS(&locals);
-	    PUSH_LOOP_LOCALS(break_pc);
+	    struct cntxt_loop_locals *loop;
+	    PUSH_LOOP_LOCALS(break_pc, loop);
 	    if (is_for_loop) {
 		/* duplicate the for loop state data on the top of the stack */
 		R_bcstack_t *loopdata = oldtop - FOR_LOOP_STATE_SIZE;
@@ -7616,8 +7609,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 		SET_FOR_LOOP_BCPROT_OFFSET(R_BCProtTop - R_BCNodeStackBase);
 		INCLNK_stack(R_BCNodeStackTop);
 
-		begincontext(cntxt, CTXT_LOOP, R_NilValue, rho, R_BaseEnv,
-			     R_NilValue, R_NilValue);
+		RCNTXT *cntxt = simplecontext(CTXT_LOOP, rho);
+		loop->cntxt = cntxt;
 		switch (SETJMP(cntxt->cjmpbuf)) {
 		case CTXT_BREAK:
 		    locals = recover_loop_locals(FOR_LOOP_STATE_SIZE, TRUE);
@@ -7628,8 +7621,8 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 		}
 	    }
 	    else {
-		begincontext(cntxt, CTXT_LOOP, R_NilValue, rho, R_BaseEnv,
-			     R_NilValue, R_NilValue);
+		RCNTXT *cntxt = simplecontext(CTXT_LOOP, rho);
+		loop->cntxt = cntxt;
 		switch (SETJMP(cntxt->cjmpbuf)) {
 		case CTXT_BREAK:
 		    locals = recover_loop_locals(0, TRUE);
@@ -7653,8 +7646,7 @@ static SEXP bcEval_loop(struct bcEval_locals *ploc)
 		/* remove the duplicated for loop state data */
 		R_BCNodeStackTop -= FOR_LOOP_STATE_SIZE;
 	    }
-	    POP_LOOP_LOCALS();
-	    BCNPOP_AND_END_CNTXT();
+	    endcontext(POP_LOOP_LOCALS());
 	    NEXT();
 	}
     OP(DOLOOPNEXT, 0): findcontext(CTXT_NEXT, rho, R_NilValue);
@@ -9036,7 +9028,7 @@ attribute_hidden Rboolean R_checkConstants(Rboolean abortOnError)
             prev_crec = crec;
 	crec = VECTOR_ELT(crec, 0);
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     checkingInProgress = FALSE;
     return constsOK;
 }

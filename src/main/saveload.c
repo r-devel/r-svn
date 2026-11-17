@@ -1154,7 +1154,7 @@ static void NewDataSave (SEXP s, FILE *fp, OutputRoutines *m, SaveLoadData *d)
 
     /* end the context after anything that could raise an error but before
        calling OutTerm so it doesn't get called twice */
-    freecontext(cntxt);
+    endcontext(cntxt);
 
     m->OutTerm(fp, d);
     UNPROTECT(2);
@@ -1354,7 +1354,7 @@ static SEXP NewDataLoad (FILE *fp, InputRoutines *m, SaveLoadData *d)
 
     /* end the context after anything that could raise an error but before
        calling InTerm so it doesn't get called twice */
-    freecontext(cntxt);
+    endcontext(cntxt);
 
     /* Wrap up */
     m->InTerm(fp, d);
@@ -2084,7 +2084,7 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
     UNPROTECT(1);
     /* end the context after anything that could raise an error but before
        closing the file so it doesn't get done twice */
-    freecontext(cntxt);
+    endcontext(cntxt);
     fclose(fp);
     return R_NilValue;
 }
@@ -2183,7 +2183,7 @@ attribute_hidden SEXP do_load(SEXP call, SEXP op, SEXP args, SEXP env)
 
     /* end the context after anything that could raise an error but before
        closing the file so it doesn't get done twice */
-    freecontext(cntxt);
+    endcontext(cntxt);
     fclose(fp);
     UNPROTECT(1);
     return val;
@@ -2416,7 +2416,7 @@ attribute_hidden SEXP do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     R_Serialize(s, &out);
     if (!wasopen) {
-	freecontext(cntxt);
+	endcontext(cntxt);
 	con->close(con);
     }
     UNPROTECT(1);
@@ -2487,7 +2487,7 @@ attribute_hidden SEXP do_loadFromConn2(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!wasopen) {
 	    /* PROTECT is paranoia: some close() method might allocate */
 	    PROTECT(res);
-	    freecontext(cntxt);
+	    endcontext(cntxt);
 	    con->close(con);
 	    UNPROTECT(1);
 	}

@@ -3252,7 +3252,7 @@ static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
     dd->onExit = NULL;
     xd->cntxt = NULL;
 
-    freecontext(cntxt);
+    endcontext(cntxt);
     donelocator((void *)xd);
 
     if (xd->clicked == 1) {

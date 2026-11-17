@@ -440,7 +440,7 @@ in_do_curlGetHeaders(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     long http_code = 0;
     curl_easy_getinfo (hnd, CURLINFO_RESPONSE_CODE, &http_code);
-    freecontext(cntxt);
+    endcontext(cntxt);
     curl_easy_cleanup(hnd);
 
     SEXP ans = PROTECT(allocVector(STRSXP, used));
@@ -995,7 +995,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (!single) current_time = currentTime();
     if (download_add_one_url(&next_url, scmd, mode, quiet, single, &c)) {
         // no dest files could be opened, so bail out
-        freecontext(cntxt);
+        endcontext(cntxt);
         download_cleanup(&c);
         vmaxset(vmax);
 	return ScalarInteger(1);
@@ -1109,7 +1109,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("download from '%s' failed"),
 	          translateChar(STRING_ELT(scmd, 0)));
     }
-    freecontext(cntxt);
+    endcontext(cntxt);
     download_cleanup(&c);
     vmaxset(vmax);
     SEXP ans = ScalarInteger(0);
@@ -1311,7 +1311,7 @@ static Rboolean Curl_open(Rconnection con)
     // Establish the connection: not clear if we should do this now.
     ctxt->sr = 1;
     int n_err = 0;
-    freecontext(cntxt); /* from now leave ctxt->hnd cleanup to GC */
+    endcontext(cntxt); /* from now leave ctxt->hnd cleanup to GC */
     con->isopen = TRUE; /* enable GC cleanup of opened connections */
     while(ctxt->sr && !ctxt->available)
 	/* FIXME: A an error from fetchData() or a warning turned into error

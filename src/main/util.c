@@ -1259,7 +1259,7 @@ attribute_hidden SEXP do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef Win32
     if (havecontext) {
 	encode_cleanup(NULL);
-	freecontext(cntxt);
+	endcontext(cntxt);
     }
 #endif
     UNPROTECT(1);
