@@ -206,6 +206,9 @@ local({
 local({
     n <- 30000 # 2n exceeds the default protect stack size
     x <- c(rep(rawToChar(as.raw(0xff)), n), intToUtf8(252))
+    ## invalid UTF-8 fails conversion in any locale; the native "\xff"
+    ## converts to U+007F in the C locale on Windows
+    Encoding(x) <- "UTF-8"
     r <- suppressWarnings(gregexpr(".", x))
     stopifnot(identical(vapply(r, `[`, 0L, 1L), c(rep(-1L, n), 1L)))
 })
