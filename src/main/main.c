@@ -870,9 +870,13 @@ void setup_Rmainloop(void)
 
     /* In case this is a silly limit: 2^32 -3 has been seen and
      * casting to intptr_r relies on this being smaller than 2^31 on a
-     * 32-bit platform. */
-    if(R_CStackLimit > 100000000U)
+     * 32-bit platform.  On 64-bit platforms large limits are real
+     * (FreeBSD defaults to 512MB): cap them to keep Cstack_info() in
+     * int range rather than disabling the stack checks. */
+    if(sizeof(void *) == 4 && R_CStackLimit > 100000000U)
 	R_CStackLimit = (uintptr_t)-1;
+    else if(R_CStackLimit != -1 && R_CStackLimit > INT_MAX)
+	R_CStackLimit = INT_MAX;
     /* make sure we have enough head room to handle errors */
     if(R_CStackLimit != -1)
 	R_CStackLimit = (uintptr_t)(0.95 * R_CStackLimit);
