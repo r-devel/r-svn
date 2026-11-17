@@ -28,9 +28,10 @@
  *	^				     ^
  *	R_GlobalContext			     R_ToplevelContext
  *
- *  Contexts are allocated on the stack as the evaluator invokes itself
- *  recursively.  The memory is reclaimed naturally on return through
- *  the recursions (the R_GlobalContext pointer needs adjustment).
+ *  Contexts are allocated on a stack of their own as the evaluator
+ *  invokes itself recursively.  endcontext() releases a context on a
+ *  normal return; a non-local jump releases every context above its
+ *  target by restoring the stack position saved in the target.
  *
  *  A context contains the following information (and more):
  *
@@ -116,9 +117,13 @@
    active contexts never move, and chunks are kept for reuse. A context
    is released by endcontext() or by a jump to an older context.
 
-   The chunk after the current one always exists, so that when a new
-   chunk cannot be allocated, the error that reports it still has room
-   for the contexts its handling needs. */
+   begincontext() must not fail, since callers rely on that, e.g. to
+   change state just before it or to set up an unwind target without
+   allocating. So the chunk after the current one always exists: when
+   moving into it, another chunk is allocated ahead, and if that fails
+   the error is deferred to the next evaluation depth check, a point
+   where errors are expected, while the spare chunk holds the contexts
+   its handling needs. */
 
 typedef struct cntxtchunk {
     struct cntxtchunk *prev, *next;
@@ -181,16 +186,32 @@ static void resetContextStack(RCNTXT *top)
     R_CntxtStackTop = top;
 }
 
+static Rboolean cntxtStackShort = FALSE;
+
 static RCNTXT *allocContext(void)
 {
     if (R_CntxtStackTop == R_CntxtChunk->end) {
+	if (R_CntxtChunk->next == NULL)
+	    /* the spare chunk is used up as well */
+	    R_Suicide("cannot allocate memory for the context stack");
 	R_CntxtChunk = R_CntxtChunk->next;
 	R_CntxtStackTop = R_CntxtChunk->base;
 	if (R_CntxtChunk->next == NULL &&
-	    newContextChunk(R_CntxtChunk) == NULL)
-	    error(_("cannot allocate memory for the context stack"));
+	    newContextChunk(R_CntxtChunk) == NULL) {
+	    cntxtStackShort = TRUE;
+	    R_Expressions = R_EvalDepth; /* fail the next depth check */
+	}
     }
     return R_CntxtStackTop++;
+}
+
+/* Whether the context stack could not grow, for the evaluation depth
+   check to report; reported once. */
+attribute_hidden Rboolean R_ContextStackShort(void)
+{
+    Rboolean val = cntxtStackShort;
+    cntxtStackShort = FALSE;
+    return val;
 }
 
 /* R_run_onexits - runs the conexit/cend code for all contexts from
@@ -274,6 +295,7 @@ static void R_restore_globals(RCNTXT *cptr)
     R_Expressions = R_Expressions_keep;
     R_BCNodeStackTop = cptr->nodestack;
     resetContextStack(cptr->cntxtstacktop);
+    cntxtStackShort = FALSE; /* R_Expressions was reset above */
     R_Srcref = cptr->srcref;
     R_BCProtReset(cptr->bcprottop);
 }

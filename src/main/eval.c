@@ -1068,6 +1068,10 @@ static void handle_eval_depth_overflow(void)
        but also increase the risk of a C stack overflow. LT */
     R_Expressions = R_Expressions_keep + 500;
 
+    /* deferred from begincontext(), which must not fail */
+    if (R_ContextStackShort())
+	error(_("cannot allocate memory for the context stack"));
+
     /* the condition is pre-allocated and protected with R_PreserveObject */
     SEXP cond = R_getExpressionStackOverflowError();
 

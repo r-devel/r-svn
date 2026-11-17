@@ -2329,6 +2329,7 @@ void R_run_onexits(RCNTXT *);
 NORET void R_jumpctxt(RCNTXT *, int, SEXP);
 
 void R_InitContextStack(void);
+Rboolean R_ContextStackShort(void);
 #endif
 
 /* ../main/bind.c */
