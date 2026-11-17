@@ -4526,7 +4526,7 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
-## an error after saveToConn() opened its connection itself
+## an error after saveToConn() opened its connection itself -- PR#19336
 saveToConnObj <- 1
 f <- function(con) {
     .Internal(saveToConn("saveToConnObj", con, FALSE, NULL, globalenv(), TRUE))
