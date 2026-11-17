@@ -4520,6 +4520,19 @@ stopifnot(identical(y, x), identical(y0, y), identical(y1, unclass(y)))
 ## in R <= 4.6.2
 
 
+## exp(x), sin(x), .. for tiny x: same result interpreted and byte-compiled -- PR#19286
+x <- c(-0x1.da00caf2fa3a6p-27, 0x1.fp-53, -0x1.fp-53, 0x1.fp-27,
+       0x1.ad7f29abcaf48p-26, 0x1.cd5f99c38b04bp-13, 2^-53, -0)
+for (f in c("exp", "expm1", "log1p", "cos", "sin", "tan", "asin", "atan")) {
+    g <- compiler::cmpfun(eval(bquote(function(z) .(as.name(f))(z))))
+    stopifnot(identical(match.fun(f)(x), vapply(x, g, 0)))
+}
+stopifnot(1/c(expm1(-0), log1p(-0), sin(-0), tan(-0), asin(-0), atan(-0),
+              sinh(-0), tanh(-0), asinh(-0), atanh(-0)) == -Inf)
+## the interpreter used 1 + x (exp) or x (sin, ..) beyond the exact range,
+## and gave +0 for -0, in R 4.6.x
+
+
 
 
 ## keep at end

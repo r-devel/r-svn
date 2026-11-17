@@ -1228,7 +1228,7 @@ static SEXP math1_ari(SEXP sa, double(*f)(double), double arg, double res, SEXP 
     for (i = 0; i < n; i++) {
 	double x = a[i]; /* in case y == a (when sy = sa) */
 	if (x == arg)
-	    y[i] = res;
+	    y[i] = (res == arg) ? x : res; /* x keeps the sign of zero */
 	else
 	/* This code assumes that ISNAN(x) implies ISNAN(f(x)), so we
 	   only need to check ISNAN(x) if ISNAN(f(x)) is true. */
@@ -1298,77 +1298,7 @@ static double Rsqrt(double x)
     return sqrt(x);
 }
 
-static double Rexp(double x)
-{
-    /* exp(x) = 1 + x + x^2/2! + ...
-     * should return 1+x for very small x i.e.,  x^2/2 < D_EPS / 2
-     * <==> x^2 < D_EPS  <==> |x| < sqrt(D_EPS) : */
-    return (fabs(x) <= sqrt(DBL_EPSILON)) ? 1. + x : exp(x);
-}
-
-/* should return x for very small x (e.g. expm1(x))*/
-static double f_x_x(double x, double(*f)(double), double m)
-{
-    return (fabs(x) <= m) ? x : f(x);
-}
-
-static double Rexpm1(double x)
-{
-    /* expm1(x) = exp(x) - 1 =  x + x^2/2 + O(x^3)
-     *                       =. x  when  x^2/2 < |x| * D_EPS/2
-     *                             <==>  |x|   <  D_EPS */
-    return f_x_x(x, expm1, DBL_EPSILON);
-}
-
-static double Rlog1p(double x)
-{
-    /* log1p(x) = log(1 + x) =  x - x^2/2  + O(x^3)
-     *                       =. x  when  |x| < D_EPS, see Rexpm1() */
-    return f_x_x(x, log1p, DBL_EPSILON);
-}
-
-static double Rsin(double x)
-{
-    /* sin(x) = x - x^3/6 + O(x^5) = x*(1 - x^2/6) + O(.) =!= x  iff
-       (1 - x^2/6) .= 1  <==>  |x| < sqrt(6 eps); eps = DBL_Eps/2 */
-    return f_x_x(x, sin, sqrt(3. * DBL_EPSILON));
-}
-
-static double Rtan(double x)
-{
-    /* tan(x) =  x + x^3/3 + O(x^5)
-              =. x  when |x|^3/3 < |x| EPS/2  <==>
-	                  x^2    < EPS * 3/2  <==>
- 	                   |x|   < sqrt(3/2 * EPS) */
-    return f_x_x(x, tan, sqrt(1.5 * DBL_EPSILON));
-}
-
-static double Rcos(double x)
-{
-    /* cos(x) =  1 - x^2/2! + x^4/4!
-              =. 1 - x^2/2!  iff  x^4/24 < (1 - x^2/2) * EPS/2  ~= EPS/2 <==>
- 	                          x^4 < 12*EPS  */
-    if (fabs(x) < sqrt(sqrt(12. * DBL_EPSILON)))
-	return (1. - x*x*0.5);
-    else
-	return cos(x);
-}
-
-static double Rasin(double x)
-{
-    /* asin(x) =  x + x^3/6 + 3/40 * x^5...   ==>
-               =. x when |x| < sqrt(3 * EPS)  -- see Rsin() above */
-    return f_x_x(x, asin, sqrt(3. * DBL_EPSILON));
-}
-
-static double Ratan(double x)
-{
-    /* atan(x) =  x - x^3/3 + x^5/5 ... ==>
-               =. x  iff |x| < sqrt(3/2 * EPS) -- see Rtan() above*/
-    return f_x_x(x, atan, sqrt(1.5 * DBL_EPSILON));
-}
-
-
+/* R_exp() .. R_cos(), the small-|x| wrappers, are in arithmetic.h */
 
 attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -1385,14 +1315,6 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
 
 #define MATH1(x)      math1(CAR(args), x, call);
 #define MATH1_SQRT(x) math1(CAR(args), Rsqrt, call);
-#define MATH1_EXP(x)  math1_ari(CAR(args), Rexp,  0., 1., call);
-#define MATH1_EXPM1(x)math1_ari(CAR(args), Rexpm1,0., 0., call);
-#define MATH1_LOG1P(x)math1_ari(CAR(args), Rlog1p,0., 0., call);
-#define MATH1_SIN(x)  math1_ari(CAR(args), Rsin,  0., 0., call);
-#define MATH1_ASIN(x) math1_ari(CAR(args), Rasin, 0., 0., call);
-#define MATH1_TAN(x)  math1_ari(CAR(args), Rtan,  0., 0., call);
-#define MATH1_ATAN(x) math1_ari(CAR(args), Ratan, 0., 0., call);
-#define MATH1_COS(x)  math1_ari(CAR(args), Rcos,  0., 1., call);
 #define MATH1_00(x)   math1_ari(CAR(args),  x,    0., 0., call);
 #define MATH1_01(x)   math1_ari(CAR(args),  x,    0., 1., call);
 #define MATH1_10(x)   math1_ari(CAR(args),  x,    1., 0., call);
@@ -1403,16 +1325,16 @@ attribute_hidden SEXP do_math1(SEXP call, SEXP op, SEXP args, SEXP env)
     case 4: return MATH1(sign);
 	/* case 5: return MATH1(trunc); separate from 2.6.0 */
 
-    case 10: return MATH1_EXP(exp);
-    case 11: return MATH1_EXPM1(expm1);
-    case 12: return MATH1_LOG1P(log1p);
+    case 10: return MATH1(R_exp);
+    case 11: return MATH1(R_expm1);
+    case 12: return MATH1(R_log1p);
 
-    case 20: return MATH1_COS(cos);
-    case 21: return MATH1_SIN(sin);
-    case 22: return MATH1_TAN(tan);
+    case 20: return MATH1(R_cos);
+    case 21: return MATH1(R_sin);
+    case 22: return MATH1(R_tan);
     case 23: return MATH1_10(acos);
-    case 24: return MATH1_ASIN(asin);
-    case 25: return MATH1_ATAN(atan);
+    case 24: return MATH1(R_asin);
+    case 25: return MATH1(R_atan);
 
     case 30: return MATH1_01(cosh);
     case 31: return MATH1_00(sinh);
