@@ -248,9 +248,9 @@ local({
     })
     setTimeLimit(elapsed = 0.5, transient = TRUE)
     E <- tryCid(f())
-    stopifnot(inherits(E, "error"))
-    if(englishMsgs)
-        stopifnot(grepl("elapsed time limit", conditionMessage(E)))
+    stopifnot(inherits(E, "error"),
+              identical(conditionMessage(E),
+                        gettext("reached elapsed time limit", domain = "R")))
 })
 ## ran all 1e8 iterations without checking in R <= 4.6.2
 
