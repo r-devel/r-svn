@@ -1034,12 +1034,15 @@ attribute_hidden SEXP do_makenames(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (l >= 1 && isdigit(0xff & (int) This[1])) need_prefix = TRUE;
 	    } else if (!isalpha(0xff & (int) This[0])) need_prefix = TRUE;
 	}
+	/* Use R_alloc() rather than R_Calloc(): the invalid multibyte
+	   string error below would otherwise leak the buffer.
+	   vmaxset() at the end of each iteration releases it. */
 	if (need_prefix) {
-	    tmp = R_Calloc(l+2, char);
+	    tmp = R_alloc(l+2, sizeof(char));
 	    strcpy(tmp, "X");
 	    strcat(tmp, translateChar(STRING_ELT(arg, i)));
 	} else {
-	    tmp = R_Calloc(l+1, char);
+	    tmp = R_alloc(l+1, sizeof(char));
 	    strcpy(tmp, translateChar(STRING_ELT(arg, i)));
 	}
 	if (mbcslocale) {
@@ -1066,14 +1069,11 @@ attribute_hidden SEXP do_makenames(SEXP call, SEXP op, SEXP args, SEXP env)
 	SET_STRING_ELT(ans, i, mkChar(tmp));
 	/* do we have a reserved word?  If so the name is invalid */
 	if (!isValidName(tmp)) {
-	    /* FIXME: could use R_Realloc instead */
-	    cbuf = CallocCharBuf(strlen(tmp) + 1);
+	    cbuf = R_alloc(strlen(tmp) + 2, sizeof(char));
 	    strcpy(cbuf, tmp);
 	    strcat(cbuf, ".");
 	    SET_STRING_ELT(ans, i, mkChar(cbuf));
-	    R_Free(cbuf);
 	}
-	R_Free(tmp);
 	vmaxset(vmax);
     }
     UNPROTECT(1);
@@ -1498,7 +1498,7 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
     if (mbcslocale || use_WC == TRUE) {
 	int j, nb, nc;
 	xtable_t *xtable, *tbl;
-	int xtable_cnt;
+	R_xlen_t xtable_cnt;
 	struct wtr_spec *trs_cnt, **trs_cnt_ptr;
 	wchar_t c_old, c_new, *wc;
 	const char *xi, *s;
@@ -1569,6 +1569,10 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 	      xtable_cnt++) ;
 	wtr_free_spec(trs_cnt);
 	R_Free(trs_cnt_ptr);
+	/* the table is indexed with int below; counted in int, 2^32
+	   entries wrapped to 0 and the table was written past its end */
+	if (xtable_cnt > INT_MAX)
+	    error(_("'old' expands to too many characters"));
 	xtable = (xtable_t *) R_alloc(xtable_cnt+1, sizeof(xtable_t));
 
 	trs_old_ptr = R_Calloc(1, struct wtr_spec *);
@@ -1630,9 +1634,13 @@ attribute_hidden SEXP do_chartr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    wcstoutf8(cbuf, wc, nb);
 		    SET_STRING_ELT(y, i, mkCharCE(cbuf, CE_UTF8));
 		} else {
-		    nb = (int) wcstombs(NULL, wc, 0);
-		    cbuf = CallocCharBuf(nb);
-		    wcstombs(cbuf, wc, nb + 1);
+		    size_t nbytes = wcstombs(NULL, wc, 0);
+		    if (nbytes == (size_t)-1)
+			error(_("translated string is not representable in the current locale"));
+		    if (nbytes > INT_MAX)
+			error(_("R character strings are limited to 2^31-1 bytes"));
+		    cbuf = CallocCharBuf(nbytes);
+		    wcstombs(cbuf, wc, nbytes + 1);
 		    SET_STRING_ELT(y, i, markKnown(cbuf, el));
 		}
 		R_Free(cbuf);

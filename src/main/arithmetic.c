@@ -51,6 +51,7 @@
 #define R_MSG_NONNUM_MATH _("non-numeric argument to mathematical function")
 
 #include <Rmath.h>
+// -> M_bessel_ik_max_alpha  &  M_bessel_jy_max_alpha
 
 #include <R_ext/Itermacros.h>
 
@@ -1615,23 +1616,21 @@ static SEXP math2_2(SEXP sa, SEXP sb, SEXP sI1, SEXP sI2,
 
 /* This is only used directly by .Internal for Bessel functions,
    so managing R_alloc stack is only prudence */
-static SEXP math2B(SEXP sa, SEXP sb, double (*f)(double, double, double *),
+static SEXP math2B(SEXP sa, SEXP sb,
+		   double (*f)(double, double, double *),
+		   double max_alpha,
 		   SEXP lcall)
 {
-#define besselJY_max_nu 1e7
-
     SETUP_Math2;
 
-    /* allocate work array for BesselJ, BesselY large enough for all
-       arguments */
-    double amax = 0.0;
+    /* allocate work array for BesselJ, BesselY large enough for all arguments,
+       unless av=|nu| is too large and will give NaN & warning in ../nmath/bessel_[jy].c */
+    double amax = 0.;
     for (i = 0; i < nb; i++) {
-	double av = b[i] < 0 ? -b[i] : b[i];
-	if (amax < av)
+	double av = b[i] < 0. ? -b[i] : b[i];
+	if (amax < av && av <= max_alpha)
 	    amax = av;
     }
-    if (amax > besselJY_max_nu)
-	amax = besselJY_max_nu; // and warning will happen in ../nmath/bessel_[jy].c
     const void *vmax = vmaxget();
     size_t nw = 1 + (size_t)floor(amax);
     double *work = (double *) R_alloc(nw, sizeof(double));
@@ -1656,7 +1655,7 @@ static SEXP math2B(SEXP sa, SEXP sb, double (*f)(double, double, double *),
 #define Math2(A, FUN)	  math2(CAR(A), CADR(A), FUN, call);
 #define Math2_1(A, FUN)	math2_1(CAR(A), CADR(A), CADDR(A), FUN, call);
 #define Math2_2(A, FUN) math2_2(CAR(A), CADR(A), CADDR(A), CADDDR(A), FUN, call)
-#define Math2B(A, FUN)   math2B(CAR(A), CADR(A), FUN, call);
+#define Math2B(A, FUN, MAX_AL)   math2B(CAR(A), CADR(A), FUN, MAX_AL, call);
 
 attribute_hidden SEXP do_math2(SEXP call, SEXP op, SEXP args, SEXP env)
 {
@@ -1706,8 +1705,8 @@ attribute_hidden SEXP do_math2(SEXP call, SEXP op, SEXP args, SEXP env)
     case 22: return Math2_2(args, psignrank);
     case 23: return Math2_2(args, qsignrank);
 
-    case 24: return Math2B(args, bessel_j_ex);
-    case 25: return Math2B(args, bessel_y_ex);
+    case 24: return Math2B(args, bessel_j_ex, M_bessel_j_max_alpha); // from Rmath.h
+    case 25: return Math2B(args, bessel_y_ex, M_bessel_y_max_alpha);
     case 26: return Math2(args, psigamma);
 
     default:
@@ -1733,7 +1732,7 @@ static R_INLINE SEXP match_round_gen_args(SEXP args, SEXP call)
     if (args != R_NilValue &&           // at least one arg
         TAG(args) == R_NilValue &&      // first arg is not named
         TAG(CDR(args)) != R_x_Symbol && // second arg, if any, is not named 'x'
-        CDDR(args) == R_NilValue)       // no mare than two arguments
+        CDDR(args) == R_NilValue)       // not more than two arguments
         return args;
 #endif
     static SEXP round_gen_formals = NULL;
@@ -2061,12 +2060,13 @@ static SEXP math3B(SEXP sa, SEXP sb, SEXP sc,
 
     SETUP_Math3;
 
-    /* allocate work array for BesselI, BesselK large enough for all
-       arguments */
+    /* allocate work array for BesselI, BesselK large enough for all arguments,
+       unless av=|nu| is too large and will give NaN & warning in ../nmath/bessel_[ik].c */
     amax = 0.0;
     for (i = 0; i < nb; i++) {
 	double av = b[i] < 0 ? -b[i] : b[i];
-	if (av > amax) amax = av;
+	if (amax < av && av <= M_bessel_ik_max_alpha)
+	    amax = av;
     }
     const void *vmax = vmaxget();
     nw = 1 + (size_t)floor(amax);

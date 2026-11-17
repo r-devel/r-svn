@@ -38,7 +38,8 @@ function(contriburl = contrib.url(repos, type), method,
 	fields <- requiredFields
     else {
 	stopifnot(is.character(fields))
-	fields <- unique(c(requiredFields, fields))
+        fields <- unique(c(requiredFields,
+                           fields[fields != "Repository"])) # appended below
     }
 
     if(missing(max_repo_cache_age))
@@ -103,11 +104,17 @@ function(contriburl = contrib.url(repos, type), method,
                 if(file.exists(dest)) {
                     age <- difftime(timestamp, file.mtime(dest), units = "secs")
                     if(isTRUE(age < max_repo_cache_age)) {
-                        res0 <- readRDS(dest)
-                        used_dest <- TRUE
-                        ## Be defensive :
-                        if(length(res0))
-                            rownames(res0) <- res0[, "Package"]
+                        ## An unreadable cache (e.g., written with zstd by
+                        ## another R build) is downloaded again below.
+                        res0 <- tryCatch(readRDS(dest), error = identity)
+                        if(inherits(res0, "error"))
+                            unlink(dest)
+                        else {
+                            used_dest <- TRUE
+                            ## Be defensive :
+                            if(length(res0))
+                                rownames(res0) <- res0[, "Package"]
+                        }
                     }
                     else
                         unlink(dest)    # Cache too old.
@@ -117,7 +124,6 @@ function(contriburl = contrib.url(repos, type), method,
                 ## Try .rds and readRDS(), and then .gz or plain DCF and
                 ## read.dcf(), catching problems from both missing or
                 ## invalid files.
-                need_dest <- FALSE
                 op <- options(warn = -1L)
                 z <- tryCatch({
                     z <- download.file(url = paste0(repos, "/PACKAGES.rds"),
@@ -136,7 +142,6 @@ function(contriburl = contrib.url(repos, type), method,
                 if(inherits(z, "error")) {
                     ## Downloading or reading .rds failed, so try the
                     ## DCF variants.
-                    if(!ignore_repo_cache) need_dest <- TRUE
                     tmpf <- tempfile()
                     on.exit(unlink(tmpf))
                     op <- options(warn = -1L)
@@ -184,10 +189,17 @@ function(contriburl = contrib.url(repos, type), method,
 
                 if(length(res0)) {
                     rownames(res0) <- res0[, "Package"]
-                    if(need_dest)
-                        saveRDS(res0, dest, compress = TRUE)
-                } else if(!need_dest) {
-                    ## download.file() gave an empty .rds
+                    if(!ignore_repo_cache) {
+                        ## (Re)write the cache with fast compression, as
+                        ## repositories typically serve xz-compressed
+                        ## indices, which are slow to decompress on each use.
+                        con <- if(capabilities("zstd"))
+                                   zstdfile(dest, "wb", compression = 1L)
+                               else file(dest, "wb")
+                        saveRDS(res0, con)
+                        close(con)
+                    }
+                } else {
                     ## Do not cache empty results.
                     unlink(dest)
                 }
@@ -252,7 +264,7 @@ available_packages_filters_db$R_version <-
 function(db)
 {
     ## Ignore packages which don't fit our version of R.
-    
+
     ## Compare current R version to given R version dependency which may
     ## also be an SVN revision.
     cmp <- function(o, v) {
@@ -265,31 +277,33 @@ function(db)
             y[p] <- do.call(o, list(getRversion(), v[p]))
         y
     }
-    
+
     depends <- db[, "Depends"]
-    depends[is.na(depends)] <- ""
-    ## Collect the (versioned) R depends entries.
-    x <- lapply(strsplit(gsub("[[:space:]]", "", depends), ",",
-                         fixed = TRUE),
-                function(s) s[startsWith(s, "R(")])
-    lens <- lengths(x)
-    pos <- which(lens > 0L)
+    ## Only entries mentioning R can have an R dependency.
+    pos <- which(grepl("R[[:space:]]*\\(", depends))
     if(!length(pos)) return(db)
-    lens <- lens[pos]
-    ## Unlist.
-    x <- unlist(x)
-    end <- 3L + (substring(x, 4L, 4L) == "=")
+    ## Collect the (versioned) R depends entries and their rows in db.
+    x <- strsplit(gsub("[[:space:]]", "", depends[pos]), ",", fixed = TRUE)
+    row <- rep.int(pos, lengths(x))
+    x <- unlist(x, use.names = FALSE)
+    i <- startsWith(x, "R(")
+    if(!any(i)) return(db)
+    x <- x[i]
+    row <- row[i]
+    ## Packages share few distinct R dependencies, so only compare those.
+    ux <- unique(x)
+    end <- 3L + (substring(ux, 4L, 4L) == "=")
     ## Extract ops.
-    ops <- substring(x, 3L, end)
-    ## Split target versions according to ops.
-    ver <- split(substring(x, end + 1L, nchar(x) - 1L), ops)
+    ops <- substring(ux, 3L, end)
+    ver <- substring(ux, end + 1L, nchar(ux) - 1L)
     ## Compare current to target grouped by op.
-    res <- logical(length(x))
-    for(op in names(ver))
-        res[ops == op] <- cmp(op, ver[[op]])
+    res <- logical(length(ux))
+    for(op in unique(ops))
+        res[ops == op] <- cmp(op, ver[ops == op])
+    res <- res[match(x, ux)]
     ## And assemble test results according to the rows of db.
-    pos <- pos[!vapply(split(res, rep.int(seq_along(lens), lens)), all,
-                       NA)]
+    pos <- unique(row)
+    pos <- pos[!vapply(split(res, row), all, NA)]
     if(length(pos))
         db <- db[-pos, , drop = FALSE]
     db
@@ -312,11 +326,11 @@ function(db)
     if(!nzchar(current)) return(db)
     archs <- db[, "Archs"]
     if(all(is.na(archs))) return(db)
-    OK <- unlist(lapply(archs, function(x) {
-        if(is.na(x)) return(TRUE)
-        this <- strsplit(x, "[[:space:]]*,[[:space:]]*")[[1L]]
-        current %in% this
-    }))
+    ## There are few distinct Archs entries, so only check those.
+    u <- unique(archs[!is.na(archs)])
+    ok <- vapply(strsplit(u, "[[:space:]]*,[[:space:]]*"),
+                 function(this) current %in% this, NA)
+    OK <- is.na(archs) | ok[match(archs, u)]
     db[OK, , drop = FALSE]
 }
 
@@ -387,18 +401,15 @@ function(db) {
 available_packages_filters_db$CRAN <-
 function(db)
 {
-    packages <- db[, "Package"]
-    dups <- packages[duplicated(packages)]
-    drop <- integer()
     CRAN <- getOption("repos")["CRAN"]
     ## do nothing if there is no CRAN repos on the list
     if(is.na(CRAN)) return(db)
-    for(d in dups) {
-        pos <- which(packages == d)
-        ind <- !startsWith(db[pos, "Repository"], CRAN)
-        if(!all(ind)) drop <- c(drop, pos[ind])
-    }
-    if(length(drop)) db[-drop, , drop = FALSE] else db
+    if (!endsWith(CRAN, '/')) CRAN <- paste0(CRAN, '/')
+    packages <- db[, "Package"]
+    onCRAN <- startsWith(db[, "Repository"], CRAN)
+    ## Drop the non-CRAN entries of packages which are also on CRAN.
+    drop <- !onCRAN & packages %in% packages[onCRAN]
+    if(any(drop)) db[!drop, , drop = FALSE] else db
 }
 
 
@@ -1155,8 +1166,9 @@ setRepositories <-
     res <- if (length(name)) {
         m <- match(tolower(name), tolower(row.names(a)))
         if (any(is.na(m)))
-            stop("No matching repositories found for ",
-                 paste(name[is.na(m)], collapse=', '))
+            stop(gettextf("no matching repositories found for %s",
+                          paste(dQuote(name[is.na(m)]), collapse=", ")),
+                 domain = NA)
         m
     } else if(length(ind)) as.integer(ind)
     else {

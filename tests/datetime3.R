@@ -1004,7 +1004,8 @@ set.T.C <- \(c1, c2) c(tim = Sys.setlocale("LC_TIME", c1),
                        ctp = Sys.setlocale("LC_CTYPE",c2))
 val <- set.T.C("zh_CN", "zh_CN.utf8")
 if(all(nzchar(val))) {
-    (chD <- strftime(as.Date('2000-11-01'), fmt <- '%Y %d %b')) #  "2000 01 11\xd4\xc2"
+    print(chD <- strftime(as.Date('2000-11-01'), fmt <- '%Y %d %b'))
+    if (chD == "2000 01 11\xd4\xc2") # not under musl: "2000 01 Nov"
     stopifnot(grepl('multibyte', print(tryCmsg(strptime(chD, fmt))), fixed=TRUE))
     ## was   "input string is too long"
 }
@@ -1016,6 +1017,48 @@ stopifnot(identical(
     strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%S") -> tt,
     strptime("2023-01-01 12:00:99", "%Y-%m-%d %H:%M:%OS")
   ), is.na(tt))
+
+
+## strptime(., "...%OS<n>...") disregards <n> for symmetry with strftime() -- PR#17209
+chd <- "17_35_14.1234.mp3"
+fff <- paste0("%H_%M_%OS", c("",0:6), ".mp3")
+cD <- format(Sys.Date())
+str(td <- unique(lapply(fff, \(fmt) strptime(chd, fmt))))
+stopifnot(length(td) == 1, identical(format(td[[1]]), paste(cD, "17:35:14")))
+## gave NAs  but for the first in R <= 4.6.1
+
+
+## strptime() no longer fails to parse %w  = '0'  in C locale -- PR#19124
+## (relying on LC_* = C !)
+(ch <- outer(0:2, 0:2, \(U,w) paste("2026", U,w)))
+fmtUK <- "%Y %U %w"
+fmtUS <- "%Y %W %w"
+lt  <- strptime(ch, fmtUK)
+array(lt, dim(ch)) # in R <= 4.6.1 the first two rows were identical (not NA)
+iN <- c(1,4,7)
+stopifnot(is.na(lt[iN]), !is.na(lt <- lt[-iN]))
+noquote(chlt <- t(simplify2array(strsplit(as.character(lt),"-"))))
+stopifnot(chlt[,1] == "2026", chlt[,2] == "01",
+          identical(chlt[,3], sprintf("%02d", rbind(4:6, 11:13))))
+array(ltU <- strptime(ch, fmtUS), dim(ch)) # originally, row 1 = row 2
+iN <- c(4,7)
+stopifnot(is.na(ltU[iN]), !is.na(ltU <- ltU[-iN]))
+noquote(chltU <- t(simplify2array(strsplit(as.character(ltU),"-"))))
+stopifnot(chltU[,1] == "2026", chltU[,2] == "01",
+          identical(chltU[1:3, 3], sprintf("%02d", seq(4, by=7, to=18))),
+          identical(chltU[-(1:3),], chlt[-(1:2),]))
+## indeed, the first fixes were not ok in R <= 4.6.1
+
+
+## Week zero --> weekday before January 1 now rejected (-> NA) --> PR#19124, comment #7
+oldLCctype <- Sys.getlocale("LC_CTYPE")
+for (lc in c("C", "C.UTF-8")) {
+    if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", lc))))
+        stopifnot(is.na(strptime("2026 0 0", "%Y %U %w", tz = "UTC")),
+                  is.na(strptime("2026 0 1", "%Y %W %w", tz = "UTC")))
+}
+Sys.setlocale("LC_CTYPE", oldLCctype)
+## ASan reported an out-of-bounds read in R-devel r90605 through r90798.
 
 
 

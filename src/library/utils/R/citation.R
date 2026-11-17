@@ -199,7 +199,7 @@ function(role)
     pos <- which(is.na(match(role, MARC_relator_db$code)))
     if(length(pos)) {
         ind <- pmatch(tolower(role[pos]),
-                      tolower(MARC_relator_db$name),
+                      tolower(MARC_relator_db$term),
                       0L)
         role[pos[ind > 0L]] <- MARC_relator_db$code[ind]
         if(any(ind <- (ind == 0L))) {
@@ -1659,7 +1659,7 @@ function(package = "base", lib.loc = NULL, auto = NULL)
               note = paste("R package version", meta$Version)
               )
 
-    ## CRAN-style repositories: CRAN, R-Forge, Bioconductor
+    ## CRAN-style repositories: CRAN, R-Forge, Bioconductor, R-universe
     if(identical(meta$Repository, "CRAN")) {
         z$url <-
             sprintf("https://CRAN.R-project.org/package=%s", package)
@@ -1684,6 +1684,14 @@ function(package = "base", lib.loc = NULL, auto = NULL)
             sprintf("https://bioconductor.org/packages/%s", package)
         z$doi <-
             sprintf("10.18129/B9.bioc.%s", package)
+    }
+
+    if(!is.null(meta$Repository) &&
+       endsWith(meta$Repository, "r-universe.dev")) {
+        z$url <- paste(meta$Repository, meta$Package, sep = "/")
+        if(!is.null(meta$RemoteSha)) {
+            z$note <- sprintf("%s, commit %s", z$note, meta$RemoteSha)
+        }
     }
     
     ## Git repositories: GitHub, GitLab, ...
@@ -1917,7 +1925,7 @@ function(x)
     address <- format(x, include = c("email"),
                       collapse = list(email = FALSE))
     ## Need to quote display names at least when they contain commas
-    ## (RFC 5322 <https://www.rfc-editor.org/rfc/rfc5322>).
+    ## (RFC 5322 <https://www.rfc-editor.org/info/rfc5322/>).
     if(any(ind <- grepl(",", display))) {
         display[ind] <- sprintf("\"%s\"",
                                 gsub("\"", "\\\"", display[ind], fixed=TRUE))

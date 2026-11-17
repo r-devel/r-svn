@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2025  The R Core Team.
+ *  Copyright (C) 1998--2026  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1196,17 +1196,24 @@ static void AdjustHeapSize(R_size_t size_needed)
 	if (adjust_count < 50) {
 	    adjust_count++;
 
-	    /* estimate next in-use count by assuming linear growth */
-	    R_size_t next_in_use = R_NodesInUse + (R_NodesInUse - last_in_use);
+	    /* A decrease in live nodes contributes no predicted growth. */
+	    double growth = R_NodesInUse > last_in_use
+		? (double)(R_NodesInUse - last_in_use) : 0.0;
+
+	    /* Try to achieve and occupancy rate of R_NGrowFrac. */
+	    double target = ((double) R_NodesInUse + growth) / R_NGrowFrac;
 	    last_in_use = R_NodesInUse;
 
-	    /* try to achieve and occupancy rate of R_NGrowFrac */
-	    R_size_t next_nsize = (R_size_t) (next_in_use / R_NGrowFrac);
-	    if (next_nsize > R_NSize + change)
-		change = next_nsize - R_NSize;
+	    /* Exclude out-of-range conversion, including a rounded-up
+	       SIZE_MAX. */
+	    if (target < (double) R_SIZE_T_MAX) {
+		R_size_t next_nsize = (R_size_t) target;
+		if (next_nsize > R_NSize && next_nsize - R_NSize > change)
+		    change = next_nsize - R_NSize;
+	    }
 	}
 
-	if (R_MaxNSize >= R_NSize + change)
+	if (R_NSize <= R_MaxNSize && change <= R_MaxNSize - R_NSize)
 	    R_NSize += change;
     }
     else if (node_occup < R_NShrinkFrac) {
@@ -1399,8 +1406,10 @@ static SEXP NewWeakRef(SEXP key, SEXP val, SEXP fin, Rboolean onexit)
     }
 
     PROTECT(key);
-    PROTECT(val = MAYBE_REFERENCED(val) ? duplicate(val) : val);
+    /* fin before val: R_MakeWeakRefC() passes a fresh finalizer object,
+       and duplicate(val) below can collect it */
     PROTECT(fin);
+    PROTECT(val = MAYBE_REFERENCED(val) ? duplicate(val) : val);
     w = allocVector(VECSXP, WEAKREF_SIZE);
     SET_TYPEOF(w, WEAKREFSXP);
     if (key != R_NilValue) {
@@ -1777,6 +1786,7 @@ static int RunGenCollect(R_size_t size_needed)
 
     FORWARD_NODE(R_BCbody);                /* Current byte code object */
     FORWARD_NODE(R_Srcref);                /* Current source reference */
+    FORWARD_NODE(R_ParseErrorFile);        /* Source file of the last parse error */
 
     FORWARD_NODE(R_TrueValue);
     FORWARD_NODE(R_FalseValue);
@@ -4114,7 +4124,7 @@ R_xlen_t Rf_XLENGTH(SEXP x) { return XLENGTH(CHK2(x)); }
 const char *(R_CHAR)(SEXP x) {
     if(TYPEOF(x) != CHARSXP) // Han-Tak proposes to prepend  'x && '
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "CHAR", "CHARSXP", R_typeToChar(x));
+	      "R_CHAR", "CHARSXP", R_typeToChar(x));
     return (const char *) CHAR(CHK(x));
 }
 
@@ -4196,7 +4206,7 @@ int *(LOGICAL)(SEXP x) {
 const int *(LOGICAL_RO)(SEXP x) {
     if(TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "LOGICAL",  "logical", R_typeToChar(x));
+	      "LOGICAL_RO",  "logical", R_typeToChar(x));
     CHKZLN(x);
     return LOGICAL_RO(x);
 }
@@ -4213,7 +4223,7 @@ int *(INTEGER)(SEXP x) {
 const int *(INTEGER_RO)(SEXP x) {
     if(TYPEOF(x) != INTSXP && TYPEOF(x) != LGLSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "INTEGER", "integer", R_typeToChar(x));
+	      "INTEGER_RO", "integer", R_typeToChar(x));
     CHKZLN(x);
     return INTEGER_RO(x);
 }
@@ -4229,9 +4239,9 @@ Rbyte *(RAW)(SEXP x) {
 const Rbyte *(RAW_RO)(SEXP x) {
     if(TYPEOF(x) != RAWSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "RAW", "raw", R_typeToChar(x));
+	      "RAW_RO", "raw", R_typeToChar(x));
     CHKZLN(x);
-    return RAW(x);
+    return RAW_RO(x);
 }
 
 double *(REAL)(SEXP x) {
@@ -4245,7 +4255,7 @@ double *(REAL)(SEXP x) {
 const double *(REAL_RO)(SEXP x) {
     if(TYPEOF(x) != REALSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "REAL", "numeric", R_typeToChar(x));
+	      "REAL_RO", "numeric", R_typeToChar(x));
     CHKZLN(x);
     return REAL_RO(x);
 }
@@ -4261,7 +4271,7 @@ Rcomplex *(COMPLEX)(SEXP x) {
 const Rcomplex *(COMPLEX_RO)(SEXP x) {
     if(TYPEOF(x) != CPLXSXP)
 	error("%s() can only be applied to a '%s', not a '%s'",
-	      "COMPLEX", "complex", R_typeToChar(x));
+	      "COMPLEX_RO", "complex", R_typeToChar(x));
     CHKZLN(x);
     return COMPLEX_RO(x);
 }

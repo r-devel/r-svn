@@ -1,7 +1,7 @@
 #  File src/library/stats/R/glm.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2020 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@ glm <- function(formula, family = gaussian, data, weights,
 		subset, na.action, start = NULL,
 		etastart, mustart, offset,
 		control = list(...),
-                model = TRUE, method = "glm.fit",
-                x = FALSE, y = TRUE,
+		model = TRUE, method = "glm.fit",
+		x = FALSE, y = TRUE,
 		singular.ok = TRUE, contrasts = NULL, ...)
 {
-    cal <- match.call()
+    cl <- match.call()
     ## family
     if(is.character(family))
         family <- get(family, mode = "function", envir = parent.frame())
@@ -42,7 +42,8 @@ glm <- function(formula, family = gaussian, data, weights,
     }
 
     ## extract x, y, etc from the model formula and frame
-    if(missing(data)) data <- environment(formula)
+    ## NB: lm() *differs*, does not set `data`; we return data :
+    if(missD <- missing(data)) data <- environment(formula) # possibly NULL
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "weights", "na.action",
                  "etastart", "mustart", "offset"), names(mf), 0L)
@@ -113,32 +114,55 @@ glm <- function(formula, family = gaussian, data, weights,
                       mustart = fit$fitted.values,
                       weights = weights, offset = offset, family = family,
                       control = control, intercept = TRUE))
-        ## That fit might not have converged ....
+        ## That fit might not have converged . . .
         if(!fit2$converged)
             warning("fitting to calculate the null deviance did not converge -- increase 'maxit'?")
         fit$null.deviance <- fit2$deviance
+    }
+    if(missF <- missing(formula)) formula <- stats::formula(mt)
+    fl3 <- length(f <- cl$formula) == 3L
+    ## is like  terms(<formula>, keep.order=*):
+    frm.is.terms <- fl3 && f[[1]] == quote(terms) && is.call(f2 <- f[[2]]) &&
+	length(f2) == 3L && f2[[1]] == quote(`~`)
+    fixupForm <- !frm.is.terms && (!fl3 || (length(f) && f[[1]] != quote(`~`)))
+    if(fixupForm) { # PR#17463  and  PR#17476 -- fixup cl$formula:
+	ff <-
+	    if(inherits(ef <- eval(f, envir=parent.frame()), "formula")) # as in lm(frml)
+		ef
+	    else {
+		if(missD) # glm(rock)
+		    cl$data <- f
+		if(missF) formula else formula(mt)
+	    }
+	attributes(ff) <- NULL # no env, no class -- is needed (FIXME?)
+	cl$formula <- ff
     }
     if(model) fit$model <- mf
     fit$na.action <- attr(mf, "na.action")
     if(x) fit$x <- X
     if(!y) fit$y <- NULL
     structure(c(fit,
-		list(call = cal, formula = formula,
+		list(call = cl, formula = formula,
 		     terms = mt, data = data,
 		     offset = offset, control = control, method = method,
 		     contrasts = attr(X, "contrasts"),
 		     xlevels = .getXlevels(mt, mf))),
 	      class = c(fit$class, c("glm", "lm")))
-}
+} ## glm
 
 
-glm.control <- function(epsilon = 1e-8, maxit = 25, trace = FALSE)
+glm.control <- function(epsilon = 1e-8, maxit = 25, trace = FALSE,
+                        tol = min(1e-7, epsilon/1000), wtol = 0)
 {
-    if(!is.numeric(epsilon) || epsilon <= 0)
+    if(!is.numeric(epsilon) || is.na(epsilon) || epsilon <= 0)
 	stop("value of 'epsilon' must be > 0")
     if(!is.numeric(maxit) || maxit <= 0)
 	stop("maximum number of iterations must be > 0")
-    list(epsilon = epsilon, maxit = maxit, trace = trace)
+    if(!is.numeric(tol) || is.na(tol) || tol < 0)
+	stop("value of 'tol' must be >= 0")
+    if(!is.numeric(wtol) || is.na(wtol) || wtol < 0)
+	stop("value of 'wtol' must be >= 0")
+    list(epsilon = epsilon, maxit = maxit, trace = trace, tol = tol, wtol = wtol)
 }
 
 ## Modified by Thomas Lumley 26 Apr 97
@@ -150,7 +174,8 @@ glm.fit <-
     function (x, y, weights = rep.int(1, nobs), start = NULL,
 	      etastart = NULL, mustart = NULL, offset = rep.int(0, nobs),
 	      family = gaussian(), control = list(), intercept = TRUE,
-	      singular.ok = TRUE)
+	      tol  = control$tol  %||% min(1e-7, control$epsilon/1000),
+              wtol = control$wtol %||% 0, singular.ok = TRUE)
 {
     control <- do.call("glm.control", control)
     x <- as.matrix(x)
@@ -195,8 +220,8 @@ glm.fit <-
         dev <- sum(dev.resids(y, mu, weights))
         w <- sqrt((weights * mu.eta(eta)^2)/variance(mu))
         residuals <- (y - mu)/mu.eta(eta)
-        good <- rep_len(TRUE, length(residuals))
-        boundary <- conv <- TRUE
+        w0 <- FALSE
+        good <- boundary <- conv <- TRUE
         coef <- numeric()
         iter <- 0L
     } else {
@@ -220,20 +245,30 @@ glm.fit <-
         ## calculate initial deviance and coefficient
         devold <- sum(dev.resids(y, mu, weights))
         boundary <- conv <- FALSE
-
+        wtol.sw <- wtol * sum(weights)
+        w0 <- weights <= wtol.sw # as 'w' is known non-negative
+        nw0 <- !w0
+        zero.weights <- any(w0)
+        if (zero.weights) {
+            if (wtol > 0)
+                warning(gettextf(
+                    "weights smaller than tolerance wtol*sum(w) = %g treated as zero", wtol.sw),
+                    domain = NA)
+            ## TODO ? FIXME ? lm.wfit() in ./lm.R  does considerably more here:
+            ## --- removing zero weights observation from fit, keeping {y0, x0, safe.f, safe.r,...}
+        }
         ##------------- THE Iteratively Reweighting L.S. iteration -----------
-        for (iter in 1L:control$maxit) {
-            good <- weights > 0
-            varmu <- variance(mu)[good]
+        for (iter in seq_len(control$maxit)) {
+            varmu <- variance(mu)[nw0]
             if (anyNA(varmu))
                 stop("NAs in V(mu)")
             if (any(varmu == 0))
                 stop("0s in V(mu)")
             mu.eta.val <- mu.eta(eta)
-            if (any(is.na(mu.eta.val[good])))
+            if (any(is.na(mu.eta.val[nw0])))
                 stop("NAs in d(mu)/d(eta)")
             ## drop observations for which w will be zero
-            good <- (weights > 0) & (mu.eta.val != 0)
+            good <- nw0 & (mu.eta.val != 0)
 
             if (all(!good)) {
                 conv <- FALSE
@@ -244,8 +279,7 @@ glm.fit <-
             z <- (eta - offset)[good] + (y - mu)[good]/mu.eta.val[good]
             w <- sqrt((weights[good] * mu.eta.val[good]^2)/variance(mu)[good])
             ## call Fortran code via C wrapper
-            fit <- .Call(C_Cdqrls, x[good, , drop = FALSE] * w, z * w,
-                         min(1e-7, control$epsilon/1000), check=FALSE)
+            fit <- .Call(C_Cdqrls, x[good, , drop = FALSE] * w, z * w, tol, FALSE)
             if (any(!is.finite(fit$coefficients))) {
                 conv <- FALSE
                 warning(gettextf("non-finite coefficients at iteration %d", iter), domain = NA)
@@ -329,7 +363,7 @@ glm.fit <-
                 warning("glm.fit: fitted rates numerically 0 occurred", call. = FALSE)
         }
         ## If X matrix was not full rank then columns were pivoted,
-        ## hence we need to re-label the names ...
+        ## hence we need to re-label the names . . .
         ## Original code changed as suggested by BDR---give NA rather
         ## than 0 for non-estimable parameters
         if (fit$rank < nvars) coef[fit$pivot][seq.int(fit$rank+1, nvars)] <- NA
@@ -360,7 +394,7 @@ glm.fit <-
     names(wt) <- ynames
     names(weights) <- ynames
     names(y) <- ynames
-    if(!EMPTY)
+    if(!EMPTY) # good is nobs-vector
         names(fit$effects) <-
             c(xxnames[seq_len(fit$rank)], rep.int("", sum(good) - fit$rank))
     ## calculate null deviance -- corrected in glm() if offset and intercept
@@ -368,13 +402,18 @@ glm.fit <-
 	if (intercept) sum(weights * y)/sum(weights) else linkinv(offset)
     nulldev <- sum(dev.resids(y, wtdmu, weights))
     ## calculate df
-    n.ok <- nobs - sum(weights==0)
+    n.ok <- nobs - sum(w0)
     nulldf <- n.ok - as.integer(intercept)
     rank <- if(EMPTY) 0 else fit$rank
     resdf  <- n.ok - rank
-    ## calculate AIC
+    ## calculate AIC, omitting the cases with zero prior weight: they do
+    ## not contribute to the (log) likelihood, see PR#16008
     aic.model <-
-	aic(y, n, mu, weights, dev) + 2*rank
+	if(any(w0))
+	    aic(y[nw0], if(length(n) == nobs) n[nw0] else n,
+		mu[nw0], weights[nw0], dev) + 2*rank
+	else
+	    aic(y, n, mu, weights, dev) + 2*rank
 	##     ^^ is only initialize()d for "binomial" [yuck!]
     list(coefficients = coef, residuals = residuals, fitted.values = mu,
 	 effects = if(!EMPTY) fit$effects, R = if(!EMPTY) Rmat, rank = rank,
@@ -384,7 +423,7 @@ glm.fit <-
 	 null.deviance = nulldev, iter = iter, weights = wt,
 	 prior.weights = weights, df.residual = resdf, df.null = nulldf,
 	 y = y, converged = conv, boundary = boundary)
-}
+} # end{ glm.fit }
 
 
 print.glm <- function(x, digits = max(3L, getOption("digits") - 3L), ...)
@@ -419,7 +458,7 @@ anova.glm <- function(object, ..., dispersion = NULL, test = NULL)
 	rep_len(FALSE, length(dotargs)) else (names(dotargs) != "")
     if(any(named))
 	warning("the following arguments to 'anova.glm' are invalid and dropped: ",
-		paste(deparse(dotargs[named]), collapse=", "))
+		paste(sQuote(names(dotargs)[named]), collapse=", "))
     dotargs <- dotargs[!named]
     is.glm <- vapply(dotargs,function(x) inherits(x,"glm"), NA)
     dotargs <- dotargs[is.glm]
@@ -430,10 +469,12 @@ anova.glm <- function(object, ..., dispersion = NULL, test = NULL)
 	return(anova.glmlist(c(list(object), dotargs),
 			     dispersion = dispersion, test = test))
 
+    if(is.character(test))
+        test <- match.arg(test, c("Rao", "LRT", "Chisq", "F", "Cp"))
+
     ## score tests require a bit of extra computing
     doscore <- !is.null(test) && isTRUE(test=="Rao")
     ## extract variables from model
-
     varlist <- attr(object$terms, "variables")
     ## must avoid partial matching here.
     x <-
@@ -444,7 +485,7 @@ anova.glm <- function(object, ..., dispersion = NULL, test = NULL)
     nvars <- max(0, varseq)
     resdev <- resdf <- NULL
 
-    if (doscore){
+    if (doscore) {
       score <- numeric(nvars)
       # fit a null model
       method <- object$method
@@ -553,7 +594,7 @@ anova.glm <- function(object, ..., dispersion = NULL, test = NULL)
             test <- FALSE
         }
     }
-    
+
     if (!isFALSE(test)) {
         if(isTRUE(test == "F") && df.dispersion == Inf) {
             fname <- fam$family
@@ -573,7 +614,8 @@ anova.glm <- function(object, ..., dispersion = NULL, test = NULL)
 
 anova.glmlist <- function(object, ..., dispersion=NULL, test=NULL)
 {
-
+    if(is.character(test))
+        test <- match.arg(test, c("Rao", "LRT", "Chisq", "F", "Cp"))
     doscore <- !is.null(test) && isTRUE(test=="Rao")
 
     ## find responses for all models and remove
@@ -604,7 +646,7 @@ anova.glmlist <- function(object, ..., dispersion=NULL, test=NULL)
     resdf  <- as.numeric(lapply(object, function(x) x$df.residual))
     resdev <- as.numeric(lapply(object, function(x) x$deviance))
 
-    if (doscore){
+    if (doscore) {
       score <- numeric(nmodels)
       score[1] <- NA
       df <- -diff(resdf)
@@ -713,7 +755,7 @@ summary.glm <- function(object, dispersion = NULL,
 	Qr <- qr.lm(object)
         ## WATCHIT! doesn't this rely on pivoting not permuting 1L:p? -- that's guaranteed
         coef.p <- object$coefficients[Qr$pivot[p1]]
-        covmat.unscaled <- chol2inv(Qr$qr[p1,p1,drop=FALSE])
+        covmat.unscaled <- chol2inv(Qr$qr, p)
         dimnames(covmat.unscaled) <- list(names(coef.p),names(coef.p))
         covmat <- dispersion*covmat.unscaled
         var.cf <- diag(covmat)

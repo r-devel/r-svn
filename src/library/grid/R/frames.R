@@ -246,7 +246,7 @@ mod.dims <- function(dim, dims, index, new.index, nindex, force) {
     else if (index == nindex)
       dims <- unit.c(dims, dim)
     else
-      dims <- unit.c(dims[1L:(index-1)], dim, dims[index:nindex])
+      dims <- unit.c(dims[1L:(index-1)], dim, dims[index:(nindex-1)])
   # Otherwise, if force=TRUE, we override previous width/heights for the
   # row/col, otherotherwise, the width/height of the existing row/col
   # is the maximum of the previous width/height and the new width/height
@@ -308,7 +308,7 @@ grid.pack <- function(gPath, grob, redraw=TRUE,
                     row, row.before, row.after,
                     col, col.before, col.after,
                     width, height, force.width, force.height,
-                    border),
+                    border, dynamic),
            redraw)
 }
 

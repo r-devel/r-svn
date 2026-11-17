@@ -1,7 +1,7 @@
 #  File src/library/methods/R/trace.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016, 2022-2025 The R Core Team
+#  Copyright (C) 1995-2016, 2022-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,16 @@
 			      print = TRUE, signature = NULL,
 			      where = .GlobalEnv, edit = FALSE, from = NULL,
 			      untrace = FALSE, classMethod = FALSE) {
+    validTrace <-
+    function (f, e) {
+        ## FIXME? signal error if 'f' is not NULL, symbol, call, or
+        ## function; that would suggest user error like missing quote()
+        if (is.function(f))
+            substitute(trace(), list(trace = if (is.name(e)) e else f))
+        else f
+    }
+    tracer <- validTrace(tracer, substitute(tracer))
+    exit <- validTrace(exit, substitute(exit))
     fromPackage <-
         if(is.function(where)) {
             ## start from the function's environment:  important for
@@ -124,24 +134,6 @@
     else {
         what <- as(what, "character")
         if(length(what) != 1) {
-            if (nargs() != 1) {
-                if(!is.null(exit)) {
-                    if(is.function(exit)) {
-                        tname <- substitute(exit)
-                        if(is.name(tname))
-                            exit <- tname
-                        exit <- substitute(TRACE(), list(TRACE=exit))
-                    }
-                }
-                if(!is.null(tracer)) {
-                    if(is.function(tracer)) {
-                        tname <- substitute(tracer)
-                        if(is.name(tname))
-                            tracer <- tname
-                        tracer <- substitute(TRACE(), list(TRACE=tracer))
-                    }
-                }
-            }
             for(f in what) {
                 if(nargs() == 1)
                     trace(f)
@@ -188,15 +180,19 @@
                 else def
         def <- selectMethod(what, signature, fdef = fdef, optional = TRUE)
         if(isRematched(def)) {
-            expr <- substitute(trace(.local, tracer = tr, at = at,
-                                     exit = ex,  print = pr,
-                                     edit = ed,
+            expr <- substitute(trace(.local, tracer = tr, exit = ex,
+                                     at = at, print = pr, edit = ed,
                                      where = sys.frame(sys.nframe())),
-                               list( tr = substitute(tracer),
-                                    ex = exit, at = at, pr = print,
-                                    ed = edit))
+                               list(tr = if (is.name(tracer) ||
+                                             is.call(tracer))
+                                             enquote(tracer),
+                                    ex = if (is.name(exit) ||
+                                             is.call(exit))
+                                             enquote(exit),
+                                    at = at, pr = print, ed = edit))
             at <- 3L
             tracer <- expr
+            exit <- NULL
             print <- FALSE
         }
         if(is.null(def)) {
@@ -239,22 +235,6 @@
         }
     }
     else {
-        if(!is.null(exit)) {
-            if(is.function(exit)) {
-                tname <- substitute(exit)
-                if(is.name(tname))
-                    exit <- tname
-                exit <- substitute(TRACE(), list(TRACE=exit))
-            }
-        }
-        if(!is.null(tracer)) {
-            if(is.function(tracer)) {
-                tname <- substitute(tracer)
-                if(is.name(tname))
-                    tracer <- tname
-                tracer <- substitute(TRACE(), list(TRACE=tracer))
-            }
-        }
         original <- .untracedFunction(def)
         traceClass <- .traceClassName(.class1(original))
         if(is.null(getClassDef(traceClass))) {
@@ -264,9 +244,9 @@
         }
         if(doEdit && is.environment(edit)) {
             ## trace with the version found in the edit environment
-            def <- .findNewDefForTrace(what, signature, edit, fromPackage)
+            def <- .findNewDefForTrace(what, .sigLabel(signature), edit, fromPackage)
             environment(def) <- environment(original)
-            if(is.null(c(tracer, exit))) {
+            if(is.null(tracer) && is.null(exit)) {
                 newFun <- new(traceClass, original)
                 newFun@.Data <- def
             }
@@ -461,6 +441,14 @@
 
 
 .InitTraceFunctions <- function(envir)  {
+    ## Reproducible builds: stamp the class prototype with the value of
+    ## SOURCE_DATE_EPOCH when set (as done for reproducible builds), falling
+    ## back to the wall-clock Sys.time() otherwise (upstream behaviour).
+    .dateCreated <- local({
+        t <- Sys.getenv("SOURCE_DATE_EPOCH")
+        if (nzchar(t)) as.POSIXct(as.numeric(t), origin = "1970-01-01", tz = "UTC")
+        else Sys.time()
+    })
     setClass("traceable", representation(original = "PossibleMethod", source = "environment"), contains = "VIRTUAL",
              where = envir); clList <- "traceable"
     ## create the traceable classes
@@ -472,7 +460,7 @@
     }
     setClass("sourceEnvironment", contains = "environment",
              representation(packageName = "character", dateCreated = "POSIXt", sourceFile = "character"),
-             prototype = prototype( packageName = "", dateCreated = Sys.time(), sourceFile = ""))
+             prototype = prototype( packageName = "", dateCreated = .dateCreated, sourceFile = ""))
     clList <- c(clList, "sourceEnvironment")
     assign(".SealedClasses", c(get(".SealedClasses", envir), clList), envir)
     setMethod("initialize", "traceable",
@@ -759,20 +747,17 @@ evalSource <- function(source, package = "", lock = TRUE, cache = FALSE) {
     env
 }
 
-insertSource <- function(source, package = "",
-                         functions = allPlainObjects(),
-                         methods = (if(missing(functions)) allMethodTables() else NULL)
-##                         ,classes = (if(missing(functions)) allClassDefs() else NULL)
-                         , force = missing(functions) & missing(methods)
-                     ){
+insertSource <-
+function (source, package = "",
+          functions = allPlainObjects(),
+          methods = if (missing(functions)) allMethodTables(),
+          force = missing(functions) && missing(methods)) {
     MPattern <- .TableMetaPattern()
     CPattern <- .ClassMetaPattern()
     allPlainObjects <- function()
         allObjects[!(grepl(MPattern, allObjects) | grepl(CPattern, allObjects))]
     allMethodTables <- function()
         allObjects[grepl(MPattern, allObjects)]
-##    allClassDefs <- function()
-##        allObjects[grepl(CPattern, allObjects)]
     differs <- function(f1, f2)
         !(identical(body(f1), body(f2)) && identical(args(f1), args(f2)))
     if(is.environment(source) && !nzchar(package)) {
@@ -800,7 +785,7 @@ insertSource <- function(source, package = "",
                 envp <- tryCatch(as.environment(pname), error = function(cond)NULL)
                 if(is.null(envp))
                     stop(gettextf(
-                     "cannot find an environment corresponding to package name \'%s\"",
+                     "cannot find an environment corresponding to package name \"%s\"",
                      package), domain = NA)
             }
             envns <- tryCatch(asNamespace(package), error = function(cond)NULL)
@@ -834,7 +819,7 @@ insertSource <- function(source, package = "",
         }
     }
     .mnames <- allMethodTables()
-    if(length(methods) > 0) {
+    if(!missing(methods)) {
 	notThere <- vapply(methods, function(fname)
 	    length(grep(fname, .mnames, fixed = TRUE)) == 0, NA)
         if(any(notThere)) {
@@ -852,19 +837,6 @@ insertSource <- function(source, package = "",
         methods <- sub(.TableMetaPrefix(), "", methodNames)
         methods <- sub(":.*","",methods)
     }
-    ## if(!missing(classes)) {
-    ##     .mnames <- allMethodNames()
-    ##     notThere <- sapply(classes,
-    ##      function(fname) length(grep(fname, .mnames, fixed = TRUE) == 0)
-    ##     )
-    ##     if(any(notThere)) {
-    ##         warning(gettextf("Can't insert these classes (class definition not found in source): %s",
-    ##                 paste('"',classes[notThere],'"',
-    ##                       sep = "", collapse = ", ")),
-    ##                 domain = NA)
-    ##         classes <- classes[!notThere]
-    ##     }
-    ## }
     notTraceable <- newObjects <- objectsDone <- character()
     for(i in seq_along(functions)) {
         this <- functions[[i]]
@@ -906,9 +878,6 @@ insertSource <- function(source, package = "",
     for(i in seq_along(methods)) {
         .copyMethods(methods[[i]], methodNames[[i]], env, envp)
     }
-    ## for(class in classes) {
-    ##     .copyClass(class, env, envwhere)
-    ## }
     ## return the environment, after cleaning up the dummy functions and
     ## adding a time stamp, if the source was parsed on this call
     if(!is.environment(source)) {
@@ -922,7 +891,7 @@ insertSource <- function(source, package = "",
 .copyMethods <- function(f, tableName, env, envwhere) {
     differs <- function(o1, o2)
         !(is.function(o2) && # o2 can be NULL
-          identical(body(o2), body(o2)) && identical(args(o1), args(o2)))
+          identical(body(o1), body(o2)) && identical(args(o1), args(o2)))
     table <- get(tableName, envir=env)
     fdef <- getGeneric(f, where = envwhere)
     if(!is(fdef, "genericFunction")) {
@@ -938,7 +907,7 @@ insertSource <- function(source, package = "",
             curdef <- curTable[[this]]
             if(differs(def, curdef)) {
                 suppressMessages(
-                   .TraceWithMethods(f, signature = this, where = envwhere,
+                   .TraceWithMethods(f, signature = def@defined, where = envwhere,
                               edit = env))
                 TRUE
             } else
@@ -949,10 +918,6 @@ insertSource <- function(source, package = "",
                   f, paste(methodsInserted, collapse =", ")),
                   domain = NA)
     }
-}
-
-.copyClass <- function(class, env, envwhere) {
-    message("Pretend we inserted class ", class, domain = NA)
 }
 
 .findNewDefForTrace <- function(what, signature, env, package) {

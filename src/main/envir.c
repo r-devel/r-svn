@@ -3596,26 +3596,13 @@ static SEXP pos2env(int pos, SEXP call)
 /* this is primitive */
 attribute_hidden SEXP do_pos2env(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP env, pos;
-    int i, npos;
     checkArity(op, args);
     check1arg(args, call, "x");
 
-    PROTECT(pos = coerceVector(CAR(args), INTSXP));
-    npos = length(pos);
-    if (npos <= 0)
+    SEXP pos = CAR(args);
+    if (!isNumeric(pos) || XLENGTH(pos) != 1)
 	errorcall(call, _("invalid '%s' argument"), "pos");
-    if (npos == 1)
-	env = pos2env(INTEGER(pos)[0], call);
-    else {
-	PROTECT(env = allocVector(VECSXP, npos));
-	for (i = 0; i < npos; i++) {
-	    SET_VECTOR_ELT(env, i, pos2env(INTEGER(pos)[i], call));
-	}
-	UNPROTECT(1); /* env */
-    }
-    UNPROTECT(1); /* pos */
-    return env;
+    return pos2env(asInteger(pos), call);
 }
 
 static SEXP matchEnvir(SEXP call, const char *what)
@@ -4768,8 +4755,10 @@ SEXP mkCharLenCE(const char *name, int len, cetype_t enc)
 	SEXP c;
 	/* This is tricky: we want to make a reasonable job of
 	   representing this string, and EncodeString() is the most
-	   comprehensive */
-	c = allocCharsxp(len);
+	   comprehensive.  It may translate c, and the R_alloc() that
+	   involves can run the GC, so c must be protected: the error
+	   unwind pops from the PROTECT stack. */
+	PROTECT(c = allocCharsxp(len));
 	if (len) memcpy(CHAR_RW(c), name, len);
 	switch(enc) {
 	case CE_UTF8: SET_UTF8(c); break;

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997--2025  The R Core Team
+ *  Copyright (C) 1997--2026  The R Core Team
  *  Copyright (C) 2002--2009  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
@@ -39,15 +39,13 @@ static R_INLINE void TypeCheck(SEXP s, SEXPTYPE type)
 
 
 /*
- * Is element i of a colour object NA (or NULL)?
+ * Is element i of a colour object NA (or of length 0)?
  */
-Rboolean isNAcol(SEXP col, int index, int ncol)
+bool isNAcol(SEXP col, int index, int ncol)
 {
-    Rboolean result = TRUE; /* -Wall */
+    bool result = true;
 
-    if (isNull(col))
-	result = TRUE;
-    else {
+    if (!isNull(col) && xlength(col)) {
 	if (isLogical(col))
 	    result = LOGICAL(col)[index % ncol] == NA_LOGICAL;
 	else if (isString(col))
@@ -1936,6 +1934,10 @@ SEXP C_raster(SEXP args)
 
     angle = CAR(args); args = CDR(args);
     interpolate = CAR(args); args = CDR(args);
+    if (LENGTH(angle) == 0)
+	error(_("invalid '%s' argument"), "angle");
+    if (LENGTH(interpolate) == 0)
+	error(_("invalid '%s' argument"), "interpolate");
 
     GSavePars(dd);
     ProcessInlinePars(args, dd);

@@ -66,10 +66,11 @@ function(dir, outDir, builtStamp=character())
         builtStamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S",
                              tz = "UTC", usetz = TRUE)
     } else {
-        ## Debian may have passed a timestamp in RFC 2822/5322 format,
-        ## if it parses use it but as ISO 8601, UTC, no sub-seconds
+        ## Reproducible Builds (by Debian and others) may set a 'SOURCE_DATE_EPOCH'
+        ## environment variable which basepkg.mk passes here as character; we format
+        ## it as ISO 8601, UTC, no subseconds
         prev <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "C")
-        if (!is.na(res <- strptime(builtStamp, "%a, %d %b %Y %T %z", tz="UTC")))
+        if (!is.na(res <- as.POSIXct(as.numeric(builtStamp), tz="UTC")))
             builtStamp <- format(res, "%Y-%m-%d %H:%M:%S",
                                  tz = "UTC", usetz = TRUE)
         Sys.setlocale("LC_TIME", prev)
@@ -181,10 +182,8 @@ function(dir, packages)
             stop(gettextf("cannot open directory '%s'", meta_dir))
         package_info_dcf_file <- file.path(dir, p, "DESCRIPTION")
         package_info_rds_file <- file.path(meta_dir, "package.rds")
-        if(file_test("-nt",
-                     package_info_rds_file,
-                     package_info_dcf_file))
-            next
+        ## Always regenerate: the mtime of package.rds and DESCRIPTION
+        ## can tie, making the result of a "-nt" test non-deterministic.
         saveRDS(.split_description(.read_description(package_info_dcf_file)),
                  package_info_rds_file)
     }
@@ -1277,11 +1276,11 @@ format.compactPDF <- function(x, ratio = 0.9, diff = 1e4, ...)
 add_datalist <- function(pkgpath, force = FALSE, small.size = 1024^2)
 {
     dlist <- file.path(pkgpath, "data", "datalist")
-    if (!force && file.exists(dlist)) return()
+    if (!force && file.exists(dlist)) return(invisible(FALSE))
     size <- sum(file.size(Sys.glob(file.path(pkgpath, "data", "*"))))
-    if(size <= small.size) return()
+    if(size <= small.size) return(invisible(FALSE))
     z <- list_data_in_pkg(dir = pkgpath, use_datalist = FALSE)
-    if(!length(z)) return()
+    if(!length(z)) return(invisible(FALSE))
     con <- file(dlist, "w")
     for (nm in names(z)) {
         zz <- z[[nm]]
@@ -1290,7 +1289,7 @@ add_datalist <- function(pkgpath, force = FALSE, small.size = 1024^2)
                  sep = "", file = con)
     }
     close(con)
-    invisible()
+    invisible(TRUE)
 }
 
 

@@ -312,7 +312,7 @@ static void scan_cleanup(void *data)
 {
     LocalData *ld = data;
     if(ld->con && !ld->ttyflag && !ld->wasopen) {
-	ld->con->close(ld->con);
+	if (ld->con->isopen) ld->con->close(ld->con);
 	ld->con = NULL;
     }
     if(ld->quoteset && ld->quoteset[0]) {
@@ -465,7 +465,7 @@ fillBuffer(SEXPTYPE type, int strip, int *bch, LocalData *d,
     /* Remove UTF-8 BOM */
     if(d->atStart && utf8locale &&
        !strncmp(buffer->data, "\xef\xbb\xbf", 3))
-	memmove(buffer->data, buffer->data+3, strlen(buffer->data) + 1);
+	memmove(buffer->data, buffer->data+3, strlen(buffer->data+3) + 1);
     d->atStart = false;
     *bch = filled;
     return buffer->data;

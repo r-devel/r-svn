@@ -375,13 +375,13 @@ build_exclude <- function(allfiles, pkgdir, pkgname) {
                     copied <- file.copy(tocopy, doc_dir, copy.date = TRUE)
                     if (!all(copied)) {
                     	warning(sprintf(ngettext(sum(!copied),
-                                                 "%s file\n", "%s files\n"),
+                                                 "%s file\n", "%s files\n", domain = NA),
                                         sQuote("inst/doc")),
                     	        strwrap(paste(sQuote(basename(tocopy[!copied])), collapse=", "),
                     	                indent = 4, exdent = 2),
 			        "\n  ignored as vignettes have been rebuilt.",
 			        "\n  Run R CMD build with --no-build-vignettes to prevent rebuilding.",
-			     call. = FALSE)
+			     call. = FALSE, domain = NA)
 			file.copy(tocopy[!copied], doc_dir, overwrite = TRUE, copy.date = TRUE)
 		    }
                     unlink(c(vigns$outputs, unlist(vigns$sources)))
@@ -1163,13 +1163,16 @@ build_exclude <- function(allfiles, pkgdir, pkgname) {
                     unlink(dlfile)
                 }
             } else if(!has_dlfile) {
-                messageLog(Log,
-                           "looking to see if a 'data/datalist' file should be added")
+                checkingLog(Log, "if a 'data/datalist' file should be added")
                 ## in some cases data() needs the package installed as
                 ## there are links to the package's namespace
-                tryCatch(add_datalist(pkgname),
-                         error = function(e)
-                             printLog(Log, "  unable to create a 'datalist' file: may need the package to be installed\n"))
+                added <- tryCatch(add_datalist(pkgname),
+                                  error = function(e) NA)
+                if (is.na(added)) {
+                    resultLog(Log, "WARNING")
+                    printLog(Log, "  unable to create a 'datalist' file: may need the package to be installed\n")
+                } else
+                    resultLog(Log, if (added) "yes (done)" else "no")
             }
             ## allow per-package override
             resave_data1 <- parse_description_field(desc, "BuildResaveData",

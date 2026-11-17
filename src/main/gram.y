@@ -1279,7 +1279,12 @@ static SEXP xxpipe(SEXP lhs, SEXP rhs, YYLTYPE *lloc_rhs)
 	    SEXP alist = list1(R_MissingArg);
 	    SET_TAG(alist, var);
 	    SEXP fun = lang4(R_FunctionSymbol, alist, expr, R_NilValue);
-	    return lang2(fun, lhs);
+	    /* the result stays on the parser stack until the next
+	       reduction, so it must be preserved like any other value */
+	    PRESERVE_SV(ans = lang2(fun, lhs));
+	    RELEASE_SV(lhs);
+	    RELEASE_SV(rhs);
+	    return ans;
 	}
 
 	/* check for placeholder in the RHS function */
@@ -1641,9 +1646,15 @@ void R_FinalizeSrcRefState(void)
     if (PS_IDS != R_NilValue) {
 	if (ParseState.prevState || ID_COUNT > MAX_DATA_COUNT) {
 	    PS_SET_IDS(R_NilValue);
-        } else {/* Remove the parent records */
+        } else {
+	    /* Remove the parent records.  'identifier' is the id of the
+	       last node, not a count, so include it: when a lexer error
+	       unwinds mid-expression that node is a recorded one, and a
+	       stale ID_ID would make finalizeData() treat an unrecorded
+	       node of the next parse as present in its parse data, in
+	       which case the comment-parent walk can loop forever. */
             if (identifier > ID_COUNT) identifier = ID_COUNT;
-            for (int i=0; i < identifier; i++) {
+            for (int i=0; i <= identifier; i++) {
 		ID_ID(i) = 0;
 	        ID_PARENT(i) = 0;
 	    }
@@ -1728,6 +1739,11 @@ static bool checkForPipeBind(SEXP arg)
 	    if (checkForPipeBind(CAR(cur)))
 		return true;
     return false;
+}
+
+static bool isCommentLike(int token)
+{
+	return token == COMMENT || token == LINE_DIRECTIVE;
 }
 
 static SEXP R_Parse1(ParseStatus *status)
@@ -2667,12 +2683,12 @@ static int NumericValue(int c)
     /* Make certain that things are okay. */
     if(c == 'L') {
 	double a = R_atof(yytext);
-	int b = (int) a;
 	/* We are asked to create an integer via the L, so we check that the
 	   double and int values are the same. If not, this is a problem and we
 	   will not lose information and so use the numeric value.
+	   The range test comes first, as (int) a is undefined outside it.
 	*/
-	if(a != (double) b) {
+	if(a < INT_MIN || a > INT_MAX || a != (int) a) {
 	    if(GenerateCode) {
 		if(seendot == 1 && seenexp == 0)
 		    warning(_("integer literal %s contains decimal; using numeric value"), yytext);
@@ -3398,7 +3414,6 @@ int isValidName(const char *name)
 
     return 1;
 }
-
 
 static int SymbolValue(int c)
 {
@@ -4241,7 +4256,7 @@ static void finalizeData(void){
       */
 
     for(i = nloc-1; i >= 0; i--) {
-	if (_TOKEN(i) == COMMENT) {
+	if (isCommentLike(_TOKEN(i))) {
 	    int orphan = 1;
 	    int istartl = _FIRST_PARSED(i);
 	    int istartc = _FIRST_COLUMN(i);
@@ -4280,7 +4295,7 @@ static void finalizeData(void){
     int orphan ;
 
     for( i=0; i<nloc; i++){
-	if( _TOKEN(i) == COMMENT ){
+	if( isCommentLike(_TOKEN(i)) ){
 	    comment_line = _FIRST_PARSED( i ) ;
 	    comment_first_col = _FIRST_COLUMN( i ) ;
 
@@ -4316,10 +4331,9 @@ static void finalizeData(void){
 
     for( i=0; i<nloc; i++){
 	int token = _TOKEN(i); 
-	if( token == COMMENT && _PARENT(i) == 0 ){
+	if( isCommentLike(token) && _PARENT(i) == 0 ){
 	    for( j=i; j<nloc; j++){
-		int token_j = _TOKEN(j); 
-		if( token_j == COMMENT ) continue ;
+		if( isCommentLike(_TOKEN(j)) ) continue ;
 		if( _PARENT(j) != 0 ) continue ;
 		_PARENT(i) = - _ID(j) ;
 		break ;
