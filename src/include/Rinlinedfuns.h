@@ -66,6 +66,25 @@
 # define HIDDEN
 #endif /* ifdef COMPILING_R */
 
+/* Files linked into R itself can define INLINE_VMAX before including
+   Defn.h to inline these accessors. R_VStack is not exported, so other
+   code must call the functions. They are already declared extern in
+   R_ext/Memory.h, so use the GNU inline convention above rather than
+   the C99 convention below. */
+#if defined(INLINE_VMAX) || defined(COMPILING_R)
+extern attribute_hidden SEXP R_VStack;
+
+INLINE_FUN void *vmaxget(void)
+{
+    return (void *) R_VStack;
+}
+
+INLINE_FUN void vmaxset(const void *vmax)
+{
+    R_VStack = (SEXP) vmax;
+}
+#endif
+
 #if C99_INLINE_SEMANTICS
 # undef INLINE_FUN
 # ifdef COMPILING_R
