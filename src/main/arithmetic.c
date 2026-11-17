@@ -215,12 +215,6 @@ double R_pow(double x, double y) /* = x ^ y */
 	else if(y < 0) return(R_PosInf);
 	else return(y); /* NA or NaN, we assert */
     }
-    if (x >= -11. && x <= 11.) {
-	if(y == 4.)
-	    return x * x * x * x;
-	if(y == 3.)
-	    return x * x * x;
-    }
     if (R_FINITE(x) && R_FINITE(y)) {
 	/* There was a special case for y == 0.5 here, but
 	   gcc 4.3.0 -g -O2 mis-compiled it.  Showed up with
