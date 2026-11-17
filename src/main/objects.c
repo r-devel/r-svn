@@ -406,8 +406,6 @@ SEXP dispatchMethod(SEXP op, SEXP sxp, SEXP dotClass, RCNTXT *cptr, SEXP method,
 		    }
 		}
 		SEXP val;
-		/* static keeps it out of the frame of every S3 dispatch;
-		   R_ParseString() copies it before anything else runs */
 		static char buf[8192];
 		switch(option) {
 		case 0: // forward all, as in the past before R 4.4.0
@@ -585,9 +583,6 @@ SEXP do_usemethod(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     else { // no method found
 #define CLLEN 1024
-	/* not on the stack, where it would stay in the frame while the
-	   method runs, and not static, as errorcall() formats its
-	   arguments again after calling handlers have run */
 	char *cl = R_alloc(CLLEN, 1);
 	SEXP klass = PROTECT(R_data_class2(obj));
 	int nclass = length(klass);
