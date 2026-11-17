@@ -1385,7 +1385,7 @@ Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b);
    future, though the ALTREP framework may be a better choice.
 
    Allocating memory on the stack is also supported; this is currently
-   used for jump buffers.
+   used for byte code call frames and saved loop state.
 */
 typedef struct {
     int tag;
