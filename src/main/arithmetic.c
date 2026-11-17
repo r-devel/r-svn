@@ -815,7 +815,6 @@ static SEXP real_unary(ARITHOP_TYPE code, SEXP s1, SEXP lcall)
 static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 {
     R_xlen_t i, i1, i2, n, n1, n2;
-    int x1, x2;
     SEXP ans;
     bool naflag = false;
 
@@ -837,11 +836,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    pa[i] = R_integer_plus(x1, x2, &naflag);
-		});
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2],
+		pa[i] = R_integer_plus(x1, x2, &naflag););
 	    if (naflag)
 		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
@@ -851,11 +849,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    pa[i] = R_integer_minus(x1, x2, &naflag);
-		});
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2],
+		pa[i] = R_integer_minus(x1, x2, &naflag););
 	    if (naflag)
 		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
@@ -865,11 +862,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    pa[i] = R_integer_times(x1, x2, &naflag);
-		});
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2],
+		pa[i] = R_integer_times(x1, x2, &naflag););
 	    if (naflag)
 		warningcall(lcall, INTEGER_OVERFLOW_WARNING);
 	}
@@ -879,11 +875,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    double *pa = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
-		    pa[i] = R_integer_divide(x1, x2);
-		});
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2],
+		pa[i] = R_integer_divide(x1, x2););
 	}
 	break;
     case POWOP:
@@ -891,8 +886,10 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    double *pa = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    if((x1 = px1[i1]) == 1 || (x2 = px2[i2]) == 0)
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2], {
+		    if (x1 == 1 || x2 == 0)
 			pa[i] = 1.;
 		    else if (x1 == NA_INTEGER || x2 == NA_INTEGER)
 			pa[i] = NA_REAL;
@@ -906,9 +903,9 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2], {
 		    if (x1 == NA_INTEGER || x2 == NA_INTEGER || x2 == 0)
 			pa[i] = NA_INTEGER;
 		    else {
@@ -924,9 +921,9 @@ static SEXP integer_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2, SEXP lcall)
 	    int *pa = INTEGER(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2, {
-		    x1 = px1[i1];
-		    x2 = px2[i2];
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const int x1 = px1[i1],
+		const int x2 = px2[i2], {
 		    /* This had x %/% 0 == 0 prior to 2.14.1, but
 		       it seems conventionally to be undefined */
 		    if (x1 == NA_INTEGER || x2 == NA_INTEGER || x2 == 0)
@@ -976,33 +973,28 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 	    double *da = REAL(ans);
 	    const double *dx = REAL_RO(s1);
 	    const double *dy = REAL_RO(s2);
-	    if (n2 == 1) {
-		double tmp = dy[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] + tmp;);
-	    }
-	    else if (n1 == 1) {
-		double tmp = dx[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = tmp + dy[i];);
-	    }
-	    else if (n1 == n2)
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] + dy[i];);
-	    else
-		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-				  da[i] = dx[i1] + dy[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = dx[i1],
+		const double x2 = dy[i2],
+		da[i] = x1 + x2;);
 	}
 	else if(TYPEOF(s1) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const double *px2 = REAL_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = R_INTEGER(px1[i1]) + px2[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = R_INTEGER(px1[i1]),
+		const double x2 = px2[i2],
+		da[i] = x1 + x2;);
 	}
 	else if(TYPEOF(s2) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const double *px1 = REAL_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = px1[i1] + R_INTEGER(px2[i2]););
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = px1[i1],
+		const double x2 = R_INTEGER(px2[i2]),
+		da[i] = x1 + x2;);
 	}
 	break;
     case MINUSOP:
@@ -1010,33 +1002,28 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 	    double *da = REAL(ans);
 	    const double *dx = REAL_RO(s1);
 	    const double *dy = REAL_RO(s2);
-	    if (n2 == 1) {
-		double tmp = dy[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] - tmp;);
-	    }
-	    else if (n1 == 1) {
-		double tmp = dx[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = tmp - dy[i];);
-	    }
-	    else if (n1 == n2)
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] - dy[i];);
-	    else
-		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-				  da[i] = dx[i1] - dy[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = dx[i1],
+		const double x2 = dy[i2],
+		da[i] = x1 - x2;);
 	}
 	else if(TYPEOF(s1) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const double *px2 = REAL_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = R_INTEGER(px1[i1]) - px2[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = R_INTEGER(px1[i1]),
+		const double x2 = px2[i2],
+		da[i] = x1 - x2;);
 	}
 	else if(TYPEOF(s2) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const double *px1 = REAL_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = px1[i1] - R_INTEGER(px2[i2]););
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = px1[i1],
+		const double x2 = R_INTEGER(px2[i2]),
+		da[i] = x1 - x2;);
 	}
 	break;
     case TIMESOP:
@@ -1044,33 +1031,28 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 	    double *da = REAL(ans);
 	    const double *dx = REAL_RO(s1);
 	    const double *dy = REAL_RO(s2);
-	    if (n2 == 1) {
-		double tmp = dy[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] * tmp;);
-	    }
-	    else if (n1 == 1) {
-		double tmp = dx[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = tmp * dy[i];);
-	    }
-	    else if (n1 == n2)
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] * dy[i];);
-	    else
-		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-				  da[i] = dx[i1] * dy[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = dx[i1],
+		const double x2 = dy[i2],
+		da[i] = x1 * x2;);
 	}
 	else if(TYPEOF(s1) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const double *px2 = REAL_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = R_INTEGER(px1[i1]) * px2[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = R_INTEGER(px1[i1]),
+		const double x2 = px2[i2],
+		da[i] = x1 * x2;);
 	}
 	else if(TYPEOF(s2) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const double *px1 = REAL_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = px1[i1] * R_INTEGER(px2[i2]););
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = px1[i1],
+		const double x2 = R_INTEGER(px2[i2]),
+		da[i] = x1 * x2;);
 	}
 	break;
     case DIVOP:
@@ -1078,33 +1060,28 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 	    double *da = REAL(ans);
 	    const double *dx = REAL_RO(s1);
 	    const double *dy = REAL_RO(s2);
-	    if (n2 == 1) {
-		double tmp = dy[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] / tmp;);
-	    }
-	    else if (n1 == 1) {
-		double tmp = dx[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = tmp / dy[i];);
-	    }
-	    else if (n1 == n2)
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = dx[i] / dy[i];);
-	    else
-		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-				  da[i] = dx[i1] / dy[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = dx[i1],
+		const double x2 = dy[i2],
+		da[i] = x1 / x2;);
 	}
 	else if(TYPEOF(s1) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const int *px1 = INTEGER_RO(s1);
 	    const double *px2 = REAL_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = R_INTEGER(px1[i1]) / px2[i2];);
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = R_INTEGER(px1[i1]),
+		const double x2 = px2[i2],
+		da[i] = x1 / x2;);
 	}
 	else if(TYPEOF(s2) == INTSXP ) {
 	    double *da = REAL(ans);
 	    const double *px1 = REAL_RO(s1);
 	    const int *px2 = INTEGER_RO(s2);
-	    MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-			       da[i] = px1[i1] / R_INTEGER(px2[i2]););
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = px1[i1],
+		const double x2 = R_INTEGER(px2[i2]),
+		da[i] = x1 / x2;);
 	}
 	break;
     case POWOP:
@@ -1112,19 +1089,10 @@ static SEXP real_binary(ARITHOP_TYPE code, SEXP s1, SEXP s2)
 	    double *da = REAL(ans);
 	    const double *dx = REAL_RO(s1);
 	    const double *dy = REAL_RO(s2);
-	    if (n2 == 1) {
-		double tmp = dy[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = R_POW(dx[i], tmp););
-	    }
-	    else if (n1 == 1) {
-		double tmp = dx[0];
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = R_POW(tmp, dy[i]););
-	    }
-	    else if (n1 == n2)
-		R_ITERATE_CHECK(NINTERRUPT, n, i, da[i] = R_POW(dx[i], dy[i]););
-	    else
-		MOD_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
-				  da[i] = R_POW(dx[i1], dy[i2]););
+	    BINARY_ITERATE2_CHECK(NINTERRUPT, n, n1, n2, i, i1, i2,
+		const double x1 = dx[i1],
+		const double x2 = dy[i2],
+		da[i] = R_POW(x1, x2););
 	}
 	else if(TYPEOF(s1) == INTSXP ) {
 	    double *da = REAL(ans);
