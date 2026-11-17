@@ -4526,7 +4526,7 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
-## an error in a clipping path function left the PDF device locked
+## an error in a clipping path function left the PDF device locked -- PR#19335
 pdf(tf <- tempfile(fileext = ".pdf"))
 plot.new()
 try(grDevices:::.setClipPath(function() stop("no path"), NULL), silent = TRUE)
