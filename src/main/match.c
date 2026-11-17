@@ -109,16 +109,24 @@ Rboolean pmatch(SEXP formal, SEXP tag, Rboolean exact)
 }
 
 
+/* An exact match is a match of the symbol 'sym', since install() keeps
+   one symbol per name; a partial match (sym == NULL) compares names. */
+static R_INLINE bool isParMatch(SEXP x, const char *tag, SEXP sym)
+{
+    if (sym != NULL)
+	return TAG(x) == sym;
+    return TAG(x) != R_NilValue && psmatch(tag, CHAR(PRINTNAME(TAG(x))), FALSE);
+}
+
 /* Destructively Extract A Named List Element. */
 /* Returns the first partially matching tag found. */
 /* Pattern is a C string. */
 
-static SEXP matchPar_int(const char *tag, SEXP *list, Rboolean exact)
+static SEXP matchPar_int(const char *tag, SEXP sym, SEXP *list)
 {
     if (*list == R_NilValue)
 	return R_MissingArg;
-    else if (TAG(*list) != R_NilValue &&
-	     psmatch(tag, CHAR(PRINTNAME(TAG(*list))), exact)) {
+    else if (isParMatch(*list, tag, sym)) {
 	SEXP s = *list;
 	*list = CDR(*list);
 	return CAR(s);
@@ -127,8 +135,7 @@ static SEXP matchPar_int(const char *tag, SEXP *list, Rboolean exact)
 	SEXP last = *list;
 	SEXP next = CDR(*list);
 	while (next != R_NilValue) {
-	    if (TAG(next) != R_NilValue &&
-		psmatch(tag, CHAR(PRINTNAME(TAG(next))), exact)) {
+	    if (isParMatch(next, tag, sym)) {
 		SETCDR(last, CDR(next));
 		return CAR(next);
 	    }
@@ -144,7 +151,7 @@ static SEXP matchPar_int(const char *tag, SEXP *list, Rboolean exact)
 /* unused outside this file */
 attribute_hidden SEXP matchPar(const char *tag, SEXP * list)
 {
-    return matchPar_int(tag, list, FALSE);
+    return matchPar_int(tag, NULL, list);
 }
 
 
@@ -165,7 +172,7 @@ attribute_hidden SEXP matchArg(SEXP tag, SEXP * list)
 
 attribute_hidden SEXP matchArgExact(SEXP tag, SEXP * list)
 {
-      return matchPar_int(CHAR(PRINTNAME(tag)), list, TRUE);
+      return matchPar_int(NULL, tag, list);
 }
 
 
@@ -463,7 +470,8 @@ patchArgsByActuals(SEXP formals, SEXP supplied, SEXP cloenv)
     while (f != R_NilValue) {
 	if (TAG(f) != R_DotsSymbol) {
 	    for (b = prsupplied; b != R_NilValue; b = CDR(b)) {
-		if (TAG(b) != R_NilValue && pmatch(TAG(f), TAG(b), 1)) {
+		/* same symbol = same name, as in matchArgs_NR */
+		if (TAG(b) == TAG(f)) {
 		    patchArgument(b, TAG(f), &farg[farg_i], cloenv);
 		    SET_ARGUSED(b, 2);
 		    break; /* Previous invocation of matchArgs_NR */
