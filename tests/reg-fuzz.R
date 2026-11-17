@@ -74,7 +74,8 @@ local({
 
 
 ## grepRaw() with truncated TRE patterns -- PR#18995
-for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4"))
+for (p in c("[", "[[:alpha:", "[a-", "(", "(?", "(?#", "\\x", "\\x4", "\\x{4",
+            "a{ 1i + 1d < ", "a{ 1i + 12"))
     tryCatch(grepRaw(p, "abc"), error = function(e) NULL)
 ## read past the end of the pattern in R <= 4.6.2 (visible under ASan)
 
@@ -200,6 +201,14 @@ local({
     stopifnot(length(w) == 200L, w > 0, w == w[1])
 })
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
+
+
+## TRE: nested bounded repetitions multiply when expanded
+r <- tryCid(suppressWarnings(grepl("(?:a{2,101,})(?:a{2,101,}){100}{100}", "aaaa")))
+stopifnot(inherits(r, "error"),
+          ## the limit leaves room for the longest case-insensitive pattern
+          !grepl(strrep("a", 65536L), "b", ignore.case = TRUE))
+## allocated ~8.5 GB to compile the 36-byte pattern in R <= 4.6.2
 
 
 
