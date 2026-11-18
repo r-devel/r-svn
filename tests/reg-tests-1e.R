@@ -4491,11 +4491,14 @@ stopifnot(length(cl) == 1L,
 tools::assertWarning(contourLines(matrix(-1, 3, 3)), verbose = TRUE)
 
 
-## toupper() and encodeString() of a long UTF-8 string -- PR#19338
+## toupper(), encodeString() and strsplit(perl = TRUE) on long strings -- PR#19338
 x <- intToUtf8(rep(0xe9, 2e5)) # marked UTF-8 in any locale
 system.time(toupper(x))      # 1 s or so in R 4.6.2
 system.time(encodeString(x)) # ditto
-##  0.003 or so after fixing; were quadratic in the number of characters
+y <- strrep("a,", 2e5)
+system.time(sy <- strsplit(y, ",", perl = TRUE)) # ditto
+##  0.003 or so after fixing; were quadratic in the number of characters or pieces
+stopifnot(identical(sy, strsplit(y, ",", fixed = TRUE)))
 for (b in list(0xc3, c(0xe2, 0x82), c(0xf0, 0x9f, 0x98))) { # truncated: still invalid
     s <- rawToChar(as.raw(c(0x61, b)))
     Encoding(s) <- "UTF-8"

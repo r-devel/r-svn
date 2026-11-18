@@ -865,18 +865,23 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		}
 		/* find out how many splits there will be */
+		/* Both passes give the matcher the remaining length:
+		   strlen(bufp), or PCRE2_ZERO_TERMINATED, which has
+		   pcre2_match() call strlen(), costs time quadratic in the
+		   number of tokens. */
+		size_t buflen = strlen(buf);
 		ntok = 0;
 		bufp = buf;
 		if (*bufp) {
 		    int rc;
 #ifdef HAVE_PCRE2
 		    while((rc = pcre2_match(re, (PCRE2_SPTR) bufp,
-		                            PCRE2_ZERO_TERMINATED,
+		                            buflen - (size_t)(bufp - buf),
 					    0, eflag, mdata, mcontext)) >= 0) {
 			ovector = pcre2_get_ovector_pointer(mdata);
 #else
 		    while((rc = pcre_exec(re_pcre, re_pe, bufp,
-					  (int) strlen(bufp),
+					  (int) (buflen - (size_t)(bufp - buf)),
 					  0, 0, ovector, ovecsize)) >= 0) {
 #endif
 			/* Empty matches get the next char, so move by one. */
@@ -897,15 +902,15 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 			       t = allocVector(STRSXP, ntok + (*bufp ? 1 : 0)));
 		/* and fill with the splits */
 		bufp = buf;
-		pt = R_Realloc(pt, strlen(buf)+1, char);
+		pt = R_Realloc(pt, buflen+1, char);
 		for (j = 0; j < ntok; j++) {
 #ifdef HAVE_PCRE2
 		    int rc = pcre2_match(re, (PCRE2_SPTR) bufp,
-				       PCRE2_ZERO_TERMINATED,
+				       buflen - (size_t)(bufp - buf),
 		                       0, eflag, mdata, mcontext);
 #else
 		    int rc = pcre_exec(re_pcre, re_pe, bufp,
-				       (int) strlen(bufp), 0, 0,
+				       (int) (buflen - (size_t)(bufp - buf)), 0, 0,
 				       ovector, ovecsize);
 #endif
 		    R_pcre_exec_error(rc, i);
