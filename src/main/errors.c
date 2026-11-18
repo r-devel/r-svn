@@ -2960,6 +2960,12 @@ attribute_hidden SEXP R_getNodeStackOverflowError(void)
     return R_nodeStackOverflowError;
 }
 
+static SEXP R_contextStackOverflowError = NULL;
+attribute_hidden SEXP R_getContextStackOverflowError(void)
+{
+    return R_contextStackOverflowError;
+}
+
 attribute_hidden /* for now */
 SEXP R_vmakeWarningCondition(SEXP call,
 			   const char *classname, const char *subclassname,
@@ -3055,6 +3061,7 @@ SEXP R_makePartialArgumentMatchWarningCondition(SEXP call, SEXP argument, SEXP f
 #define PROT_SO_MSG _("protect(): protection stack overflow")
 #define EXPR_SO_MSG _("evaluation nested too deeply: infinite recursion / options(expressions=)?")
 #define NODE_SO_MSG _("node stack overflow")
+#define CNTXT_SO_MSG _("cannot allocate memory for the context stack")
 
 attribute_hidden
 void R_InitConditions(void)
@@ -3076,4 +3083,10 @@ void R_InitConditions(void)
 			     "nodeStackOverflowError", 0, NODE_SO_MSG);
     MARK_NOT_MUTABLE(R_nodeStackOverflowError);
     R_PreserveObject(R_nodeStackOverflowError);
+
+    R_contextStackOverflowError =
+	R_makeErrorCondition(R_NilValue, "stackOverflowError",
+			     "contextStackOverflowError", 0, CNTXT_SO_MSG);
+    MARK_NOT_MUTABLE(R_contextStackOverflowError);
+    R_PreserveObject(R_contextStackOverflowError);
 }

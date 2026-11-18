@@ -2329,7 +2329,6 @@ void R_run_onexits(RCNTXT *);
 NORET void R_jumpctxt(RCNTXT *, int, SEXP);
 
 void R_InitContextStack(void);
-Rboolean R_ContextStackShort(void);
 #endif
 
 /* ../main/bind.c */
@@ -2376,6 +2375,7 @@ SEXP R_makeCStackOverflowError(SEXP call, intptr_t usage);
 SEXP R_getProtectStackOverflowError(void);
 SEXP R_getExpressionStackOverflowError(void);
 SEXP R_getNodeStackOverflowError(void);
+SEXP R_getContextStackOverflowError(void);
 void R_InitConditions(void);
 
 R_size_t R_GetMaxVSize(void);

@@ -1062,18 +1062,19 @@ attribute_hidden void R_BCProtReset(R_bcstack_t *ptop)
 
 static void handle_eval_depth_overflow(void)
 {
+    /* Only the context stack lowers R_Expressions below the limit set
+       by options(expressions), when it could not grow. */
+    Rboolean cntxtStackShort = R_Expressions < R_Expressions_keep;
+
     /* This bump of R_Expressions doesn't really work in many cases
        since jumps (e.g. from explicit return() calls or in UseMethod
        dispatch) reset this. Something more sophisticated might work,
        but also increase the risk of a C stack overflow. LT */
     R_Expressions = R_Expressions_keep + 500;
 
-    /* deferred from begincontext(), which must not fail */
-    if (R_ContextStackShort())
-	error(_("cannot allocate memory for the context stack"));
-
-    /* the condition is pre-allocated and protected with R_PreserveObject */
-    SEXP cond = R_getExpressionStackOverflowError();
+    /* the conditions are pre-allocated and protected with R_PreserveObject */
+    SEXP cond = cntxtStackShort ? R_getContextStackOverflowError() :
+	R_getExpressionStackOverflowError();
 
     /* We need to pass a NULL call here to circumvent attempts to
        deparse the call in the error-handler */

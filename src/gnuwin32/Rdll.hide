@@ -146,7 +146,6 @@
  R_CommentSymbol
  R_ConnIdSymbol
  R_ConsoleIob
- R_ContextStackShort
  R_CurrentExpr
  R_Decode2Long
  R_DefCallbacks
@@ -313,6 +312,7 @@
  R_getClockIncrement
  R_getCurrentSrcref
  R_getDllTable
+ R_getContextStackOverflowError
  R_getExpressionStackOverflowError
  R_getFullPathName
  R_getFullPathNameW

@@ -119,11 +119,12 @@
 
    begincontext() must not fail, since callers rely on that, e.g. to
    change state just before it or to set up an unwind target without
-   allocating. So the chunk after the current one always exists: when
-   moving into it, another chunk is allocated ahead, and if that fails
-   the error is deferred to the next evaluation depth check, a point
-   where errors are expected, while the spare chunk holds the contexts
-   its handling needs. */
+   allocating. So the chunk after the current one always exists, as a
+   reserve: when moving into it, another chunk is allocated ahead, and
+   if that fails the evaluation depth limit is lowered to the current
+   depth. The next evaluation then fails the depth check, which raises
+   a pre-allocated context stack error, while the spare chunk holds the
+   contexts its handling needs. Any jump restores the limit. */
 
 typedef struct cntxtchunk {
     struct cntxtchunk *prev, *next;
@@ -165,12 +166,6 @@ static Rboolean isInChunk(cntxtchunk *c, RCNTXT *p)
     return u >= (uintptr_t) c->base && u <= (uintptr_t) c->end;
 }
 
-/* Set while the chunk ahead is missing and its error is not yet
-   reported; R_Expressions is lowered meanwhile, so that the next
-   evaluation depth check reports it. */
-static Rboolean cntxtStackShort = FALSE;
-static int cntxtStackSavedExpressions;
-
 /* Make 'top' the top of the context stack. It lies in the current
    chunk or an earlier one; NULL is the bottom. */
 static void resetContextStack(RCNTXT *top)
@@ -190,11 +185,6 @@ static void resetContextStack(RCNTXT *top)
     }
     R_CntxtChunk = c;
     R_CntxtStackTop = top;
-    if (cntxtStackShort && c->next != NULL) {
-	/* back below the spare chunk, so there is nothing to report */
-	cntxtStackShort = FALSE;
-	R_Expressions = cntxtStackSavedExpressions;
-    }
 }
 
 static RCNTXT *allocContext(void)
@@ -207,22 +197,11 @@ static RCNTXT *allocContext(void)
 	R_CntxtChunk = R_CntxtChunk->next;
 	R_CntxtStackTop = R_CntxtChunk->base;
 	if (R_CntxtChunk->next == NULL &&
-	    newContextChunk(R_CntxtChunk) == NULL && ! cntxtStackShort) {
-	    cntxtStackShort = TRUE;
-	    cntxtStackSavedExpressions = R_Expressions;
-	    R_Expressions = R_EvalDepth; /* fail the next depth check */
-	}
+	    newContextChunk(R_CntxtChunk) == NULL)
+	    /* in the spare chunk: fail the next evaluation depth check */
+	    R_Expressions = R_EvalDepth;
     }
     return R_CntxtStackTop++;
-}
-
-/* Whether the context stack could not grow, for the evaluation depth
-   check to report; reported once. */
-attribute_hidden Rboolean R_ContextStackShort(void)
-{
-    Rboolean val = cntxtStackShort;
-    cntxtStackShort = FALSE;
-    return val;
 }
 
 /* R_run_onexits - runs the conexit/cend code for all contexts from
@@ -305,7 +284,6 @@ static void R_restore_globals(RCNTXT *cptr)
        handling a stack overflow. */
     R_Expressions = R_Expressions_keep;
     R_BCNodeStackTop = cptr->nodestack;
-    cntxtStackShort = FALSE; /* R_Expressions was reset above */
     resetContextStack(cptr->cntxtstacktop);
     R_Srcref = cptr->srcref;
     R_BCProtReset(cptr->bcprottop);
