@@ -1063,8 +1063,8 @@ attribute_hidden void R_BCProtReset(R_bcstack_t *ptop)
 static void handle_eval_depth_overflow(void)
 {
     /* Only the context stack lowers R_Expressions below the limit set
-       by options(expressions), when it could not grow. */
-    Rboolean cntxtStackShort = R_Expressions < R_Expressions_keep;
+       by options(expressions), when it is about to overflow. */
+    Rboolean cntxtOverflow = R_Expressions < R_Expressions_keep;
 
     /* This bump of R_Expressions doesn't really work in many cases
        since jumps (e.g. from explicit return() calls or in UseMethod
@@ -1073,7 +1073,7 @@ static void handle_eval_depth_overflow(void)
     R_Expressions = R_Expressions_keep + 500;
 
     /* the conditions are pre-allocated and protected with R_PreserveObject */
-    SEXP cond = cntxtStackShort ? R_getContextStackOverflowError() :
+    SEXP cond = cntxtOverflow ? R_getContextStackOverflowError() :
 	R_getExpressionStackOverflowError();
 
     /* We need to pass a NULL call here to circumvent attempts to

@@ -113,92 +113,55 @@
 #include <Defn.h>
 #include <Internal.h>
 
-/* Contexts live on a stack of their own. It grows by chunks, so that
-   active contexts never move, and chunks are kept for reuse. A context
-   is released by endcontext() or by a jump to an older context.
+/* Contexts live on a stack of their own, allocated once at startup, so
+   active contexts never move. A context is released by endcontext() or
+   by a jump to an older context.
 
    begincontext() must not fail, since callers rely on that, e.g. to
    change state just before it or to set up an unwind target without
-   allocating. So the chunk after the current one always exists, as a
-   reserve: when moving into it, another chunk is allocated ahead, and
-   if that fails the evaluation depth limit is lowered to the current
-   depth. The next evaluation then fails the depth check, which raises
-   a pre-allocated context stack error, while the spare chunk holds the
-   contexts its handling needs. Any jump restores the limit. */
+   allocating. So a reserve of CNTXT_RESERVE contexts follows the
+   R_CNTXTSTACKSIZE usable ones, like the red zone of the protect stack:
+   when the stack moves into it, the evaluation depth limit is lowered to
+   the current depth. The next evaluation then fails the depth check,
+   which raises a pre-allocated context stack overflow error, while the
+   reserve holds the contexts its handling needs. Any jump restores the
+   limit. */
 
-typedef struct cntxtchunk {
-    struct cntxtchunk *prev, *next;
-    RCNTXT *end;
-    RCNTXT base[];
-} cntxtchunk;
+#ifndef R_CNTXTSTACKSIZE
+# define R_CNTXTSTACKSIZE 16384
+#endif
+#define CNTXT_RESERVE 512
 
-#define CNTXT_CHUNK_SIZE 512
-
-static cntxtchunk *R_CntxtChunk = NULL;
+static RCNTXT *R_CntxtStackBase = NULL;
 static RCNTXT *R_CntxtStackTop = NULL;
-
-static cntxtchunk *newContextChunk(cntxtchunk *prev)
-{
-    cntxtchunk *c =
-	malloc(sizeof(cntxtchunk) + CNTXT_CHUNK_SIZE * sizeof(RCNTXT));
-    if (c == NULL)
-	return NULL;
-    c->prev = prev;
-    c->next = NULL;
-    c->end = c->base + CNTXT_CHUNK_SIZE;
-    if (prev)
-	prev->next = c;
-    return c;
-}
+static RCNTXT *R_CntxtStackReserve = NULL; /* start of the reserve */
+static RCNTXT *R_CntxtStackEnd = NULL;
 
 attribute_hidden void R_InitContextStack(void)
 {
-    R_CntxtChunk = newContextChunk(NULL);
-    if (R_CntxtChunk == NULL || newContextChunk(R_CntxtChunk) == NULL)
+    R_CntxtStackBase =
+	malloc((R_CNTXTSTACKSIZE + CNTXT_RESERVE) * sizeof(RCNTXT));
+    if (R_CntxtStackBase == NULL)
 	R_Suicide("cannot allocate the context stack");
-    R_CntxtStackTop = R_CntxtChunk->base;
+    R_CntxtStackTop = R_CntxtStackBase;
+    R_CntxtStackReserve = R_CntxtStackBase + R_CNTXTSTACKSIZE;
+    R_CntxtStackEnd = R_CntxtStackReserve + CNTXT_RESERVE;
 }
 
-/* Chunks are separate allocations, so compare addresses as integers. */
-static Rboolean isInChunk(cntxtchunk *c, RCNTXT *p)
-{
-    uintptr_t u = (uintptr_t) p;
-    return u >= (uintptr_t) c->base && u <= (uintptr_t) c->end;
-}
-
-/* Make 'top' the top of the context stack. It lies in the current
-   chunk or an earlier one; NULL is the bottom. */
+/* Make 'top' the top of the context stack; NULL is the bottom. */
 static void resetContextStack(RCNTXT *top)
 {
-    cntxtchunk *c = R_CntxtChunk;
-    if (top == NULL) {
-	while (c->prev)
-	    c = c->prev;
-	top = c->base;
-    }
-    else {
-	while (! isInChunk(c, top)) {
-	    c = c->prev;
-	    if (c == NULL)
-		R_Suicide("bad context stack position");
-	}
-    }
-    R_CntxtChunk = c;
-    R_CntxtStackTop = top;
+    R_CntxtStackTop = top == NULL ? R_CntxtStackBase : top;
 }
 
 static RCNTXT *allocContext(void)
 {
-    if (R_CntxtStackTop == R_CntxtChunk->end) {
-	if (R_CntxtChunk->next == NULL &&
-	    newContextChunk(R_CntxtChunk) == NULL)
-	    /* the spare chunk is used up as well */
-	    R_Suicide("cannot allocate memory for the context stack");
-	R_CntxtChunk = R_CntxtChunk->next;
-	R_CntxtStackTop = R_CntxtChunk->base;
-	if (R_CntxtChunk->next == NULL &&
-	    newContextChunk(R_CntxtChunk) == NULL)
-	    /* in the spare chunk: fail the next evaluation depth check */
+    if (R_CntxtStackTop >= R_CntxtStackReserve) {
+	if (R_CntxtStackTop == R_CntxtStackEnd)
+	    /* the reserve is used up as well */
+	    R_Suicide("context stack overflow");
+	if (R_CntxtStackTop == R_CntxtStackReserve)
+	    /* moving into the reserve: fail the next evaluation depth check */
 	    R_Expressions = R_EvalDepth;
     }
     return R_CntxtStackTop++;

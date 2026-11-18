@@ -3061,7 +3061,7 @@ SEXP R_makePartialArgumentMatchWarningCondition(SEXP call, SEXP argument, SEXP f
 #define PROT_SO_MSG _("protect(): protection stack overflow")
 #define EXPR_SO_MSG _("evaluation nested too deeply: infinite recursion / options(expressions=)?")
 #define NODE_SO_MSG _("node stack overflow")
-#define CNTXT_SO_MSG _("cannot allocate memory for the context stack")
+#define CNTXT_SO_MSG _("context stack overflow")
 
 attribute_hidden
 void R_InitConditions(void)
