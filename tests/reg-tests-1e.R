@@ -4491,7 +4491,7 @@ stopifnot(length(cl) == 1L,
 tools::assertWarning(contourLines(matrix(-1, 3, 3)), verbose = TRUE)
 
 
-## toupper() and encodeString() of a long UTF-8 string
+## toupper() and encodeString() of a long UTF-8 string -- PR#19338
 x <- intToUtf8(rep(0xe9, 2e5)) # marked UTF-8 in any locale
 system.time(toupper(x))      # 1 s or so in R 4.6.2
 system.time(encodeString(x)) # ditto
