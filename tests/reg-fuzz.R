@@ -225,7 +225,7 @@ if (l10n_info()[["UTF-8"]]) {
 ## wrote past its buffer where MB_CUR_MAX is 4 (macOS), seg.faulting, in R <= 4.6.2
 
 
-## toupper() of UTF-8 with overlong forms, of NUL and of a surrogate
+## toupper() of UTF-8 with overlong forms, of NUL and of a surrogate -- PR#19337
 local({
     overlong <- list(c(0xc0, 0x80), c(0xe0, 0x80, 0x80),
                      c(0xf0, 0x8d, 0xbf, 0xb0), c(0xf8, 0x80, 0x8d, 0xbf, 0xb0))
