@@ -310,9 +310,9 @@
  R_gc_running
  R_getBCInterpreterExpression
  R_getClockIncrement
+ R_getContextStackOverflowError
  R_getCurrentSrcref
  R_getDllTable
- R_getContextStackOverflowError
  R_getExpressionStackOverflowError
  R_getFullPathName
  R_getFullPathNameW

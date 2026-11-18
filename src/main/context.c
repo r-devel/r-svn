@@ -124,8 +124,8 @@
    when the stack moves into it, the evaluation depth limit is lowered to
    the current depth. The next evaluation then fails the depth check,
    which raises a pre-allocated context stack overflow error, while the
-   reserve holds the contexts its handling needs. Any jump restores the
-   limit. */
+   reserve holds the contexts its handling needs. Returning below the
+   reserve before that restores the limit, and so does any jump. */
 
 #ifndef R_CNTXTSTACKSIZE
 # define R_CNTXTSTACKSIZE 16384
@@ -152,6 +152,10 @@ attribute_hidden void R_InitContextStack(void)
 static void resetContextStack(RCNTXT *top)
 {
     R_CntxtStackTop = top == NULL ? R_CntxtStackBase : top;
+    if (R_Expressions < R_Expressions_keep &&
+	R_CntxtStackTop <= R_CntxtStackReserve)
+	/* back below the reserve before an evaluation reported it */
+	R_Expressions = R_Expressions_keep;
 }
 
 static RCNTXT *allocContext(void)

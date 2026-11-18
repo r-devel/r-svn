@@ -1073,8 +1073,13 @@ static void handle_eval_depth_overflow(void)
     R_Expressions = R_Expressions_keep + 500;
 
     /* the conditions are pre-allocated and protected with R_PreserveObject */
-    SEXP cond = cntxtOverflow ? R_getContextStackOverflowError() :
-	R_getExpressionStackOverflowError();
+    if (cntxtOverflow)
+	/* calling handlers would run with only the reserve of the context
+	   stack left, so skip them, as for a C stack overflow */
+	R_signalErrorConditionEx(R_getContextStackOverflowError(),
+				 R_NilValue, TRUE);
+
+    SEXP cond = R_getExpressionStackOverflowError();
 
     /* We need to pass a NULL call here to circumvent attempts to
        deparse the call in the error-handler */
@@ -9017,10 +9022,12 @@ attribute_hidden Rboolean R_checkConstants(Rboolean abortOnError)
            in R_compute_identical */
 	return TRUE;
 
-    /* set up context to recover checkingInProgress */
+    /* set the flag first: when the context stack is full, codecontext()
+       ends R, whose exit finalizers come back here; the context resets
+       the flag on a jump */
+    checkingInProgress = TRUE;
     cntxt = codecontext(&const_cleanup, &checkingInProgress);
 
-    checkingInProgress = TRUE;
     SEXP prev_crec = R_ConstantsRegistry;
     SEXP crec = VECTOR_ELT(prev_crec, 0);
     Rboolean constsOK = TRUE;

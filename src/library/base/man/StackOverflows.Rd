@@ -39,8 +39,8 @@
     used by the byte code engine overflows.
 
     \item \code{contextStackOverflowError}: Signaled when the context
-    stack, which holds an entry for each active function call, loop and
-    similar construct, overflows.
+    stack overflows. It holds the evaluation contexts of active closure
+    calls, of loops that need one, and of internal cleanup code.
 
     \item \code{expressionStackOverflowError}: Signaled when the the
     evaluation depth, the number of nested \R expressions currently
