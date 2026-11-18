@@ -1383,18 +1383,14 @@ utf8toucs32(wchar_t high, const char *s)
     return utf16toucs(high, utf8toutf16low(s));
 }
 
-/* strlen(s) < n, without scanning past s[n - 1]: utf8toucs() is called
-   once per character, so strlen() there made string loops quadratic. */
-static bool isShorterThan(const char *s, size_t n)
-{
-    for (size_t i = 0; i < n; i++)
-	if (!s[i])
-	    return TRUE;
-    return FALSE;
-}
-
 /* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
-   only the high surrogate is returned; call utf8toutf16low next. */
+   only the high surrogate is returned; call utf8toutf16low next.
+
+   There is no length check: NUL is never a continuation byte, and each
+   && chain below stops at the first byte that is not one, so a sequence
+   cut short by the terminator gives (size_t)-1 without reading past it.
+   Callers decode a string one character at a time, so checking with
+   strlen(s) here would make them quadratic. */
 size_t
 utf8toucs(wchar_t *wc, const char *s)
 {
@@ -1412,13 +1408,11 @@ utf8toucs(wchar_t *wc, const char *s)
     } else if (byte < 0xC0) {
 	return (size_t)-1;
     } else if (byte < 0xE0) {
-	if(isShorterThan(s, 2)) return (size_t)-2;
 	if ((s[1] & 0xC0) == 0x80) {
 	    *w = (wchar_t) (((byte & 0x1F) << 6) | (s[1] & 0x3F));
 	    return 2;
 	} else return (size_t)-1;
     } else if (byte < 0xF0) {
-	if(isShorterThan(s, 3)) return (size_t)-2;
 	if (((s[1] & 0xC0) == 0x80) && ((s[2] & 0xC0) == 0x80)) {
 	    *w = (wchar_t) (((byte & 0x0F) << 12)
 			    | (unsigned int) ((s[1] & 0x3F) << 6)
@@ -1431,7 +1425,6 @@ utf8toucs(wchar_t *wc, const char *s)
 	} else return (size_t)-1;
 
     } else if (byte < 0xf8) {
-	if(isShorterThan(s, 4)) return (size_t)-2;
 	if (((s[1] & 0xC0) == 0x80) && ((s[2] & 0xC0) == 0x80) && ((s[3] & 0xC0) == 0x80)) {
 	    unsigned int cvalue = (((byte & 0x0F) << 18)
 			| (unsigned int) ((s[1] & 0x3F) << 12)
@@ -1449,7 +1442,6 @@ utf8toucs(wchar_t *wc, const char *s)
        for compatibility, but checked like the shorter forms so the
        result fits in 31 bits.  0xFE and 0xFF are never lead bytes. */
     if (byte < 0xFC) {
-	if(isShorterThan(s, 5)) return (size_t)-2;
 	if (((s[1] & 0xC0) == 0x80) && ((s[2] & 0xC0) == 0x80)
 	    && ((s[3] & 0xC0) == 0x80) && ((s[4] & 0xC0) == 0x80)) {
 	    *w = (wchar_t) (((byte & 0x03) << 24)
@@ -1460,7 +1452,6 @@ utf8toucs(wchar_t *wc, const char *s)
 	    return 5;
 	} else return (size_t)-1;
     } else if (byte < 0xFE) {
-	if(isShorterThan(s, 6)) return (size_t)-2;
 	if (((s[1] & 0xC0) == 0x80) && ((s[2] & 0xC0) == 0x80)
 	    && ((s[3] & 0xC0) == 0x80) && ((s[4] & 0xC0) == 0x80)
 	    && ((s[5] & 0xC0) == 0x80)) {
