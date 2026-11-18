@@ -133,7 +133,7 @@ dev.off()
 #}
 
 ## A string ending part way through a UTF-8 character, or (on Windows)
-## with a lead byte from 0xF8, gets one dot per byte
+## with a lead byte from 0xF8, gets one dot per byte -- PR#19340
 pdf(tf <- tempfile(fileext = ".pdf"))
 plot.new()
 for (x in c("ab\xf0", "ab\xe2\x82", "ab\xf8", "ab\xff")) {
