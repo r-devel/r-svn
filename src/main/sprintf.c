@@ -71,8 +71,9 @@ static bool checkfmt(const char *fmt, const char *pattern)
 }
 
 /* NA, NaN and Inf are printed with %s in place of a numeric conversion:
-   drop its precision, and its '0' flag as some C libraries pad strings
-   with zeros */
+   drop its precision, and its '0' and '#' flags, as some C libraries pad
+   strings with zeros and C leaves '#' undefined for %s.  ('+' and ' '
+   stay: the caller reads them.) */
 static void nastringspec(char *fmt)
 {
     char *p = Rf_strchr(fmt, '.');
@@ -85,7 +86,7 @@ static void nastringspec(char *fmt)
 
     char *q = fmt + 1;
     for (p = q; *p && strchr("-+ #0", *p); p++)
-	if (*p != '0')
+	if (*p != '0' && *p != '#')
 	    *q++ = *p;
     memmove(q, p, strlen(p) + 1);
 }

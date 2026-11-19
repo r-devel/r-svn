@@ -4532,8 +4532,8 @@ stopifnot(identical(sprintf("%05.1f", c(1.5, NA, NaN, Inf, -Inf)),
           identical(sprintf("%03d", c(7L, NA)), c("007", " NA")),
           identical(sprintf("%-05d|", NA), "NA   |"),
           identical(sprintf("%+06.1f", Inf), "  +Inf"),
-          identical(sprintf(c("%05.0d", "%.1d", "%5.3i"), NA_integer_),
-                    c("   NA", "NA", "   NA")),
+          identical(sprintf(c("%05.0d", "%.1d", "%5.3i", "%#08.1x"), NA_integer_),
+                    c("   NA", "NA", "   NA", "      NA")),
           identical(sprintf("%.1d", NA), "NA"))
 ## gave "000NA" etc on macOS, and "N" or "" for integer NA with a
 ## precision, in R <= 4.6.x

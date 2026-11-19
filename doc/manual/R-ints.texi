@@ -1337,14 +1337,15 @@ be ignored if the string's bytes are all @acronym{ASCII} characters.
 @node Formatted output on Windows
 @section Formatted output on Windows
 
-On Windows, the @code{printf} family in @R{}'s C sources (including the
-formatting behind @code{Rprintf}, @code{REprintf}, @code{error},
-@code{warning} and @code{sprintf}) goes through header
-@file{src/gnuwin32/fixed/h/winprintf.h}, which redefines
+On Windows, header @file{src/gnuwin32/fixed/h/winprintf.h} redefines
 @code{snprintf}, @code{vsnprintf}, @code{fprintf}, @code{vfprintf} and
-@code{vasprintf}.  (These used to come from the bundled @I{trio}
-library, needed when the C runtime was @abbr{MSVCRT}.)  It uses two
-formatters, choosing for each call by scanning the format:
+@code{vasprintf} in the source files of @file{R.dll} which include it.
+Those include the files formatting for @code{Rprintf}, @code{REprintf},
+@code{error}, @code{warning}, @code{sprintf}, @code{format} and
+@code{print}, but not all of @R{}'s C sources (see below).  (These
+functions used to come from the bundled @I{trio} library, needed when
+the C runtime was @abbr{MSVCRT}.)  It uses two formatters, choosing for
+each call by scanning the format:
 
 @itemize
 @item
