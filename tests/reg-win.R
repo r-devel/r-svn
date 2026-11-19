@@ -95,10 +95,25 @@ if (capabilities("NLS") && !is.na(.popath)) {
 
 
 ## %ls arguments the locale cannot represent are shown as <U+xxxx>
+## (via a UTF-8 locale, which UCRTs before Windows 10 1803 lack)
 old <- Sys.getlocale("LC_CTYPE")
-Sys.setlocale("LC_CTYPE", "C")
-w <- tryCatch(file(file.path(tempdir(), "\u20ac\u0101.txt"), "r"),
-              warning = conditionMessage)
-Sys.setlocale("LC_CTYPE", old)
-stopifnot(grepl("<U+20AC><U+0101>.txt", w, fixed = TRUE))
+if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", ".UTF-8")))) {
+    Sys.setlocale("LC_CTYPE", "C")
+    w <- tryCatch(file(file.path(tempdir(), "\u20ac\u0101.txt"), "r"),
+                  warning = conditionMessage)
+    Sys.setlocale("LC_CTYPE", old)
+    stopifnot(grepl("<U+20AC><U+0101>.txt", w, fixed = TRUE))
+}
 ## a plain UCRT printf loses the message; trio was fine in R <= 4.6.x
+
+
+## formats the UCRT rejects (here the ' flag) must not abort R, which it
+## does when checking parameters or embedded in an MSVC application
+Sys.setenv("_R_WIN_CHECK_INVALID_PARAMETERS_" = "true")
+out <- system2(file.path(R.home("bin"), "Rscript"),
+               c("--vanilla", "-e",
+                 shQuote("formatC(1234.5, format = 'f', flag = intToUtf8(39L))")),
+               stdout = TRUE, stderr = TRUE)
+Sys.unsetenv("_R_WIN_CHECK_INVALID_PARAMETERS_")
+stopifnot(is.null(attr(out, "status")), identical(out, '[1] "1234.5000"'))
+## a plain UCRT printf aborts here; trio gave "" in R <= 4.6.x

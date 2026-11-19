@@ -117,7 +117,7 @@ static inline int Rwin_scan_format(const char *f)
 	for (; *f && strchr("hlLjztwI0123456789", *f); f++)
 	    if (*f == 'L')
 		res |= RWIN_FMT_LONG_DOUBLE;
-	    else if (*f == 'l')
+	    else if (*f == 'l' || *f == 'w')
 		l = 1;
 
 	switch (*f) {
@@ -172,13 +172,19 @@ static inline int Rwin_ucrt_rounds(void)
     return rounds;
 }
 
+/* In order of precedence, as mingw-w64 ignores positional arguments and
+   cannot escape wide characters but does not reject formats */
 static inline int Rwin_use_mingw(int fmt)
 {
     if (fmt & RWIN_FMT_LONG_DOUBLE)
 	return 1;
-    if (fmt & (RWIN_FMT_POSITIONAL | RWIN_FMT_WIDE))
+    if (fmt & RWIN_FMT_POSITIONAL)
 	return 0;
-    return (fmt & (RWIN_FMT_HEX_FLOAT | RWIN_FMT_REJECTED)) ||
+    if (fmt & RWIN_FMT_REJECTED)
+	return 1;
+    if (fmt & RWIN_FMT_WIDE)
+	return 0;
+    return (fmt & RWIN_FMT_HEX_FLOAT) ||
 	((fmt & RWIN_FMT_FLOAT) && !Rwin_ucrt_rounds());
 }
 
@@ -224,10 +230,12 @@ static inline int Rwin_vasprintf(char **strp, const char *format, va_list ap)
     *strp = malloc((size_t) len + 1);
     if (!*strp)
 	return -1;
+    /* more than measured (say %n changed a later argument) did not fit */
     int res = Rwin_vsnprintf(*strp, (size_t) len + 1, format, ap);
-    if (res < 0) {
+    if (res < 0 || res > len) {
 	free(*strp);
 	*strp = NULL;
+	return -1;
     }
     return res;
 }
