@@ -3333,9 +3333,7 @@ attribute_hidden int Rasprintf_malloc(char **str, const char *fmt, ...)
     va_start(ap, fmt);
     /* could optimize by using non-zero initial size, large
        enough so that most prints with fill */
-    /* trio does not accept NULL as str */
-    char dummy[1];
-    int ret = vsnprintf(dummy, 0, fmt, ap);
+    int ret = vsnprintf(NULL, 0, fmt, ap);
     va_end(ap);
 
     if (ret <= 0)
