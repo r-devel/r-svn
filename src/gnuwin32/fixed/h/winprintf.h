@@ -36,7 +36,8 @@
    they then fail as trio did.
 
    Include this after the system headers: the names are function-like
-   macros, so struct members such as con->vfprintf are left alone. */
+   macros, so struct members such as con->vfprintf are left alone.
+   See also 'Formatted output on Windows' in the 'R Internals' manual. */
 
 #ifndef R_WINPRINTF_H
 #define R_WINPRINTF_H

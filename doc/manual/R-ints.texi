@@ -1334,6 +1334,68 @@ requests to create a @code{CHARSXP} should be @emph{via} a call to
 be ignored if the string's bytes are all @acronym{ASCII} characters.
 
 
+@node Formatted output on Windows
+@section Formatted output on Windows
+
+On Windows, the @code{printf} family in @R{}'s C sources (including the
+formatting behind @code{Rprintf}, @code{REprintf}, @code{error},
+@code{warning} and @code{sprintf}) goes through header
+@file{src/gnuwin32/fixed/h/winprintf.h}, which redefines
+@code{snprintf}, @code{vsnprintf}, @code{fprintf}, @code{vfprintf} and
+@code{vasprintf}.  (These used to come from the bundled @I{trio}
+library, needed when the C runtime was @abbr{MSVCRT}.)  It uses two
+formatters, choosing for each call by scanning the format:
+
+@itemize
+@item
+The Universal C Runtime (@abbr{UCRT}), for most formats.  @R{} calls its
+@code{__stdio_common_v*printf_p} entry points directly: the @code{_p}
+variants accept positional arguments such as @code{%2$s}, which
+translations of C-level messages use, and the option
+@code{_CRT_INTERNAL_PRINTF_STANDARD_ROUNDING} asks for correctly rounded
+output (the wrappers in the @I{MinGW-w64} headers do not pass it, and
+so round exact ties away from zero).
+
+@item
+@I{MinGW-w64}'s own formatter (@code{__mingw_vsnprintf}), statically
+linked, for what the @abbr{UCRT} gets wrong: @code{long double}
+arguments (which it reads as @code{double}), @code{%a} (which it always
+prints with 13 hexadecimal digits), formats it rejects (@code{%n}, the
+@code{'} flag, unknown conversions), and floating-point conversions when
+the @abbr{UCRT} does not honour the rounding option (before Windows 10
+version 2004, checked at run time).  As this formatter does not accept
+positional arguments, formats with those go to the @abbr{UCRT} unless
+they have a @code{long double} conversion.
+@end itemize
+
+A format the @abbr{UCRT} rejects calls the invalid parameter handler,
+which can terminate @R{} when @env{_R_WIN_CHECK_INVALID_PARAMETERS_} is set
+or @R{} is embedded in an application built with another toolchain, so
+the @abbr{UCRT} calls are made with a thread-local handler which returns
+and the call fails, as it did with @I{trio}.  When the current locale
+cannot represent a @code{%ls} or @code{%lc} argument, the call is
+repeated in a UTF-8 locale and such characters are shown as
+@samp{<U+xxxx>}.  The @abbr{UCRT} prints @code{%p} without a @samp{0x}
+prefix and in upper case, so the printing of environments, external
+pointers, byte code and promises uses @code{EncodeAddress} to keep the
+form @R{} has always shown.
+
+Unlike the statically linked formatters, the @abbr{UCRT} is part of
+Windows, so its behaviour could depend on the version of Windows.  @R{}
+relies on behaviour which, as far as is known, has not changed since the
+@abbr{UCRT} was introduced, except for the rounding option and, for the
+@samp{<U+xxxx>} escapes, the availability of UTF-8 locales (from
+Windows 10 version 1803).  The tests in @file{tests/reg-win.R} check
+formatted output exactly, so that any change is noticed.
+
+Source files which use these functions should include
+@file{winprintf.h} (on Windows only, after the system headers): other
+files get the @abbr{UCRT} through the @I{MinGW-w64} wrappers.  The
+@code{printf} calls in packages' own code are not affected: they go to
+the @abbr{UCRT} from C, and to @I{MinGW-w64}'s formatter from C++ (as
+@command{g++} defines @code{__USE_MINGW_ANSI_STDIO}).
+
+
 @node Warnings and errors
 @section Warnings and errors
 
