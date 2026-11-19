@@ -6,6 +6,8 @@
 tryCid <- function(expr) tryCatch(expr, error = identity)
 assertErrV  <- function(...) tools::assertError  (..., verbose=TRUE)
 assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+onWindows <- .Platform$OS.type == "windows"
+onUnix    <- .Platform$OS.type == "unix"
 
 ### First dozen entries moved from ./tests-reg-tests-1e.R ----------------------
 
@@ -206,12 +208,14 @@ local({
 local({
     n <- 30000 # 2n exceeds the default protect stack size
     x <- c(rep(rawToChar(as.raw(0xff)), n), intToUtf8(252))
+    ## invalid UTF-8 fails conversion in any locale; the native "\xff"
+    ## converts to U+007F in the C locale on Windows
+    Encoding(x) <- "UTF-8"
     r <- suppressWarnings(gregexpr(".", x))
     stopifnot(identical(vapply(r, `[`, 0L, 1L), c(rep(-1L, n), 1L)))
 })
 ## leaked two protect stack entries per such string, so this gave
 ## "protection stack overflow", in R <= 4.6.2
-
 
 ## readChar() on a raw vector holding 6-byte UTF-8 lead bytes
 if (l10n_info()[["UTF-8"]]) {
@@ -234,6 +238,99 @@ local({
 ## each rejected name was released as if its length were its hash value, so
 ## 'used' wrapped around and the vector heap limit stopped applying, in R <= 4.6.2
 
+
+
+## 'next' as a call argument in a byte-compiled while()/repeat loop jumps back
+## by longjmp, which skipped every check for interrupts and time limits
+local({
+    f <- compiler::cmpfun(function() {
+        i <- 0L
+        while((i <- i + 1L) <= 1e8L) invisible(next)
+    })
+    setTimeLimit(elapsed = 0.5, transient = TRUE)
+    E <- tryCid(f())
+    stopifnot(inherits(E, "error"),
+              identical(conditionMessage(E),
+                        gettext("reached elapsed time limit", domain="R")))
+})
+## ran all 1e8 iterations without checking in R <= 4.6.2
+
+
+## invalid encodings in serialized data
+wide <- if (.Platform$OS.type == "windows") "UTF-16LE" else
+    paste0("UCS-4", if (.Platform$endian == "little") "LE" else "BE")
+bad <- c(charToRaw(sprintf("A\n3\n6\n8\n%d\n%s16\n1\n9\n1\n",
+			   nchar(wide), wide)), as.raw(0xff))
+out <- suppressWarnings(unserialize(bad))
+stopifnot(identical(charToRaw(out), as.raw(0xff)))
+## error for bad ones
+bad <- c(charToRaw("A\n3\n6\n8\n14\nUTF-8"), as.raw(0),
+	 charToRaw("padding!254\n"))
+assertErrV(unserialize(bad))
+con <- rawConnection(bad)
+assertErrV(infoRDS(con))
+close(con)
+
+
+## malformed serialized state of the base ALTREP classes
+hdrlen <- length(serialize(NULL, NULL)) - 4L
+item <- function(x) serialize(x, NULL)[-seq_len(hdrlen)]
+altrepStream <- function(cls, type, state)
+    c(serialize(NULL, NULL)[seq_len(hdrlen)],
+      as.raw(c(0, 0, 0, 238)), # ALTREP_SXP
+      item(pairlist(as.name(cls), as.name("base"), type)),
+      item(state), item(NULL))
+states <- list(wrap_integer = 1:5, wrap_integer = c(2L, 7L, 9L),
+               wrap_integer = pairlist(1:3, 1L),
+               deferred_string = 1:3, deferred_string = pairlist(1.5),
+               mmap_integer = 1:3, mmap_integer = pairlist("x", 1, 13L))
+types <- c(wrap_integer = 13L, deferred_string = 16L, mmap_integer = 13L)
+errs <- Map(function(cls, state)
+                tryCid(unserialize(altrepStream(cls, types[[cls]], state))),
+            names(states), states)
+stopifnot(vapply(errs, function(e) inherits(e, "error") &&
+                 grepl("serialized state", conditionMessage(e)), NA))
+x <- .Internal(wrap_meta(c(1L, 5L, 9L), 1L, 1L))
+stopifnot(identical(unserialize(serialize(x, NULL)), x))
+## built garbage objects or seg.faulted in R <= 4.6.2
+
+
+## duplicated(), unique() and anyDuplicated() with marked encodings
+## translated a long latin1 string repeatedly          -- PR#19329
+setEnc <- `Encoding<-`
+l1 <- setEnc("fa\xE7ile", "latin1") # short
+u1 <- enc2utf8(l1)
+long <- setEnc(strrep("\xE9", 5000), "latin1")
+x <- c(long, rep(c("", "a", "b", l1), 500), u1, enc2utf8(long))
+stopifnot(exprs = { # all these were true "forever":
+    identical(unique(x), c(long, "", "a", "b", l1))
+    identical(which(!duplicated(x)), 1:5)
+    identical(which(!duplicated(x, fromLast = TRUE)), c(1998:2000, 2002:2003))
+    identical(anyDuplicated(x), 6L)
+    identical(anyDuplicated(x, fromLast = TRUE), 2001L)
+    identical(duplicated(c(l1, u1, "a", "a"), incomparables = l1),
+              c(FALSE, FALSE, FALSE, TRUE))
+    identical(anyDuplicated(c(l1, "a", u1, "a"), incomparables = l1), 4L)
+})
+### Timing from `unique-latin1-translate-repro.R` (PR attachment 4082) --
+## 1. A long latin1 string among many short ASCII strings.
+p <- 200171L; n <- 2000L
+long <- setEnc(paste0("\xE9", strrep("a", p-3), "#v"), "latin1")
+short <- c("", vapply(32:126, function(i) rawToChar(as.raw(i)), ""))
+n1 <- length(x <- c(long, rep(short, length.out = n)))
+system.time(u <- unique(x)) # ~ 2 ms *after* patch; was ~ 1.3 sec
+## 2. Strings that differ only in their first character all hash alike
+rawtail <- rep(as.raw(0xe9), n)
+lat <- vapply(c(letters, LETTERS),
+              \(ch) rawToChar(c(charToRaw(ch), rawtail)), "", USE.NAMES = FALSE)
+Encoding(lat) <- "latin1"
+y <- rep(c(lat[1:26], enc2utf8(lat[27:52])), 200)
+system.time(v <- unique(y)) # ~ 65 ms; was ~ 0.9 sec
+stopifnot(length(u) == 97L, identical(nchar(u), c(p, 0:1, rep(1L, 94))),
+          identical(nchar(v), rep(n1, 52)),
+          identical(unique(substring(v, 2L,n1)),
+                    setEnc(strrep("\xe9", n), "latin1")))
+## times were around 1 sec each, in R <= 4.6.2
 
 
 
