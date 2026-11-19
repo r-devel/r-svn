@@ -4531,7 +4531,9 @@ stopifnot(identical(sprintf("%.*f", -1L, 1.25), sprintf("%f", 1.25)),
           identical(sprintf("%.*e", -3L, pi), sprintf("%e", pi)),
           identical(sprintf("%.*s", -1L, "abc"), "abc"),
           identical(sprintf("%*d", -4L, 1L), "1   "))
-## gave "1" for the first, except on Windows, in R <= 4.6.x
+tools::assertError(sprintf(paste0("%", strrep("0", 8189), "*d"), -2147483647L, 1L))
+## gave "1" for the first, except on Windows, in R <= 4.6.x; the last
+## wrote one byte past a buffer
 
 
 ## an error after saveToConn() opened its connection itself -- PR#19336

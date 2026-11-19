@@ -28,8 +28,12 @@
 
    mingw-w64's own formatter, which does not accept positional arguments,
    takes the formats the UCRT gets wrong: long double (which it reads as
-   double), "%a" (always 13 hex digits, unlike glibc), and floating point
-   when the UCRT ignores the rounding option (before Windows 10 2004).
+   double), "%a" (always 13 hex digits, unlike glibc), floating point when
+   the UCRT ignores the rounding option (before Windows 10 2004), and those
+   it rejects (%n, the ' flag, unknown conversions).  A rejected format
+   calls the invalid parameter handler, which can abort R when it is
+   embedded (see R-ints), so that is turned off around the UCRT calls:
+   they then fail as trio did.
 
    Include this after the system headers: the names are function-like
    macros, so struct members such as con->vfprintf are left alone. */
@@ -39,14 +43,17 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-/* not in the mingw-w64 headers */
+/* in the UCRT, but not in the mingw-w64 headers */
 #ifndef _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING
 # define _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING 0x0020ULL
 #endif
+_invalid_parameter_handler __cdecl
+_set_thread_local_invalid_parameter_handler(_invalid_parameter_handler);
 
 #define R_PRINTF_OPTIONS (_CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR | \
 			  _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING)
@@ -55,12 +62,44 @@
 int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
 			va_list ap);
 
+static inline void Rwin_ignore_invalid_parameter(const wchar_t *expression,
+						 const wchar_t *function,
+						 const wchar_t *file,
+						 unsigned int line,
+						 uintptr_t reserved)
+{
+}
+
+static inline int Rwin_ucrt_vsnprintf(char *buf, size_t size,
+				      const char *format, _locale_t locale,
+				      va_list ap)
+{
+    _invalid_parameter_handler old =
+	_set_thread_local_invalid_parameter_handler(Rwin_ignore_invalid_parameter);
+    int res = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, buf, size, format,
+					locale, ap);
+    _set_thread_local_invalid_parameter_handler(old);
+    return res;
+}
+
+static inline int Rwin_ucrt_vfprintf(FILE *fp, const char *format,
+				     va_list ap)
+{
+    _invalid_parameter_handler old =
+	_set_thread_local_invalid_parameter_handler(Rwin_ignore_invalid_parameter);
+    int res = __stdio_common_vfprintf_p(_CRT_INTERNAL_PRINTF_STANDARD_ROUNDING,
+					fp, format, NULL, ap);
+    _set_thread_local_invalid_parameter_handler(old);
+    return res;
+}
+
 /* What a format asks for, as far as choosing a formatter goes */
 #define RWIN_FMT_POSITIONAL  1
 #define RWIN_FMT_WIDE        2
 #define RWIN_FMT_LONG_DOUBLE 4
 #define RWIN_FMT_HEX_FLOAT   8
 #define RWIN_FMT_FLOAT      16
+#define RWIN_FMT_REJECTED   32 /* by the UCRT */
 
 static inline int Rwin_scan_format(const char *f)
 {
@@ -73,7 +112,9 @@ static inline int Rwin_scan_format(const char *f)
 	for (; *f && strchr("0123456789$#-+ '.*", *f); f++)
 	    if (*f == '$')
 		res |= RWIN_FMT_POSITIONAL;
-	for (; *f && strchr("hlLjztqwI0123456789", *f); f++)
+	    else if (*f == '\'')
+		res |= RWIN_FMT_REJECTED;
+	for (; *f && strchr("hlLjztwI0123456789", *f); f++)
 	    if (*f == 'L')
 		res |= RWIN_FMT_LONG_DOUBLE;
 	    else if (*f == 'l')
@@ -81,7 +122,7 @@ static inline int Rwin_scan_format(const char *f)
 
 	switch (*f) {
 	case '\0':
-	    return res;
+	    return res | RWIN_FMT_REJECTED;
 	case 'a': case 'A':
 	    res |= RWIN_FMT_HEX_FLOAT;
 	    break;
@@ -95,6 +136,11 @@ static inline int Rwin_scan_format(const char *f)
 	case 'S': case 'C':
 	    res |= RWIN_FMT_WIDE;
 	    break;
+	case 'd': case 'i': case 'o': case 'u': case 'x': case 'X':
+	case 'p': case 'Z': case '%':
+	    break;
+	default:
+	    res |= RWIN_FMT_REJECTED;
 	}
 	f++;
     }
@@ -107,8 +153,7 @@ static inline int Rwin_ucrt_snprintf(char *buf, size_t size,
     va_list ap;
 
     va_start(ap, format);
-    int res = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, buf, size, format,
-					NULL, ap);
+    int res = Rwin_ucrt_vsnprintf(buf, size, format, NULL, ap);
     va_end(ap);
     return res;
 }
@@ -133,7 +178,7 @@ static inline int Rwin_use_mingw(int fmt)
 	return 1;
     if (fmt & (RWIN_FMT_POSITIONAL | RWIN_FMT_WIDE))
 	return 0;
-    return (fmt & RWIN_FMT_HEX_FLOAT) ||
+    return (fmt & (RWIN_FMT_HEX_FLOAT | RWIN_FMT_REJECTED)) ||
 	((fmt & RWIN_FMT_FLOAT) && !Rwin_ucrt_rounds());
 }
 
@@ -146,8 +191,7 @@ static inline int Rwin_vsnprintf(char *buf, size_t size, const char *format,
     va_list aq;
 
     va_copy(aq, ap);
-    int res = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, buf, size, format,
-					NULL, aq);
+    int res = Rwin_ucrt_vsnprintf(buf, size, format, NULL, aq);
     va_end(aq);
 
     /* a %ls or %lc argument not representable in the current locale */
@@ -195,9 +239,10 @@ static inline int Rwin_vfprintf(FILE *fp, const char *format, va_list ap)
     if (Rwin_use_mingw(fmt))
 	return __mingw_vfprintf(fp, format, ap);
 
-    /* Format wide arguments first, as Rwin_vsnprintf can retry them and
-       the UCRT may fail after writing part of the output */
-    if (fmt & RWIN_FMT_WIDE) {
+    /* Format these first, as Rwin_vsnprintf can retry wide arguments and
+       the UCRT may fail after writing part of the output (as it can for
+       positional arguments, which mingw-w64 does not take) */
+    if (fmt & (RWIN_FMT_WIDE | RWIN_FMT_POSITIONAL)) {
 	char *s;
 	int len = Rwin_vasprintf(&s, format, ap);
 
@@ -208,8 +253,7 @@ static inline int Rwin_vfprintf(FILE *fp, const char *format, va_list ap)
 	return res == (size_t) len ? len : -1;
     }
 
-    return __stdio_common_vfprintf_p(_CRT_INTERNAL_PRINTF_STANDARD_ROUNDING,
-				     fp, format, NULL, ap);
+    return Rwin_ucrt_vfprintf(fp, format, ap);
 }
 
 static inline int Rwin_fprintf(FILE *fp, const char *format, ...)

@@ -68,6 +68,12 @@ stopifnot(exprs = {
 ## wrong digits beyond about 20 significant ones, and some ties, in R <= 4.6.x
 
 
+## hexadecimal ASCII serialization round trip, written with %a, read with %lg
+x <- c(0.1, 1/3, -2.5, 2^-1074, 3 * 2^-1074, .Machine$double.xmax, pi * 1e300)
+stopifnot(identical(unserialize(serialize(x, NULL, ascii = NA)), x))
+## read by trio's sscanf in R <= 4.6.x
+
+
 ## positional arguments in translated C-level messages, in a child process
 ## as these tests run in the C locale, which has no translations
 if (capabilities("NLS") && !is.na(.popath)) {

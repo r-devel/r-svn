@@ -419,9 +419,11 @@ const char
 #include <locale.h>
 
 /* The length of the UTF-8 sequence at s, within n bytes, storing its code
-   point in *ucs; 0 if there is none */
+   point in *ucs; 0 if there is none (including overlong forms and
+   surrogates) */
 static size_t utf8_decode(const char *s, size_t n, unsigned int *ucs)
 {
+    static const unsigned int least[] = {0, 0, 0x80, 0x800, 0x10000};
     const unsigned char *u = (const unsigned char *) s;
     size_t len = u[0] < 0xE0 ? 2 : u[0] < 0xF0 ? 3 : 4;
 
@@ -434,6 +436,9 @@ static size_t utf8_decode(const char *s, size_t n, unsigned int *ucs)
 	    return 0;
 	*ucs = (*ucs << 6) | (u[i] & 0x3F);
     }
+    if (*ucs < least[len] || *ucs > 0x10FFFF ||
+	(*ucs >= 0xD800 && *ucs <= 0xDFFF))
+	return 0;
     return len;
 }
 
@@ -449,20 +454,20 @@ int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
     if (!utf8)
 	utf8 = _create_locale(LC_CTYPE, ".UTF-8");
     if (!utf8)
-	return -1;
+	/* UCRTs before Windows 10 1803: keep the message, but mingw-w64
+	   stops a wide argument at the character */
+	return __mingw_vsnprintf(buf, size, format, ap);
 
     va_list aq;
     va_copy(aq, ap);
-    int len = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, NULL, 0, format,
-					utf8, aq);
+    int len = Rwin_ucrt_vsnprintf(NULL, 0, format, utf8, aq);
     va_end(aq);
     if (len < 0)
 	return len;
     char *tmp = malloc((size_t) len + 1);
     if (!tmp)
 	return -1;
-    if (__stdio_common_vsprintf_p(R_PRINTF_OPTIONS, tmp, (size_t) len + 1,
-				  format, utf8, ap) != len) {
+    if (Rwin_ucrt_vsnprintf(tmp, (size_t) len + 1, format, utf8, ap) != len) {
 	free(tmp);
 	return -1;
     }
@@ -495,10 +500,10 @@ int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
 		buf[n] = out[j];
 	i += used;
     }
+    free(tmp);
     if (size)
 	buf[n < size ? n : size - 1] = '\0';
-    free(tmp);
-    return (int) n;
+    return n > INT_MAX ? -1 : (int) n;
 }
 #endif
 

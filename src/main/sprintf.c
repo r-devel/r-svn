@@ -123,9 +123,10 @@ static void boundspec(char *fmt)
 attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     int i, nargs, cnt, v, thislen, nfmt, nprotect = 0;
-    /* fmt2 is a copy of fmt with '*' expanded.
+    /* fmt2 is a copy of fmt with '*' expanded, by up to 10 characters
+       (to -2147483647), checked against MAXLINE afterwards.
        bit will hold numeric formats and %<w>s, so be quite small. */
-    char fmt[MAXLINE+1], fmt2[MAXLINE+10], *fmtp, bit[MAXLINE+1],
+    char fmt[MAXLINE+1], fmt2[MAXLINE+11], *fmtp, bit[MAXLINE+1],
 	*outputString;
     const char *formatString;
     size_t n, cur, chunk;
