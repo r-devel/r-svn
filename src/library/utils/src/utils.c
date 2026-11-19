@@ -139,29 +139,34 @@ SEXP crc64(SEXP in)
 
 SEXP nsl(SEXP hostname)
 {
-    SEXP ans = R_NilValue;
-    const char *name; char ip[] = "xxx.xxx.xxx.xxx";
-    struct hostent *hp;
+    const char *name;
+    char ip[INET_ADDRSTRLEN];
+    struct addrinfo hints, *res = NULL;
+    struct in_addr addr;
+    int found = 0;
 
     if (!isString(hostname) || length(hostname) != 1)
 	error(_("'hostname' must be a character vector of length 1"));
     name = translateChar(STRING_ELT(hostname, 0));
 
-    hp = gethostbyname(name);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-    if (hp == NULL) {		/* cannot resolve the address */
-	warning(_("nsl() was unable to resolve host '%s'"), name);
-    } else {
-	if (hp->h_addrtype == AF_INET) {
-	    struct in_addr in;
-	    memcpy(&in.s_addr, *(hp->h_addr_list), sizeof (in.s_addr));
-	    strcpy(ip, inet_ntoa(in));
-	} else {
-	    warning(_("unknown format returned by 'gethostbyname'"));
+    /* no R API calls while 'res' is allocated: they could longjmp */
+    if (getaddrinfo(name, NULL, &hints, &res) == 0 && res != NULL) {
+	if (res->ai_family == AF_INET && res->ai_addr) {
+	    addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr;
+	    found = 1;
 	}
-	ans = mkString(ip);
+	freeaddrinfo(res);
     }
-    return ans;
+
+    if (found && inet_ntop(AF_INET, &addr, ip, sizeof(ip)))
+	return mkString(ip);
+    /* cannot resolve the address */
+    warning(_("nsl() was unable to resolve host '%s'"), name);
+    return R_NilValue;
 }
 #else
 SEXP nsl(SEXP hostname)

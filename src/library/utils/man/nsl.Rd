@@ -7,7 +7,7 @@
 \alias{nsl}
 \title{Look up the IP Address by Hostname (on Unix-alikes)}
 \description{
-  Interface to the system \command{gethostbyname}, currently available
+  Interface to the system \command{getaddrinfo}, currently available
   only on unix-alikes, i.e., not on Windows.
 }
 \usage{
