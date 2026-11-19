@@ -79,7 +79,7 @@
 #endif
 
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 #ifndef min
 #define min(a, b) (((a)<(b))?(a):(b))
@@ -445,7 +445,7 @@ static size_t utf8_decode(const char *s, size_t n, unsigned int *ucs)
 /* The UCRT fails with EILSEQ when a %ls or %lc argument has a character
    which the current locale cannot represent (as in the "C" locale).  Format
    it as UTF-8 instead and convert, showing such characters as <U+xxxx> as
-   R did with trio (PR#17958).  Called from trioremap.h. */
+   R did with trio (PR#17958).  Called from winprintf.h. */
 int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
 			va_list ap)
 {

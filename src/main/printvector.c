@@ -39,7 +39,7 @@
 #include <R_ext/Itermacros.h> /* for ITERATE_BY_REGION */
 
 #ifdef Win32
-#include <trioremap.h> /* for %lld */
+#include <winprintf.h>
 #endif
 
 #define DO_first_lab			\

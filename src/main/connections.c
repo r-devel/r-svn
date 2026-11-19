@@ -121,7 +121,7 @@
 #undef ERROR			/* for compilation on Windows */
 
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 attribute_hidden int R_OutputCon; /* used in printutils.c */

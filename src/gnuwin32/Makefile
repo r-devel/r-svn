@@ -272,7 +272,7 @@ distclean: cleaninstaller distcleaninstaller clean0
 	$(RM) -R ../../bin ../../include ../../lib ../../library ../../modules
 	$(RM) ../include/config.h ../include/iconv.h ../include/psignal.h \
 	../include/Rconfig.h ../include/Rversion.h ../include/Rmath.h \
-	../include/libintl.h ../include/trioremap.h
+	../include/libintl.h ../include/winprintf.h
 	$(RM) ../library/*/src/*.o ../library/*/src/*.a
 	$(RM) ../library/*/src/*.d ../library/*/src/Makedeps
 	$(RM) ../library/*/src/*.dll

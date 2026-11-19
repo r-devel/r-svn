@@ -3092,7 +3092,7 @@ attribute_hidden SEXP do_formatC(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 #ifdef Win32
 /* avoid latest MinGW's redefinition in stdio.h */
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 #include <Rmath.h>		/* fround */
 

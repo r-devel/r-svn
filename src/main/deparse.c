@@ -110,7 +110,7 @@
 #include <Print.h>
 #include <Fileio.h>
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 #define BUFSIZE 512

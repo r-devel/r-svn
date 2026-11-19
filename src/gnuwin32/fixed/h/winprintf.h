@@ -38,8 +38,8 @@
    Include this after the system headers: the names are function-like
    macros, so struct members such as con->vfprintf are left alone. */
 
-#ifndef R_TRIOREMAP_H
-#define R_TRIOREMAP_H
+#ifndef R_WINPRINTF_H
+#define R_WINPRINTF_H
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -285,4 +285,4 @@ static inline int Rwin_fprintf(FILE *fp, const char *format, ...)
 #define vfprintf(...) Rwin_vfprintf(__VA_ARGS__)
 #define vasprintf(...) Rwin_vasprintf(__VA_ARGS__)
 
-#endif  /* not R_TRIOREMAP_H */
+#endif  /* not R_WINPRINTF_H */

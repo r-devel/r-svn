@@ -33,7 +33,7 @@
 #include <R_ext/Print.h>
 #include <stdarg.h>
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 /* eval() sets R_Visible = TRUE. Thas may not be wanted when eval() is

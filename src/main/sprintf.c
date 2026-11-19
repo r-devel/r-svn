@@ -28,7 +28,7 @@
 #include "RBufferUtils.h"
 #include <R_ext/RS.h> /* for R_Calloc/R_Free */
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 #define MAXLINE MAXELTSIZE

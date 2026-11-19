@@ -35,7 +35,7 @@
 #include <ctype.h>		/* for isspace */
 #include <stdarg.h>
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 /* From time to time changes in R, such as the addition of a new SXP,

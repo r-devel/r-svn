@@ -70,7 +70,7 @@
 #include <R_ext/RS.h>
 
 #ifdef Win32
-#include <trioremap.h> /* for %lld */
+#include <winprintf.h>
 #endif
 
 /* Global print parameter struct: */
