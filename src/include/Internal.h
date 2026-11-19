@@ -487,6 +487,8 @@ SEXP do_vhash(SEXP, SEXP, SEXP, SEXP);
 
 /* bytecode */
 SEXP do_mkcode(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bccmpfun(SEXP, SEXP, SEXP, SEXP);
+SEXP do_bccompile(SEXP, SEXP, SEXP, SEXP);
 SEXP do_bcclose(SEXP, SEXP, SEXP, SEXP);
 SEXP do_is_builtin_internal(SEXP, SEXP, SEXP, SEXP);
 SEXP do_disassemble(SEXP, SEXP, SEXP, SEXP);
@@ -497,6 +499,7 @@ SEXP do_growconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_putconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_getconst(SEXP, SEXP, SEXP, SEXP);
 SEXP do_enablejit(SEXP, SEXP, SEXP, SEXP);
+SEXP do_nativecompiler(SEXP, SEXP, SEXP, SEXP);
 SEXP do_compilepkgs(SEXP, SEXP, SEXP, SEXP);
 
 /* Connections */
