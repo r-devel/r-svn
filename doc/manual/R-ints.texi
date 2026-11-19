@@ -1363,19 +1363,26 @@ arguments (which it reads as @code{double}), @code{%a} (which it always
 prints with 13 hexadecimal digits), formats it rejects (@code{%n}, the
 @code{'} flag, unknown conversions), and floating-point conversions when
 the @abbr{UCRT} does not honour the rounding option (before Windows 10
-version 2004, checked at run time).  As this formatter does not accept
-positional arguments, formats with those go to the @abbr{UCRT} unless
-they have a @code{long double} conversion.
+version 2004, checked at run time).
 @end itemize
+
+When a format has conversions of several kinds, the first of these
+decides: a @code{long double} conversion (@I{MinGW-w64}), positional
+arguments, which @I{MinGW-w64}'s formatter does not accept
+(@abbr{UCRT}), a format the @abbr{UCRT} rejects (@I{MinGW-w64}), wide
+arguments, @code{%ls} or @code{%lc}, which are escaped as below
+(@abbr{UCRT}), and then @code{%a} or floating point on an old
+@abbr{UCRT} (@I{MinGW-w64}).  So @code{"%ls %a"} goes to the
+@abbr{UCRT}, and @code{"%Lf %ls"} to @I{MinGW-w64}.
 
 A format the @abbr{UCRT} rejects calls the invalid parameter handler,
 which can terminate @R{} when @env{_R_WIN_CHECK_INVALID_PARAMETERS_} is set
 or @R{} is embedded in an application built with another toolchain, so
 the @abbr{UCRT} calls are made with a thread-local handler which returns
 and the call fails, as it did with @I{trio}.  When the current locale
-cannot represent a @code{%ls} or @code{%lc} argument, the call is
-repeated in a UTF-8 locale and such characters are shown as
-@samp{<U+xxxx>}.  The @abbr{UCRT} prints @code{%p} without a @samp{0x}
+cannot represent a @code{%ls} or @code{%lc} argument in a call going to
+the @abbr{UCRT}, the call is repeated in a UTF-8 locale and such
+characters are shown as @samp{<U+xxxx>}.  The @abbr{UCRT} prints @code{%p} without a @samp{0x}
 prefix and in upper case, so the printing of environments, external
 pointers, byte code and promises uses @code{EncodeAddress} to keep the
 form @R{} has always shown.
@@ -1388,9 +1395,11 @@ relies on behaviour which, as far as is known, has not changed since the
 Windows 10 version 1803).  The tests in @file{tests/reg-win.R} check
 formatted output exactly, so that any change is noticed.
 
-Source files which use these functions should include
-@file{winprintf.h} (on Windows only, after the system headers): other
-files get the @abbr{UCRT} through the @I{MinGW-w64} wrappers.  The
+Source files linked into @file{R.dll} which use these functions should
+include @file{winprintf.h} (on Windows only, after the system headers).
+It needs @code{Rwin_vsnprintf_wide} from @file{src/main/printutils.c},
+so standalone programs such as the front ends cannot use it: they, like
+other files, get the @abbr{UCRT} through the @I{MinGW-w64} wrappers.  The
 @code{printf} calls in packages' own code are not affected: they go to
 the @abbr{UCRT} from C, and to @I{MinGW-w64}'s formatter from C++ (as
 @command{g++} defines @code{__USE_MINGW_ANSI_STDIO}).

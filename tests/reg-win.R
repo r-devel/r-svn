@@ -58,8 +58,11 @@ stopifnot(exprs = {
     identical(sprintf("%.0f", c(0.5, 1.5, 2.5)), c("0", "2", "2"))
     identical(sprintf("%.3f", 18266.3125), "18266.312")
     identical(sprintf("%.15g", -128710289995254.5), "-128710289995254")
-    identical(sprintf("%.30e", 1e-5), "1.000000000000000081803053914031e-05")
-    identical(sprintf("%.17e", 1e-300), "1.00000000000000003e-300")
+    ## 1e-5 and 1e-300 as hex, which parses exactly without long double
+    identical(sprintf("%.30e", 0x1.4f8b588e368f1p-17),
+              "1.000000000000000081803053914031e-05")
+    identical(sprintf("%.17e", 0x1.56e1fc2f8f359p-997),
+              "1.00000000000000003e-300")
     identical(sprintf(c("% x", "% o", "% X"), 255L), c("ff", "377", "FF"))
     identical(sprintf("%.0a", 2^-1074), "0x0p-1022")
     identical(sprintf(c("%a", "%A", "%.3a", "%10a|"), c(0.1, 255.5, 1/3, 1)),

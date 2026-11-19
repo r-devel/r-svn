@@ -35,7 +35,8 @@
    embedded (see R-ints), so that is turned off around the UCRT calls:
    they then fail as trio did.
 
-   Include this after the system headers: the names are function-like
+   Include this after the system headers, in sources linked into R.dll
+   only (it needs Rwin_vsnprintf_wide): the names are function-like
    macros, so struct members such as con->vfprintf are left alone.
    See also 'Formatted output on Windows' in the 'R Internals' manual. */
 
