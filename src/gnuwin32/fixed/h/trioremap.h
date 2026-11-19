@@ -26,6 +26,11 @@
    use.  So call the UCRT directly, asking for IEEE rounding and using the
    variants which accept positional arguments.
 
+   mingw-w64's own formatter, which does not accept positional arguments,
+   takes the formats the UCRT gets wrong: long double (which it reads as
+   double), "%a" (always 13 hex digits, unlike glibc), and floating point
+   when the UCRT ignores the rounding option (before Windows 10 2004).
+
    Include this after the system headers: the names are function-like
    macros, so struct members such as con->vfprintf are left alone. */
 
@@ -38,8 +43,7 @@
 #include <string.h>
 #include <errno.h>
 
-/* Not in the mingw-w64 headers; honoured by the UCRT of Windows 10 2004
-   and later */
+/* not in the mingw-w64 headers */
 #ifndef _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING
 # define _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING 0x0020ULL
 #endif
@@ -51,9 +55,94 @@
 int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
 			va_list ap);
 
+/* What a format asks for, as far as choosing a formatter goes */
+#define RWIN_FMT_POSITIONAL  1
+#define RWIN_FMT_WIDE        2
+#define RWIN_FMT_LONG_DOUBLE 4
+#define RWIN_FMT_HEX_FLOAT   8
+#define RWIN_FMT_FLOAT      16
+
+static inline int Rwin_scan_format(const char *f)
+{
+    int res = 0;
+
+    while ((f = strchr(f, '%'))) {
+	int l = 0;
+
+	f++;
+	for (; *f && strchr("0123456789$#-+ '.*", *f); f++)
+	    if (*f == '$')
+		res |= RWIN_FMT_POSITIONAL;
+	for (; *f && strchr("hlLjztqwI0123456789", *f); f++)
+	    if (*f == 'L')
+		res |= RWIN_FMT_LONG_DOUBLE;
+	    else if (*f == 'l')
+		l = 1;
+
+	switch (*f) {
+	case '\0':
+	    return res;
+	case 'a': case 'A':
+	    res |= RWIN_FMT_HEX_FLOAT;
+	    break;
+	case 'e': case 'E': case 'f': case 'F': case 'g': case 'G':
+	    res |= RWIN_FMT_FLOAT;
+	    break;
+	case 's': case 'c':
+	    if (l)
+		res |= RWIN_FMT_WIDE;
+	    break;
+	case 'S': case 'C':
+	    res |= RWIN_FMT_WIDE;
+	    break;
+	}
+	f++;
+    }
+    return res;
+}
+
+static inline int Rwin_ucrt_snprintf(char *buf, size_t size,
+				     const char *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    int res = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, buf, size, format,
+					NULL, ap);
+    va_end(ap);
+    return res;
+}
+
+/* Whether the UCRT honours _CRT_INTERNAL_PRINTF_STANDARD_ROUNDING */
+static inline int Rwin_ucrt_rounds(void)
+{
+    static int rounds = -1;
+
+    if (rounds < 0) {
+	char buf[8];
+
+	Rwin_ucrt_snprintf(buf, sizeof(buf), "%.0f", 2.5);
+	rounds = !strcmp(buf, "2");
+    }
+    return rounds;
+}
+
+static inline int Rwin_use_mingw(int fmt)
+{
+    if (fmt & RWIN_FMT_LONG_DOUBLE)
+	return 1;
+    if (fmt & (RWIN_FMT_POSITIONAL | RWIN_FMT_WIDE))
+	return 0;
+    return (fmt & RWIN_FMT_HEX_FLOAT) ||
+	((fmt & RWIN_FMT_FLOAT) && !Rwin_ucrt_rounds());
+}
+
 static inline int Rwin_vsnprintf(char *buf, size_t size, const char *format,
 				 va_list ap)
 {
+    if (Rwin_use_mingw(Rwin_scan_format(format)))
+	return __mingw_vsnprintf(buf, size, format, ap);
+
     va_list aq;
 
     va_copy(aq, ap);
@@ -101,6 +190,24 @@ static inline int Rwin_vasprintf(char **strp, const char *format, va_list ap)
 
 static inline int Rwin_vfprintf(FILE *fp, const char *format, va_list ap)
 {
+    int fmt = Rwin_scan_format(format);
+
+    if (Rwin_use_mingw(fmt))
+	return __mingw_vfprintf(fp, format, ap);
+
+    /* Format wide arguments first, as Rwin_vsnprintf can retry them and
+       the UCRT may fail after writing part of the output */
+    if (fmt & RWIN_FMT_WIDE) {
+	char *s;
+	int len = Rwin_vasprintf(&s, format, ap);
+
+	if (len < 0)
+	    return len;
+	size_t res = fwrite(s, 1, len, fp);
+	free(s);
+	return res == (size_t) len ? len : -1;
+    }
+
     return __stdio_common_vfprintf_p(_CRT_INTERNAL_PRINTF_STANDARD_ROUNDING,
 				     fp, format, NULL, ap);
 }
@@ -113,23 +220,6 @@ static inline int Rwin_fprintf(FILE *fp, const char *format, ...)
     int res = Rwin_vfprintf(fp, format, ap);
     va_end(ap);
     return res;
-}
-
-/* The number of hex digits glibc prints after the point for "%a"; the
-   UCRT always prints all 13 */
-static inline int Rwin_hexdigits(double x)
-{
-    unsigned long long u;
-
-    memcpy(&u, &x, sizeof(u));
-    u &= 0xFFFFFFFFFFFFFULL;
-    if (!u)
-	return 0;
-
-    int n = 13;
-    for (; !(u & 0xF); u >>= 4)
-	n--;
-    return n;
 }
 
 #undef snprintf

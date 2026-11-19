@@ -68,21 +68,24 @@ stopifnot(exprs = {
 ## wrong digits beyond about 20 significant ones, and some ties, in R <= 4.6.x
 
 
-## positional arguments in translated C-level messages
-## (in a child process, as the tests run in the C locale without translations)
+## positional arguments in translated C-level messages, in a child process
+## as these tests run in the C locale, which has no translations
 if (capabilities("NLS") && !is.na(.popath)) {
-    lcall <- Sys.getenv("LC_ALL", NA)
-    Sys.unsetenv("LC_ALL")
+    lc <- Sys.getenv(c("LC_ALL", "LC_CTYPE"), unset = NA)
+    Sys.unsetenv(names(lc))
     out <- system2(file.path(R.home("bin"), "Rscript"),
                    c("--vanilla", "-e",
                      shQuote("Sys.setLanguage('ja'); sprintf('%s', 1, 2, 3)")),
                    stdout = TRUE, stderr = TRUE)
-    if (!is.na(lcall))
-        Sys.setenv(LC_ALL = lcall)
-    stopifnot(any(grepl("'%s'", out, fixed = TRUE)),
-              !any(grepl("arguments not used", out, fixed = TRUE)),
-              !any(grepl("$", out, fixed = TRUE)))
+    if (any(!is.na(lc)))
+        do.call(Sys.setenv, as.list(lc[!is.na(lc)]))
+    stopifnot(is.null(attr(out, "status")))
+    ## unless the Japanese catalog could not be used
+    if (!any(grepl("arguments not used", out, fixed = TRUE)))
+        stopifnot(any(grepl("'%s'[^0-9$]*2[^0-9]", out, useBytes = TRUE)),
+                  !any(grepl("$", out, fixed = TRUE)))
 }
+## a plain UCRT printf gives "$s" for "%2$s"; trio was fine in R <= 4.6.x
 
 
 ## %ls arguments the locale cannot represent are shown as <U+xxxx>
@@ -92,3 +95,4 @@ w <- tryCatch(file(file.path(tempdir(), "\u20ac\u0101.txt"), "r"),
               warning = conditionMessage)
 Sys.setlocale("LC_CTYPE", old)
 stopifnot(grepl("<U+20AC><U+0101>.txt", w, fixed = TRUE))
+## a plain UCRT printf loses the message; trio was fine in R <= 4.6.x

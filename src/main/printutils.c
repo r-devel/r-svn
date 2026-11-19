@@ -418,6 +418,25 @@ const char
 #include "rgui_UTF8.h"
 #include <locale.h>
 
+/* The length of the UTF-8 sequence at s, within n bytes, storing its code
+   point in *ucs; 0 if there is none */
+static size_t utf8_decode(const char *s, size_t n, unsigned int *ucs)
+{
+    const unsigned char *u = (const unsigned char *) s;
+    size_t len = u[0] < 0xE0 ? 2 : u[0] < 0xF0 ? 3 : 4;
+
+    if (u[0] < 0xC2 || u[0] > 0xF4 || len > n)
+	return 0;
+
+    *ucs = u[0] & (0x7F >> len);
+    for (size_t i = 1; i < len; i++) {
+	if ((u[i] & 0xC0) != 0x80)
+	    return 0;
+	*ucs = (*ucs << 6) | (u[i] & 0x3F);
+    }
+    return len;
+}
+
 /* The UCRT fails with EILSEQ when a %ls or %lc argument has a character
    which the current locale cannot represent (as in the "C" locale).  Format
    it as UTF-8 instead and convert, showing such characters as <U+xxxx> as
@@ -442,37 +461,39 @@ int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
     char *tmp = malloc((size_t) len + 1);
     if (!tmp)
 	return -1;
-    __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, tmp, (size_t) len + 1, format,
-			      utf8, ap);
+    if (__stdio_common_vsprintf_p(R_PRINTF_OPTIONS, tmp, (size_t) len + 1,
+				  format, utf8, ap) != len) {
+	free(tmp);
+	return -1;
+    }
 
+    /* the length, not a terminator, as %c can write a nul */
     size_t n = 0;
-    for (const char *p = tmp; *p; ) {
+    for (size_t i = 0; i < (size_t) len; ) {
 	char out[16];
 	size_t nout = 1, used = 1;
-	wchar_t wc;
+	unsigned int ucs;
 
-	out[0] = *p;
-	if ((unsigned char) *p >= 0x80) {
-	    used = utf8toucs(&wc, p);
-	    if (used == (size_t) -1 || used == (size_t) -2)
+	out[0] = tmp[i];
+	if ((unsigned char) tmp[i] >= 0x80) {
+	    used = utf8_decode(tmp + i, len - i, &ucs);
+	    if (!used)
 		/* not UTF-8, so native text from the format or a %s */
 		used = 1;
-	    else if (IS_HIGH_SURROGATE(wc))
-		nout = snprintf(out, sizeof(out), "<U+%08X>",
-				(unsigned int) utf8toucs32(wc, p));
+	    else if (ucs > 0xFFFF)
+		nout = snprintf(out, sizeof(out), "<U+%08X>", ucs);
 	    else {
-		int k = wctomb(out, wc);
+		int k = wctomb(out, (wchar_t) ucs);
 		if (k > 0)
 		    nout = k;
 		else
-		    nout = snprintf(out, sizeof(out), "<U+%04X>",
-				    (unsigned int) wc);
+		    nout = snprintf(out, sizeof(out), "<U+%04X>", ucs);
 	    }
 	}
-	for (size_t i = 0; i < nout; i++, n++)
+	for (size_t j = 0; j < nout; j++, n++)
 	    if (n + 1 < size)
-		buf[n] = out[i];
-	p += used;
+		buf[n] = out[j];
+	i += used;
     }
     if (size)
 	buf[n < size ? n : size - 1] = '\0';

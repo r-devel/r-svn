@@ -1805,12 +1805,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	    } else if (TYPEOF(vector) == REALSXP && (d->opts & HEXNUMERIC)) {
 		double x = REAL(vector)[i];
 		if (R_FINITE(x)) {
-#ifdef Win32
-		    /* the UCRT would print all 13 hex digits */
-		    snprintf(hex, 32, "%.*a", Rwin_hexdigits(x), x);
-#else
 		    snprintf(hex, 32, "%a", x);
-#endif
 		    strp = hex;
 		} else
 		    strp = EncodeElement(vector, i, quote, '.');
@@ -1824,12 +1819,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	    } else if (TYPEOF(vector) == CPLXSXP && (d->opts & HEXNUMERIC)) {
 		Rcomplex z =  COMPLEX(vector)[i];
 		if (R_FINITE(z.r) && R_FINITE(z.i)) {
-#ifdef Win32
-		    snprintf(hex, 64, "%.*a + %.*ai", Rwin_hexdigits(z.r), z.r,
-			     Rwin_hexdigits(z.i), z.i);
-#else
 		    snprintf(hex, 64, "%a + %ai", z.r, z.i);
-#endif
 		    strp = hex;
 		} else
 		    strp = EncodeElement(vector, i, quote, '.');

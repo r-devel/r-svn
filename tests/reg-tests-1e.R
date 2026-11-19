@@ -4526,6 +4526,14 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
+## sprintf() takes a negative '*' precision as omitted, as documented
+stopifnot(identical(sprintf("%.*f", -1L, 1.25), sprintf("%f", 1.25)),
+          identical(sprintf("%.*e", -3L, pi), sprintf("%e", pi)),
+          identical(sprintf("%.*s", -1L, "abc"), "abc"),
+          identical(sprintf("%*d", -4L, 1L), "1   "))
+## gave "1" for the first, except on Windows, in R <= 4.6.x
+
+
 ## an error after saveToConn() opened its connection itself -- PR#19336
 saveToConnObj <- 1
 f <- function(con) {

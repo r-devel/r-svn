@@ -302,10 +302,14 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 			if (has_star) {
 			    size_t nf; char *p, *q = fmt2;
 			    for (p = fmt; *p; p++)
-				if (*p == '*')
+				if (*p != '*')
+				    *q++ = *p;
+				else if (star_arg < 0 && p > fmt && p[-1] == '.')
+				    /* a negative precision is taken as omitted */
+				    q--;
+				else
 				    q += snprintf(q, sizeof(fmt2) - (q - fmt2),
 						  "%d", star_arg);
-				else *q++ = *p;
 			    *q = '\0';
 			    nf = strlen(fmt2);
 			    if (nf > MAXLINE)
@@ -438,18 +442,6 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				    error(_("invalid format '%s'; %s"), fmtp,
 					  _("use format %f, %e, %g or %a for numeric objects"));
 				if (R_FINITE(x)) {
-#ifdef Win32
-				    /* the UCRT would print all 13 hex digits */
-				    char fmta[32], *spec = fmtp + strlen(fmtp) - 1;
-				    if ((*spec == 'a' || *spec == 'A') &&
-					!Rf_strchr(fmtp, '.') &&
-					strlen(fmtp) + 4 < sizeof(fmta)) {
-					snprintf(fmta, sizeof(fmta), "%.*s.%d%c",
-						 (int) (spec - fmtp), fmtp,
-						 Rwin_hexdigits(x), *spec);
-					fmtp = fmta;
-				    }
-#endif
 				    _my_sprintf(x)
 				} else {
 				    char *p = Rf_strchr(fmtp, '.');
