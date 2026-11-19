@@ -4526,6 +4526,15 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
+## sprintf() pads NA, NaN and Inf with spaces also for the '0' flag
+stopifnot(identical(sprintf("%05.1f", c(1.5, NA, NaN, Inf, -Inf)),
+                    c("001.5", "   NA", "  NaN", "  Inf", " -Inf")),
+          identical(sprintf("%03d", c(7L, NA)), c("007", " NA")),
+          identical(sprintf("%-05d|", NA), "NA   |"),
+          identical(sprintf("%+06.1f", Inf), "  +Inf"))
+## gave "000NA" etc on macOS in R <= 4.6.x
+
+
 ## sprintf() takes a negative '*' precision as omitted, as documented
 stopifnot(identical(sprintf("%.*f", -1L, 1.25), sprintf("%f", 1.25)),
           identical(sprintf("%.*e", -3L, pi), sprintf("%e", pi)),

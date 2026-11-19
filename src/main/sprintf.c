@@ -70,6 +70,18 @@ static bool checkfmt(const char *fmt, const char *pattern)
     return strcspn(p, pattern) ? true : false;
 }
 
+/* NA, NaN and Inf are printed with %s in place of a numeric conversion:
+   drop its '0' flag, as some C libraries pad strings with zeros */
+static void dropzeroflag(char *fmt)
+{
+    char *p = fmt + 1, *q = p;
+
+    for (; *p && strchr("-+ #0", *p); p++)
+	if (*p != '0')
+	    *q++ = *p;
+    memmove(q, p, strlen(p) + 1);
+}
+
 /* Read a run of digits, saturating at INT_MAX. */
 static int scandigits(char **pp)
 {
@@ -416,6 +428,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 					  _("use format %d or %i for logical objects"));
 				if (x == NA_LOGICAL) {
 				    fmtp[strlen(fmtp)-1] = 's';
+				    dropzeroflag(fmtp);
 				    _my_sprintf("NA")
 				} else {
 				    _my_sprintf(x)
@@ -430,6 +443,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 					  _("use format %d, %i, %o, %x or %X for integer objects"));
 				if (x == NA_INTEGER) {
 				    fmtp[strlen(fmtp)-1] = 's';
+				    dropzeroflag(fmtp);
 				    _my_sprintf("NA")
 				} else {
 				    _my_sprintf(x)
@@ -450,6 +464,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 					*p++ = 's'; *p ='\0';
 				    } else
 					fmtp[strlen(fmtp)-1] = 's';
+				    dropzeroflag(fmtp);
 				    if (ISNA(x)) {
 					if (strcspn(fmtp, " ") < strlen(fmtp))
 					    _my_sprintf(" NA")
