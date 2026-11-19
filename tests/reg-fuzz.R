@@ -256,6 +256,14 @@ local({
 ## ran all 1e8 iterations without checking in R <= 4.6.2
 
 
+## parse_Rd() with an unterminated \Sexpr{}, [option] or second verbatim argument
+for (txt in c("\\Sexpr{x", "\\name{x}\n\\Sexpr{", "\\Sexpr[results=rd]{1 +",
+              "\\Sexpr[results=rd", "\\link[pkg", "\\eqn{a}{b", "\\figure{a}{b"))
+    assertWarnV(tools::parse_Rd(textConnection(txt),
+                                fragment = !startsWith(txt, "\\name")))
+## never returned (some cases using unbounded memory) in R <= 4.6.2
+
+
 ## invalid encodings in serialized data
 wide <- if (.Platform$OS.type == "windows") "UTF-16LE" else
     paste0("UCS-4", if (.Platform$endian == "little") "LE" else "BE")
