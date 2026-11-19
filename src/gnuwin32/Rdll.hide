@@ -85,6 +85,7 @@
  EXTPTR_PTR
  EXTPTR_TAG
  EhiWakeUp
+ EncodeAddress
  EncodeEnvironment
  EncodeExtptr
  EncodeReal2
@@ -585,6 +586,7 @@
  Rstrwid
  Rvsnprintf_mbcs
  Rwin_rename
+ Rwin_vsnprintf_wide
  Rwin_wrename
  SETLENGTH
  SETTER_CLEAR_NAMED

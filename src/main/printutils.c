@@ -157,6 +157,25 @@ const char *EncodeRaw(Rbyte x, const char * prefix)
     return buff;
 }
 
+/* "%p" as glibc prints it, which R has always shown on Windows too (via
+   trio): the Windows C run-time omits the 0x prefix and uses upper case */
+attribute_hidden
+const char *EncodeAddress(const void *p)
+{
+    static char buf[32];
+
+#ifdef Win32
+    if (p)
+	snprintf(buf, sizeof(buf), "0x%0*llx", (int) (2 * sizeof(void *)),
+		 (unsigned long long) (uintptr_t) p);
+    else
+	snprintf(buf, sizeof(buf), "(nil)");
+#else
+    snprintf(buf, sizeof(buf), "%p", p);
+#endif
+    return buf;
+}
+
 attribute_hidden
 const char *EncodeEnvironment(SEXP x)
 {
@@ -174,7 +193,7 @@ const char *EncodeEnvironment(SEXP x)
     else if (R_IsNamespaceEnv(x))
 	snprintf(ch, 1000, "<environment: namespace:%s>",
 		translateChar(STRING_ELT(R_NamespaceEnvSpec(x), 0)));
-    else snprintf(ch, 1000, "<environment: %p>", (void *)x);
+    else snprintf(ch, 1000, "<environment: %s>", EncodeAddress(x));
 
     vmaxset(vmax);
     return ch;
@@ -184,7 +203,7 @@ attribute_hidden
 const char *EncodeExtptr(SEXP x)
 {
     static char buf[1000];
-    snprintf(buf, 1000, "<pointer: %p>", R_ExternalPtrAddr(x));
+    snprintf(buf, 1000, "<pointer: %s>", EncodeAddress(R_ExternalPtrAddr(x)));
     return buf;
 }
 
@@ -397,6 +416,69 @@ const char
 
 #ifdef Win32
 #include "rgui_UTF8.h"
+#include <locale.h>
+
+/* The UCRT fails with EILSEQ when a %ls or %lc argument has a character
+   which the current locale cannot represent (as in the "C" locale).  Format
+   it as UTF-8 instead and convert, showing such characters as <U+xxxx> as
+   R did with trio (PR#17958).  Called from trioremap.h. */
+int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
+			va_list ap)
+{
+    static _locale_t utf8 = NULL;
+
+    if (!utf8)
+	utf8 = _create_locale(LC_CTYPE, ".UTF-8");
+    if (!utf8)
+	return -1;
+
+    va_list aq;
+    va_copy(aq, ap);
+    int len = __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, NULL, 0, format,
+					utf8, aq);
+    va_end(aq);
+    if (len < 0)
+	return len;
+    char *tmp = malloc((size_t) len + 1);
+    if (!tmp)
+	return -1;
+    __stdio_common_vsprintf_p(R_PRINTF_OPTIONS, tmp, (size_t) len + 1, format,
+			      utf8, ap);
+
+    size_t n = 0;
+    for (const char *p = tmp; *p; ) {
+	char out[16];
+	size_t nout = 1, used = 1;
+	wchar_t wc;
+
+	out[0] = *p;
+	if ((unsigned char) *p >= 0x80) {
+	    used = utf8toucs(&wc, p);
+	    if (used == (size_t) -1 || used == (size_t) -2)
+		/* not UTF-8, so native text from the format or a %s */
+		used = 1;
+	    else if (IS_HIGH_SURROGATE(wc))
+		nout = snprintf(out, sizeof(out), "<U+%08X>",
+				(unsigned int) utf8toucs32(wc, p));
+	    else {
+		int k = wctomb(out, wc);
+		if (k > 0)
+		    nout = k;
+		else
+		    nout = snprintf(out, sizeof(out), "<U+%04X>",
+				    (unsigned int) wc);
+	    }
+	}
+	for (size_t i = 0; i < nout; i++, n++)
+	    if (n + 1 < size)
+		buf[n] = out[i];
+	p += used;
+    }
+    if (size)
+	buf[n < size ? n : size - 1] = '\0';
+    free(tmp);
+    return (int) n;
+}
 #endif
 
 /* strlen() using escaped rather than literal form.

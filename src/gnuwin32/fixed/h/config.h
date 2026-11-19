@@ -640,7 +640,7 @@
 /* Define if your printf() function supports format strings with positions.
    (For intl) */
 /* UCRT printf does not support positions,
-   but the TRIO replacement does (trioremap.h) */
+   but the _p variants used by trioremap.h do */
 #define HAVE_POSIX_PRINTF 1
 
 /* Define if you have POSIX.1 compatible sigsetjmp/siglongjmp. */

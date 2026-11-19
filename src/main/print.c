@@ -191,7 +191,7 @@ static void PrintClosure(SEXP s, R_PrintData *data)
     PrintLanguage(s, data);
 
     if (isByteCode(BODY(s)))
-	Rprintf("<bytecode: %p>\n", (void *)BODY(s));
+	Rprintf("<bytecode: %s>\n", EncodeAddress(BODY(s)));
     SEXP t = CLOENV(s);
     if (t != R_GlobalEnv)
 	Rprintf("%s\n", EncodeEnvironment(t));
@@ -898,7 +898,7 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	Rprintf("%s\n", EncodeEnvironment(s));
 	break;
     case PROMSXP:
-	Rprintf("<promise: %p>\n", (void *)s);
+	Rprintf("<promise: %s>\n", EncodeAddress(s));
 	break;
     case DOTSXP:
 	Rprintf("<...>\n");
@@ -959,10 +959,10 @@ attribute_hidden void PrintValueRec(SEXP s, R_PrintData *data)
 	UNPROTECT(1);
 	break;
     case EXTPTRSXP:
-	Rprintf("<pointer: %p>\n", R_ExternalPtrAddr(s));
+	Rprintf("%s\n", EncodeExtptr(s));
 	break;
     case BCODESXP:
-	Rprintf("<bytecode: %p>\n", (void *)s);
+	Rprintf("<bytecode: %s>\n", EncodeAddress(s));
 	break;
     case WEAKREFSXP:
 	Rprintf("<weak reference>\n");

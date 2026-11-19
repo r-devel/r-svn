@@ -55,6 +55,7 @@ void formatStringS(SEXP, R_xlen_t, int*, int);
 const char *EncodeElement0(SEXP, R_xlen_t, int, const char *);
 const char *EncodeEnvironment(SEXP);
 const char *EncodeExtptr(SEXP);
+const char *EncodeAddress(const void *);
 /* Legacy, for R.app */
 const char *EncodeElement(SEXP, int, int, char);
 

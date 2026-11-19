@@ -419,11 +419,6 @@ static int InInteger(R_inpstream_t stream)
     }
 }
 
-#ifdef Win32
-extern int trio_sscanf(const char *buffer, const char *format, ...);
-
-#endif
-
 static double InReal(R_inpstream_t stream)
 {
     char word[128];
@@ -442,14 +437,8 @@ static double InReal(R_inpstream_t stream)
 	    return R_PosInf;
 	else if (strcmp(buf, "-Inf") == 0)
 	    return R_NegInf;
-	else
-	    if(
-#ifdef Win32
-		trio_sscanf(buf, "%lg", &d)
-#else
-		sscanf(buf, "%lg", &d)
-#endif
-		!= 1) error(_("read error"));
+	else if (sscanf(buf, "%lg", &d) != 1)
+	    error(_("read error"));
 	return d;
     case R_pstream_binary_format:
 	stream->InBytes(stream, &d, sizeof(double));
