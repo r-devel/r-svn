@@ -1401,9 +1401,12 @@ include @file{winprintf.h} (on Windows only, after the system headers).
 It needs @code{Rwin_vsnprintf_wide} from @file{src/main/printutils.c},
 so standalone programs such as the front ends cannot use it: they, like
 other files, get the @abbr{UCRT} through the @I{MinGW-w64} wrappers.  The
-@code{printf} calls in packages' own code are not affected: they go to
-the @abbr{UCRT} from C, and to @I{MinGW-w64}'s formatter from C++ (as
-@command{g++} defines @code{__USE_MINGW_ANSI_STDIO}).
+@code{printf} calls in packages' own code are not affected: they use
+whichever formatter their toolchain and preprocessor flags select, by
+default with @command{gcc} the @abbr{UCRT} from C and @I{MinGW-w64}'s
+formatter from C++ (as @command{g++} defines
+@code{__USE_MINGW_ANSI_STDIO}), but formats they pass to @code{Rprintf}
+and the like are formatted by @R{} as above.
 
 
 @node Warnings and errors
