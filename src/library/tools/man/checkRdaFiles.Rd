@@ -19,7 +19,7 @@
 }
 \usage{
 checkRdaFiles(paths)
-resaveRdaFiles(paths, compress = c("auto", "gzip", "bzip2", "xz"),
+resaveRdaFiles(paths, compress = c("auto", "gzip", "bzip2", "xz", "zstd"),
                compression_level, version = NULL)
 }
 
@@ -37,10 +37,10 @@ resaveRdaFiles(paths, compress = c("auto", "gzip", "bzip2", "xz"),
 
 \details{
   \code{compress = "auto"} asks \R to choose the compression and ignores
-  \code{compression_level}.  It will try \code{"gzip"}, \code{"bzip2"}
-  and if the \code{"gzip"} compressed size is over 10Kb, \code{"xz"} and
-  choose the smallest compressed file (but with a 10\% bias towards
-  \code{"gzip"}).  This can be slow.
+  \code{compression_level}.  It will try \code{"gzip"}, \code{"bzip2"},
+  \code{"zstd"} and if the \code{"gzip"} compressed size is over 10Kb,
+  \code{"xz"} and choose the smallest compressed file (but with a 10\% bias
+  towards \code{"gzip"}).  This can be slow.
 
   For back-compatibility, \code{version = NULL} is interpreted to mean
   version 2: however version-3 files will only be saved as version 3.
@@ -54,9 +54,9 @@ resaveRdaFiles(paths, compress = c("auto", "gzip", "bzip2", "xz"),
   \item{ASCII}{logical: true for save(ASCII = TRUE), \code{NA} if the
     format is not that of an \R save file.}
   \item{compress}{character: type of compression.  One of \code{"gzip"},
-    \code{"bzip2"}, \code{"xz"}, \code{"none"} or \code{"unknown"} (which
-    means that if this is an \R save file it is from a later version of
-    \R).}
+    \code{"bzip2"}, \code{"xz"}, \code{"zstd"}, \code{"none"} or 
+    \code{"unknown"} (which means that if this is an \R save file it is
+    from a later version of \R).}
   \item{version}{integer: positive with the version(s) of the
     \code{\link{save}()}, see there on which versions have been default in
     which versions of \R, and \code{NA} for non-\abbr{Rda} files.}
