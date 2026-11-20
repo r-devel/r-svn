@@ -1822,6 +1822,38 @@ static SEXP R_FindNamespace1(SEXP info)
 
 static SEXP ReadItem_Recursive(int flags, SEXP ref_table, R_inpstream_t stream);
 
+/* An attribute list must be a pairlist with symbol tags: getAttrib()
+   and friends assume this, so a corrupt stream must not get past
+   here (PR#19354). */
+static SEXP ReadAttrib(SEXP ref_table, R_inpstream_t stream)
+{
+    SEXP a = ReadItem(ref_table, stream);
+    for (SEXP t = a; t != R_NilValue; t = CDR(t))
+	if (TYPEOF(t) != LISTSXP || TYPEOF(TAG(t)) != SYMSXP)
+	    error(_("invalid attribute list"));
+    return a;
+}
+
+/* As in dimgets(): a dim inconsistent with the length makes e.g.
+   print() read out of bounds. */
+static void CheckDim(SEXP s)
+{
+    for (SEXP a = ATTRIB(s); a != R_NilValue; a = CDR(a))
+	if (TAG(a) == R_DimSymbol) {
+	    SEXP dim = CAR(a);
+	    double total = 1;
+	    if (TYPEOF(dim) != INTSXP || LENGTH(dim) == 0)
+		error(_("invalid 'dim' attribute"));
+	    for (int i = 0; i < LENGTH(dim); i++) {
+		if (INTEGER(dim)[i] < 0) /* includes NA */
+		    error(_("invalid 'dim' attribute"));
+		total *= INTEGER(dim)[i];
+	    }
+	    if (total != (double) xlength(s))
+		error(_("invalid 'dim' attribute"));
+	}
+}
+
 static SEXP ReadItem_Iterative(int flags, SEXP ref_table, R_inpstream_t stream)
 {
     /* Building dotted pair objects with recursion on the CDR will
@@ -1848,7 +1880,7 @@ static SEXP ReadItem_Iterative(int flags, SEXP ref_table, R_inpstream_t stream)
 	SET_OBJECT(s, objf);
 	R_ReadItemDepth++;
 	bool set_lastname = false;
-	SET_ATTRIB(s, hasattr ? ReadItem(ref_table, stream) : R_NilValue);
+	SET_ATTRIB(s, hasattr ? ReadAttrib(ref_table, stream) : R_NilValue);
 	SET_TAG(s, hastag ? ReadItem(ref_table, stream) : R_NilValue);
 	if (hastag && R_ReadItemDepth == R_InitReadItemDepth + 1 &&
 	    isSymbol(TAG(s))) {
@@ -1887,6 +1919,10 @@ static SEXP ReadItem_Iterative(int flags, SEXP ref_table, R_inpstream_t stream)
     R_ReadItemDepth++;
     PROTECT(s = ReadItem_Recursive(flags, ref_table, stream));
     R_ReadItemDepth--;
+    /* Calls and ... lists end in NULL.  (Pairlists need not: the
+       state of a wrapper ALTREP is a dotted pair.) */
+    if (s != R_NilValue && (TYPEOF(slast) == LANGSXP || TYPEOF(slast) == DOTSXP))
+	error(_("invalid call or '...' list"));
     SETCDR(slast, s);
     UNPROTECT(2); /* s, sfirst */
     return sfirst;
@@ -1926,8 +1962,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    R_ReadItemDepth++;
 	    SEXP info = PROTECT(ReadItem(ref_table, stream));
 	    SEXP state = PROTECT(ReadItem(ref_table, stream));
-	    SEXP attr = PROTECT(ReadItem(ref_table, stream));
+	    SEXP attr = PROTECT(ReadAttrib(ref_table, stream));
 	    s = ALTREP_UNSERIALIZE_EX(info, state, attr, objf, levs);
+	    if (attr != R_NilValue) CheckDim(s);
 	    UNPROTECT(3); /* info, state, attr */
 	    R_ReadItemDepth--;
 	    return s;
@@ -1966,7 +2003,7 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	    SET_ENCLOS(s, ReadItem(ref_table, stream));
 	    SET_FRAME(s, ReadItem(ref_table, stream));
 	    SET_HASHTAB(s, ReadItem(ref_table, stream));
-	    SET_ATTRIB(s, ReadItem(ref_table, stream));
+	    SET_ATTRIB(s, ReadAttrib(ref_table, stream));
 	    R_ReadItemDepth--;
 	    if (ATTRIB(s) != R_NilValue &&
 		getAttrib(s, R_ClassSymbol) != R_NilValue)
@@ -2132,8 +2169,9 @@ static SEXP ReadItem_Recursive (int flags, SEXP ref_table, R_inpstream_t stream)
 	}
 	else {
 	    R_ReadItemDepth++;
-	    SET_ATTRIB(s, hasattr ? ReadItem(ref_table, stream) : R_NilValue);
+	    SET_ATTRIB(s, hasattr ? ReadAttrib(ref_table, stream) : R_NilValue);
 	    R_ReadItemDepth--;
+	    if (hasattr && isVector(s)) CheckDim(s);
 	}
 	UNPROTECT(1); /* s */
 	if (TYPEOF(s) == BCODESXP && !R_BCVersionOK(s))
@@ -2178,7 +2216,7 @@ static SEXP ReadBCLang(int type, SEXP ref_table, SEXP reps,
 		SET_VECTOR_ELT(reps, pos, ans);
 	    R_ReadItemDepth++;
 	    if (hasattr)
-		SET_ATTRIB(ans, ReadItem(ref_table, stream));
+		SET_ATTRIB(ans, ReadAttrib(ref_table, stream));
 	    SET_TAG(ans, ReadItem(ref_table, stream));
 	    R_ReadItemDepth--;
 	    SETCAR(ans, ReadBCLang(InInteger(stream), ref_table, reps,
