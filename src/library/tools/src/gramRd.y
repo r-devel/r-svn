@@ -418,10 +418,6 @@ goItem0:	/* empty */			{ $$ = xxpushMode(LATEXLIKE, ESCAPE, FALSE); }
 
 goItem2:	/* empty */			{ $$ = xxpushMode(LATEXLIKE, LATEXMACRO2, FALSE); }
 
-/* Each bracketed argument needs an 'error END_OF_INPUT' alternative.  Without
-   one, error recovery at the end of the input discards END_OF_INPUT and asks
-   for more, con_getc() supplies another newline, and the parse never ends. */
-
 Arg:		'{' ArgItems  '}'		{ $$ = $2; }
 	|	'{' '}'				{ $$ = xxnewlist(NULL); }
 	|	'{' ArgItems error '}'		{ $$ = $2; }
@@ -1630,6 +1626,7 @@ static int mkText(int c)
     	    }
     	    xxungetc(lookahead);
     	    if (isalpha(lookahead)) goto stop;
+    	    break;
     	case ']':
     	    if (parseState.xxmode == INOPTION) goto stop;
             break;

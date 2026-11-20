@@ -265,6 +265,15 @@ for (txt in c("\\Sexpr{x", "\\name{x}\n\\Sexpr{", "\\Sexpr[results=rd]{1 +",
 ## never returned (some cases using unbounded memory) in R <= 4.6.2
 
 
+## parse_Rd() with a backslash before a non-letter in an [option] -- PR#19346
+for (txt in c("\\link[=foo\\_bar]{x}", "\\link[a\\1]{x}"))
+    stopifnot(identical(paste(as.character(tools::parse_Rd(textConnection(txt),
+                                                           fragment = TRUE)),
+                              collapse = ""),
+                        paste0(txt, "\n")))
+## never returned in R <= 4.6.2
+
+
 ## invalid encodings in serialized data
 wide <- if (.Platform$OS.type == "windows") "UTF-16LE" else
     paste0("UCS-4", if (.Platform$endian == "little") "LE" else "BE")

@@ -944,8 +944,8 @@ static const yytype_int16 yyrline[] =
      328,   330,   331,   333,   335,   338,   341,   345,   348,   351,
      355,   359,   365,   367,   368,   377,   379,   381,   385,   386,
      387,   389,   391,   395,   396,   397,   399,   403,   405,   407,
-     409,   411,   413,   415,   417,   419,   425,   426,   427,   428,
-     429,   431,   432
+     409,   411,   413,   415,   417,   419,   421,   422,   423,   424,
+     425,   427,   428
 };
 #endif
 
@@ -4191,6 +4191,7 @@ static int mkText(int c)
     	    }
     	    xxungetc(lookahead);
     	    if (isalpha(lookahead)) goto stop;
+    	    break;
     	case ']':
     	    if (parseState.xxmode == INOPTION) goto stop;
             break;
