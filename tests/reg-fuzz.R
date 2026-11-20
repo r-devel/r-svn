@@ -204,7 +204,7 @@ local({
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
 
 
-## parse_Rd() with a user macro whose expansion ends by calling itself
+## parse_Rd() with a user macro whose expansion ends by calling itself -- PR#19348
 for (txt in c("\\newcommand{\\foo}{\\foo}\\foo", "\\newcommand{\\foo}{x\\foo}\\foo",
               "\\newcommand{\\foo}{\\bar}\\newcommand{\\bar}{\\foo}\\foo"))
     assertErrV(tools::parse_Rd(textConnection(txt), fragment = TRUE))
