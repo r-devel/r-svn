@@ -256,9 +256,10 @@ local({
 ## ran all 1e8 iterations without checking in R <= 4.6.2
 
 
-## parse_Rd() with an unterminated \Sexpr{}, [option] or second verbatim argument
+## parse_Rd() with an unterminated \Sexpr{}, [option] or second verbatim argument -- PR#19346
 for (txt in c("\\Sexpr{x", "\\name{x}\n\\Sexpr{", "\\Sexpr[results=rd]{1 +",
-              "\\Sexpr[results=rd", "\\link[pkg", "\\eqn{a}{b", "\\figure{a}{b"))
+              "\\Sexpr[results=rd", "\\link[pkg", "\\eqn{a}{b", "\\figure{a}{b",
+              "\\name{x}\n\\description{Uses \\link[stats{lm} internally.}\n\\value{y}"))
     assertWarnV(tools::parse_Rd(textConnection(txt),
                                 fragment = !startsWith(txt, "\\name")))
 ## never returned (some cases using unbounded memory) in R <= 4.6.2
