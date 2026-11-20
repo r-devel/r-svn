@@ -253,6 +253,9 @@ static void R_pcre_exec_error(int rc, R_xlen_t i)
 {
     if (rc >= 0 || rc == PCRE2_ERROR_NOMATCH)
 	return;
+    /* a failed match is not "no match" */
+    if (rc == PCRE2_ERROR_NOMEMORY)
+	error(_("out of memory in PCRE matching for element %d"), (int) i + 1);
     // too much effort to handle long-vector indices, including on Windows
     char buf[256];
     pcre2_get_error_message(rc, (PCRE2_UCHAR *)buf, sizeof(buf));
@@ -422,6 +425,8 @@ R_pcre2_prepare(const char *pattern, SEXP subject, bool use_UTF8,
 	options |= PCRE2_UTF | PCRE2_NO_UTF_CHECK;
     else {
 	ccontext = pcre2_compile_context_create(NULL);
+	if (!ccontext)
+	    error(_("allocation of PCRE compile context failed"));
 	/* PCRE2 internal tables by default are only for ASCII characters.
 	   They are needed for lower/upper case distinction and character
 	   classes in non-UTF mode. */
@@ -452,6 +457,15 @@ R_pcre2_prepare(const char *pattern, SEXP subject, bool use_UTF8,
     }
     pcre2_compile_context_free(ccontext);
     *mcontext = pcre2_match_context_create(NULL);
+    if (!*mcontext) {
+	pcre2_code_free(*re);
+	*re = NULL;
+	if (*tables) {
+	    free((void *)*tables);
+	    *tables = NULL;
+	}
+	error(_("allocation of PCRE match context failed"));
+    }
     if (R_PCRE_use_JIT) {
 	int rc = pcre2_jit_compile(*re, 0);
 	if (rc && rc != PCRE2_ERROR_JIT_BADOPTION) {
@@ -473,6 +487,26 @@ R_pcre2_prepare(const char *pattern, SEXP subject, bool use_UTF8,
        different meaning from those for recursion limit in versions before
        10.30 */
 # endif
+}
+
+/* pcre2_match() given a NULL match data block reports PCRE2_ERROR_NULL,
+   which callers treat like "no match". */
+static pcre2_match_data *
+R_pcre2_match_data_create(uint32_t ovecsize, pcre2_code *re,
+                          pcre2_match_context *mcontext,
+                          const unsigned char **tables)
+{
+    pcre2_match_data *mdata = pcre2_match_data_create(ovecsize, NULL);
+    if (!mdata) {
+	pcre2_code_free(re);
+	pcre2_match_context_free(mcontext);
+	if (*tables) {
+	    free((void *)*tables);
+	    *tables = NULL;
+	}
+	error(_("allocation of PCRE match data failed"));
+    }
+    return mdata;
 }
 #else /* ! HAVE_PCRE2 */
 static void
@@ -823,7 +857,8 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 	    PCRE2_SIZE *ovector = NULL;
 	    uint32_t ovecsize = 10;
 	    R_pcre2_prepare(split, x, use_UTF8, false, &tables, &re, &mcontext);
-	    pcre2_match_data *mdata = pcre2_match_data_create(ovecsize, NULL);
+	    pcre2_match_data *mdata =
+		R_pcre2_match_data_create(ovecsize, re, mcontext, &tables);
 	    uint32_t eflag = 0;
 	    if (use_UTF8) eflag |= PCRE2_NO_UTF_CHECK;
 #else
@@ -1099,7 +1134,7 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		    }
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		}
 		SET_VECTOR_ELT(ans, i,
@@ -1114,7 +1149,7 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		    if (regmatch[0].rm_eo > 0) {
 			/* Match was non-empty. */
@@ -1368,7 +1403,7 @@ attribute_hidden SEXP do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 #ifdef HAVE_PCRE2
 	R_pcre2_prepare(spat, text, use_UTF8, igcase_opt, &tables, &re,
 	                &mcontext);
-	mdata = pcre2_match_data_create(ovecsize, NULL);
+	mdata = R_pcre2_match_data_create(ovecsize, re, mcontext, &tables);
 #else
 	R_pcre_prepare(spat, text, use_UTF8, igcase_opt, false, &tables,
                      &re_pcre, &re_pe);
@@ -1445,7 +1480,7 @@ attribute_hidden SEXP do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 		if (rc == 0) LOGICAL(ind)[i] = 1;
 		// AFAICS the only possible error report is REG_ESPACE
 		if (rc == REG_ESPACE)
-		    warning("Out-of-memory error in regexp matching for element %d",
+		    error(_("out of memory in regexp matching for element %d"),
 			    (int) i + 1);
 	    }
 	}
@@ -2228,7 +2263,7 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 #ifdef HAVE_PCRE2
 	R_pcre2_prepare(spat, text, use_UTF8, igcase_opt, &tables, &re,
 	                &mcontext);
-	mdata = pcre2_match_data_create(ovecsize, NULL);
+	mdata = R_pcre2_match_data_create(ovecsize, re, mcontext, &tables);
 #else
 	R_pcre_prepare(spat, text, use_UTF8, igcase_opt, false, &tables,
 	             &re_pcre, &re_pe);
@@ -2436,7 +2471,7 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	    }
 	    // AFAICS the only possible error report is REG_ESPACE
 	    if (rc == REG_ESPACE)
-		warning("Out-of-memory error in regexp matching for element %d",
+		error(_("out of memory in regexp matching for element %d"),
 			(int) i + 1);
 
 	    if (nmatch == 0)
@@ -2624,7 +2659,7 @@ gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
 	eflags = REG_NOTBOL;
 	// AFAICS the only possible error report is REG_ESPACE
 	if (rc == REG_ESPACE)
-	    warning("Out-of-memory error in regexp matching for element %d",
+	    error(_("out of memory in regexp matching for element %d"),
 		    (int) i + 1);
     }
     PROTECT(ans = allocVector(INTSXP, matchIndex + 1));
@@ -3070,7 +3105,8 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 	    error(_("'pcre2_patterninfo' returned '%d' "), info_code);
 	ovector_size = (int) capture_count + 1;
 	/* PCRE2 also has pcre2_match_data_create_from_pattern() */
-	mdata = pcre2_match_data_create(ovector_size, NULL);
+	mdata = R_pcre2_match_data_create(ovector_size, re, mcontext,
+	                                  &tables);
 	/* ovector_size not used below */
 #else
 	R_pcre_prepare(spat, text, use_UTF8, igcase_opt, false, &tables,
@@ -3229,7 +3265,7 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 		    } else INTEGER(ans)[i] = INTEGER(matchlen)[i] = -1;
 		    // AFAICS the only possible error report is REG_ESPACE
 		    if (rc == REG_ESPACE)
-			warning("Out-of-memory error in regexp matching for element %d",
+			error(_("out of memory in regexp matching for element %d"),
 				(int) i + 1);
 		}
 	    }
@@ -3402,6 +3438,10 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
     nmatch = reg.re_nsub + 1;
 
     pmatch = (regmatch_t *) malloc(nmatch * sizeof(regmatch_t));
+    if (!pmatch) {
+	tre_regfree(&reg);
+	error(_("allocation of regexec match data failed"));
+    }
 
     PROTECT(ans = allocVector(VECSXP, n));
 
@@ -3456,7 +3496,7 @@ attribute_hidden SEXP do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 		 */
 		// AFAICS the only possible error report is REG_ESPACE
 		if (rc == REG_ESPACE)
-		    warning("Out-of-memory error in regexp matching for element %d",
+		    error(_("out of memory in regexp matching for element %d"),
 			    (int) i + 1);
 		PROTECT(matchpos = ScalarInteger(-1));
 		PROTECT(matchlen = ScalarInteger(-1));

@@ -631,7 +631,8 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
   DPRINT(("tre_add_tags: %s complete.  Number of tags %d.\n",
 	  first_pass? "First pass" : "Second pass", num_tags));
 
-  assert(tree->num_tags == num_tags);
+  /* The walk stops early when an allocation fails. */
+  assert(status != REG_OK || tree->num_tags == num_tags);
   tnfa->end_tag = num_tags;
   tnfa->num_tags = num_tags;
   tnfa->num_minimals = num_minimals;
@@ -1859,6 +1860,8 @@ tre_ast_to_tnfa(tre_ast_node_t *node, tre_tnfa_transition_t *transitions,
   tre_stack_t *stack;
   /* I made up max_size, there is no reason for that particular value */
   stack = tre_stack_new(1024, 256*1024, 4096);
+  if (!stack)
+    return REG_ESPACE;
   errcode = tre_ast_to_tnfa_iter(stack, node, transitions, counts, offs);
   tre_stack_destroy(stack);
   return errcode;
@@ -2032,7 +2035,9 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
 
   for (i = 0; i < parse_ctx.position; i++)
     counts[i] = 0;
-  tre_ast_to_tnfa(tree, NULL, counts, NULL);
+  errcode = tre_ast_to_tnfa(tree, NULL, counts, NULL);
+  if (errcode != REG_OK)
+    ERROR_EXIT(errcode);
 
   add = 0;
   for (i = 0; i < parse_ctx.position; i++)
