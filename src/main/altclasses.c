@@ -1476,8 +1476,11 @@ static R_altrep_class_t wrap_list_class;
 #define WRAPPER_LOCK_DATA(x) WRAPPER_SET_DATA_LOCK(x, 1)
 #define WRAPPER_UNLOCK_DATA(x) WRAPPER_SET_DATA_LOCK(x, 0)
 
- 
-static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
+
+/* Make the wrapper the only reference to its data and lock it, so that
+   a data pointer, once obtained, stays valid.  Reading does not change
+   the data, so this leaves the metadata alone. */
+static R_INLINE SEXP WRAPPER_WRAPPED_LOCKED(SEXP x)
 {
     SEXP data = WRAPPER_WRAPPED(x);
     if (WRAPPER_DATA_IS_LOCKED(x)) {
@@ -1501,6 +1504,13 @@ static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
 	}
 	else WRAPPER_LOCK_DATA(x);
     }
+
+    return WRAPPER_WRAPPED(x);
+}
+
+static R_INLINE SEXP WRAPPER_WRAPPED_RW(SEXP x)
+{
+    WRAPPER_WRAPPED_LOCKED(x);
 
     /* The meta data also needs to be cleared as it may no longer be
        valid after a write. */
@@ -1598,17 +1608,23 @@ static void *wrapper_Dataptr(SEXP x, Rboolean writeable)
     if (writeable)
 	return DATAPTR_RW(WRAPPER_WRAPPED_RW(x));
     else
-	/* This has to use WRAPPER_WRAPPED_RW even for a read-only
-	   pointer to make sure a later request for a writable pointer
-	   will return the same address. */
+	/* This has to lock the data even for a read-only pointer to
+	   make sure a later request for a writable pointer will return
+	   the same address; that request clears the metadata. */
 	/**** could avoid the cast by having separate methods */
-	return (void *) DATAPTR_RO(WRAPPER_WRAPPED_RW(x));
+	return (void *) DATAPTR_RO(WRAPPER_WRAPPED_LOCKED(x));
 }
 
 static const void *wrapper_Dataptr_or_null(SEXP x)
 {
-    /* This has to use WRAPPER_WRAPPED_RW as above. */
-    return DATAPTR_OR_NULL(WRAPPER_WRAPPED_RW(x));
+    /* A pointer to data that is shared and not yet locked would need
+       a duplicate; report that none is available, so callers read
+       through Get_region or Elt instead. */
+    if (! WRAPPER_DATA_IS_LOCKED(x) && MAYBE_SHARED(WRAPPER_WRAPPED(x)))
+	return NULL;
+
+    /* This has to lock the data as above. */
+    return DATAPTR_OR_NULL(WRAPPER_WRAPPED_LOCKED(x));
 }
 
 static SEXP wrapper_Extract_subset(SEXP x, SEXP indx, SEXP call)
