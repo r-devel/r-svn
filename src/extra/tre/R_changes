@@ -1,5 +1,5 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit 512d52fcefc757e955837a363c2fc19a1a8c47a6 of the
+taken from git commit 46577ec6241529f1b5117445401eab356a46eeae of the
 integration branch at https://github.com/kevinushey/tre/tree/r-integration.
 That branch is upstream master (2026-05-23, post-0.9.0) plus the following
 pull requests pending upstream.  The first five restore behaviors R's
@@ -21,6 +21,9 @@ and the others fix bugs present in both copies:
   #168  Enforce TRE_MAX_POS while bounded repetitions are expanded, so
         that nested bounds such as ((a{255}){255}){255} are rejected
         before their copies are allocated
+  #163  Keep every empty path through a nullable subexpression, so that
+        each alternative's assertions are tried: "(^|\b)a" now matches
+        wherever "(\b|^)a" does (PR#17992)
 
 The files in lib/ and include/tre/tre.h were copied verbatim into this
 flat directory, except for the R-specific changes listed below.  Files
@@ -67,7 +70,7 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-512d52f"), since these sources are
+   carries the upstream commit ("0.9.0-46577ec"), since these sources are
    post-0.9.0 plus the pull requests above; update it whenever the copy
    is refreshed.
 
