@@ -6,6 +6,8 @@
 tryCid <- function(expr) tryCatch(expr, error = identity)
 assertErrV  <- function(...) tools::assertError  (..., verbose=TRUE)
 assertWarnV <- function(...) tools::assertWarning(..., verbose=TRUE)
+onWindows <- .Platform$OS.type == "windows"
+onUnix    <- .Platform$OS.type == "unix"
 
 ### First dozen entries moved from ./tests-reg-tests-1e.R ----------------------
 
@@ -203,6 +205,222 @@ local({
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
 
 
+## parse_Rd() with a user macro whose expansion ends by calling itself -- PR#19348
+for (txt in c("\\newcommand{\\foo}{\\foo}\\foo", "\\newcommand{\\foo}{x\\foo}\\foo",
+              "\\newcommand{\\foo}{\\bar}\\newcommand{\\bar}{\\foo}\\foo"))
+    assertErrV(tools::parse_Rd(textConnection(txt), fragment = TRUE))
+## never returned in R <= 4.6.2
+
+
+## gregexpr() with strings that cannot be converted to wide characters -- PR#19301
+local({
+    n <- 30000 # 2n exceeds the default protect stack size
+    x <- c(rep(rawToChar(as.raw(0xff)), n), intToUtf8(252))
+    ## invalid UTF-8 fails conversion in any locale; the native "\xff"
+    ## converts to U+007F in the C locale on Windows
+    Encoding(x) <- "UTF-8"
+    r <- suppressWarnings(gregexpr(".", x))
+    stopifnot(identical(vapply(r, `[`, 0L, 1L), c(rep(-1L, n), 1L)))
+})
+## leaked two protect stack entries per such string, so this gave
+## "protection stack overflow", in R <= 4.6.2
+
+## readChar() on a raw vector holding 6-byte UTF-8 lead bytes
+if (l10n_info()[["UTF-8"]]) {
+    s <- readChar(as.raw(rep(0xff, 6 * 64)), 64L)
+    invisible(gc())
+    stopifnot(identical(nchar(s, "bytes"), 384L))
+}
+## wrote past its buffer where MB_CUR_MAX is 4 (macOS), seg.faulting, in R <= 4.6.2
+
+
+## gc() accounting after releasing a long string that carries a hash value -- PR#19195
+local({
+    used <- function() gc()["Vcells", "used"]
+    v0 <- used()
+    errs <- lapply(1:8, function(i)
+        tryCid(as.name(paste0(strrep("a", 20000), i))))
+    stopifnot(vapply(errs, inherits, NA, what = "error"),
+              abs(used() - v0) < 1e6)
+})
+## each rejected name was released as if its length were its hash value, so
+## 'used' wrapped around and the vector heap limit stopped applying, in R <= 4.6.2
+
+
+
+## 'next' as a call argument in a byte-compiled while()/repeat loop jumps back
+## by longjmp, which skipped every check for interrupts and time limits
+local({
+    f <- compiler::cmpfun(function() {
+        i <- 0L
+        while((i <- i + 1L) <= 1e8L) invisible(next)
+    })
+    setTimeLimit(elapsed = 0.5, transient = TRUE)
+    E <- tryCid(f())
+    stopifnot(inherits(E, "error"),
+              identical(conditionMessage(E),
+                        gettext("reached elapsed time limit", domain="R")))
+})
+## ran all 1e8 iterations without checking in R <= 4.6.2
+
+
+## parse_Rd() with an unterminated \Sexpr{}, [option] or second verbatim argument -- PR#19346
+for (txt in c("\\Sexpr{x", "\\name{x}\n\\Sexpr{", "\\Sexpr[results=rd]{1 +",
+              "\\Sexpr[results=rd", "\\link[pkg", "\\eqn{a}{b", "\\figure{a}{b",
+              "\\name{x}\n\\description{Uses \\link[stats{lm} internally.}\n\\value{y}"))
+    assertWarnV(tools::parse_Rd(textConnection(txt),
+                                fragment = !startsWith(txt, "\\name")))
+## never returned (some cases using unbounded memory) in R <= 4.6.2
+
+
+## parse_Rd() with a backslash before a non-letter in an [option] -- PR#19346
+for (txt in c("\\link[=foo\\_bar]{x}", "\\link[a\\1]{x}"))
+    stopifnot(identical(paste(as.character(tools::parse_Rd(textConnection(txt),
+                                                           fragment = TRUE)),
+                              collapse = ""),
+                        paste0(txt, "\n")))
+## never returned in R <= 4.6.2
+
+
+## invalid encodings in serialized data
+wide <- if (.Platform$OS.type == "windows") "UTF-16LE" else
+    paste0("UCS-4", if (.Platform$endian == "little") "LE" else "BE")
+bad <- c(charToRaw(sprintf("A\n3\n6\n8\n%d\n%s16\n1\n9\n1\n",
+			   nchar(wide), wide)), as.raw(0xff))
+out <- suppressWarnings(unserialize(bad))
+stopifnot(identical(charToRaw(out), as.raw(0xff)))
+## error for bad ones
+bad <- c(charToRaw("A\n3\n6\n8\n14\nUTF-8"), as.raw(0),
+	 charToRaw("padding!254\n"))
+assertErrV(unserialize(bad))
+con <- rawConnection(bad)
+assertErrV(infoRDS(con))
+close(con)
+
+
+## malformed serialized state of the base ALTREP classes
+hdrlen <- length(serialize(NULL, NULL)) - 4L
+item <- function(x) serialize(x, NULL)[-seq_len(hdrlen)]
+altrepStream <- function(cls, type, state)
+    c(serialize(NULL, NULL)[seq_len(hdrlen)],
+      as.raw(c(0, 0, 0, 238)), # ALTREP_SXP
+      item(pairlist(as.name(cls), as.name("base"), type)),
+      item(state), item(NULL))
+states <- list(wrap_integer = 1:5, wrap_integer = c(2L, 7L, 9L),
+               wrap_integer = pairlist(1:3, 1L),
+               deferred_string = 1:3, deferred_string = pairlist(1.5),
+               mmap_integer = 1:3, mmap_integer = pairlist("x", 1, 13L))
+types <- c(wrap_integer = 13L, deferred_string = 16L, mmap_integer = 13L)
+errs <- Map(function(cls, state)
+                tryCid(unserialize(altrepStream(cls, types[[cls]], state))),
+            names(states), states)
+stopifnot(vapply(errs, function(e) inherits(e, "error") &&
+                 grepl("serialized state", conditionMessage(e)), NA))
+x <- .Internal(wrap_meta(c(1L, 5L, 9L), 1L, 1L))
+stopifnot(identical(unserialize(serialize(x, NULL)), x))
+## built garbage objects or seg.faulted in R <= 4.6.2
+
+
+## duplicated(), unique() and anyDuplicated() with marked encodings
+## translated a long latin1 string repeatedly          -- PR#19329
+setEnc <- `Encoding<-`
+l1 <- setEnc("fa\xE7ile", "latin1") # short
+u1 <- enc2utf8(l1)
+long <- setEnc(strrep("\xE9", 5000), "latin1")
+x <- c(long, rep(c("", "a", "b", l1), 500), u1, enc2utf8(long))
+stopifnot(exprs = { # all these were true "forever":
+    identical(unique(x), c(long, "", "a", "b", l1))
+    identical(which(!duplicated(x)), 1:5)
+    identical(which(!duplicated(x, fromLast = TRUE)), c(1998:2000, 2002:2003))
+    identical(anyDuplicated(x), 6L)
+    identical(anyDuplicated(x, fromLast = TRUE), 2001L)
+    identical(duplicated(c(l1, u1, "a", "a"), incomparables = l1),
+              c(FALSE, FALSE, FALSE, TRUE))
+    identical(anyDuplicated(c(l1, "a", u1, "a"), incomparables = l1), 4L)
+})
+### Timing from `unique-latin1-translate-repro.R` (PR attachment 4082) --
+## 1. A long latin1 string among many short ASCII strings.
+p <- 200171L; n <- 2000L
+long <- setEnc(paste0("\xE9", strrep("a", p-3), "#v"), "latin1")
+short <- c("", vapply(32:126, function(i) rawToChar(as.raw(i)), ""))
+n1 <- length(x <- c(long, rep(short, length.out = n)))
+system.time(u <- unique(x)) # ~ 2 ms *after* patch; was ~ 1.3 sec
+## 2. Strings that differ only in their first character all hash alike
+rawtail <- rep(as.raw(0xe9), n)
+lat <- vapply(c(letters, LETTERS),
+              \(ch) rawToChar(c(charToRaw(ch), rawtail)), "", USE.NAMES = FALSE)
+Encoding(lat) <- "latin1"
+y <- rep(c(lat[1:26], enc2utf8(lat[27:52])), 200)
+system.time(v <- unique(y)) # ~ 65 ms; was ~ 0.9 sec
+stopifnot(length(u) == 97L, identical(nchar(u), c(p, 0:1, rep(1L, 94))),
+          identical(nchar(v), rep(n1, 52)),
+          identical(unique(substring(v, 2L,n1)),
+                    setEnc(strrep("\xe9", n), "latin1")))
+## times were around 1 sec each, in R <= 4.6.2
+
+
+## gray() with zero-length alpha, as rgb(), hsv() and hcl() -- PR#19350
+stopifnot(identical(grey(0.5, numeric()), character()),
+          identical(grey(rep(0.5, 1e6), alpha = logical()), character()),
+          identical(grey(0.5, numeric()), rgb(0.5, 0.5, 0.5, numeric())),
+          identical(grey(c(0, 1), 0.5), c("#00000080", "#FFFFFF80")))
+## read past the empty alpha vector and seg.faulted in R <= 4.6.2
+
+
+## ppr() with a zero-length, negative or too large 'nterms' -- PR#19341
+local({
+    msg1 <- gettext("'nterms' must be a positive integer", domain = "R-stats")
+    msg2 <- gettext("'max.terms' must be at least 'nterms'", domain = "R-stats")
+    for(nt in list(NULL, integer(0), -1e6)) {
+        E <- tryCid(ppr(dist ~ speed, data = cars, nterms = nt, max.terms = 2))
+        stopifnot(inherits(E, "error"), identical(conditionMessage(E), msg1))
+    }
+    E <- tryCid(ppr(dist ~ speed, data = cars, nterms = 3, max.terms = 2))
+    stopifnot(inherits(E, "error"), identical(conditionMessage(E), msg2))
+    fit <- ppr(dist ~ speed, data = cars, nterms = 1, max.terms = 2)
+    stopifnot(fit$mu == 1, fit$ml == 2) # valid input unchanged
+})
+## Fortran read an empty 'nterms' as a scalar, and a negative one made it prune
+## terms past zero: both segfaulted; 'nterms > max.terms' gave a garbage fit;
+## in R <= 4.6.2
+
+
+## unserialize() of an attribute list with a non-symbol tag -- PR#19354
+s <- serialize(structure(1:4, dim = c(2L, 2L)), NULL, xdr = TRUE)
+tag <- c(as.raw(c(0,0,0,1, 0,4,0,9, 0,0,0,3)), charToRaw("dim"))
+i <- grepRaw(tag, s, fixed = TRUE)
+stopifnot(length(i) == 1L)
+for (newtag in list(as.raw(c(0,0,0,0xfe)),            # NULL
+                    as.raw(c(0,0,0,0x0d, 0,0,0,1, 0,0,0,7)))) # 7L
+    assertErrV(unserialize(c(s[seq_len(i - 1L)], newtag, s[-seq_len(i + 14L)])))
+s[i + 3L] <- as.raw(0xfe) # SYMSXP -> NILSXP, "dim" read as the value
+assertErrV(unserialize(s))
+## returned an object whose attributes() crashed R in R <= 4.6.2
+
+
+## unserialize() of a 'dim' inconsistent with the length -- PR#19354
+s <- serialize(structure(1:4, dim = c(2L, 2L)), NULL, xdr = TRUE)
+i <- grepRaw(as.raw(c(0,0,0,0x0d, 0,0,0,2, 0,0,0,2, 0,0,0,2)), s, fixed = TRUE)
+stopifnot(length(i) == 1L)
+for (d in list(c(3L, 2L), c(NA, 2L), c(-2L, -2L))) {
+    s[i + 8:15] <- writeBin(d, raw(), endian = "big")
+    assertErrV(unserialize(s))
+}
+## gave a matrix whose print() crashed R in R <= 4.6.2
+
+
+## unserialize() of a '...' list not ending in NULL -- PR#19354
+s <- serialize(1:10, NULL) # an ALTREP: (info, state, attributes)
+i <- grepRaw(as.raw(c(0,0,0,0xee)), s, fixed = TRUE)[1L]
+s[i + 3L] <- as.raw(0x11) # ALTREP_SXP -> DOTSXP with CDR the state
+assertErrV(unserialize(s))
+stopifnot(identical(unserialize(serialize(quote(f(x, y = 2)), NULL)),
+                    quote(f(x, y = 2))))
+x <- .Internal(wrap_meta(c(1L, 5L, 9L), 1L, TRUE)) # state is a dotted pair
+stopifnot(identical(unserialize(serialize(x, NULL)), x))
+## returned a dotted pair whose names() crashed R in R <= 4.6.2
+
+
 ## TRE: nested bounded repetitions multiply when expanded
 r <- tryCid(suppressWarnings(grepl("(?:a{2,101,})(?:a{2,101,}){100}{100}", "aaaa")))
 stopifnot(inherits(r, "error"),
@@ -224,7 +442,6 @@ stopifnot(exprs = {
     !grepl("a($|\\b)", "ab")
 })
 ## only the first alternative's assertion was tried in R <= 4.6.2
-
 
 
 

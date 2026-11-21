@@ -136,6 +136,26 @@
       \code{POSIXct}, a corollary being that
       \code{as.vector(., mode="double")} now works as
       \code{as.double(.)} rather than signalling an error.
+
+      \item Utility functions \code{getNamespaceVersion()} and
+      \code{getNamespaceName()} now return \emph{un}named strings, as
+      suggested by \I{Pavel Krivitsky} on R-devel.
+
+      \item \code{seq.int} uses a compact representation for unit-spaced
+      sequences of integers, now also in usage with \code{length.out}
+      or \code{along.with} not missing, fulfilling the wish of
+      \I{Hugo Gruson} (\PR{19282}).
+
+      \item \code{duplicated()}, \code{unique()} etc, become much faster for
+      the case of a long latin1 encoded string among smaller UTF-8 and ASCII
+      encoded ones, thanks to \I{Kevin Ushey}'s report and patch in \PR{19329}.
+
+      \item Using \code{structure()} to add a \code{"factor"} class no
+      longer ensures that numeric codes are given integer storage mode.
+
+      \item \code{format(<chr>)}, \code{encodeString()}, etc, have become
+      considerably faster in some cases, thanks to \I{Kevin Ushey}'s
+      \PR{19338}.
     }
   }
 
@@ -529,6 +549,19 @@
       supported), invalid or conflicting \code{Content-Length},
       whitespace before the colon in a header field and more than one
       \code{Host} header.  Previously such requests could be misread.
+
+      \item \code{seq.int} misbehaved when \code{length.out} was not
+      missing and \code{from} or \code{to} was
+      \code{-.Machine[["integer.max"]] - 1} or
+      \code{to} was \code{-2^.Machine[["double.digits"]]}.
+
+      \item \code{grid.multipanel()} would error
+      if zero points in a panel, including randomly within \code{R CMD
+        check}. Thanks to \I{Kevin Ushey} for report and patch.
+
+      \item \code{grid.pack()} and \code{grid.frame()} did not listen
+      to \code{redraw} argument.  Thanks to \I{Athenkosi Nkonyeni}
+      for report.
     }
   }
 }
@@ -1604,7 +1637,7 @@
       longer outputs \code{"List of <...>"} in the default method, thanks
       to \I{Ian Farm}'s report and fix proposal in \PR{19001}.
 
-      \item \code{as.POSIXlt(ch)}, \code{as.Date(ch)} etc now also work
+      \item \code{as.POSIXlt(ch)}, \code{as.Date(ch)}, etc, now also work
       correctly when \code{ch} contains \code{"Inf"}, via
       \code{strptime(.)}, fixing \PR{19006}.
 
@@ -1656,7 +1689,7 @@
 
       \item When \code{file.choose()} is terminated with an \command{EOF},
       it now signals an error rather than returning garbage, thanks to
-      \I{Kevin Ushey}'s report and patch in \PR{19053},
+      \I{Kevin Ushey}'s report and patch in \PR{19053}.
     }
   }
 }
