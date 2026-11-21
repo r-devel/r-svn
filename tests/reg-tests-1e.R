@@ -4534,7 +4534,7 @@ stopifnot(identical(sum(y), s), identical(y * 2, x * 2),
 ## failed in R 4.6.2
 
 
-## reading the data of a wrapper object keeps its sortedness and no-NA metadata
+## reading a wrapper's data keeps its sortedness and no-NA metadata -- PR#19356
 x <- sort(c(3, 1, 2))
 s <- sum(x)
 stopifnot(.Internal(sorted_fpass(x, FALSE, FALSE)))
