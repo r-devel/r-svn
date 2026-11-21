@@ -44,7 +44,7 @@
 #include <rlocale.h> /* for btowc */
 
 #ifdef Win32
-#include <trioremap.h> /* for %lld */
+#include <winprintf.h>
 #endif
 
 /* The size of vector initially allocated by scan */

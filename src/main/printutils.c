@@ -79,7 +79,7 @@
 #endif
 
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 #ifndef min
 #define min(a, b) (((a)<(b))?(a):(b))
@@ -157,6 +157,25 @@ const char *EncodeRaw(Rbyte x, const char * prefix)
     return buff;
 }
 
+/* "%p" as glibc prints it, which R has always shown on Windows too (via
+   trio): the Windows C run-time omits the 0x prefix and uses upper case */
+attribute_hidden
+const char *EncodeAddress(const void *p)
+{
+    static char buf[32];
+
+#ifdef Win32
+    if (p)
+	snprintf(buf, sizeof(buf), "0x%0*llx", (int) (2 * sizeof(void *)),
+		 (unsigned long long) (uintptr_t) p);
+    else
+	snprintf(buf, sizeof(buf), "(nil)");
+#else
+    snprintf(buf, sizeof(buf), "%p", p);
+#endif
+    return buf;
+}
+
 attribute_hidden
 const char *EncodeEnvironment(SEXP x)
 {
@@ -174,7 +193,7 @@ const char *EncodeEnvironment(SEXP x)
     else if (R_IsNamespaceEnv(x))
 	snprintf(ch, 1000, "<environment: namespace:%s>",
 		translateChar(STRING_ELT(R_NamespaceEnvSpec(x), 0)));
-    else snprintf(ch, 1000, "<environment: %p>", (void *)x);
+    else snprintf(ch, 1000, "<environment: %s>", EncodeAddress(x));
 
     vmaxset(vmax);
     return ch;
@@ -184,7 +203,7 @@ attribute_hidden
 const char *EncodeExtptr(SEXP x)
 {
     static char buf[1000];
-    snprintf(buf, 1000, "<pointer: %p>", R_ExternalPtrAddr(x));
+    snprintf(buf, 1000, "<pointer: %s>", EncodeAddress(R_ExternalPtrAddr(x)));
     return buf;
 }
 
@@ -397,6 +416,95 @@ const char
 
 #ifdef Win32
 #include "rgui_UTF8.h"
+#include <locale.h>
+
+/* The length of the UTF-8 sequence at s, within n bytes, storing its code
+   point in *ucs; 0 if there is none (including overlong forms and
+   surrogates) */
+static size_t utf8_decode(const char *s, size_t n, unsigned int *ucs)
+{
+    static const unsigned int least[] = {0, 0, 0x80, 0x800, 0x10000};
+    const unsigned char *u = (const unsigned char *) s;
+    size_t len = u[0] < 0xE0 ? 2 : u[0] < 0xF0 ? 3 : 4;
+
+    if (u[0] < 0xC2 || u[0] > 0xF4 || len > n)
+	return 0;
+
+    *ucs = u[0] & (0x7F >> len);
+    for (size_t i = 1; i < len; i++) {
+	if ((u[i] & 0xC0) != 0x80)
+	    return 0;
+	*ucs = (*ucs << 6) | (u[i] & 0x3F);
+    }
+    if (*ucs < least[len] || *ucs > 0x10FFFF ||
+	(*ucs >= 0xD800 && *ucs <= 0xDFFF))
+	return 0;
+    return len;
+}
+
+/* The UCRT fails with EILSEQ when a %ls or %lc argument has a character
+   which the current locale cannot represent (as in the "C" locale).  Format
+   it as UTF-8 instead and convert, showing such characters as <U+xxxx> as
+   R did with trio (PR#17958).  Called from winprintf.h. */
+int Rwin_vsnprintf_wide(char *buf, size_t size, const char *format,
+			va_list ap)
+{
+    static _locale_t utf8 = NULL;
+
+    if (!utf8)
+	utf8 = _create_locale(LC_CTYPE, ".UTF-8");
+    if (!utf8)
+	/* UCRTs before Windows 10 1803: keep the message, but mingw-w64
+	   stops a wide argument at the character */
+	return __mingw_vsnprintf(buf, size, format, ap);
+
+    va_list aq;
+    va_copy(aq, ap);
+    int len = Rwin_ucrt_vsnprintf(NULL, 0, format, utf8, aq);
+    va_end(aq);
+    if (len < 0)
+	return len;
+    char *tmp = malloc((size_t) len + 1);
+    if (!tmp)
+	return -1;
+    if (Rwin_ucrt_vsnprintf(tmp, (size_t) len + 1, format, utf8, ap) != len) {
+	free(tmp);
+	return -1;
+    }
+
+    /* the length, not a terminator, as %c can write a nul */
+    size_t n = 0;
+    for (size_t i = 0; i < (size_t) len; ) {
+	char out[16];
+	size_t nout = 1, used = 1;
+	unsigned int ucs;
+
+	out[0] = tmp[i];
+	if ((unsigned char) tmp[i] >= 0x80) {
+	    used = utf8_decode(tmp + i, len - i, &ucs);
+	    if (!used)
+		/* not UTF-8, so native text from the format or a %s */
+		used = 1;
+	    else if (ucs > 0xFFFF)
+		nout = snprintf(out, sizeof(out), "<U+%08X>", ucs);
+	    else {
+		int k = wctomb(out, (wchar_t) ucs);
+		if (k > 0)
+		    nout = k;
+		else
+		    nout = snprintf(out, sizeof(out), "<U+%04X>", ucs);
+	    }
+	}
+	for (size_t j = 0; j < nout; j++, n++)
+	    if (n + 1 < size)
+		buf[n] = out[j];
+	i += used;
+    }
+    free(tmp);
+    if (size)
+	buf[n < size ? n : size - 1] = '\0';
+    return n > INT_MAX ? -1 : (int) n;
+}
 #endif
 
 /* strlen() using escaped rather than literal form.

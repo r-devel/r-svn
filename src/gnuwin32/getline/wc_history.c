@@ -7,6 +7,7 @@
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #include <R_ext/Error.h>
+#include <winprintf.h> /* to escape %ls the locale cannot represent */
 
 static int	HIST_SIZE = 512;
 static int      hist_pos = 0, hist_last = 0, gl_beep_on = 1;

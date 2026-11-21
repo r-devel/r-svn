@@ -132,10 +132,6 @@ Sys.setlocale (category = "LC_ALL", locale = "")
   Setting it temporarily on a Unix-alike to produce graphical or text
   output may work well enough, but \code{\link{options}(OutDec)} is
   often preferable.
-
-  Almost all the output routines used by \R itself under Windows ignore
-  the setting of \code{"LC_NUMERIC"} since they make use of the Trio
-  library which is not internationalized.
 }
 
 \note{

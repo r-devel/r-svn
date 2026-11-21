@@ -28,7 +28,7 @@
 #include <R_ext/Itermacros.h>
 
 #ifdef Win32
-#include <trioremap.h> /* for %lld */
+#include <winprintf.h>
 #endif
 
 

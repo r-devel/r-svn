@@ -53,6 +53,9 @@
 #include <Rmath.h>
 #include <Print.h>
 #include <R_ext/Itermacros.h> /* for ITERATE_BY_REGION */
+#ifdef Win32
+#include <winprintf.h> /* round as printutils.c does */
+#endif
 
 /* this is just for conformity with other types */
 attribute_hidden
