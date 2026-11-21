@@ -1,7 +1,7 @@
 #  File src/library/methods/R/as.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ as <-
   ## If the `is' relation is FALSE, and `coerceFlag' is `TRUE',
   ## the coerce function will be called (which will throw an error if there is
   ## no valid way to coerce the two objects).  Otherwise, `NULL' is returned.
-  function(object, Class, strict = TRUE, ext = possibleExtends(thisClass, Class))
+  function(object, Class, strict = TRUE, ext)
 {
     thisClass <- .class1(object)
     if(.identC(thisClass, Class) || .identC(Class, "ANY"))
@@ -51,19 +51,24 @@ as <-
             canCache <- TRUE
             inherited <- FALSE
             if(is(object, Class)) {
+                thisClassDef <- getClassDef(thisClass)
                 ClassDef <- getClassDef(Class, where)
+                if (missing(ext))
+                    ext <- possibleExtends(thisClass, Class,
+                                           thisClassDef, ClassDef)
                 ## use the ext information, computed or supplied
-                if(isFALSE(ext))
-                    stop(sprintf("internal problem in as(): %s is(object, \"%s\") is TRUE, but the metadata asserts that the 'is' relation is FALSE",
-                                 dQuote(thisClass), Class),
-                         domain = NA)
-                else if(isTRUE(ext))
+                if (isTRUE(ext))
                     asMethod <- .makeAsMethod(quote(from), TRUE, Class, ClassDef, where)
-                else {
-                  test <- ext@test
-                  asMethod <- .makeAsMethod(ext@coerce, ext@simple, Class, ClassDef, where)
-                  canCache <- (!is.function(test)) || isTRUE(body(test))
-                 }
+                else if (!isFALSE(ext)) {
+                    test <- ext@test
+                    asMethod <- .makeAsMethod(ext@coerce, ext@simple, Class, ClassDef, where)
+                    canCache <- !is.function(test) || isTRUE(body(test))
+                }
+                else if (is.null(thisClassDef))
+                    canCache <- FALSE
+                else stop(gettextf("is(%s, \"%s\") is TRUE but '%s' implies otherwise",
+                                   "object", Class, "ext"),
+                          domain = NA)
             }
             if(is.null(asMethod) && extends(Class, thisClass)) {
                 ClassDef <- getClassDef(Class, where)
@@ -431,9 +436,12 @@ setAs <-
 
 canCoerce <- function(object, Class) {
     is(object, Class) ||
-    !is.null(selectMethod("coerce", c(.class1(object), Class),
-			  optional = TRUE,
-			  useInherited = c(from=TRUE, to=FALSE)))
+    (extends(Class, thisClass <- .class1(object)) &&
+     !identical(getClassDef(Class)@contains[[thisClass]]@replace,
+                .ErrorReplace)) ||
+    !is.null(selectMethod("coerce", c(thisClass, Class),
+                          optional = TRUE,
+                          useInherited = c(TRUE, FALSE)))
 }
 
 ## turn raw function into method for coerce() or coerce<-()

@@ -131,7 +131,7 @@ urlify <- function(x, reserved = FALSE, repeated = FALSE) {
     ## encode otherwise (perhaps utils::URLencode() should be enhanced
     ## accordingly?).
     ##
-    ## According to RFC 3986 <https://www.rfc-editor.org/rfc/rfc3986>, the
+    ## According to RFC 3986 <https://www.rfc-editor.org/info/rfc3986/>, the
     ## reserved characters are
     ##   c(gendelims, subdelims)
     ## with
@@ -182,7 +182,7 @@ urlify <- function(x, reserved = FALSE, repeated = FALSE) {
 
 urlify_email_address <- function(x) {
     ## As per RFC 6068
-    ## <https://www.rfc-editor.org/rfc/rfc6068#section-2> we must
+    ## <https://www.rfc-editor.org/info/rfc6068#section-2> we must
     ## percent encode
     ##   "%"
     ##   from gendelims:   c("/", "?", "#", "[", "]")  
@@ -486,15 +486,10 @@ Rd2HTML <-
             package <- package[1L]
         } else {
             dir <- dirname(package)
-            if(nzchar(dir) &&
+            if(nzchar(dir) && # isn't this always TRUE here?
                file_test("-f", dfile <- file.path(package, "DESCRIPTION"))) {
                 version <- .read_description(dfile)["Version"]
                 package <- basename(package)
-            } else {
-                ## Should we really do this?
-                ## Used when Rdconv is given a package argument.
-                version <- utils::packageDescription(package,
-                                                     fields = "Version")
             }
         }
         if(is.na(version)) version <- ""

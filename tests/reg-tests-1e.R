@@ -15,6 +15,7 @@ getVaW <- function(expr, obj=FALSE) {
                             invokeRestart("muffleWarning") })
     structure(val %||% quote(._NULL_()), warning = W) # NULL cannot have attr.
 }
+all.equal13 <- function(x, y, ...) all.equal(x, y, tolerance = 1e-13, ...)
 options(nwarnings = 10000, # (rather than just 50)
         warn = 2, # only caught or asserted warnings
         width = 99) # instead of 80
@@ -471,10 +472,10 @@ assertWarnV(print(predict(mod2, newdata=nd, rankdeficient = "warnif")))
                   predict(mod2, newdata=nd, rankdeficient = "NA") # NA's but no warning
 nm5 <- as.character(1:5)
 stopifnot(exprs = {
-    all.equal(setNames(rep(0, 5), nm5), predict(mod2), tol=1e-13) # pred: 1.776e-15
+    all.equal13(setNames(rep(0, 5), nm5), predict(mod2)) # pred: 1.776e-15
     is.numeric(p2 <- predict(mod2, newdata = data.frame(y=rep(1,5)))) # no warning, no NA:
     identical(p2,    predict(mod2, newdata = data.frame(y=rep(1,5)), rankdeficient="NA"))
-    all.equal(p2, setNames(rep(1, 5), nm5), tol=1e-13)# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
+    all.equal13(p2, setNames(rep(1, 5), nm5))# off.= x+2y + x-y = 2x+y =4+1=5; 5+<intercept> = 1
 })
 ## fine, using model.offset() now
 
@@ -3732,25 +3733,6 @@ stopifnot(identical(L00, ksmooth(x,y, n.points = 0)))
 ## ditto segfaulted in R <= 4.6.1
 
 
-## malformed ALTREP serialized class metadata
-altrep <- rawToChar(serialize(1:3, NULL, ascii = TRUE))
-marker <- "\n2\n13\n1\n13\n254\n"
-pos <- gregexpr(marker, altrep, fixed = TRUE)[[1L]]
-stopifnot(length(pos) == 1L, pos > 0L)
-replacements <- c("\n2\n13\n1\n8357\n254\n",
-                  "\n2\n14\n1\n13\n254\n",
-                  "\n2\n13\n0\n254\n")
-errs <- lapply(replacements, function(replacement) {
-    serialized <- charToRaw(sub(marker, replacement, altrep, fixed = TRUE))
-    tryCid(unserialize(serialized))
-})
-stopifnot(vapply(errs, inherits, NA, what = "error"),
-          vapply(errs, function(e)
-              grepl("invalid ALTREP serialized class", conditionMessage(e), fixed = TRUE),
-              NA))
-## an invalid type value indexed beyond Type2Table and seg.faulted
-
-
 ## lm(data = .)
 (lmd <- lm(data = swiss))
 stopifnot(all.equal(coef(lmd), tolerance = 1e-4,
@@ -3818,8 +3800,8 @@ fitP <- glm(counts ~ outcome + treatment, family = poisson())
 fit0 <- update(fitP, . ~ outcome)
                  (A1 <- anova(      fitP, test = "Rao"))
                   A2 <- anova(fit0, fitP, test = "Rao")
-stopifnot(identical(A1, anova(fitP,       test = "Ra")),
-          identical(A2, anova(fit0, fitP, test = "Ra")))
+stopifnot(all.equal13(A1, anova(fitP,       test = "Ra")),
+          all.equal13(A2, anova(fit0, fitP, test = "Ra")))
 ## "Ra" gave error  "undefined columns selected"  in  R <= 4.6.1
 
 
@@ -3887,6 +3869,16 @@ local({
 })
 ## same results as before, which took seconds for thousands of duplicates
 
+## available.packages() "CRAN" filter now works with prefixes correctly
+local({
+    op <- options(repos = c(CRAN = CRAN <- "https://cran.example",
+                            notCRAN = notCRAN <- "https://cran.example.invalid"))
+    on.exit(options(op))
+    f <- utils:::available_packages_filters_db$CRAN
+    db <- cbind(Package = "pkg",
+                Repository = contrib.url(c(CRAN, notCRAN), "source"))
+    stopifnot(identical(f(db), db[1,, drop = FALSE]))
+})
 
 ## NULL and negative 'deriv' in predict.smooth.spline() - PR#19190
 ss <- smooth.spline(1:4)
@@ -4195,12 +4187,37 @@ stopifnot(identical(a0$response, 0L),
 ##converted indices to double & replaced NULL components of 'specials' with logical() in R <= 4.6.2
 
 
+## 'delete.response' did not modify optional attribute 'dataClasses'
+t1 <- terms(model.frame(y ~ x, data.frame(x = 0, y = 0)))
+a0 <- attributes(t0 <- delete.response(t1))
+stopifnot(identical(a0$predvars, quote(list(x))),
+          identical(a0$dataClasses, c(x = .MFclass(0))))
+## in R <= 4.6.2
+
+
 ## scan() stripping a UTF-8 BOM from a first field that fills its buffer
 if (l10n_info()[["UTF-8"]]) {
     x <- paste0("\ufeff", strrep("a", 8186L)) # 8189 bytes: buffer size - 3
     stopifnot(identical(scan(text = x, what = "", quiet = TRUE), strrep("a", 8186L)))
 }
 ## read 3 bytes past the end of the field buffer in R <= 4.6.1
+
+## an output textConnection() kept its character vector alive only through
+## the binding of the target name -- PR#19228
+con <- textConnection("out", "w")
+cat("a", file = con)
+rm(out); invisible(gc())
+junk <- lapply(1:2000, function(i) pairlist(i)) # reuse the freed node
+cat("b\n", file = con)
+close(con)
+stopifnot(identical(out, "ab"))
+con <- textConnection("out", "w")
+tools::assertError(textConnection("out", "w")) # locked whilst open, as documented
+close(con)
+stopifnot(!bindingIsLocked("out", environment()))
+## used a freed STRSXP in R <= 4.6.2; second textConnection() silently
+## replaced the first
+
 
 
 ## unzip(*, unzip = "internal") leaks the zip handle on error -- PR#19233
@@ -4221,6 +4238,359 @@ if(dir.exists(dfd <- "/dev/fd")) withAutoprint({
 })          # ^^^^^^^
 unlink(zipfile)
 ## n2 - n1 was 50 in R <= 4.6.2
+
+## parse error after a #line directive read a freed srcfile -- PR#19255
+local({
+    old <- gctorture2(1L)
+    on.exit(gctorture2(old))
+    msg <- tryCatch(str2expression("#line 1 \"srcfile.R\"\n("),
+                    error = conditionMessage)
+    stopifnot(startsWith(msg, "srcfile.R:2:0:"))
+    msg <- tryCatch(parse(text = "#line 1 \"srcfile.R\"\n(", keep.source = TRUE),
+                    error = conditionMessage)
+    stopifnot(startsWith(msg, "srcfile.R:2:0:"))
+})
+## "unprotected object (was STRSXP)" in a checking build of R <= 4.6.2
+
+
+
+## 'drop.terms' and '[.terms' mishandled the optional attributes
+## 'predvars' and 'dataClasses' from terms(model.frame.default(...))
+t1 <- terms(lm(y ~ offset(a) + x1 * x2 + x3 + offset(b),
+               data.frame(y=0, a=0, x1=0, x2=0, x3=0, b=0),
+               weights = 1, offset = 1))
+str(t1, vec.len = 8L) # terms are x1, x2, x3, x1:x2
+t0a <- drop.terms(t1, c(3L, 4L), keep.response = TRUE) # drop x3, x1:x2
+t0b <- t1[ c(1L, 2L)] # should be equivalent
+t0c <- t1[-c(3L, 4L)] # ditto
+v0 <- quote(list(y, x1, x2, offset(a), offset(b)))
+stopifnot(identical(attr(t0a,   "variables"), v0),
+          identical(attr(t0a, "term.labels"), c("x1", "x2")),
+          identical(attr(t0a,    "predvars"), v0), # was FALSE, had:
+          ##   predvars=quote(list(y, offset(a), x1, offset(b)))
+          identical(attr(t0a, "dataClasses") |> names(),
+                    c(as.character(attr(t0a, "predvars")[-1L]),
+                      "(weights)", "(offset)")),
+          identical(t0b, t0a), # was FALSE, had:
+          ##   predvars=quote(list(y, offset(a), x1))
+          ## *and*
+          ##   names(dataClasses)=as.character(predvars[-1L])
+          ## *losing* "(weights)", "(offset)"
+          identical(t0c, t0a))
+## in R <= 4.6.2
+
+
+## S4 methods for 'initialize', .Object="oldClass"|".environment"
+## evaluated arguments of type "symbol" or "call" when dispatching
+## next methods (PR#16629)
+snms <- c("ANY", "name", "call", "expression"); . <- FALSE
+dots <- list(., quote(.), quote(identity(.)), expression(.))
+names(snms) <- names(dots) <- snms
+setOldClass("old")
+setClass("oldWithSlots", contains =         "old", slots = snms)
+setClass("envWithSlots", contains = "environment", slots = snms)
+x <- do.call(new, c(list("oldWithSlots"), dots), quote = TRUE)
+y <- do.call(new, c(list("envWithSlots"), dots), quote = TRUE)
+## was Error in validObject(.Object) :
+##   .... got class "logical", should be or extend class "name"|"call"
+stopifnot(identical(lapply(snms, slot, object = x), dots),
+          identical(lapply(snms, slot, object = y), dots),
+          removeClass("envWithSlots"),
+          removeClass("oldWithSlots"),
+          removeClass("old"))
+## in R <= 4.6.2
+
+
+## S4 methods for 'initialize', .Object="array"|"matrix"|"ts" did not
+## give higher precedence to named components of '...' (PR#14323)
+for (nm in c("array", "matrix", "ts", "numeric")) {
+    nm.sub <- paste0(nm, ".sub")
+    setClass(nm.sub, contains = nm, slots = c(label = "character"))
+    A <- new(nm.sub, new(nm), label = "A")
+    B <- new(nm.sub, new(nm), label = "B")
+    stopifnot(identical(A@label, "A"),
+              identical(B@label, "B"),
+              identical(new(nm.sub, A, label = "B"), B), # 'new' gave A
+              identical(new(nm.sub, B, label = "A"), A), # 'new' gave B
+              removeClass(nm.sub))
+}
+## in R <= 4.6.2
+
+
+## adist(counts = TRUE) with NA elements in 'x'
+local({
+    d <- adist(c(NA, "ab", NA), c("a", "b"), counts = TRUE)
+    cnt <- attr(d, "counts")
+    stopifnot(is.na(cnt[c(1, 3), , ]),
+              cnt[2, , "ins"] == 0L, cnt[2, , "del"] == 1L, cnt[2, , "sub"] == 0L)
+    d <- adist(rep(NA, 100), "a", counts = TRUE)
+    stopifnot(is.na(d), is.na(attr(d, "counts")))
+})
+## wrote past the "counts" array: gave garbage counts or segfaulted in R <= 4.6.2
+
+
+## R CMD check notes repeated entries in one dependency field
+td <- tempfile("pkg"); dir.create(td)
+writeLines(c("Package: pkg", "Version: 1.0",
+             "Imports: utils, stats, utils,",
+             "  Matrix (>= 1.6-0), Matrix(< 1.8-0)",
+             "Suggests: foo, foo (>= 1.0), bar (>= 2.0), bar (>= 2.0)"),
+           file.path(td, "DESCRIPTION"))
+r <- tools:::.check_package_description2(file.path(td, "DESCRIPTION"))
+stopifnot(identical(r$repeated, list(Imports = "utils",
+                                     Suggests = c("foo", "bar"))))
+unlink(td, recursive = TRUE)
+## no NOTE in R <= 4.6.2
+
+
+## str() missing spaces (" ") after "attr(*, "<....>")="  -- PR#18719 (part 2)
+op <- options(keep.source = TRUE)
+dostr <- function(x) { writeLines(A <- capture.output( str(x) )); A }
+chf <- dostr(lf <- list(frml = formula(ChickWeight)))
+chr <- dostr(lr <- local({B <- BOD[FALSE,]; attr(B,"int") <- 2L; list(ref = B)}))
+chF <- dostr(structure(dostr, foo = function(x) foo))
+stopifnot(exprs = {
+    length(chf) == 3L
+    grepl(" $ frml: Class 'form",chf[2], fixed=TRUE) # 1 space
+    grepl("= <environment:",     chf[3], fixed=TRUE) #   "
+    length(chr) == 6L
+    grepl("\"reference\")= chr", chr[5], fixed=TRUE) # 1 space only (had *2* for a while)
+    grepl(      "\"int\")= int", chr[6], fixed=TRUE)
+    grepl("$ ref: ", chr[2], fixed=TRUE) # space after ':'
+    length(chF) == 6L
+    grepl("\"srcref\")= 'srcref'", chF[c(2,5)], fixed=TRUE)
+    grepl("\"srcfile\")= Classes 'srcfilecopy", chF[c(3,6)], fixed=TRUE)
+    grepl("attr(*, \"foo\")= function", chF[4], fixed=TRUE)
+}) ; options(op)
+## space was missing after '<some>:' and '=' in some cases in R <= 4.6.2
+
+
+## methods::evalSource did not create S4 method tables when not caching,
+## so methods::insertSource did not trace S4 methods (PR#15242)
+pkg <- "methods"
+gnm <- "cbind2"
+sig <- c(x = "ANY", y = "ANY")
+def <- function (x, y, ...) NULL
+Fold <- getMethod(gnm, sig)
+sM <- substitute(setMethod(g, s, d), list(g = gnm, s = sig, d = def))
+dput(sM, tf <- tempfile())
+E0 <- evalSource(tf, package = pkg) # cache=FALSE by default
+stopifnot(is(E0, "sourceEnvironment"))
+L0 <- as.list(E0, all.names = TRUE) |> Filter(f = is.environment)
+stopifnot(length(L0) == 1L) # one method table (had zero)
+E1 <- L0[[1L]]
+L1 <- as.list(E1, all.names = TRUE)
+stopifnot(length(L1) == 1L) # one method
+Fnew <- L1[[1L]]
+stopifnot(identical(Fold, getMethod(gnm, sig)), # 'Fnew' not cached
+          identical(Fnew, setDataPart(Fold, `environment<-`(def, E0))))
+insertSource(E0, package = pkg, methods = gnm)
+Fwtr <- getMethod(gnm, sig)
+stopifnot(is(Fwtr, "MethodDefinitionWithTrace"),
+          identical(as(Fwtr, "MethodDefinition"),
+                    `environment<-`(Fnew, environment(Fold))),
+          identical(Fwtr@original, Fold))
+untrace(gnm, signature = sig)
+stopifnot(identical(Fold, getMethod(gnm, sig))) # 'Fold' restored
+## in R <= 4.6.2
+
+
+## smooth(*, "S") mis-reported changes, affecting "3RS3R" and "3RSS" -- PR#19280
+x <- c(0.5, 1, 3, 3, 1, 0)
+sS <- smooth(x, "S")
+(s3RS <- smooth(smooth(x, "3R"), "S"))
+stopifnot(exprs = {
+    attr(sS, "changed") # was FALSE wrongly
+    all.equal13(c(0.5, 1:3, 1:0), c(sS)) # {always}
+    all.equal13(c(s3RS), c(sS))          # ditto
+    all.equal13(c(smooth(x)),         c(smooth(s3RS, "3R")))
+    all.equal13(c(smooth(x, "3RSS")), c(smooth(s3RS, "S")))
+})
+## smooth(x) was identical to x and sS said "NOT changed", in R <= 4.6.2
+
+
+## deriv() and deriv3() when 'function.arg' is a zero-length logical -- PR#19285
+stopifnot(is.expression(deriv (~x^2, "x", logical(0))),
+          is.expression(deriv3(~x^2, "x", logical(0))))
+## segfaulted or returned a function, depending on the build, in R <= 4.6.2
+
+
+## dev.set(1) returns the device it opens, as documented -- PR#19281
+op <- options(device = function(...) pdf(NULL))
+d <- dev.set(1L)
+stopifnot(identical(d, dev.cur()), names(d) == "pdf")
+dev.off(d); options(op)
+## returned c("null device" = 1L) in R <= 4.6.2
+
+
+## str(<difftime>, digits.d = *) -- PR#19294
+(dd <- .difftime(2500+pi, units="days"))
+di <- 1:15
+r <- vapply(di, \(d) capture.output(str(dd, digits.d = d, give.attr = FALSE)), "..")
+writeLines(head(r))
+(fmtd <- vapply(di, \(dig) format(c(dd), digits=dig), ""))
+stopifnot(identical(r, paste("'difftime' num", fmtd)))
+## str() did *not* obey its 'digits.d' argument in  R <= 4.6.*
+
+
+## model.matrix() names an unsuitable factor in the error message -- PR#19148
+(msg <- tryCmsg(model.matrix(y ~ f1, data.frame(y = 1:3, f1 = factor("a")))))
+stopifnot(is.character(msg), grepl("f1", msg))
+## failed from `contrasts<-`(`*tmp*`, ...), hiding the variable, in R <= 4.6.*
+
+
+## as.vector(x, mode="*") <==> as.*(x) for more of our classes
+Pct <- .POSIXct(60, "America/Toronto")
+Plt <- as.POSIXlt(Pct)
+unbalance <- function (x) `attr<-`(x, "balanced", NULL)
+stopifnot(exprs = {
+    identical(as.vector(Pct, "list"), list(Pct))
+    ## was list(60)
+    identical(as.vector(Pct, "character"), "1969-12-31 19:01:00")
+    ## was "60"
+    identical(as.vector(Plt, "list"), list(unbalance(Plt)))
+    ## OK, though should become list(Plt) ... FIXME
+    identical(as.vector(Plt, "character"), "1969-12-31 19:01:00")
+    ## was "list(sec = 0, min = 1, hour = 19, ...)"
+    identical(as.vector(Plt, "double"), 60)
+    ## was Error .... : 'list' object cannot be coerced to type 'double'
+})
+## now more comprehensively ...
+mm <- c("raw", "logical", "integer", "double", "numeric", "complex",
+        "character", "symbol", "name", "pairlist", "list", "expression")
+ff <- mget(paste0("as.", mm), inherits = TRUE); names(ff) <- NULL
+X <- list(0, .Date(0), Pct, as.POSIXlt(Pct), .difftime(60, "secs"),
+          factor("."), data.frame(. = 0))
+J <- rep(list(seq_along(mm)), length(X))
+## for "POSIXlt", test only "double", "numeric", "character", "list"
+J[[4L]] <- c(4L, 5L, 7L, 11L)
+## for "data.frame", test all except for "symbol", "name"
+J[[7L]] <- c(-8L, -9L)
+for (i in seq_along(X)) {
+    x <- X[[i]]
+    j <- J[[i]]
+    stopifnot(identical(lapply(mm[j], Funcall, x = x, f = as.vector),
+                        lapply(ff[j], Funcall, x = x)))
+}
+## remaining tests for "POSIXlt": go via "POSIXct"
+j <- -J[[4L]]
+stopifnot(identical(lapply(mm[j], Funcall, x = Plt, f = as.vector),
+                    lapply(ff[j], Funcall, x = Pct)))
+
+
+## contourLines() and contour() with all-negative z: zmax was initialized to
+## DBL_MIN, so the level perturbation used |min(z)| instead of the range
+z <- -1000 + matrix(c(0, 0.5, 1, 0.5, 1, 1.5, 1, 1.5, 2), 3)
+cl <- contourLines(1:3, 1:3, z, levels = -999)
+cp <- contourLines(1:3, 1:3, z + 2000, levels = 1001) # same surface, shifted
+stopifnot(length(cl) == 1L,
+          all.equal(cl[[1]][c("x", "y")], cp[[1]][c("x", "y")]),
+          all.equal(cl[[1]]$x, c(3, 2, 2, 1), tolerance = 0.01))
+## the contour missed the grid points and no "all z values are equal"
+## warning was given, in R <= 4.6.2
+tools::assertWarning(contourLines(matrix(-1, 3, 3)), verbose = TRUE)
+
+
+## toupper(), encodeString() and strsplit(perl = TRUE) on long strings -- PR#19338
+x <- intToUtf8(rep(0xe9, 2e5)) # marked UTF-8 in any locale
+system.time(toupper(x))      # 1 s or so in R 4.6.2
+system.time(encodeString(x)) # ditto
+y <- strrep("a,", 2e5)
+system.time(sy <- strsplit(y, ",", perl = TRUE)) # ditto
+##  0.003 or so after fixing; were quadratic in the number of characters or pieces
+stopifnot(identical(sy, strsplit(y, ",", fixed = TRUE)))
+for (b in list(0xc3, c(0xe2, 0x82), c(0xf0, 0x9f, 0x98))) { # truncated: still invalid
+    s <- rawToChar(as.raw(c(0x61, b)))
+    Encoding(s) <- "UTF-8"
+    assertErrV(toupper(s))
+}
+
+
+## as.environment(x), pos.to.env(x) for numeric 'x' (PR#19306)
+x <- c(-1L, -1L) # length(x) >= 2
+tools::assertError(as.environment(x)) # returned list
+tools::assertError(pos.to.env(x)) # ditto
+tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus error
+## in R <= 4.6.2
+
+
+## socketSelect() on a socket connection that is not open -- PR#19298
+s <- socketConnection(port = 8083L, open = "")
+msg <- tryCmsg(socketSelect(list(s), timeout = 0))
+close(s)
+stopifnot(is.character(msg), !englishMsgs || grepl("not open", msg))
+## used an uninitialized file descriptor, possibly segfaulting, in R <= 4.6.2
+
+
+## Serializing a wrapper around an ALTREP object incremented the wrapped
+## object's reference count for good, so after its data had been
+## accessed, later access signalled "REFCNT on locked WRAPPER data"
+x <- rnorm(100)
+y <- .Internal(wrap_meta(.Internal(wrap_meta(x, 0L, FALSE)), 0L, FALSE))
+s <- sum(y)
+z <- unserialize(serialize(y, NULL))
+stopifnot(identical(sum(y), s), identical(y * 2, x * 2),
+          identical(z, y))
+## failed in R 4.6.2
+
+
+## as(object, name) for informally defined class(object)[1L],
+## with 'name' in class(object)[-1L] (PR#19023)
+x <- structure(array(0L), class = c("arraySubclass", "array"))
+y <- as.array(x)
+y0 <- as(x, "array", strict = FALSE) # gave ...
+## Error in as(x, "array") :
+##  internal problem in as(): "arraySubclass" is(object, "array")
+##  is TRUE, but the metadata asserts that the 'is' relation is FALSE
+y1 <- as(x, "array") # ditto
+stopifnot(identical(y, x), identical(y0, y), identical(y1, unclass(y)))
+## in R <= 4.6.2
+
+
+## getNamespace{Name,Version}()
+(toolsNV <- c(getNamespaceName("tools"), getNamespaceVersion("tools")))
+stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools")
+## no longer carry (uninformative) names() in R > 4.6.*
+
+
+## an error after saveToConn() opened its connection itself -- PR#19336
+saveToConnObj <- 1
+f <- function(con) {
+    .Internal(saveToConn("saveToConnObj", con, FALSE, NULL, globalenv(), TRUE))
+    stop("after saveToConn")
+}
+for (i in 1:3) {
+    tf <- tempfile(fileext = ".rda")
+    stopifnot(identical(tryCatch(f(file(tf)), error = conditionMessage),
+                        "after saveToConn"))
+    unlink(tf)
+}
+rm(saveToConnObj)
+## segfaulted in R <= 4.6.*
+
+
+## seq.int(..., length.out = n) edge cases
+x <- c(2^.Machine[["double.digits"]], .Machine[["integer.max"]] + 1)
+for (s in list(seq, seq.int))
+for (y in c(-x, x))
+    stopifnot(identical(s(from = y, length.out = 1L), y),
+              identical(s(  to = y, length.out = 1L), y),
+              identical(s(from = y, length.out = 1L, by = 0L), y),
+              identical(s(  to = y, length.out = 1L, by = 0L), y))
+## had some FALSE from computing -x[1L] - 1 and casting -x[2L] to int
+## in R <= 4.6.2
+
+
+## bw.SJ() & co, with a small 'nb', for points 'nb' bins apart -- PR#19351
+local({
+    x <- rep(c(0.024, 1.024), 10)
+    cnt <- function(x, nb) stats:::bw_pair_cnts(x, nb, length(x) > nb/2)[[2]]
+    stopifnot(sum(cnt(x, 41L)) == choose(20, 2), # in C
+              sum(cnt(rep(x, 3), 41L)) == choose(60, 2), # binned in R
+              is.finite(bw.SJ(x, nb = 41)))
+})
+## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
+
 
 
 

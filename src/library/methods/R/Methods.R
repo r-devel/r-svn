@@ -1,7 +1,7 @@
 #  File src/library/methods/R/Methods.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2025 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -168,36 +168,35 @@ setGeneric <-
 	    cmp <- .identicalGeneric(fdef, implicit,
 				     allow.extra.dots =
 				     !nzchar(Sys.getenv("R_SETGENERIC_PICKY_DOTS")))
-            if(isTRUE(cmp)) {
+            cmpT <- isTRUE(cmp)
+            if (cmpT || (is.null(def) && is.null(signature)))
                 fdef <- implicit
-            }  # go ahead silently
-            else if(is.function(implicit)) {
-                thisPName <- if(identical(thisPackage, ".GlobalEnv"))
-                    "the global environment" else paste("package", sQuote(thisPackage))
-                ## choose the implicit unless an explicit def was given
-                if(is.null(def) && is.null(signature)) {
-                    message(gettextf(
-                       "Creating a generic function for %s from %s in %s\n    (from the saved implicit definition)",
-                                     sQuote(name), sQuote(package),
-                                     thisPName), domain = NA)
-                    fdef <- implicit
-                }
-                else {
-                    message(gettextf(
-                         "Creating a new generic function for %s in %s",
-                                     sQuote(name), thisPName),
-                         domain = NA)
-                    fdef@package <- packageSlot(fdef@generic) <- packageSlot(environment(fdef)$.Generic) <- thisPackage
-                }
+            else
+                fdef@package <-
+                    packageSlot(fdef@generic) <-
+                    packageSlot(environment(fdef)[[".Generic"]]) <-
+                    thisPackage
+            msg <-
+            if (identical(thisPackage, ".GlobalEnv"))
+                gettextf("creating formal generic function '%s' in global environment",
+                         name)
+            else
+                gettextf("creating formal generic function '%s' in package '%s'",
+                         name, thisPackage)
+            if (!(cmpT && identical(package, "base"))) {
+                msg. <-
+                if (cmpT || (is.null(def) && is.null(signature)))
+                    gettextf("using implicit definition in package '%s'",
+                             package)
+                else
+                    gettextf("ignoring implicit definition in package '%s'",
+                             package)
+                msg <- c(msg, msg.)
             }
-            else { # generic prohibited
-                warning(gettextf(
-			"no generic version of %s on package %s is allowed;\n   a new generic will be assigned for %s",
-                                 sQuote(name), sQuote(package),
-                                 thisPName),
-                        domain = NA)
-                fdef@package <- packageSlot(fdef@generic) <- packageSlot(environment(fdef)$.Generic) <- thisPackage
-            }
+            ## Allow suppression by 'suppressPackageStartupMessages',
+            ## as some packages call 'setGeneric' from their load hook
+            packageStartupMessage(paste(msg, collapse = "\n  "),
+                                  domain = NA)
         }
     }
     if(identical(fdef@signature, "..."))
@@ -474,20 +473,7 @@ setMethod <-
     if(!hasMethods) {
         ## create using the visible non-generic as a pattern and default method
         setGeneric(f, where = where)
-        doMessage <- !isS3Generic(fdef)
         fdef <- getGeneric(f, where = where)
-        if(doMessage) {
-            thisPackage <- getPackageName(where)
-            thisPName <- if(identical(thisPackage, ".GlobalEnv"))
-                             "the global environment" else paste("package", sQuote(thisPackage))
-            if(identical(as.character(fdef@package), thisPackage))
-                message(gettextf("Creating a generic function from function %s in %s",
-                                 sQuote(f), thisPName), domain = NA)
-            else
-                message(gettextf("Creating a generic function for %s from package %s in %s",
-                                 sQuote(f), sQuote(fdef@package), thisPName),
-                        domain = NA)
-        }
     }
     else if(identical(gwhere, NA)) {
         ## better be a primitive since getGeneric returned a generic, but none was found
@@ -574,6 +560,7 @@ setMethod <-
             .addToMetaTable(fdef, signature, definition, where, nSig)
         resetGeneric(f, fdef, mtable, gwhere, deflt) # Note: gwhere not used by resetGeneric
     }
+    else .addToMetaTable(fdef, signature, definition, where, nSig)
     ## assigns the methodslist object
     ## and deals with flags for primitives & for updating group members
     assignMethodsMetaData(f, whereMethods, fdef, where)
@@ -1481,7 +1468,9 @@ registerImplicitGenerics <- function(what = .ImplicitGenericsTable(where),
     ## xtra... <- FALSE
     if(!identical(formals(f1d), formals(f2d))) {
 	a1 <- names(formals(f1d)); a2 <- names(formals(f2d))
-	if(identical(a1, a2))
+	if(identical(a1, a2) ||
+	   (identical(c(a1, "..."), a2) && allow.extra.dots &&
+	    !identical(`length<-`(formals(f2d), length(a1)), formals(f1d))))
 	    return(gettext("formal arguments differ (in default values?)"))
 	else if(identical(c(a1, "..."), a2) && allow.extra.dots)
             ## silently accept an extra "..."

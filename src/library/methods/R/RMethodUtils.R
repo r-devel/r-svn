@@ -339,6 +339,7 @@ rematchDefinition <- function(definition, generic, mnames, fnames, signature)
     if(!added && keepsDots) {
         ## the formal args of the method must be identical to generic
         formals(definition) <- formals(generic)
+        attr(body(definition), "srcref") <- NULL
         return(definition)
     }
     dotsPos <- match("...", fnames)
@@ -892,11 +893,11 @@ cacheMetaData <-
             fdef <- getGeneric(f, FALSE, searchWhere, fpkg)
         if(!is(fdef, "genericFunction"))
             next ## silently ignores all generics not visible from searchWhere
-        if(attach) {
+        if (attach)
             .cacheGeneric(f, fdef)
-        } else
-            .uncacheGeneric(f, fdef)
         methods <- .updateMethodsInTable(fdef, where, attach)
+        if (!attach && identical(fpkg, pkg))
+            .uncacheGeneric(f, fdef)
         cacheGenericsMetaData(f, fdef, attach, where, fdef@package, methods)
         if(.tr) message("--- done getting generic ", sQuote(f))
     }
@@ -1941,8 +1942,8 @@ evalqOnLoad <- function(expr, where = topenv(parent.frame()), aname = "")
 ## a primitive or a function calling UseMethod()
 isS3Generic <- function(fdef) {
     switch(typeof(fdef),
-           "special" = FALSE,
-           "builtin" = TRUE,
-           ## otherwise:
-           "UseMethod" %in% .getGlobalFuns(fdef)) # from refClass.R
+           "special" =     , # rep, round, ...
+           "builtin" = TRUE, # c, trunc, ...
+           "closure" = "UseMethod" %in% .getGlobalFuns(fdef),
+           FALSE)
 }
