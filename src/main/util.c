@@ -1511,7 +1511,7 @@ size_t utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
 	    *p = (R_wchar_t) local;
 	    if (m < 0) error(_("invalid input '%s' in 'utf8towcs32'"), s);
 	    if (m == 0) break;
-	    if (IS_HIGH_SURROGATE(*p)) *p = utf8toucs32(*p, s);
+	    if (IS_HIGH_SURROGATE(*p)) *p = utf8toucs32(*p, t);
 	    res ++;
 	    if (res >= n) break;
 	}
