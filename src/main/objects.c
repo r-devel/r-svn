@@ -42,9 +42,9 @@ static SEXP GetObject(RCNTXT *cptr)
     tag = TAG(formals);
     if (tag != R_NilValue && tag != R_DotsSymbol) {
 	s = NULL;
-	/** exact matches **/
+	/** exact matches: same symbol = same name **/
 	for (b = cptr->promargs ; b != R_NilValue ; b = CDR(b))
-	    if (TAG(b) != R_NilValue && pmatch(tag, TAG(b), 1)) {
+	    if (TAG(b) == tag) {
 		if (s != NULL)
 		    error(_("formal argument \"%s\" matched by multiple actual arguments"),
 		          CHAR(PRINTNAME(tag)));
