@@ -1384,7 +1384,13 @@ utf8toucs32(wchar_t high, const char *s)
 }
 
 /* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows)
-   only the high surrogate is returned; call utf8toutf16low next. */
+   only the high surrogate is returned; call utf8toutf16low next.
+
+   There is no length check: NUL is never a continuation byte, and each
+   && chain below stops at the first byte that is not one, so a sequence
+   cut short by the terminator gives (size_t)-1 without reading past it.
+   Callers decode a string one character at a time, so checking with
+   strlen(s) here would make them quadratic. */
 size_t
 utf8toucs(wchar_t *wc, const char *s)
 {

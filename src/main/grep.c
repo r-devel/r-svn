@@ -868,6 +868,11 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		   not needing to call strlen() again */
 		size_t buflen = strlen(buf);
 		/* find out how many splits there will be */
+		/* Both passes give the matcher the remaining length:
+		   strlen(bufp), or PCRE2_ZERO_TERMINATED, which has
+		   pcre2_match() call strlen(), costs time quadratic in the
+		   number of tokens. */
+		size_t buflen = strlen(buf);
 		ntok = 0;
 		bufp = buf;
 		if (*bufp) {
