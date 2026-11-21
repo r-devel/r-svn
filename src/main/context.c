@@ -28,9 +28,10 @@
  *	^				     ^
  *	R_GlobalContext			     R_ToplevelContext
  *
- *  Contexts are allocated on the stack as the evaluator invokes itself
- *  recursively.  The memory is reclaimed naturally on return through
- *  the recursions (the R_GlobalContext pointer needs adjustment).
+ *  Contexts are allocated on a stack of their own as the evaluator
+ *  invokes itself recursively.  endcontext() releases a context on a
+ *  normal return; a non-local jump releases every context above its
+ *  target by restoring the stack position saved in the target.
  *
  *  A context contains the following information (and more):
  *
@@ -72,17 +73,18 @@
  *
  *  A context is created with a call to
  *
- *	void begincontext(RCNTXT *cptr, int flags,
- *			  SEXP syscall, SEXP env, SEXP
- *			  sysp, SEXP promargs, SEXP callfun)
+ *	RCNTXT *begincontext(int flags,
+ *			     SEXP syscall, SEXP env, SEXP
+ *			     sysp, SEXP promargs, SEXP callfun)
  *
- *  which sets up the context pointed to by cptr in the appropriate way.
- *  When the context goes "out-of-scope" a call to
+ *  which allocates it on the context stack and sets it up in the
+ *  appropriate way; simplecontext() and codecontext() are shorthands
+ *  for common kinds.  When the context goes "out-of-scope" a call to
  *
  *	void endcontext(RCNTXT *cptr)
  *
  *  restores the previous context (i.e. it adjusts the R_GlobalContext
- *  pointer).
+ *  pointer) and releases the context.
  *
  *  The non-local jump to a given context takes place in a call to
  *
@@ -110,6 +112,64 @@
 #define R_USE_SIGNALS 1
 #include <Defn.h>
 #include <Internal.h>
+
+/* Contexts live on a stack of their own, allocated once at startup, so
+   active contexts never move. A context is released by endcontext() or
+   by a jump to an older context.
+
+   begincontext() must not fail, since callers rely on that, e.g. to
+   change state just before it or to set up an unwind target without
+   allocating. So a reserve of CNTXT_RESERVE contexts follows the
+   R_CNTXTSTACKSIZE usable ones, like the red zone of the protect stack:
+   when the stack moves into it, the evaluation depth limit is lowered to
+   the current depth. The next evaluation then fails the depth check,
+   which raises a pre-allocated context stack overflow error, while the
+   reserve holds the contexts its handling needs. Returning below the
+   reserve before that restores the limit, and so does any jump. */
+
+#ifndef R_CNTXTSTACKSIZE
+# define R_CNTXTSTACKSIZE 16384
+#endif
+#define CNTXT_RESERVE 512
+
+static RCNTXT *R_CntxtStackBase = NULL;
+static RCNTXT *R_CntxtStackTop = NULL;
+static RCNTXT *R_CntxtStackReserve = NULL; /* start of the reserve */
+static RCNTXT *R_CntxtStackEnd = NULL;
+
+attribute_hidden void R_InitContextStack(void)
+{
+    R_CntxtStackBase =
+	malloc((R_CNTXTSTACKSIZE + CNTXT_RESERVE) * sizeof(RCNTXT));
+    if (R_CntxtStackBase == NULL)
+	R_Suicide("cannot allocate the context stack");
+    R_CntxtStackTop = R_CntxtStackBase;
+    R_CntxtStackReserve = R_CntxtStackBase + R_CNTXTSTACKSIZE;
+    R_CntxtStackEnd = R_CntxtStackReserve + CNTXT_RESERVE;
+}
+
+/* Make 'top' the top of the context stack; NULL is the bottom. */
+static void resetContextStack(RCNTXT *top)
+{
+    R_CntxtStackTop = top == NULL ? R_CntxtStackBase : top;
+    if (R_Expressions < R_Expressions_keep &&
+	R_CntxtStackTop <= R_CntxtStackReserve)
+	/* back below the reserve before an evaluation reported it */
+	R_Expressions = R_Expressions_keep;
+}
+
+static RCNTXT *allocContext(void)
+{
+    if (R_CntxtStackTop >= R_CntxtStackReserve) {
+	if (R_CntxtStackTop == R_CntxtStackEnd)
+	    /* the reserve is used up as well */
+	    R_Suicide("context stack overflow");
+	if (R_CntxtStackTop == R_CntxtStackReserve)
+	    /* moving into the reserve: fail the next evaluation depth check */
+	    R_Expressions = R_EvalDepth;
+    }
+    return R_CntxtStackTop++;
+}
 
 /* R_run_onexits - runs the conexit/cend code for all contexts from
    R_GlobalContext down to but not including the argument context.
@@ -191,6 +251,7 @@ static void R_restore_globals(RCNTXT *cptr)
        handling a stack overflow. */
     R_Expressions = R_Expressions_keep;
     R_BCNodeStackTop = cptr->nodestack;
+    resetContextStack(cptr->cntxtstacktop);
     R_Srcref = cptr->srcref;
     R_BCProtReset(cptr->bcprottop);
 }
@@ -247,11 +308,14 @@ NORET attribute_hidden void R_jumpctxt(RCNTXT * targetcptr, int mask, SEXP val)
 
 /* begincontext - begin an execution context */
 
-/* begincontext and endcontext are used in dataentry.c and modules */
-void begincontext(RCNTXT * cptr, int flags,
-		  SEXP syscall, SEXP env, SEXP sysp,
-		  SEXP promargs, SEXP callfun)
+/* begincontext and endcontext are also used in base packages and
+   modules. The caller sets the jump target, with
+   SETJMP(cntxt->cjmpbuf). */
+RCNTXT *begincontext(int flags,
+		     SEXP syscall, SEXP env, SEXP sysp,
+		     SEXP promargs, SEXP callfun)
 {
+    RCNTXT *cptr = allocContext();
     cptr->cstacktop = R_PPStackTop;
     cptr->gcenabled = R_GCEnabled;
     cptr->relpc = R_BCRelPC(R_BCbody, R_BCpc);
@@ -274,6 +338,7 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->restartstack = R_RestartStack;
     cptr->prstack = R_PendingPromises;
     cptr->nodestack = R_BCNodeStackTop;
+    cptr->cntxtstacktop = R_CntxtStackTop;
     cptr->bcprottop = R_BCProtTop;
     cptr->srcref = R_Srcref;
     cptr->browserfinish = R_GlobalContext->browserfinish;
@@ -283,10 +348,17 @@ void begincontext(RCNTXT * cptr, int flags,
     cptr->jumpmask = 0;
 
     R_GlobalContext = cptr;
+    return cptr;
 }
 
 
-/* endcontext - end an execution context */
+/* endcontext - end an execution context and release it
+
+   The context must not be used afterwards. A caller that needs its
+   returnValue reads it just before the call: endcontext() returns only
+   once the value is final, because a return() in on.exit code jumps
+   back to the context, whose handler stores the new value and calls
+   endcontext() again. */
 
 void endcontext(RCNTXT * cptr)
 {
@@ -329,6 +401,25 @@ void endcontext(RCNTXT * cptr)
 	R_jumpctxt(jumptarget, cptr->jumpmask, R_ReturnedValue);
 
     R_GlobalContext = cptr->nextcontext;
+    resetContextStack(cptr);
+}
+
+
+/* A context without a call or a function, such as a loop or a
+   restart target */
+RCNTXT *simplecontext(int flags, SEXP env)
+{
+    return begincontext(flags, R_NilValue, env, R_BaseEnv,
+			R_NilValue, R_NilValue);
+}
+
+/* A context that only runs cend(cenddata) if it is jumped over */
+RCNTXT *codecontext(void (*cend)(void *), void *cenddata)
+{
+    RCNTXT *cptr = simplecontext(CTXT_CCODE, R_BaseEnv);
+    cptr->cend = cend;
+    cptr->cenddata = cenddata;
+    return cptr;
 }
 
 
@@ -782,7 +873,7 @@ RCNTXT *R_findParentContext(RCNTXT *cptr, int n)
 
 Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
 {
-    RCNTXT thiscontext;
+    RCNTXT *thiscontext;
     RCNTXT * volatile saveToplevelContext;
     volatile SEXP topExp, oldHStack, oldRStack, oldRVal;
     volatile Rboolean oldvis;
@@ -798,16 +889,15 @@ Rboolean R_ToplevelExec(void (*fun)(void *), void *data)
     R_RestartStack = R_NilValue;
     saveToplevelContext = R_ToplevelContext;
 
-    begincontext(&thiscontext, CTXT_TOPLEVEL, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    if (SETJMP(thiscontext.cjmpbuf))
+    thiscontext = simplecontext(CTXT_TOPLEVEL, R_GlobalEnv);
+    if (SETJMP(thiscontext->cjmpbuf))
 	result = FALSE;
     else {
-	R_GlobalContext = R_ToplevelContext = &thiscontext;
+	R_GlobalContext = R_ToplevelContext = thiscontext;
 	fun(data);
 	result = TRUE;
     }
-    endcontext(&thiscontext);
+    endcontext(thiscontext);
 
     R_ToplevelContext = saveToplevelContext;
     R_CurrentExpr = topExp;
@@ -913,17 +1003,14 @@ SEXP R_tryEvalSilent(SEXP e, SEXP env, int *ErrorOccurred)
 SEXP R_ExecWithCleanup(SEXP (*fun)(void *), void *data,
 		       void (*cleanfun)(void *), void *cleandata)
 {
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     SEXP result;
 
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = cleanfun;
-    cntxt.cenddata = cleandata;
+    cntxt = codecontext(cleanfun, cleandata);
 
     PROTECT(result = fun(data));
     cleanfun(cleandata);
-    endcontext(&cntxt);
+    endcontext(cntxt);
     UNPROTECT(1);
 
     return result;
@@ -955,7 +1042,7 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 		     void (*cleanfun)(void *data, Rboolean jump),
 		     void *cleandata, SEXP cont)
 {
-    RCNTXT thiscontext;
+    RCNTXT *thiscontext;
     volatile SEXP result;
     Rboolean jump;
 
@@ -970,22 +1057,21 @@ SEXP R_UnwindProtect(SEXP (*fun)(void *data), void *data,
 	return result;
     }
 
-    begincontext(&thiscontext, CTXT_UNWIND, R_NilValue, R_GlobalEnv,
-		 R_BaseEnv, R_NilValue, R_NilValue);
-    if (SETJMP(thiscontext.cjmpbuf)) {
+    thiscontext = simplecontext(CTXT_UNWIND, R_GlobalEnv);
+    if (SETJMP(thiscontext->cjmpbuf)) {
 	jump = TRUE;
 	SETCAR(cont, R_ReturnedValue);
 	unwind_cont_t *u = RAWDATA(CDR(cont));
-	u->jumpmask = thiscontext.jumpmask;
-	u->jumptarget = thiscontext.jumptarget;
-	thiscontext.jumptarget = NULL;
+	u->jumpmask = thiscontext->jumpmask;
+	u->jumptarget = thiscontext->jumptarget;
+	thiscontext->jumptarget = NULL;
     }
     else {
 	result = fun(data);
 	SETCAR(cont, result);
 	jump = FALSE;
     }
-    endcontext(&thiscontext);
+    endcontext(thiscontext);
 
     cleanfun(cleandata, jump);
 

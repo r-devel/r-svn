@@ -4599,8 +4599,8 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     bool wasopen, fragment;
     int ifile, wcall;
     ParseStatus status;
-    RCNTXT conn_cntxt;
-    RCNTXT state_cntxt;
+    RCNTXT *conn_cntxt;
+    RCNTXT *state_cntxt;
     SEXP macros;
 
 #if DEBUGMODE
@@ -4625,10 +4625,7 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
     PushState();
     /* PopState() below is skipped when the parse is abandoned by a long jump,
        so arrange for it to run on that path too. */
-    begincontext(&state_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    state_cntxt.cend = &PopStateOnError;
-    state_cntxt.cenddata = NULL;
+    state_cntxt = codecontext(&PopStateOnError, NULL);
 
     ifile = asInteger(CAR(args));                       args = CDR(args);
 
@@ -4653,23 +4650,20 @@ SEXP parseRd(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!wasopen) {
 	    if(!con->open(con)) error(_("cannot open the connection"));
 	    /* Set up a context which will close the connection on error */
-	    begincontext(&conn_cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-			 R_NilValue, R_NilValue);
-	    conn_cntxt.cend = &con_cleanup;
-	    conn_cntxt.cenddata = con;
+	    conn_cntxt = codecontext(&con_cleanup, con);
 	}
 	if(!con->canread) error(_("cannot read from this connection"));
 	s = R_ParseRd(con, &status, source, fragment, macros);
-	if(!wasopen) endcontext(&conn_cntxt);
+	if(!wasopen) endcontext(conn_cntxt);
 	PopState();
 	/* End the context before parseError(), so its long jump cannot run
 	   PopStateOnError() a second time. */
-	endcontext(&state_cntxt);
+	endcontext(state_cntxt);
 	if (status != PARSE_OK) parseError(call, R_ParseError);
     }
     else {
       PopState();
-      endcontext(&state_cntxt);
+      endcontext(state_cntxt);
       error(_("invalid Rd file"));
     }
     return s;

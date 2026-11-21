@@ -391,11 +391,7 @@ in_do_curlGetHeaders(SEXP call, SEXP op, SEXP args, SEXP rho)
 	error(_("could not create curl handle"));
     /* Set up a context which will free the handle on error (also from
        curlCommon) */
-    RCNTXT cntxt;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    cntxt.cend = &handle_cleanup;
-    cntxt.cenddata = hnd;
+    RCNTXT *cntxt = codecontext(&handle_cleanup, hnd);
     curl_easy_setopt(hnd, CURLOPT_URL, url);
     curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
     curl_easy_setopt(hnd, CURLOPT_NOBODY, 1L);
@@ -444,7 +440,7 @@ in_do_curlGetHeaders(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     long http_code = 0;
     curl_easy_getinfo (hnd, CURLINFO_RESPONSE_CODE, &http_code);
-    endcontext(&cntxt);
+    endcontext(cntxt);
     curl_easy_cleanup(hnd);
 
     SEXP ans = PROTECT(allocVector(STRSXP, used));
@@ -477,7 +473,7 @@ typedef struct {
     window wprog;
     progressbar pb;
     label l_url;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     int pc;
 } winprogressbar;
 
@@ -870,7 +866,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     int quiet, cacheOK;
     struct curl_slist *headers = NULL;
     const void *vmax = vmaxget();
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     download_cleanup_info c;
 
     scmd = CAR(args); args = CDR(args);
@@ -920,10 +916,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     c.pbar = NULL;
 #endif
     c.headers = NULL;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    cntxt.cend = &download_cleanup;
-    cntxt.cenddata = &c;
+    cntxt = codecontext(&download_cleanup, &c);
     if(TYPEOF(sheaders) != NILSXP) {
 	for (int i = 0; i < LENGTH(sheaders); i++) {
 	    struct curl_slist *tmp =
@@ -1002,7 +995,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (!single) current_time = currentTime();
     if (download_add_one_url(&next_url, scmd, mode, quiet, single, &c)) {
         // no dest files could be opened, so bail out
-        endcontext(&cntxt);
+        endcontext(cntxt);
         download_cleanup(&c);
         vmaxset(vmax);
 	return ScalarInteger(1);
@@ -1116,7 +1109,7 @@ in_do_curlDownload(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    error(_("download from '%s' failed"),
 	          translateChar(STRING_ELT(scmd, 0)));
     }
-    endcontext(&cntxt);
+    endcontext(cntxt);
     download_cleanup(&c);
     vmaxset(vmax);
     SEXP ans = ScalarInteger(0);
@@ -1293,11 +1286,7 @@ static Rboolean Curl_open(Rconnection con)
 	error(_("could not create curl handle"));
     /* Set up a context which will free the handle on error (also from
        curlCommon) */
-    RCNTXT cntxt;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    cntxt.cend = &handle_cleanup;
-    cntxt.cenddata = ctxt->hnd;
+    RCNTXT *cntxt = codecontext(&handle_cleanup, ctxt->hnd);
     curl_easy_setopt(ctxt->hnd, CURLOPT_URL, url);
     curl_easy_setopt(ctxt->hnd, CURLOPT_FAILONERROR, 1L);
     curlCommon(ctxt->hnd, 1, 1);
@@ -1322,7 +1311,7 @@ static Rboolean Curl_open(Rconnection con)
     // Establish the connection: not clear if we should do this now.
     ctxt->sr = 1;
     int n_err = 0;
-    endcontext(&cntxt); /* from now leave ctxt->hnd cleanup to GC */
+    endcontext(cntxt); /* from now leave ctxt->hnd cleanup to GC */
     con->isopen = TRUE; /* enable GC cleanup of opened connections */
     while(ctxt->sr && !ctxt->available)
 	/* FIXME: A an error from fetchData() or a warning turned into error

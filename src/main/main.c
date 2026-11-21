@@ -80,9 +80,9 @@ static void R_ReplFile(FILE *fp, SEXP rho)
 {
     ParseStatus status;
     int savestack;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
-    R_InitSrcRefState(&cntxt);
+    cntxt = R_InitSrcRefState();
     savestack = R_PPStackTop;
     for(;;) {
 	R_PPStackTop = savestack;
@@ -108,7 +108,7 @@ static void R_ReplFile(FILE *fp, SEXP rho)
 	    parseError(R_NilValue, R_ParseError);
 	    break;
 	case PARSE_EOF:
-	    endcontext(&cntxt);
+	    endcontext(cntxt);
 	    R_FinalizeSrcRefState();
 	    return;
 	    break;
@@ -1024,6 +1024,7 @@ void setup_Rmainloop(void)
     R_Toplevel.conexit = R_NilValue;
     R_Toplevel.vmax = NULL;
     R_Toplevel.nodestack = R_BCNodeStackTop;
+    R_Toplevel.cntxtstacktop = NULL; /* the bottom of the context stack */
     R_Toplevel.bcprottop = R_BCProtTop;
     R_Toplevel.cend = NULL;
     R_Toplevel.cenddata = NULL;
@@ -1409,7 +1410,9 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     RCNTXT *saveToplevelContext;
     RCNTXT *saveGlobalContext;
-    RCNTXT thiscontext, returncontext, *cptr;
+    RCNTXT *thiscontext;
+    RCNTXT *returncontext;
+    RCNTXT *cptr;
     int savestack, browselevel;
     SEXP ap, topExp, argList;
 
@@ -1510,18 +1513,17 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     /* browser prompt.  The (optional) second one */
     /* acts as a target for error returns. */
 
-    begincontext(&returncontext, CTXT_BROWSER, call, rho,
-		 R_BaseEnv, argList, R_NilValue);
-    if (!SETJMP(returncontext.cjmpbuf)) {
-	begincontext(&thiscontext, CTXT_RESTART, R_NilValue, rho,
-		     R_BaseEnv, R_NilValue, R_NilValue);
-	if (SETJMP(thiscontext.cjmpbuf)) {
-	    SET_RESTART_BIT_ON(thiscontext.callflag);
+    returncontext = begincontext(CTXT_BROWSER, call, rho,
+				 R_BaseEnv, argList, R_NilValue);
+    if (!SETJMP(returncontext->cjmpbuf)) {
+	thiscontext = simplecontext(CTXT_RESTART, rho);
+	if (SETJMP(thiscontext->cjmpbuf)) {
+	    SET_RESTART_BIT_ON(thiscontext->callflag);
 	    R_ReturnedValue = R_NilValue;
 	    R_Visible = FALSE;
 	}
-	R_GlobalContext = &thiscontext;
-	R_InsertRestartHandlers(&thiscontext, "browser");
+	R_GlobalContext = thiscontext;
+	R_InsertRestartHandlers(thiscontext, "browser");
 #ifdef USE_BROWSER_HOOK
 	/* if a browser hook is provided, call it and use the result */
 	SEXP hook = ignoreHook ?
@@ -1539,9 +1541,9 @@ attribute_hidden SEXP do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
 #else
 	R_ReplConsole(rho, savestack, browselevel + 1);
 #endif
-	endcontext(&thiscontext);
+	endcontext(thiscontext);
     }
-    endcontext(&returncontext);
+    endcontext(returncontext);
 
     /* Reset the interpreter state. */
 

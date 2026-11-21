@@ -236,7 +236,7 @@ SEXP Win_dataentry(SEXP args)
     SEXP colmodes, tnames, tvec, tvec2, work2;
     SEXPTYPE type;
     int i, j, cnt, len, nprotect;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     char clab[25];
     destruct DE1;
     DEstruct DE = &DE1;
@@ -311,10 +311,7 @@ SEXP Win_dataentry(SEXP args)
     R_de_up = TRUE;
 
     /* set up a context which will close the window if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &de_closewin_cend;
-    cntxt.cenddata = (void *)DE;
+    cntxt = codecontext(&de_closewin_cend, (void *)DE);
 
     highlightrect(DE);
 
@@ -324,7 +321,7 @@ SEXP Win_dataentry(SEXP args)
 	R_ProcessEvents();
     }
 
-    endcontext(&cntxt);
+    endcontext(cntxt);
 
     /* drop out unused columns */
     for(i = 0, cnt = 0; i < DE->xmaxused; i++)
@@ -1885,7 +1882,7 @@ SEXP Win_dataviewer(SEXP args)
     SEXP stitle;
     SEXPTYPE type;
     int i, nprotect;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     DEstruct DE = (DEstruct) malloc(sizeof(destruct));
     if (!DE)
 	error(G_("dataentry: internal memory problem"));
@@ -1939,14 +1936,11 @@ SEXP Win_dataviewer(SEXP args)
 	error("unable to start data viewer");
 
     /* set up a context which will close the window if there is an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &dv_closewin_cend;
-    cntxt.cenddata = (void *)DE;
+    cntxt = codecontext(&dv_closewin_cend, (void *)DE);
 
     R_PreserveObject(DE->work); /* also preserves names */
     R_PreserveObject(DE->lens);
-    endcontext(&cntxt);
+    endcontext(cntxt);
     UNPROTECT(nprotect);
     return R_NilValue;
 }
