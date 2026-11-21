@@ -1617,6 +1617,12 @@ static void *wrapper_Dataptr(SEXP x, Rboolean writeable)
 
 static const void *wrapper_Dataptr_or_null(SEXP x)
 {
+    /* A pointer to data that is shared and not yet locked would need
+       a duplicate; report that none is available, so callers read
+       through Get_region or Elt instead. */
+    if (! WRAPPER_DATA_IS_LOCKED(x) && MAYBE_SHARED(WRAPPER_WRAPPED(x)))
+	return NULL;
+
     /* This has to lock the data as above. */
     return DATAPTR_OR_NULL(WRAPPER_WRAPPED_LOCKED(x));
 }

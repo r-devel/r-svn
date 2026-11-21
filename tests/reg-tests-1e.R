@@ -4543,6 +4543,14 @@ stopifnot(!.Internal(sorted_fpass(x, FALSE, FALSE)), is.unsorted(x))
 ## sum(x) dropped the metadata in R 4.6.2
 
 
+## DATAPTR_OR_NULL() readers do not duplicate a wrapper's shared data -- PR#19356
+x <- rep(1:5, 20)
+y <- structure(x, a = 1)
+stopifnot(identical(sum(y), 300L),
+          grepl("lck=0", capture.output(.Internal(inspect(y)))[1L], fixed = TRUE))
+## sum(y) duplicated the data of x in R 4.6.2
+
+
 ## as(object, name) for informally defined class(object)[1L],
 ## with 'name' in class(object)[-1L] (PR#19023)
 x <- structure(array(0L), class = c("arraySubclass", "array"))
