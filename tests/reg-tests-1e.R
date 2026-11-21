@@ -4581,6 +4581,19 @@ for (y in c(-x, x))
 ## in R <= 4.6.2
 
 
+## an error in a clipping path function left the PDF device locked -- PR#19335
+pdf(tf <- tempfile(fileext = ".pdf"))
+plot.new()
+try(grDevices:::.setClipPath(function() stop("no path"), NULL), silent = TRUE)
+w <- NULL
+withCallingHandlers(dev.off(), warning = function(e) {
+    w <<- conditionMessage(e)
+    invokeRestart("muffleWarning")
+})
+stopifnot(is.null(w))
+unlink(tf)
+## dev.off() warned "Killing locked device" in R <= 4.6.*
+
 
 
 ## keep at end
