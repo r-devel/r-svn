@@ -420,7 +420,7 @@ stopifnot(identical(unserialize(serialize(x, NULL)), x))
 ## returned a dotted pair whose names() crashed R in R <= 4.6.2
 
 
-## parse_Rd() must free a grown token buffer when lexing the token fails
+## parse_Rd() must free a grown token buffer when lexing the token fails -- PR#19360
 local({
     txt <- paste0("\\", strrep("a", 10001L))
     for (fragment in c(FALSE, TRUE))
