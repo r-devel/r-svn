@@ -420,7 +420,7 @@ stopifnot(identical(unserialize(serialize(x, NULL)), x))
 ## returned a dotted pair whose names() crashed R in R <= 4.6.2
 
 
-## parse_Rd() reporting a syntax error at a long token
+## parse_Rd() reporting a syntax error at a long token -- PR#19361
 local({
     txt <- c("\\name{x}",
              paste0("\\description{\\link[{x}", strrep("a", 300L), "]{y}}"))
