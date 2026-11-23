@@ -460,6 +460,12 @@ for (st in list(c(-10, 1, 1), 10, c(10, 1), c(10, 1, 2), c(NaN, 1, 1),
 ## gave negative lengths, integer overflow or out-of-bounds reads in R <= 4.6.2
 
 
+## terms() of a term starting with the empty symbol
+tt <- terms(eval(call("~", call(":", quote(expr = ), quote(b)))))
+stopifnot(identical(attr(tt, "term.labels"), ":b"))
+## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
