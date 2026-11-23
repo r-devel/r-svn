@@ -4592,7 +4592,7 @@ local({
 ## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
 
 
-## logical subscripts whose index is counted and filled in blocks of 64 and 8
+## logical subscripts, counted and filled in blocks of 64 and 8 -- PR#19364
 local({
     lglIndex <- function(l) { # what x[l] selects, element by element
         r <- integer()
@@ -4600,13 +4600,19 @@ local({
             if (is.na(l[[i]])) r <- c(r, NA) else if (l[[i]]) r <- c(r, i)
         r
     }
-    chk <- function(l) {
-        x <- seq_along(l) + 0.5
-        r <- lglIndex(l)
+    chk <- function(l, n = length(l)) { # l is recycled to, or stretches, n
+        x <- seq_len(n) + 0.5
+        nmax <- max(n, length(l))
+        r <- lglIndex(rep_len(l, nmax))
         stopifnot(identical(x[l], x[r]))
+        if (length(l) <= n) {
+            m <- matrix(x, n, 2L)
+            stopifnot(identical(m[l, ], m[r, ]))
+        }
         if (!anyNA(l)) {
             y <- z <- x
             y[l] <- -1
+            length(z) <- nmax
             z[r] <- -1
             stopifnot(identical(y, z))
         }
@@ -4624,6 +4630,14 @@ local({
             l[k] <- NA; chk(l) # all selected, one as NA
         }
     }
+    for (ns in c(1:5, 9L))
+        for (k in seq_len(ns)) {
+            l <- logical(ns); l[k] <- TRUE
+            for (n in c(0L, 3L, 16L, 17L, 67L)) # some not a multiple of ns
+                suppressWarnings({
+                    chk(l, n); chk(!l, n); chk(replace(l, k, NA), n)
+                })
+        }
 })
 ## as in R <= 4.6.2, where one loop over the elements filled the index
 

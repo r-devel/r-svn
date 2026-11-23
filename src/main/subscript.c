@@ -589,32 +589,38 @@ static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
     /* GCC at -O2 vectorizes a loop only if no scalar iterations remain,
        hence an inner loop with a constant trip count */
     const int block = 64;
-    R_xlen_t count = 0, i = 0;
+    R_xlen_t count = 0, nblock = n / block, b;
 
-    for (; i + block <= n; i += block) {
+    R_ITERATE_CHECK(NINTERRUPT / block, nblock, b,
+	const int *pb = ps + b * block;
 	int c = 0;
 	for (int j = 0; j < block; j++)
-	    c += (ps[i + j] != 0);
+	    c += (pb[j] != 0);
 	count += c;
-    }
-    for (; i < n; i++)
+	);
+    for (R_xlen_t i = nblock * block; i < n; i++)
 	count += (ps[i] != 0);
 
     return count;
 }
 
-/* Whether the n elements at ps are all FALSE, for an even n.  They are
-   read two at a time, as 64-bit words, so that this is fast without a
-   vectorizer. */
+/* Whether the n elements at ps are all FALSE.  They are read two at a
+   time, as 64-bit words, so that this is fast without a vectorizer. */
 static R_INLINE bool isAllFalse(const int *ps, int n)
 {
+#if 2*SIZEOF_INT != 8
+# error "isAllFalse() reads two ints as one 64-bit word"
+#endif
     uint64_t any = 0;
+    int j = 0;
 
-    for (int j = 0; j < n; j += 2) {
+    for (; j + 2 <= n; j += 2) {
 	uint64_t w;
 	memcpy(&w, ps + j, sizeof w);
 	any |= w;
     }
+    if (j < n)
+	any |= (unsigned int) ps[j];
 
     return any == 0;
 }
@@ -623,6 +629,9 @@ static R_INLINE bool isAllFalse(const int *ps, int n)
    type of the index vector only.  It refers to their arguments by name. */
 #define FILL_LOGICAL_INDEX_BODY(TYPE, NA_INDEX)                         \
     R_xlen_t count = 0, i, i1, i2;                                      \
+                                                                        \
+    if (total == 0)                                                     \
+        return;                                                         \
                                                                         \
     if (ns < n) {                                                       \
         MOD_ITERATE_CHECK(NINTERRUPT, n, ns, n, i, i1, i2,              \
@@ -695,6 +704,8 @@ static void fillRealIndex(double *pindx, R_xlen_t total,
 }
 #endif
 
+#undef FILL_LOGICAL_INDEX_BODY
+
 static SEXP
 logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 		 int dimno)
@@ -724,7 +735,8 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 					 large allocation. */
 
     /* we only need to count once even if we recycle: the count for one
-       pass over s, and the count for the last incomplete chunk (if any) */
+       pass over s, and the count for the last incomplete chunk (if any).
+       The fill relies on s not changing once it has been counted. */
     count = countNonZero(ps, ns) * (nmax / ns);
     if (nmax % ns != 0)
 	count += countNonZero(ps, nmax % ns);
