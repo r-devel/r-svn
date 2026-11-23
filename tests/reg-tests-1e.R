@@ -4588,15 +4588,15 @@ local({
                      list(x, y[1:2]), list(x[1:2], y))
         for (a in if (n >= 2L) args else args[1L]) for (op in ops) {
             f <- match.fun(op)
-            stopifnot(identical(f(a[[1L]], a[[2L]]),
-                                mapply(f, rep_len(a[[1L]], n), rep_len(a[[2L]], n))),
+            stopifnot(identical(f(a[[1L]], a[[2L]]), mapply(f, a[[1L]], a[[2L]])),
                       length(f(x[0L], y)) == 0L)
         }
         if (t[1L] == t[2L])
             for (v in list(y, y[1L], y[1:2])) {
                 z <- x
                 z[] <- v
-                stopifnot(identical(z, rep_len(v, n)))
+                e <- vapply(seq_len(n), function(k) v[[(k - 1L) %% length(v) + 1L]], v[[1L]])
+                stopifnot(identical(z, e))
             }
     })
 })

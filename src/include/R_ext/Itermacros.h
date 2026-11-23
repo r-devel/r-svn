@@ -71,8 +71,10 @@
    recycled: its index advances with the loop index (SAME) or stays at
    zero (ONE). Loops for these cases need no test for an index wrapping
    around, which also lets a compiler vectorize them. MOD_ITERATE1 and
-   MOD_ITERATE2 choose such a loop when the lengths allow it; loop_body
-   sees the same index values as in the recycling loop. */
+   MOD_ITERATE2 choose such a loop when the lengths allow it. loop_body
+   sees the same index values as in the recycling loop, and the indices
+   are left as that loop leaves them. loop_body is expanded once for each
+   loop, so it should not define labels or static variables. */
 
 #define MOD_ITERATE1_SAME_CORE(n, n1, i, i1, loop_body) do {	\
 	for (; i < n; ++i1, ++i) {				\
@@ -94,6 +96,8 @@
 	    RUN(MOD_ITERATE1_ONE_CORE, ncheck, n, n1, i, i1, loop_body); \
 	else								\
 	    RUN(MOD_ITERATE1_CORE, ncheck, n, n1, i, i1, loop_body);	\
+	if (i1 == (n1))							\
+	    i1 = 0;							\
     } while (0)
 
 #define MOD_ITERATE1(n, n1, i, i1, loop_body)				\
@@ -146,6 +150,10 @@
 	else								\
 	    RUN(MOD_ITERATE2_CORE, ncheck, n,				\
 		n1, n2, i, i1, i2, loop_body);				\
+	if (i1 == (n1))							\
+	    i1 = 0;							\
+	if (i2 == (n2))							\
+	    i2 = 0;							\
     } while (0)
 
 #define MOD_ITERATE2(n, n1, n2, i, i1, i2, loop_body)			\
