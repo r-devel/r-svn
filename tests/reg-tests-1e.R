@@ -4592,6 +4592,56 @@ local({
 ## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
 
 
+## logical subscripts, counted and filled in blocks of 64 and 8 -- PR#19364
+local({
+    lglIndex <- function(l) { # what x[l] selects, element by element
+        r <- integer()
+        for (i in seq_along(l))
+            if (is.na(l[[i]])) r <- c(r, NA) else if (l[[i]]) r <- c(r, i)
+        r
+    }
+    chk <- function(l, n = length(l)) { # l is recycled to, or stretches, n
+        x <- seq_len(n) + 0.5
+        nmax <- max(n, length(l))
+        r <- lglIndex(rep_len(l, nmax))
+        stopifnot(identical(x[l], x[r]))
+        if (length(l) <= n) {
+            m <- matrix(x, n, 2L)
+            stopifnot(identical(m[l, ], m[r, ]))
+        }
+        if (!anyNA(l)) {
+            y <- z <- x
+            y[l] <- -1
+            length(z) <- nmax
+            z[r] <- -1
+            stopifnot(identical(y, z))
+        }
+    }
+    for (n in c(0:17, 63:65, 128L)) {
+        chk(logical(n))
+        chk(rep(TRUE, n))
+        chk(rep(NA, n))
+        for (k in seq_len(n)) {
+            l <- logical(n); l[k] <- TRUE; chk(l) # the only selected one
+            l[k] <- NA; chk(l)
+            l <- rep(c(TRUE, FALSE, NA, FALSE, FALSE), length.out = n)
+            l[k] <- TRUE; l[k + seq_len(n - k)] <- FALSE; chk(l) # the last
+            l <- rep(TRUE, n); l[k] <- FALSE; chk(l) # all but one
+            l[k] <- NA; chk(l) # all selected, one as NA
+        }
+    }
+    for (ns in c(1:5, 9L))
+        for (k in seq_len(ns)) {
+            l <- logical(ns); l[k] <- TRUE
+            for (n in c(0L, 3L, 16L, 17L, 67L)) # some not a multiple of ns
+                suppressWarnings({
+                    chk(l, n); chk(!l, n); chk(replace(l, k, NA), n)
+                })
+        }
+})
+## as in R <= 4.6.2, where one loop over the elements filled the index
+
+
 
 
 ## keep at end
