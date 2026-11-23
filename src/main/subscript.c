@@ -603,15 +603,20 @@ static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
     return count;
 }
 
-/* Whether a branch on the elements of a logical vector, 'count' of whose
-   'n' elements are TRUE or NA, would be mispredicted often.  It is
-   predicted well when nearly all elements go the same way; the cutoff of
-   one element in 64 of the rarer kind was chosen by measurement. */
-static R_INLINE bool isUnpredictable(R_xlen_t count, R_xlen_t n)
+/* Whether the SKIP_BLOCK elements at ps are all FALSE.  They are read two
+   at a time, as 64-bit words, so that this is fast without a vectorizer. */
+#define SKIP_BLOCK 8
+static R_INLINE bool isAllFalse(const int *ps)
 {
-    R_xlen_t rare = (count < n - count) ? count : n - count;
+    uint64_t any = 0;
 
-    return rare > n / 64;
+    for (int j = 0; j < SKIP_BLOCK; j += 2) {
+	uint64_t w;
+	memcpy(&w, ps + j, sizeof w);
+	any |= w;
+    }
+
+    return any == 0;
 }
 
 /* The body of fillIntegerIndex() and fillRealIndex(), which differ in the
@@ -625,35 +630,53 @@ static R_INLINE bool isUnpredictable(R_xlen_t count, R_xlen_t n)
                 pindx[count++] =                                        \
                     (ps[i1] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);  \
             );                                                          \
-    } else if (isUnpredictable(total, n)) {                             \
-        /* store always, advance only past a selected position */       \
-        R_ITERATE_CHECK(NINTERRUPT, n, i,                               \
-            if (count == total)                                         \
-                break;                                                  \
-            int v = ps[i];                                              \
+        return;                                                         \
+    }                                                                   \
+                                                                        \
+    /* find the last selected element: a store before it has room */    \
+    R_xlen_t last = n;                                                  \
+    while (last >= SKIP_BLOCK && isAllFalse(ps + last - SKIP_BLOCK))    \
+        last -= SKIP_BLOCK;                                             \
+    while (last > 0 && ps[last - 1] == 0)                               \
+        last--;                                                         \
+    if (last == 0)                                                      \
+        return;                                                         \
+    last--;                                                             \
+                                                                        \
+    /* store always and advance only past a selected position: a        \
+       branch on the elements would be mispredicted too often */        \
+    R_xlen_t nblock = last / SKIP_BLOCK, b;                             \
+    R_ITERATE_CHECK(NINTERRUPT / SKIP_BLOCK, nblock, b,                 \
+        const int *pb = ps + b * SKIP_BLOCK;                            \
+        if (isAllFalse(pb))                                             \
+            continue;                                                   \
+        i = b * SKIP_BLOCK;                                             \
+        for (int j = 0; j < SKIP_BLOCK; j++) {                          \
+            int v = pb[j];                                              \
             pindx[count] =                                              \
-                (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);           \
+                (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + j + 1);       \
             count += (v != 0);                                          \
-            );                                                          \
-    } else {                                                            \
-        R_ITERATE_CHECK(NINTERRUPT, n, i,                               \
-            if (ps[i])                                                  \
-                pindx[count++] =                                        \
-                    (ps[i] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);   \
-            );                                                          \
-    }
+        }                                                               \
+        );                                                              \
+    for (i = nblock * SKIP_BLOCK; i < last; i++) {                      \
+        int v = ps[i];                                                  \
+        pindx[count] = (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);    \
+        count += (v != 0);                                              \
+    }                                                                   \
+    pindx[count] =                                                      \
+        (ps[last] == NA_LOGICAL) ? NA_INDEX : (TYPE)(last + 1);
 
 /* Store the positions selected by the logical subscript 'ps', of length
-   'ns' and recycled to length 'n', in 'pindx', which has room for the
-   'total' positions there are. */
-static void fillIntegerIndex(int *pindx, R_xlen_t total,
+   'ns' and recycled to length 'n', in 'pindx', which has room for as
+   many positions as countNonZero() finds. */
+static void fillIntegerIndex(int *pindx,
 			     const int *ps, R_xlen_t ns, R_xlen_t n)
 {
     FILL_LOGICAL_INDEX_BODY(int, NA_INTEGER)
 }
 
 #ifdef LONG_VECTOR_SUPPORT
-static void fillRealIndex(double *pindx, R_xlen_t total,
+static void fillRealIndex(double *pindx,
 			  const int *ps, R_xlen_t ns, R_xlen_t n)
 {
     FILL_LOGICAL_INDEX_BODY(double, NA_REAL)
@@ -697,12 +720,12 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 #ifdef LONG_VECTOR_SUPPORT
     if (nmax > R_SHORT_LEN_MAX) {
 	PROTECT(indx = allocVector(REALSXP, count));
-	fillRealIndex(REAL(indx), count, ps, ns, nmax);
+	fillRealIndex(REAL(indx), ps, ns, nmax);
     } else
 #endif
     {
 	PROTECT(indx = allocVector(INTSXP, count));
-	fillIntegerIndex(INTEGER(indx), count, ps, ns, nmax);
+	fillIntegerIndex(INTEGER(indx), ps, ns, nmax);
     }
 
     UNPROTECT(1);
