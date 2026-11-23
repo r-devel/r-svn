@@ -767,7 +767,7 @@ typedef struct tzset_info {
     char oldtz[1001];	/* previous value of TZ variable */
     bool hadtz;	/* TZ variable existed previously */
     bool settz;	/* TZ variable was set by us */
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
     bool end_context_on_reset;
 			/* should endcontext() be called from reset_tz()? */
 } tzset_info;
@@ -785,10 +785,7 @@ static void prepare_reset_tz(tzset_info *si)
 {
     si->settz = false;
     /* set up a context which will reset tz if there is an error */
-    begincontext(&si->cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    si->cntxt.cend = &cend_reset_tz;
-    si->cntxt.cenddata = si;
+    si->cntxt = codecontext(&cend_reset_tz, si);
     si->end_context_on_reset = true;
 }
 
@@ -870,7 +867,7 @@ static bool set_tz(const char *tz, tzset_info *si)
 static void reset_tz(tzset_info *si)
 {
     if (si->end_context_on_reset) {
-	endcontext(&si->cntxt);
+	endcontext(si->cntxt);
 	si->end_context_on_reset = false; /* guard against double reset */
     }
     if (!si->settz)

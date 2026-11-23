@@ -2359,15 +2359,11 @@ SEXP R_Unserialize(R_inpstream_t stream)
     /* Read the actual object back */
     PROTECT(ref_table = MakeReadRefTable());
 
-    RCNTXT cntxt;
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &CloseInStreamConverters;
-    cntxt.cenddata = stream;
+    RCNTXT *cntxt = codecontext(&CloseInStreamConverters, stream);
 
     obj = ReadItem(ref_table, stream);
 
-    endcontext(&cntxt);
+    endcontext(cntxt);
     CloseInStreamConverters(stream);
     UNPROTECT(1);
 
@@ -2689,7 +2685,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
     struct R_outpstream_st out;
     R_pstream_format_t type;
     SEXP (*hook)(SEXP, SEXP);
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2728,10 +2724,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
 	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
     }
     if (!ascii && con->text)
 	error(_("binary-mode connection required for ascii=false"));
@@ -2740,7 +2733,7 @@ do_serializeToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     R_InitConnOutPStream(&out, con, type, version, hook, fun);
     R_Serialize(object, &out);
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {endcontext(cntxt); con->close(con);}
 
     return R_NilValue;
 }
@@ -2766,7 +2759,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
     SEXP fun, ans;
     SEXP (*hook)(SEXP, SEXP);
     bool wasopen;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     checkArity(op, args);
 
@@ -2784,10 +2777,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!con->open(con)) error(_("cannot open the connection"));
 	strcpy(con->mode, mode);
 	/* Set up a context which will close the connection on error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &con_cleanup;
-	cntxt.cenddata = con;
+	cntxt = codecontext(&con_cleanup, con);
     }
     if(!con->canread) error(_("connection not open for reading"));
 
@@ -2797,7 +2787,7 @@ do_unserializeFromConn(SEXP call, SEXP op, SEXP args, SEXP env)
     ans = PRIMVAL(op) == 0 ? R_Unserialize(&in) : R_SerializeInfo(&in);
     if(!wasopen) {
 	PROTECT(ans); /* paranoia about next line */
-	endcontext(&cntxt);
+	endcontext(cntxt);
 	con->close(con);
 	UNPROTECT(1);
     }
@@ -3039,15 +3029,12 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
     }
 
     if (icon == R_NilValue) {
-	RCNTXT cntxt;
+	RCNTXT *cntxt;
 	struct membuf_st mbs;
 	SEXP val;
 
 	/* set up a context which will free the buffer if there is an error */
-	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-		     R_NilValue, R_NilValue);
-	cntxt.cend = &free_mem_buffer;
-	cntxt.cenddata = &mbs;
+	cntxt = codecontext(&free_mem_buffer, &mbs);
 
 	InitMemOutPStream(&out, &mbs, type, version, hook, fun);
 	R_Serialize(object, &out);
@@ -3056,7 +3043,7 @@ R_serialize(SEXP object, SEXP icon, SEXP ascii, SEXP Sversion, SEXP fun)
 
 	/* end the context after anything that could raise an error but before
 	   calling OutTerm so it doesn't get called twice */
-	endcontext(&cntxt);
+	endcontext(cntxt);
 
 	UNPROTECT(1); /* val */
 	return val;

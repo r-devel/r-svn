@@ -61,7 +61,7 @@ struct SrcRefState {
 
 void InitParser(void);
 
-void R_InitSrcRefState(RCNTXT *cntxt);
+RCNTXT *R_InitSrcRefState(void);
 void R_FinalizeSrcRefState(void);
 
 SEXP R_Parse1Buffer(IoBuffer*, int, ParseStatus *); /* in ReplIteration,

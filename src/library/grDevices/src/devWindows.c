@@ -3205,6 +3205,7 @@ static void donelocator(void *data)
     addto(xd->gawin);
     setstatus(_("R Graphics"));
     xd->locator = FALSE;
+    xd->cntxt = NULL; /* the locator's context is ended or being unwound */
 }
 
 static void GA_onExit(pDevDesc dd);
@@ -3212,7 +3213,7 @@ static void GA_onExit(pDevDesc dd);
 static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
 {
     gadesc *xd = (gadesc *) dd->deviceSpecific;
-    RCNTXT cntxt;
+    RCNTXT *cntxt;
 
     if (xd->kind != SCREEN)
 	return FALSE;
@@ -3232,11 +3233,8 @@ static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
     setstatus(G_("Locator is active"));
 
     /* set up a context which will clean up if there's an error */
-    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_NilValue, R_NilValue,
-		 R_NilValue, R_NilValue);
-    cntxt.cend = &donelocator;
-    cntxt.cenddata = xd;
-    xd->cntxt = (void *) &cntxt;
+    cntxt = codecontext(&donelocator, xd);
+    xd->cntxt = (void *) cntxt;
 
     /* and an exit handler in case the window gets closed */
     dd->onExit = GA_onExit;
@@ -3255,7 +3253,7 @@ static Rboolean GA_Locator(double *x, double *y, pDevDesc dd)
     dd->onExit = NULL;
     xd->cntxt = NULL;
 
-    endcontext(&cntxt);
+    endcontext(cntxt);
     donelocator((void *)xd);
 
     if (xd->clicked == 1) {
@@ -3878,7 +3876,13 @@ static void GA_onExit(pDevDesc dd)
     xd->confirmation = FALSE;
     dd->gettingEvent = FALSE;
 
-    if (xd->cntxt) endcontext((RCNTXT *)xd->cntxt);
+    /* Newer contexts may still be active here, so leave the locator's
+       context to GA_Locator() or to the jump that follows, and only stop
+       it from running donelocator() a second time. */
+    if (xd->cntxt) {
+	((RCNTXT *)xd->cntxt)->cend = NULL;
+	xd->cntxt = NULL;
+    }
     if (xd->locator) donelocator((void *)xd);
 
     addto(xd->gawin);

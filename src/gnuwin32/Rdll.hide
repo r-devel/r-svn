@@ -178,6 +178,7 @@
  R_HandlerStack
  R_HiddenFile
  R_InitConditions
+ R_InitContextStack
  R_InitReadItemDepth
  R_InitSrcRefState
  R_InitialData
@@ -309,6 +310,7 @@
  R_gc_running
  R_getBCInterpreterExpression
  R_getClockIncrement
+ R_getContextStackOverflowError
  R_getCurrentSrcref
  R_getDllTable
  R_getExpressionStackOverflowError

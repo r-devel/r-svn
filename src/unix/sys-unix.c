@@ -334,7 +334,7 @@ static struct {
     sigset_t oldset;
     struct sigaction oldalrm, oldint, oldquit, oldhup, oldterm, oldttin,
                      oldttou, oldcont, oldtstp, oldchld;
-    RCNTXT cntxt; /* for popen/pclose */
+    RCNTXT *cntxt; /* for popen/pclose */
     FILE *fp;     /* for popen/pclose, sanity check */
     int have_alarm; /* 0 when not really having a timeout */
 } tost;
@@ -556,10 +556,7 @@ static FILE *R_popen_timeout(const char *cmd, const char *type, int timeout)
     timeout_init(timeout > 0);
 
     /* set up a context to recover from R error between popen and pclose */
-    begincontext(&tost.cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
-                 R_NilValue, R_NilValue);
-    tost.cntxt.cenddata = NULL;
-    tost.cntxt.cend = &timeout_cend;
+    tost.cntxt = codecontext(&timeout_cend, NULL);
 
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
@@ -623,7 +620,7 @@ static int R_pclose_timeout(FILE *fp)
 
     saveerrno = errno;
     wres = timeout_wait(&wstatus);
-    endcontext(&tost.cntxt);
+    endcontext(tost.cntxt);
 
     if (wres < 0)
 	return -1;

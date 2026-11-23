@@ -1385,7 +1385,7 @@ Rboolean (NO_SPECIAL_SYMBOLS)(SEXP b);
    future, though the ALTREP framework may be a better choice.
 
    Allocating memory on the stack is also supported; this is currently
-   used for jump buffers.
+   used for byte code call frames and saved loop state.
 */
 typedef struct {
     int tag;
@@ -1445,6 +1445,7 @@ typedef struct RCNTXT {
     R_bcstack_t returnValue;    /* only set during on.exit calls */
     struct RCNTXT *jumptarget;	/* target for a continuing jump */
     int jumpmask;               /* associated LONGJMP argument */
+    struct RCNTXT *cntxtstacktop; /* context stack top at inception */
 } RCNTXT, *context;
 
 /* The Various Context Types.
@@ -1864,6 +1865,7 @@ int R_XDRDecodeInteger(void *buf);
 # define begincontext		Rf_begincontext
 # define BindDomain		Rf_BindDomain
 # define check_stack_balance	Rf_check_stack_balance
+# define codecontext		Rf_codecontext
 # define check1arg		Rf_check1arg
 # define CheckFormals		Rf_CheckFormals
 # define CleanEd		Rf_CleanEd
@@ -1983,6 +1985,7 @@ int R_XDRDecodeInteger(void *buf);
 # define Seql			Rf_Seql
 # define sexptype2char		Rf_sexptype2char
 # define Scollate		Rf_Scollate
+# define simplecontext		Rf_simplecontext
 # define sortVector		Rf_sortVector
 # define SrcrefPrompt		Rf_SrcrefPrompt
 # define ssort			Rf_ssort
@@ -2307,7 +2310,9 @@ int usemethod(const char *, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP*);
 SEXP vectorIndex(SEXP, SEXP, int, int, int, SEXP, Rboolean);
 
 #ifdef R_USE_SIGNALS
-void begincontext(RCNTXT*, int, SEXP, SEXP, SEXP, SEXP, SEXP);
+RCNTXT *begincontext(int, SEXP, SEXP, SEXP, SEXP, SEXP);
+RCNTXT *simplecontext(int, SEXP);
+RCNTXT *codecontext(void (*)(void *), void *);
 SEXP dynamicfindVar(SEXP, RCNTXT*);
 void endcontext(RCNTXT*);
 int framedepth(RCNTXT*);
@@ -2322,6 +2327,8 @@ RCNTXT *R_findParentContext(RCNTXT *, int);
 
 void R_run_onexits(RCNTXT *);
 NORET void R_jumpctxt(RCNTXT *, int, SEXP);
+
+void R_InitContextStack(void);
 #endif
 
 /* ../main/bind.c */
@@ -2368,6 +2375,7 @@ SEXP R_makeCStackOverflowError(SEXP call, intptr_t usage);
 SEXP R_getProtectStackOverflowError(void);
 SEXP R_getExpressionStackOverflowError(void);
 SEXP R_getNodeStackOverflowError(void);
+SEXP R_getContextStackOverflowError(void);
 void R_InitConditions(void);
 
 R_size_t R_GetMaxVSize(void);

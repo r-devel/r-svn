@@ -10,6 +10,7 @@
 \alias{expressionStackOverflowError}
 \alias{protectStackOverflowError}
 \alias{nodeStackOverflowError}
+\alias{contextStackOverflowError}
 \title{Stack Overflow Errors}
 \description{
   Errors signaled by \R when stacks used in evaluation overflow.
@@ -17,8 +18,8 @@
 \details{
 
   \R uses several stacks in evaluating expressions: the C stack, the
-  pointer protection stack, and the node stack used by the byte code
-  engine. In addition, the number of nested \R expressions currently
+  pointer protection stack, the node stack used by the byte code
+  engine, and the context stack. In addition, the number of nested \R expressions currently
   under evaluation is limited by the value set as
   \code{\link{options}("expressions")}.  Overflowing these stacks or
   limits signals an error that inherits from classes
@@ -36,6 +37,10 @@
 
     \item \code{nodeStackOverflowError}: Signaled when the node stack
     used by the byte code engine overflows.
+
+    \item \code{contextStackOverflowError}: Signaled when the context
+    stack overflows. It holds the evaluation contexts of active closure
+    calls, of loops that need one, and of internal cleanup code.
 
     \item \code{expressionStackOverflowError}: Signaled when the the
     evaluation depth, the number of nested \R expressions currently
