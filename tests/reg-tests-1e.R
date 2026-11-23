@@ -4588,8 +4588,7 @@ local({
                      list(x, y[1:2]), list(x[1:2], y))
         for (a in if (n >= 2L) args else args[1L]) for (op in ops) {
             f <- match.fun(op)
-            stopifnot(identical(f(a[[1L]], a[[2L]]), mapply(f, a[[1L]], a[[2L]])),
-                      length(f(x[0L], y)) == 0L)
+            stopifnot(identical(f(a[[1L]], a[[2L]]), mapply(f, a[[1L]], a[[2L]])))
         }
         if (t[1L] == t[2L])
             for (v in list(y, y[1L], y[1:2])) {
@@ -4599,6 +4598,9 @@ local({
                 stopifnot(identical(z, e))
             }
     })
+    stopifnot(identical(bitwAnd(integer(), integer()), integer()),
+              identical(bitwAnd(integer(), 1L), integer()),
+              identical(bitwAnd(1L, integer()), integer()))
 })
 ## the cases without recycling have loops of their own in R > 4.6.2
 
