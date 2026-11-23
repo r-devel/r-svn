@@ -71,10 +71,11 @@
    recycled: its index advances with the loop index (SAME) or stays at
    zero (ONE). Loops for these cases need no test for an index wrapping
    around, which also lets a compiler vectorize them. MOD_ITERATE1 and
-   MOD_ITERATE2 choose such a loop when the lengths allow it. loop_body
-   sees the same index values as in the recycling loop, and the indices
-   are left as that loop leaves them. loop_body is expanded once for each
-   loop, so it should not define labels or static variables. */
+   MOD_ITERATE2 choose such a loop when the lengths allow it. As long as
+   loop_body changes neither the lengths nor the indices, it sees the
+   same index values as in the recycling loop, and the indices are left
+   as that loop leaves them. loop_body is expanded once for each loop,
+   so it should not define labels or static variables. */
 
 #define MOD_ITERATE1_SAME_CORE(n, n1, i, i1, loop_body) do {	\
 	for (; i < n; ++i1, ++i) {				\
