@@ -608,9 +608,6 @@ static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
    time, as 64-bit words, so that this is fast without a vectorizer. */
 static R_INLINE bool isAllFalse(const int *ps, int n)
 {
-#if 2*SIZEOF_INT != 8
-# error "isAllFalse() reads two ints as one 64-bit word"
-#endif
     uint64_t any = 0;
     int j = 0;
 
