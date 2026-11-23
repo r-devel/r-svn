@@ -583,17 +583,17 @@ static SEXP nullSubscript(R_xlen_t n)
 }
 
 
-/* The number of elements of a logical vector that are TRUE or NA.  The
-   inner loop has a constant trip count because GCC at -O2 vectorizes a
-   loop only if no scalar iterations remain. */
-#define COUNT_BLOCK 64
+/* The number of elements of a logical vector that are TRUE or NA. */
 static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
 {
+    /* GCC at -O2 vectorizes a loop only if no scalar iterations remain,
+       hence an inner loop with a constant trip count */
+    const int block = 64;
     R_xlen_t count = 0, i = 0;
 
-    for (; i + COUNT_BLOCK <= n; i += COUNT_BLOCK) {
+    for (; i + block <= n; i += block) {
 	int c = 0;
-	for (int j = 0; j < COUNT_BLOCK; j++)
+	for (int j = 0; j < block; j++)
 	    c += (ps[i + j] != 0);
 	count += c;
     }
@@ -603,14 +603,14 @@ static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
     return count;
 }
 
-/* Whether the SKIP_BLOCK elements at ps are all FALSE.  They are read two
-   at a time, as 64-bit words, so that this is fast without a vectorizer. */
-#define SKIP_BLOCK 8
-static R_INLINE bool isAllFalse(const int *ps)
+/* Whether the n elements at ps are all FALSE, for an even n.  They are
+   read two at a time, as 64-bit words, so that this is fast without a
+   vectorizer. */
+static R_INLINE bool isAllFalse(const int *ps, int n)
 {
     uint64_t any = 0;
 
-    for (int j = 0; j < SKIP_BLOCK; j += 2) {
+    for (int j = 0; j < n; j += 2) {
 	uint64_t w;
 	memcpy(&w, ps + j, sizeof w);
 	any |= w;
@@ -633,10 +633,13 @@ static R_INLINE bool isAllFalse(const int *ps)
         return;                                                         \
     }                                                                   \
                                                                         \
+    /* elements tested at a time: 8 was faster than 16 and 64 */        \
+    const int block = 8;                                                \
+                                                                        \
     /* find the last selected element: a store before it has room */    \
     R_xlen_t last = n;                                                  \
-    while (last >= SKIP_BLOCK && isAllFalse(ps + last - SKIP_BLOCK))    \
-        last -= SKIP_BLOCK;                                             \
+    while (last >= block && isAllFalse(ps + last - block, block))       \
+        last -= block;                                                  \
     while (last > 0 && ps[last - 1] == 0)                               \
         last--;                                                         \
     if (last == 0)                                                      \
@@ -645,20 +648,20 @@ static R_INLINE bool isAllFalse(const int *ps)
                                                                         \
     /* store always and advance only past a selected position: a        \
        branch on the elements would be mispredicted too often */        \
-    R_xlen_t nblock = last / SKIP_BLOCK, b;                             \
-    R_ITERATE_CHECK(NINTERRUPT / SKIP_BLOCK, nblock, b,                 \
-        const int *pb = ps + b * SKIP_BLOCK;                            \
-        if (isAllFalse(pb))                                             \
+    R_xlen_t nblock = last / block, b;                                  \
+    R_ITERATE_CHECK(NINTERRUPT / block, nblock, b,                      \
+        const int *pb = ps + b * block;                                 \
+        if (isAllFalse(pb, block))                                      \
             continue;                                                   \
-        i = b * SKIP_BLOCK;                                             \
-        for (int j = 0; j < SKIP_BLOCK; j++) {                          \
+        i = b * block;                                                  \
+        for (int j = 0; j < block; j++) {                               \
             int v = pb[j];                                              \
             pindx[count] =                                              \
                 (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + j + 1);       \
             count += (v != 0);                                          \
         }                                                               \
         );                                                              \
-    for (i = nblock * SKIP_BLOCK; i < last; i++) {                      \
+    for (i = nblock * block; i < last; i++) {                           \
         int v = ps[i];                                                  \
         pindx[count] = (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);    \
         count += (v != 0);                                              \
