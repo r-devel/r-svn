@@ -633,6 +633,15 @@ static R_INLINE bool isAllFalse(const int *ps, int n)
         return;                                                         \
     }                                                                   \
                                                                         \
+    if (total == n) {                                                   \
+        /* all selected: the positions are 1 to n */                    \
+        R_ITERATE_CHECK(NINTERRUPT, n, i,                               \
+            pindx[i] =                                                  \
+                (ps[i] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);       \
+            );                                                          \
+        return;                                                         \
+    }                                                                   \
+                                                                        \
     /* elements tested at a time: 8 was faster than 16 and 64 */        \
     const int block = 8;                                                \
                                                                         \
@@ -651,14 +660,14 @@ static R_INLINE bool isAllFalse(const int *ps, int n)
     R_xlen_t nblock = last / block, b;                                  \
     R_ITERATE_CHECK(NINTERRUPT / block, nblock, b,                      \
         const int *pb = ps + b * block;                                 \
-        if (isAllFalse(pb, block))                                      \
-            continue;                                                   \
-        i = b * block;                                                  \
-        for (int j = 0; j < block; j++) {                               \
-            int v = pb[j];                                              \
-            pindx[count] =                                              \
-                (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + j + 1);       \
-            count += (v != 0);                                          \
+        if (!isAllFalse(pb, block)) {                                   \
+            i = b * block;                                              \
+            for (int j = 0; j < block; j++) {                           \
+                int v = pb[j];                                          \
+                pindx[count] =                                          \
+                    (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + j + 1);   \
+                count += (v != 0);                                      \
+            }                                                           \
         }                                                               \
         );                                                              \
     for (i = nblock * block; i < last; i++) {                           \
@@ -670,16 +679,16 @@ static R_INLINE bool isAllFalse(const int *ps, int n)
         (ps[last] == NA_LOGICAL) ? NA_INDEX : (TYPE)(last + 1);
 
 /* Store the positions selected by the logical subscript 'ps', of length
-   'ns' and recycled to length 'n', in 'pindx', which has room for as
-   many positions as countNonZero() finds. */
-static void fillIntegerIndex(int *pindx,
+   'ns' and recycled to length 'n', in 'pindx', which has room for the
+   'total' positions there are. */
+static void fillIntegerIndex(int *pindx, R_xlen_t total,
 			     const int *ps, R_xlen_t ns, R_xlen_t n)
 {
     FILL_LOGICAL_INDEX_BODY(int, NA_INTEGER)
 }
 
 #ifdef LONG_VECTOR_SUPPORT
-static void fillRealIndex(double *pindx,
+static void fillRealIndex(double *pindx, R_xlen_t total,
 			  const int *ps, R_xlen_t ns, R_xlen_t n)
 {
     FILL_LOGICAL_INDEX_BODY(double, NA_REAL)
@@ -723,12 +732,12 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 #ifdef LONG_VECTOR_SUPPORT
     if (nmax > R_SHORT_LEN_MAX) {
 	PROTECT(indx = allocVector(REALSXP, count));
-	fillRealIndex(REAL(indx), ps, ns, nmax);
+	fillRealIndex(REAL(indx), count, ps, ns, nmax);
     } else
 #endif
     {
 	PROTECT(indx = allocVector(INTSXP, count));
-	fillIntegerIndex(INTEGER(indx), ps, ns, nmax);
+	fillIntegerIndex(INTEGER(indx), count, ps, ns, nmax);
     }
 
     UNPROTECT(1);
