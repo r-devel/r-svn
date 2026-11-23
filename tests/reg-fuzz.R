@@ -420,6 +420,18 @@ stopifnot(identical(unserialize(serialize(x, NULL)), x))
 ## returned a dotted pair whose names() crashed R in R <= 4.6.2
 
 
+## byte-compiled complex assignment to a missing argument -- PR#19358
+local({
+    `set<-` <- function(x, value) c(x, value)
+    f <- compiler::cmpfun(function(x) { set(x) <- 1; x })
+    g <- compiler::cmpfun(function(x) { x[1] <- 1; x })
+    stopifnot(inherits(tryCid(f()), "missingArgError"),
+              inherits(tryCid(g()), "missingArgError"),
+              identical(f(0), c(0, 1)), identical(g(0), 1))
+})
+## passed the empty symbol to the replacement function in R <= 4.6.2
+
+
 ## kmeans() with a 'trace' not of length one, which the Hartigan-Wong code
 ## reads and writes as a scalar; the other algorithms do not use 'trace'
 local({
@@ -464,6 +476,17 @@ for (st in list(c(-10, 1, 1), 10, c(10, 1), c(10, 1, 2), c(NaN, 1, 1),
 tt <- terms(eval(call("~", call(":", quote(expr = ), quote(b)))))
 stopifnot(identical(attr(tt, "term.labels"), ":b"))
 ## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
+
+
+## return() in a top-level loop compiled by the JIT -- PR#19359
+local({
+    oJIT <- compiler::enableJIT(3)
+    on.exit(compiler::enableJIT(oJIT))
+    r <- eval(quote({ for (i in 1:3) if (i == 2) return("x"); "fell through" }),
+              globalenv())
+    stopifnot(identical(r, "x"))
+})
+## acted like break (giving "fell through") in R <= 4.6.2
 
 
 
