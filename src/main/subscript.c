@@ -608,28 +608,25 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 
     SEXP indx; // result
 
-    const int *ps = LOGICAL_RO(s);    /* Calling LOCICAL_RO here may force a
+    const int *ps = LOGICAL_RO(s);    /* Calling LOGICAL_RO here may force a
 					 large allocation, but no larger than
-					 the one made by R_alloc below. This
-					 could use rewriting to better handle
-					 a sparse logical index. */
+					 the one made for the result below.
+					 This could use rewriting to better
+					 handle a sparse logical index. */
 #ifdef LONG_VECTOR_SUPPORT
     if (nmax > R_SHORT_LEN_MAX) {
 	if (ns == nmax) { /* no recycling - use fast single-index code */
-	    const void *vmax = vmaxget();
-	    double *buf = (double *) R_alloc(nmax, sizeof(double));
+	    PROTECT(indx = R_allocResizableVector(REALSXP, nmax));
+	    double *pindx = REAL(indx);
 	    count = 0;
 	    R_ITERATE_CHECK(NINTERRUPT, nmax, i,
 		if (ps[i]) {
 		    if (ps[i] == NA_LOGICAL)
-			buf[count++] = NA_REAL;
+			pindx[count++] = NA_REAL;
 		    else
-			buf[count++] = (double)(i + 1);
+			pindx[count++] = (double)(i + 1);
 		});
-	    PROTECT(indx = allocVector(REALSXP, count));
-	    if (count)
-		memcpy(REAL(indx), buf, sizeof(double) * count);
-	    vmaxset(vmax);
+	    R_resizeVector(indx, count);
 	    UNPROTECT(1);
 	    return indx;
 	}
@@ -668,20 +665,17 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 #endif
 // else --- the same code for  non-long vectors --------------------------
     if (ns == nmax) {  /* no recycling - use fast single-index code */
-	const void *vmax = vmaxget();
-	int *buf = (int *) R_alloc(nmax, sizeof(int));
+	PROTECT(indx = R_allocResizableVector(INTSXP, nmax));
+	int *pindx = INTEGER(indx);
 	count = 0;
 	R_ITERATE_CHECK(NINTERRUPT, nmax, i,
 	    if (ps[i]) {
 		if (ps[i] == NA_LOGICAL)
-		    buf[count++] = NA_INTEGER;
+		    pindx[count++] = NA_INTEGER;
 		else
-		    buf[count++] = (int)(i + 1);
+		    pindx[count++] = (int)(i + 1);
 	    });
-	PROTECT(indx = allocVector(INTSXP, count));
-	if (count)
-	    memcpy(INTEGER(indx), buf, sizeof(int) * count);
-	vmaxset(vmax);
+	R_resizeVector(indx, count);
 	UNPROTECT(1);
 	return indx;
     }
