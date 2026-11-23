@@ -4592,7 +4592,7 @@ local({
 ## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
 
 
-## model.matrix() column names filling its name buffer
+## model.matrix() column names filling its name buffer -- PR#19363
 local({
     A <- strrep("A", 2100L); B <- strrep("B", 2100L); L <- strrep("L", 4095L)
     d <- as.data.frame(matrix(1, 2L, 5L,
