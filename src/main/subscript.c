@@ -614,13 +614,9 @@ static R_INLINE bool isUnpredictable(R_xlen_t count, R_xlen_t n)
     return rare > n / 64;
 }
 
-/* Defines a function that stores the positions selected by the logical
-   subscript 'ps', of length 'ns' and recycled to length 'n', in 'pindx',
-   which has room for the 'total' positions there are. */
-#define DEFINE_LOGICAL_FILL(NAME, TYPE, NA_INDEX)			\
-static void NAME(TYPE *pindx, R_xlen_t total,				\
-		 const int *ps, R_xlen_t ns, R_xlen_t n)		\
-{									\
+/* The body of fillIntegerIndex() and fillRealIndex(), which differ in the
+   type of the index vector only.  It refers to their arguments by name. */
+#define FILL_LOGICAL_INDEX_BODY(TYPE, NA_INDEX)				\
     R_xlen_t count = 0, i, i1, i2;					\
 									\
     if (ns < n) {							\
@@ -630,12 +626,13 @@ static void NAME(TYPE *pindx, R_xlen_t total,				\
 		    (ps[i1] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);	\
 	    );								\
     } else if (isUnpredictable(total, n)) {				\
-	/* store always, advance past the stored position if selected */ \
+	/* store always, advance only past a selected position */	\
 	R_ITERATE_CHECK(NINTERRUPT, n, i,				\
 	    if (count == total)						\
 		break;							\
 	    int v = ps[i];						\
-	    pindx[count] = (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1); \
+	    pindx[count] =						\
+		(v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);		\
 	    count += (v != 0);						\
 	    );								\
     } else {								\
@@ -644,12 +641,23 @@ static void NAME(TYPE *pindx, R_xlen_t total,				\
 		pindx[count++] =					\
 		    (ps[i] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);	\
 	    );								\
-    }									\
+    }
+
+/* Store the positions selected by the logical subscript 'ps', of length
+   'ns' and recycled to length 'n', in 'pindx', which has room for the
+   'total' positions there are. */
+static void fillIntegerIndex(int *pindx, R_xlen_t total,
+			     const int *ps, R_xlen_t ns, R_xlen_t n)
+{
+    FILL_LOGICAL_INDEX_BODY(int, NA_INTEGER)
 }
 
-DEFINE_LOGICAL_FILL(fillIntegerIndex, int, NA_INTEGER)
 #ifdef LONG_VECTOR_SUPPORT
-DEFINE_LOGICAL_FILL(fillRealIndex, double, NA_REAL)
+static void fillRealIndex(double *pindx, R_xlen_t total,
+			  const int *ps, R_xlen_t ns, R_xlen_t n)
+{
+    FILL_LOGICAL_INDEX_BODY(double, NA_REAL)
+}
 #endif
 
 static SEXP
