@@ -4569,6 +4569,40 @@ rm(saveToConnObj)
 ## segfaulted in R <= 4.6.*
 
 
+## operators, pmax() and x[] <- v for lengths 0 to 65, with and without recycling
+local({
+    set.seed(123)
+    mk <- function(n, type)
+        switch(type,
+               double = sample(c(-1.5, 0, 2, Inf, NA), n, replace = TRUE),
+               integer = sample(c(-2L, 0L, 3L, .Machine$integer.max, NA), n, replace = TRUE),
+               logical = sample(c(TRUE, FALSE, NA), n, replace = TRUE))
+    types <- list(c("double", "double"), c("integer", "integer"),
+                  c("logical", "logical"), c("integer", "double"))
+    ops <- c("<", "==", "&", "+", "pmax")
+    for (n in 1:65) for (t in types) suppressWarnings({
+        x <- mk(n, t[1L])
+        y <- mk(n, t[2L])
+        ## no recycling, a length-one operand on either side, recycling
+        args <- list(list(x, y), list(x, y[1L]), list(x[1L], y),
+                     list(x, y[1:2]), list(x[1:2], y))
+        for (a in if (n >= 2L) args else args[1L]) for (op in ops) {
+            f <- match.fun(op)
+            stopifnot(identical(f(a[[1L]], a[[2L]]),
+                                mapply(f, rep_len(a[[1L]], n), rep_len(a[[2L]], n))),
+                      length(f(x[0L], y)) == 0L)
+        }
+        if (t[1L] == t[2L])
+            for (v in list(y, y[1L], y[1:2])) {
+                z <- x
+                z[] <- v
+                stopifnot(identical(z, rep_len(v, n)))
+            }
+    })
+})
+## the cases without recycling have loops of their own in R > 4.6.2
+
+
 ## seq.int(..., length.out = n) edge cases
 x <- c(2^.Machine[["double.digits"]], .Machine[["integer.max"]] + 1)
 for (s in list(seq, seq.int))
