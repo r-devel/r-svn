@@ -4592,6 +4592,14 @@ local({
 ## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
 
 
+## translating many strings in one call
+x <- paste0("caf\u00e9 ", 1:5000); Encoding(x) <- "UTF-8"
+y <- iconv(x, "UTF-8", "latin1")
+stopifnot(identical(enc2utf8(y), x),
+          identical(match(y, rev(x)), 5000:1))
+## takes small R_alloc() blocks from more than one chunk
+
+
 
 
 ## keep at end

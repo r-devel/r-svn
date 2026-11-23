@@ -506,7 +506,13 @@ attribute_hidden SEXP do_maxNSize(SEXP call, SEXP op, SEXP args, SEXP rho)
 
 /* Miscellaneous Globals. */
 
-static SEXP R_VStack = NULL;		/* R_alloc stack pointer */
+static char *R_VStack = NULL;		/* R_alloc stack pointer */
+static SEXP R_VSegs = NULL;		/* R_alloc stack segments */
+static SEXP R_VChunk = NULL;		/* the newest chunk among them */
+static SEXP R_VBase = NULL;		/* the oldest chunk */
+static SEXP R_VSpare = NULL;		/* an unused chunk */
+static void R_VStackInit(void);
+static void R_VStackTrim(void);
 static SEXP R_PreciousList = NULL;      /* List of Persistent Objects */
 static R_size_t R_LargeVallocSize = 0;
 static R_size_t R_SmallVallocSize = 0;
@@ -1839,7 +1845,9 @@ static int RunGenCollect(R_size_t size_needed)
     for (i = 0; i < R_PPStackTop; i++)	   /* Protected pointers */
 	FORWARD_NODE(R_PPStack[i]);
 
-    FORWARD_NODE(R_VStack);		   /* R_alloc stack */
+    R_VStackTrim();
+    FORWARD_NODE(R_VSegs);		   /* R_alloc stack */
+    FORWARD_NODE(R_VSpare);
 
     for (R_bcstack_t *sp = R_BCNodeStackBase; sp < R_BCNodeStackTop; sp++) {
 	if (sp->tag == RAWMEM_TAG)
@@ -2314,12 +2322,65 @@ attribute_hidden void InitMemory(void)
     R_LogicalNAValue = allocVector(LGLSXP, 1);
     LOGICAL(R_LogicalNAValue)[0] = NA_LOGICAL;
     MARK_NOT_MUTABLE(R_LogicalNAValue);
+
+    R_VStackInit();
 }
 
-/* Since memory allocated from the heap is non-moving, R_alloc just
-   allocates off the heap as RAWSXP/REALSXP and maintains the stack of
-   allocations through the ATTRIB pointer.  The stack pointer R_VStack
-   is traced by the collector. */
+/* The R_alloc stack.  Small blocks are taken from chunks, RAWSXPs of
+   R_VCHUNK_SIZE bytes, by advancing the stack pointer R_VStack; a
+   large block is a RAWSXP of its own.  Chunks and large blocks are
+   the segments of the stack: they are linked through their ATTRIB
+   pointers, newest first, and traced by the collector from R_VSegs.
+   The stack pointer is always in a chunk, so a large block also takes
+   VSEG_PLACE_SIZE bytes from the newest chunk and records where,
+   which tells whether it was pushed before or after the stack pointer
+   had a given value.  The oldest chunk stays for the whole session,
+   and vmaxset(NULL) stands for its start.
+
+   vmaxset() only stores the pointer.  R_VStackTrim() drops the
+   segments pushed since the stack pointer first had its current
+   value; it is called when R_alloc() cannot take a block on its fast
+   path, and at the start of a collection. */
+
+/* Blocks below this size, the ones that used to get a small vector
+   node, are taken from chunks.  Larger blocks remain vectors of their
+   own, so tools that check malloc()ed memory still see each of them. */
+#define R_VSMALL_MAX 128
+#define R_VCHUNK_SIZE 8192
+
+/* To keep misuse of a block detectable, every block is a vector of
+   its own with gctorture on or with valgrind instrumentation. */
+#if VALGRIND_LEVEL > 0
+# define R_VSTACK_SEPARATE_BLOCKS() TRUE
+#elif defined(GC_TORTURE)
+# define R_VSTACK_SEPARATE_BLOCKS() (gc_force_wait > 0)
+#else
+# define R_VSTACK_SEPARATE_BLOCKS() FALSE
+#endif
+
+#define VSEG_START(s) ((char *) STDVEC_DATAPTR(s))
+#define VSEG_END(s) (VSEG_START(s) + STDVEC_LENGTH(s))
+
+/* Where the stack pointer was when a large block was pushed, and NULL
+   for a chunk.  Kept in the TRUELENGTH field, which is not otherwise
+   used for these vectors. */
+#define VSEG_PLACE(s) ((char *) (uintptr_t) STDVEC_TRUELENGTH(s))
+#define SET_VSEG_PLACE(s, p) \
+    SET_STDVEC_TRUELENGTH(s, (R_xlen_t) (uintptr_t) (p))
+#define VSEG_PLACE_SIZE 8
+
+/* R_alloc() can take a block at R_VStack without calling
+   R_VStackTrim() if the block lies between these. */
+static char *R_VLow = NULL, *R_VHigh = NULL;
+
+/* R_alloc() needs no stack frame as long as the paths that call
+   allocVector() are not inlined into it. */
+#ifdef __GNUC__
+# define VSTACK_NOINLINE __attribute__((noinline))
+#else
+# define VSTACK_NOINLINE
+#endif
+
 void *vmaxget(void)
 {
     return (void *) R_VStack;
@@ -2327,34 +2388,176 @@ void *vmaxget(void)
 
 void vmaxset(const void *ovmax)
 {
-    R_VStack = (SEXP) ovmax;
+    R_VStack = (char *) ovmax;
 }
 
-char *R_alloc(size_t nelem, int eltsize)
+static void R_VStackSetFast(char *low, char *high)
+{
+    if (R_VSTACK_SEPARATE_BLOCKS())
+	low = high = NULL;
+    R_VLow = low;
+    R_VHigh = high;
+}
+
+static R_INLINE bool R_VStackFits(char *p, size_t size)
+{
+    return p >= R_VLow && p <= R_VHigh && size <= (size_t) (R_VHigh - p);
+}
+
+static R_INLINE bool R_VChunkHolds(SEXP chunk, char *p)
+{
+    return p >= VSEG_START(chunk) && p <= VSEG_END(chunk);
+}
+
+static void R_VStackTrim(void)
+{
+    if (R_VSegs == NULL)
+	return; /* not set up yet */
+
+    if (R_VStack == NULL)
+	R_VStack = VSEG_START(R_VBase);
+    char *p = R_VStack;
+
+    /* the chunk the stack pointer is in */
+    SEXP chunk = R_VChunk;
+    while (chunk != NULL &&
+	   (VSEG_PLACE(chunk) != NULL || ! R_VChunkHolds(chunk, p)))
+	chunk = ATTRIB(chunk);
+
+    if (chunk == NULL) {
+	/* not a pointer into the stack: keep what is there */
+	R_VStackSetFast(NULL, NULL);
+	return;
+    }
+
+    /* drop what is above that chunk, except for the large blocks
+       pushed while the stack pointer was below p */
+    char *low = VSEG_START(chunk);
+    SEXP s = R_VSegs;
+    while (s != chunk) {
+	char *place = VSEG_PLACE(s);
+	if (place >= VSEG_START(chunk) && place < p) {
+	    low = place + VSEG_PLACE_SIZE;
+	    break;
+	}
+
+	SEXP next = ATTRIB(s);
+	if (place == NULL && R_VSpare == NULL) {
+	    ATTRIB(s) = R_NilValue;
+	    R_VSpare = s;
+	}
+	s = next;
+    }
+
+    R_VSegs = s;
+    R_VChunk = chunk;
+    R_VStackSetFast(low, VSEG_END(chunk));
+}
+
+static void R_VStackPush(SEXP s)
+{
+    CHECK_OLD_TO_NEW(s, R_VSegs);
+    ATTRIB(s) = R_VSegs;
+    R_VSegs = s;
+}
+
+/* Take size bytes, a multiple of 8, from the newest chunk, or from a
+   new chunk if they do not fit. */
+static char *R_VStackBump(size_t size)
+{
+    R_VStackTrim();
+
+    char *p = R_VStack;
+    SEXP chunk = R_VChunk;
+    if (! R_VChunkHolds(chunk, p) || size > (size_t) (VSEG_END(chunk) - p)) {
+	chunk = R_VSpare;
+	if (chunk != NULL)
+	    R_VSpare = NULL;
+	else
+	    chunk = allocVector(RAWSXP, R_VCHUNK_SIZE);
+
+	R_VStackPush(chunk);
+	R_VChunk = chunk;
+	p = VSEG_START(chunk);
+	R_VStackSetFast(p, VSEG_END(chunk));
+    }
+    R_VStack = p + size;
+    return p;
+}
+
+static char *R_VStackLarge(size_t size)
+{
+    char *place = R_VStack;
+    if (R_VStackFits(place, VSEG_PLACE_SIZE))
+	R_VStack = place + VSEG_PLACE_SIZE;
+    else
+	place = R_VStackBump(VSEG_PLACE_SIZE);
+
+    SEXP s = allocVector(RAWSXP, size + 1);
+
+    SET_VSEG_PLACE(s, place);
+    R_VStackPush(s);
+    R_VStackSetFast(place + VSEG_PLACE_SIZE, VSEG_END(R_VChunk));
+    return VSEG_START(s);
+}
+
+/* size is a multiple of 8 that includes the extra byte */
+static VSTACK_NOINLINE char *R_VStackSmall(size_t size)
+{
+    if (R_VSTACK_SEPARATE_BLOCKS())
+	return R_VStackLarge(size - 1);
+
+    return R_VStackBump(size);
+}
+
+static void R_VStackInit(void)
+{
+    SEXP chunk = allocVector(RAWSXP, R_VCHUNK_SIZE);
+
+    R_VStackPush(chunk);
+    R_VBase = R_VChunk = chunk;
+    R_VStack = VSEG_START(chunk);
+    R_VStackSetFast(R_VStack, VSEG_END(chunk));
+}
+
+static VSTACK_NOINLINE char *R_allocLarge(size_t nelem, int eltsize)
 {
     R_size_t size = nelem * eltsize;
     /* doubles are a precaution against integer overflow on 32-bit */
     double dsize = (double) nelem * eltsize;
     if (dsize > 0) {
-	SEXP s;
 #ifdef LONG_VECTOR_SUPPORT
 	/* 64-bit platform: previous version used REALSXPs */
 	if(dsize > R_XLEN_T_MAX)  /* currently 4096 TB */
 	    error(_("cannot allocate memory block of size %0.f %s"),
 		  dsize/R_pow_di(1024.0, 4), "Tb");
-	s = allocVector(RAWSXP, size + 1);
 #else
 	if(dsize > R_LEN_T_MAX) /* must be in the Gb range */
 	    error(_("cannot allocate memory block of size %0.1f %s"),
 		  dsize/R_pow_di(1024.0, 3), "Gb");
-	s = allocVector(RAWSXP, size + 1);
 #endif
-	ATTRIB(s) = R_VStack;
-	R_VStack = s;
-	return (char *) STDVEC_DATAPTR(s);
+	return R_VStackLarge(size);
     }
     /* One programmer has relied on this, but it is undocumented! */
     else return NULL;
+}
+
+char *R_alloc(size_t nelem, int eltsize)
+{
+    if (nelem < R_VSMALL_MAX && (unsigned int) eltsize < R_VSMALL_MAX) {
+	size_t size = nelem * (size_t) eltsize;
+	if (size > 0 && size < R_VSMALL_MAX) {
+	    /* as for large blocks, one byte more than asked for */
+	    size = (size + 8) & ~(size_t) 7;
+	    char *p = R_VStack;
+	    if (R_VStackFits(p, size)) {
+		R_VStack = p + size;
+		return p;
+	    }
+	    return R_VStackSmall(size);
+	}
+    }
+    return R_allocLarge(nelem, eltsize);
 }
 
 #ifdef HAVE_STDALIGN_H
@@ -5034,7 +5237,7 @@ int Seql(SEXP a, SEXP b)
 	    return 0;
     }
     else {
-	SEXP vmax = R_VStack;
+	char *vmax = R_VStack;
 	int result = !strcmp(translateCharUTF8(a), translateCharUTF8(b));
 	R_VStack = vmax; /* discard any memory used by translateCharUTF8 */
 	return result;

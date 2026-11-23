@@ -1673,16 +1673,26 @@ this should not be relied on).  For historical reasons, in all other
 cases 1 byte is added before rounding up so the allocation is always
 1--8 bytes more than was asked for: again this should not be relied on.
 
-The vectors allocated are protected via the setting of @code{R_VStack},
-as the garbage collector marks everything that can be reached from that
-location.  When a vector is @I{@code{R_alloc}ated}, its @code{ATTRIB}
-pointer is set to the current @code{R_VStack}, and @code{R_VStack} is
-set to the latest allocation.  Thus @code{R_VStack} is a single-linked
-chain of the vectors currently allocated via @code{R_alloc}.  Function
-@code{vmaxset} resets the location @code{R_VStack}, and should be to a
-value that has previously be obtained @emph{via} @code{vmaxget}:
-allocations after the value was obtained will no longer be protected and
-hence available for garbage collection.
+A request for 128 bytes or more gets a vector of its own.  Smaller
+requests are served from `chunks', vectors of 8192 bytes from which
+blocks are taken one after the other by advancing the pointer
+@code{R_VStack}.  (When @code{gctorture} is on, or @R{} was built with
+@command{valgrind} instrumentation, every request gets a vector of its
+own.)  A vector for a single request also takes 8 bytes of the current
+chunk and records their address, which gives its position in the
+sequence of allocations.
+
+The vectors allocated are protected as the garbage collector marks
+everything that can be reached from @code{R_VSegs}, the most recently
+allocated of them: the @code{ATTRIB} pointer of each is set to the one
+allocated before it, so they form a single-linked chain.  Function
+@code{vmaxset} resets @code{R_VStack}, and should be to a value that has
+previously been obtained @emph{via} @code{vmaxget}: allocations after the
+value was obtained will no longer be protected.  The space of the small
+ones is used again by the next calls to @code{R_alloc}, and the vectors
+are dropped from the chain, and hence available for garbage collection,
+by the next call that cannot be served from the current chunk or at the
+next garbage collection.
 
 
 @node Internal use of global and base environments
