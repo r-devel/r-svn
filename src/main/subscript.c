@@ -583,6 +583,75 @@ static SEXP nullSubscript(R_xlen_t n)
 }
 
 
+/* The number of elements of a logical vector that are TRUE or NA.  The
+   inner loop has a constant trip count because GCC at -O2 vectorizes a
+   loop only if no scalar iterations remain. */
+#define COUNT_BLOCK 64
+static R_INLINE R_xlen_t countNonZero(const int *ps, R_xlen_t n)
+{
+    R_xlen_t count = 0, i = 0;
+
+    for (; i + COUNT_BLOCK <= n; i += COUNT_BLOCK) {
+	int c = 0;
+	for (int j = 0; j < COUNT_BLOCK; j++)
+	    c += (ps[i + j] != 0);
+	count += c;
+    }
+    for (; i < n; i++)
+	count += (ps[i] != 0);
+
+    return count;
+}
+
+/* Whether a branch on the elements of a logical vector, 'count' of whose
+   'n' elements are TRUE or NA, would be mispredicted often.  It is
+   predicted well when nearly all elements go the same way; the cutoff of
+   one element in 64 of the rarer kind was chosen by measurement. */
+static R_INLINE bool isUnpredictable(R_xlen_t count, R_xlen_t n)
+{
+    R_xlen_t rare = (count < n - count) ? count : n - count;
+
+    return rare > n / 64;
+}
+
+/* Defines a function that stores the positions selected by the logical
+   subscript 'ps', of length 'ns' and recycled to length 'n', in 'pindx',
+   which has room for the 'total' positions there are. */
+#define DEFINE_LOGICAL_FILL(NAME, TYPE, NA_INDEX)			\
+static void NAME(TYPE *pindx, R_xlen_t total,				\
+		 const int *ps, R_xlen_t ns, R_xlen_t n)		\
+{									\
+    R_xlen_t count = 0, i, i1, i2;					\
+									\
+    if (ns < n) {							\
+	MOD_ITERATE_CHECK(NINTERRUPT, n, ns, n, i, i1, i2,		\
+	    if (ps[i1])							\
+		pindx[count++] =					\
+		    (ps[i1] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);	\
+	    );								\
+    } else if (isUnpredictable(total, n)) {				\
+	/* store always, advance past the stored position if selected */ \
+	R_ITERATE_CHECK(NINTERRUPT, n, i,				\
+	    if (count == total)						\
+		break;							\
+	    int v = ps[i];						\
+	    pindx[count] = (v == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1); \
+	    count += (v != 0);						\
+	    );								\
+    } else {								\
+	R_ITERATE_CHECK(NINTERRUPT, n, i,				\
+	    if (ps[i])							\
+		pindx[count++] =					\
+		    (ps[i] == NA_LOGICAL) ? NA_INDEX : (TYPE)(i + 1);	\
+	    );								\
+    }									\
+}
+
+DEFINE_LOGICAL_FILL(fillIntegerIndex, int, NA_INTEGER)
+#ifdef LONG_VECTOR_SUPPORT
+DEFINE_LOGICAL_FILL(fillRealIndex, double, NA_REAL)
+#endif
+
 static SEXP
 logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 		 int dimno)
@@ -593,7 +662,7 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
     }
     *stretch = (ns > nx) ? ns : 0;
     if (ns == 0) return(allocVector(INTSXP, 0));
-    R_xlen_t count, i, i1, i2,
+    R_xlen_t count,
 	nmax = (ns > nx) ? ns : nx;
 
     if (nmax % ns != 0) { // fractional recycling of the logical subscript
@@ -608,112 +677,25 @@ logicalSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch, SEXP call,
 
     SEXP indx; // result
 
-    const int *ps = LOGICAL_RO(s);    /* Calling LOCICAL_RO here may force a
-					 large allocation, but no larger than
-					 the one made by R_alloc below. This
-					 could use rewriting to better handle
-					 a sparse logical index. */
+    const int *ps = LOGICAL_RO(s);    /* Calling LOGICAL_RO here may force a
+					 large allocation. */
+
+    /* we only need to count once even if we recycle: the count for one
+       pass over s, and the count for the last incomplete chunk (if any) */
+    count = countNonZero(ps, ns) * (nmax / ns);
+    if (nmax % ns != 0)
+	count += countNonZero(ps, nmax % ns);
+
 #ifdef LONG_VECTOR_SUPPORT
     if (nmax > R_SHORT_LEN_MAX) {
-	if (ns == nmax) { /* no recycling - use fast single-index code */
-	    const void *vmax = vmaxget();
-	    double *buf = (double *) R_alloc(nmax, sizeof(double));
-	    count = 0;
-	    R_ITERATE_CHECK(NINTERRUPT, nmax, i,
-		if (ps[i]) {
-		    if (ps[i] == NA_LOGICAL)
-			buf[count++] = NA_REAL;
-		    else
-			buf[count++] = (double)(i + 1);
-		});
-	    PROTECT(indx = allocVector(REALSXP, count));
-	    if (count)
-		memcpy(REAL(indx), buf, sizeof(double) * count);
-	    vmaxset(vmax);
-	    UNPROTECT(1);
-	    return indx;
-	}
-	count = 0;
-	/* we only need to scan s once even if we recycle,
-	   just remember the total count as well as
-	   the count for the last incomplete chunk (if any) */
-	i1 = (ns < nmax) ? (nmax % ns) : 0;
-	if (i1 > 0) { /* last recycling chunk is incomplete -
-			 we have to get the truncated count as well */
-	    R_xlen_t rem = 0;
-	    for (i = 0; i < ns; i++) {
-		if (i == i1) rem = count;
-		if (ps[i]) count++;
-	    }
-	    count = count * (nmax / ns) + rem;
-	} else { /* nested recycling, total is sufficient */
-	    for (i = 0; i < ns; i++)
-		if (ps[i]) count++;
-	    count *= nmax / ns;
-	}
 	PROTECT(indx = allocVector(REALSXP, count));
-	double *pindx = REAL(indx);
-	count = 0;
-	MOD_ITERATE_CHECK(NINTERRUPT, nmax, ns, nmax, i, i1, i2,
-	    if (ps[i1]) {
-		if (ps[i1] == NA_LOGICAL)
-		    pindx[count++] = NA_REAL;
-		else
-		    pindx[count++] = (double)(i + 1);
-	    });
-
-	UNPROTECT(1);
-	return indx;
-    }
+	fillRealIndex(REAL(indx), count, ps, ns, nmax);
+    } else
 #endif
-// else --- the same code for  non-long vectors --------------------------
-    if (ns == nmax) {  /* no recycling - use fast single-index code */
-	const void *vmax = vmaxget();
-	int *buf = (int *) R_alloc(nmax, sizeof(int));
-	count = 0;
-	R_ITERATE_CHECK(NINTERRUPT, nmax, i,
-	    if (ps[i]) {
-		if (ps[i] == NA_LOGICAL)
-		    buf[count++] = NA_INTEGER;
-		else
-		    buf[count++] = (int)(i + 1);
-	    });
+    {
 	PROTECT(indx = allocVector(INTSXP, count));
-	if (count)
-	    memcpy(INTEGER(indx), buf, sizeof(int) * count);
-	vmaxset(vmax);
-	UNPROTECT(1);
-	return indx;
+	fillIntegerIndex(INTEGER(indx), count, ps, ns, nmax);
     }
-
-    count = 0;
-    /* we only need to scan s once even if we recycle,
-       just remember the total count as well as
-       the count for the last incomplete chunk (if any) */
-    i1 = (ns < nmax) ? (nmax % ns) : 0;
-    if (i1 > 0) { /* last recycling chunk is incomplete -
-		     we have to get the truncated count as well */
-	R_xlen_t rem = 0;
-	for (i = 0; i < ns; i++) {
-	    if (i == i1) rem = count;
-	    if (ps[i]) count++;
-	}
-	count = count * (nmax / ns) + rem;
-    } else { /* nested recycling, total is sufficient */
-	for (i = 0; i < ns; i++)
-	    if (ps[i]) count++;
-	count *= nmax / ns;
-    }
-    PROTECT(indx = allocVector(INTSXP, count));
-    int *pindx = INTEGER(indx);
-    count = 0;
-    MOD_ITERATE_CHECK(NINTERRUPT, nmax, ns, nmax, i, i1, i2,
-	if (ps[i1]) {
-	    if (ps[i1] == NA_LOGICAL)
-		pindx[count++] = NA_INTEGER;
-	    else
-		pindx[count++] = (int)(i + 1);
-	});
 
     UNPROTECT(1);
     return indx;
