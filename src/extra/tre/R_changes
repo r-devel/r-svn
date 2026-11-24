@@ -1,6 +1,6 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
 taken from git commit 4723ea5f102b95d1e1caf4b59b4d1c12e6a2355b of the
-integration branch at https://github.com/kevinushey/tre/tree/r-integration.
+integration branch at https://github.com/r-devel/tre/tree/r-integration.
 That branch is upstream master (2026-11-17, post-0.9.0; its library
 sources are unchanged since 2026-05-23) plus the following pull
 requests pending upstream.  The first five restore behaviors R's
