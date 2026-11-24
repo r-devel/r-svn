@@ -4607,6 +4607,37 @@ local({
 
 
 
+## Integer subscript validation: block boundaries, zeros, NA and negatives.
+local({
+    outcome <- function(expr)
+        tryCatch(expr, error=function(e) conditionMessage(e))
+    x <- setNames(seq_len(100L), rep(letters, length.out=100L))
+    for (n in c(0:3, 31:33, 63:65, 127:129, 1024L)) {
+        masks <- list(rep(0L, n), rep(NA_integer_, n),
+                      rep_len(c(0L, 2L, 99L), n),
+                      rep_len(c(0L, -2L, -99L, -101L), n))
+        for (at in unique(c(1L, n %/% 2L, n))) {
+            if (at < 1L || at > n) next
+            for (value in c(0L, -1L, NA_integer_, 101L, .Machine$integer.max)) {
+                i <- rep(2L, n); i[at] <- value
+                masks[[length(masks) + 1L]] <- i
+            }
+        }
+        for (i in masks) {
+            stopifnot(identical(outcome(x[i]), outcome(x[as.double(i)])))
+            m <- matrix(seq_len(200L), 100L, 2L)
+            stopifnot(identical(outcome(m[i, , drop=FALSE]),
+                                outcome(m[as.double(i), , drop=FALSE])))
+            if (!any(i > 1000L, na.rm=TRUE)) {
+                lhs <- outcome({ y <- x; y[i] <- 0L; y })
+                rhs <- outcome({ y <- x; y[as.double(i)] <- 0L; y })
+                stopifnot(identical(lhs, rhs))
+            }
+        }
+    }
+})
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
