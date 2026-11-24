@@ -545,6 +545,18 @@ stopifnot(exprs = {
 ## failed an assertion while compiling in R-devel, and could crash R <= 4.6.2
 
 
+## TRE: more approximate bounds than the matcher keeps costs for
+stopifnot(grepl("a{~1}b{~1}c{~1}", "xbc"))
+for (p in c("a{~1}b{~1}c{~1}d{~1}", "{~}?{~}?{~}?{~}?{~}?D")) {
+    r <- tryCid(suppressWarnings(grepl(p, "abcd")))
+    stopifnot(inherits(r, "error"),
+              grepl(p, conditionMessage(r), fixed = TRUE),
+              !grepl("tre-match-approx.c", conditionMessage(r), fixed = TRUE))
+}
+## failed an assertion while matching in R <= 4.6.2; upstream TRE wrote past
+## its cost table
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
