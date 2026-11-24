@@ -4569,7 +4569,7 @@ rm(saveToConnObj)
 ## segfaulted in R <= 4.6.*
 
 
-## operators, pmax() and x[] <- v for lengths 0 to 65, with and without recycling
+## operators, pmax() and x[] <- v for lengths 0 to 65, with and without recycling -- PR#19365
 local({
     set.seed(123)
     mk <- function(n, type)
