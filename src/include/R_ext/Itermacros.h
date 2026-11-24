@@ -67,47 +67,16 @@
 		}							\
     } while (0)
 
-/* An operand that is as long as the result, or of length one, is not
-   recycled: its index advances with the loop index (SAME) or stays at
-   zero (ONE). Loops for these cases need no test for an index wrapping
-   around, which also lets a compiler vectorize them. MOD_ITERATE1 and
-   MOD_ITERATE2 choose such a loop when the lengths allow it. As long as
-   loop_body changes neither the lengths nor the indices, it sees the
-   same index values as in the recycling loop, and the indices are left
-   as that loop leaves them. loop_body is expanded once for each loop,
-   so it should not define labels or static variables. */
-
-#define MOD_ITERATE1_SAME_CORE(n, n1, i, i1, loop_body) do {                 \
-        for (; i < n; ++i1, ++i) {                                           \
-            loop_body                                                        \
-        }                                                                    \
+#define MOD_ITERATE1(n, n1, i, i1, loop_body) do {	\
+	i = i1 = 0;					\
+	MOD_ITERATE1_CORE(n, n1, i, i1, loop_body);	\
     } while (0)
 
-#define MOD_ITERATE1_ONE_CORE(n, n1, i, i1, loop_body) do {                  \
-        for (; i < n; ++i) {                                                 \
-            loop_body                                                        \
-        }                                                                    \
+#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body) do {	\
+	i = i1 = 0;							\
+	LOOP_WITH_INTERRUPT_CHECK(MOD_ITERATE1_CORE, ncheck, n,		\
+				  n1, i, i1, loop_body);		\
     } while (0)
-
-#define MOD_ITERATE1_DISPATCH(RUN, ncheck, n, n1, i, i1, loop_body) do {     \
-        i = i1 = 0;                                                          \
-        if ((n1) == (n))                                                     \
-            RUN(MOD_ITERATE1_SAME_CORE, ncheck, n, n1, i, i1, loop_body);    \
-        else if ((n1) == 1)                                                  \
-            RUN(MOD_ITERATE1_ONE_CORE, ncheck, n, n1, i, i1, loop_body);     \
-        else                                                                 \
-            RUN(MOD_ITERATE1_CORE, ncheck, n, n1, i, i1, loop_body);         \
-        if (i1 == (n1))                                                      \
-            i1 = 0;                                                          \
-    } while (0)
-
-#define MOD_ITERATE1(n, n1, i, i1, loop_body)                                \
-    MOD_ITERATE1_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,                \
-                          n1, i, i1, loop_body)
-
-#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body)                  \
-    MOD_ITERATE1_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,              \
-                          n1, i, i1, loop_body)
 
 #define MOD_ITERATE2_CORE(n, n1, n2, i, i1, i2, loop_body) do {	\
 	for (; i < n;							\
@@ -117,6 +86,16 @@
 	    loop_body							\
 		}							\
     } while (0)
+
+/* An operand that is as long as the result, or of length one, is not
+   recycled: its index advances with the loop index (SAME) or stays at
+   zero (ONE). Loops for these cases need no test for an index wrapping
+   around, which also lets a compiler vectorize them. MOD_ITERATE2 chooses
+   such a loop when the lengths allow it. As long as loop_body changes
+   neither the lengths nor the indices, it sees the same index values as
+   in the recycling loop, and the indices are left as that loop leaves
+   them. loop_body is expanded once for each loop, so it should not
+   define labels or static variables. */
 
 #define MOD_ITERATE2_SAME_SAME_CORE(n, n1, n2, i, i1, i2, loop_body) do {    \
         for (; i < n; ++i1, ++i2, ++i) {                                     \
