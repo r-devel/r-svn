@@ -4607,6 +4607,31 @@ local({
 
 
 
+## Hash probes crossing the last bucket, including removals for incomparables.
+local({
+    ## Distinct keys whose 32-bit multiplicative hashes fall in bucket 63
+    ## of a 64-slot table (also the last bucket of a smaller table).
+    ## The fixture also exercises a full nmax=2 table.
+    x <- c(-335544320L, -53820795L, 227902730L, 509626255L,
+           791349780L, 1073073305L, 1354796830L, 1636520355L)
+    y <- c(x, x)
+    stopifnot(identical(anyDuplicated(x), 0L),
+              identical(match(rev(x), x), rev(seq_along(x))),
+              identical(duplicated(y), rep(c(FALSE, TRUE), each=length(x))))
+    for (last in c(FALSE, TRUE)) {
+        expected <- if (last) seq_along(x) else seq_along(x) + length(x)
+        stopifnot(identical(which(duplicated(y, fromLast=last)), expected),
+                  identical(unique(y, fromLast=last), x))
+        keep <- !y %in% x[c(1L, 4L)]
+        expected <- duplicated(y, fromLast=last) & keep
+        stopifnot(identical(duplicated(y, incomparables=x[c(1L, 4L)],
+                                      fromLast=last), expected))
+    }
+    stopifnot(inherits(tryCatch(duplicated(x, nmax=2L), error=identity), 'error'))
+    stopifnot(identical(make.unique(c('a', 'a', 'a.1', 'a')), c('a', 'a.2', 'a.1', 'a.3')))
+})
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
