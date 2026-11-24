@@ -986,6 +986,38 @@ attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
 #undef SORTED_ANYDUP_NONNANS_FRO_FIRST
 #undef SORTED_ANYDUP_NANS
 
+/* For dense integer domains, one bit per possible value replaces a hash
+   table.  Return -1 if this domain does not fit.  A small initial check avoids
+   allocating the bitmap for the usual wide-range input.  The caller can
+   restart with hashing if a later value falls outside the domain. */
+static R_xlen_t boundedIntegerAnyDuplicated(SEXP x, R_xlen_t n,
+					  Rboolean from_last)
+{
+    if (n < 256) return -1;
+    unsigned int limit = n <= INT_MAX / 4 ? 4 * (unsigned int) n : INT_MAX;
+    const int *px = INTEGER0(x);
+    R_xlen_t i = from_last ? n - 1 : 0;
+    int step = from_last ? -1 : 1;
+    for (int k = 0; k < 64; k++, i += step)
+	if ((unsigned int) px[i] >= limit) return -1;
+
+    R_xlen_t bytes = (limit + 7U) / 8;
+    SEXP bitmap = PROTECT(allocVector(RAWSXP, bytes));
+    Rbyte *bits = RAW0(bitmap);
+    memset(bits, 0, (size_t) bytes);
+    R_xlen_t result = 0;
+    i = from_last ? n - 1 : 0;
+    for (R_xlen_t k = 0; k < n; k++, i += step) {
+	unsigned int value = (unsigned int) px[i];
+	if (value >= limit) { result = -1; break; }
+	Rbyte bit = (Rbyte) (1U << (value & 7));
+	if (bits[value >> 3] & bit) { result = i + 1; break; }
+	bits[value >> 3] |= bit;
+    }
+    UNPROTECT(1);
+    return result;
+}
+
 /* simpler version of the above : return 1-based index of first, or 0 : */
 // In Rinternals.h
 R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
@@ -998,6 +1030,11 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
 
     if(DUP_KNOWN_SORTED(x)) {
     	return sorted_any_duplicated(x, from_last);
+    }
+
+    if (TYPEOF(x) == INTSXP && !ALTREP(x) && n <= INT_MAX) {
+	R_xlen_t found = boundedIntegerAnyDuplicated(x, n, from_last);
+	if (found >= 0) return found;
     }
 
     DUPLICATED_INIT;
