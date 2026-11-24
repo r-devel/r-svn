@@ -41,7 +41,7 @@
 	}								\
     } while (0)
 
-#define LOOP_WITHOUT_INTERRUPT_CHECK(LOOP, ncheck, n, ...)	\
+#define LOOP_WITHOUT_INTERRUPT_CHECK(LOOP, ncheck, n, ...)                   \
     LOOP(n, __VA_ARGS__)
 
 #define R_ITERATE_CORE(n, i, loop_body) do {	\
@@ -77,37 +77,37 @@
    as that loop leaves them. loop_body is expanded once for each loop,
    so it should not define labels or static variables. */
 
-#define MOD_ITERATE1_SAME_CORE(n, n1, i, i1, loop_body) do {	\
-	for (; i < n; ++i1, ++i) {				\
-	    loop_body						\
-	}							\
+#define MOD_ITERATE1_SAME_CORE(n, n1, i, i1, loop_body) do {                 \
+        for (; i < n; ++i1, ++i) {                                           \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE1_ONE_CORE(n, n1, i, i1, loop_body) do {	\
-	for (; i < n; ++i) {					\
-	    loop_body						\
-	}							\
+#define MOD_ITERATE1_ONE_CORE(n, n1, i, i1, loop_body) do {                  \
+        for (; i < n; ++i) {                                                 \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE1_DISPATCH(RUN, ncheck, n, n1, i, i1, loop_body) do { \
-	i = i1 = 0;							\
-	if ((n1) == (n))						\
-	    RUN(MOD_ITERATE1_SAME_CORE, ncheck, n, n1, i, i1, loop_body); \
-	else if ((n1) == 1)						\
-	    RUN(MOD_ITERATE1_ONE_CORE, ncheck, n, n1, i, i1, loop_body); \
-	else								\
-	    RUN(MOD_ITERATE1_CORE, ncheck, n, n1, i, i1, loop_body);	\
-	if (i1 == (n1))							\
-	    i1 = 0;							\
+#define MOD_ITERATE1_DISPATCH(RUN, ncheck, n, n1, i, i1, loop_body) do {     \
+        i = i1 = 0;                                                          \
+        if ((n1) == (n))                                                     \
+            RUN(MOD_ITERATE1_SAME_CORE, ncheck, n, n1, i, i1, loop_body);    \
+        else if ((n1) == 1)                                                  \
+            RUN(MOD_ITERATE1_ONE_CORE, ncheck, n, n1, i, i1, loop_body);     \
+        else                                                                 \
+            RUN(MOD_ITERATE1_CORE, ncheck, n, n1, i, i1, loop_body);         \
+        if (i1 == (n1))                                                      \
+            i1 = 0;                                                          \
     } while (0)
 
-#define MOD_ITERATE1(n, n1, i, i1, loop_body)				\
-    MOD_ITERATE1_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,		\
-			  n1, i, i1, loop_body)
+#define MOD_ITERATE1(n, n1, i, i1, loop_body)                                \
+    MOD_ITERATE1_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,                \
+                          n1, i, i1, loop_body)
 
-#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body)		\
-    MOD_ITERATE1_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,		\
-			  n1, i, i1, loop_body)
+#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body)                  \
+    MOD_ITERATE1_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,              \
+                          n1, i, i1, loop_body)
 
 #define MOD_ITERATE2_CORE(n, n1, n2, i, i1, i2, loop_body) do {	\
 	for (; i < n;							\
@@ -118,52 +118,52 @@
 		}							\
     } while (0)
 
-#define MOD_ITERATE2_SAME_SAME_CORE(n, n1, n2, i, i1, i2, loop_body) do { \
-	for (; i < n; ++i1, ++i2, ++i) {				\
-	    loop_body							\
-	}								\
+#define MOD_ITERATE2_SAME_SAME_CORE(n, n1, n2, i, i1, i2, loop_body) do {    \
+        for (; i < n; ++i1, ++i2, ++i) {                                     \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE2_SAME_ONE_CORE(n, n1, n2, i, i1, i2, loop_body) do { \
-	for (; i < n; ++i1, ++i) {					\
-	    loop_body							\
-	}								\
+#define MOD_ITERATE2_SAME_ONE_CORE(n, n1, n2, i, i1, i2, loop_body) do {     \
+        for (; i < n; ++i1, ++i) {                                           \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE2_ONE_SAME_CORE(n, n1, n2, i, i1, i2, loop_body) do { \
-	for (; i < n; ++i2, ++i) {					\
-	    loop_body							\
-	}								\
+#define MOD_ITERATE2_ONE_SAME_CORE(n, n1, n2, i, i1, i2, loop_body) do {     \
+        for (; i < n; ++i2, ++i) {                                           \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE2_DISPATCH(RUN, ncheck, n, n1, n2, i, i1, i2, loop_body) \
-    do {								\
-	i = i1 = i2 = 0;						\
-	if ((n1) == (n) && (n2) == (n))					\
-	    RUN(MOD_ITERATE2_SAME_SAME_CORE, ncheck, n,			\
-		n1, n2, i, i1, i2, loop_body);				\
-	else if ((n1) == (n) && (n2) == 1)				\
-	    RUN(MOD_ITERATE2_SAME_ONE_CORE, ncheck, n,			\
-		n1, n2, i, i1, i2, loop_body);				\
-	else if ((n1) == 1 && (n2) == (n))				\
-	    RUN(MOD_ITERATE2_ONE_SAME_CORE, ncheck, n,			\
-		n1, n2, i, i1, i2, loop_body);				\
-	else								\
-	    RUN(MOD_ITERATE2_CORE, ncheck, n,				\
-		n1, n2, i, i1, i2, loop_body);				\
-	if (i1 == (n1))							\
-	    i1 = 0;							\
-	if (i2 == (n2))							\
-	    i2 = 0;							\
+#define MOD_ITERATE2_DISPATCH(RUN, ncheck, n, n1, n2, i, i1, i2, loop_body)  \
+    do {                                                                     \
+        i = i1 = i2 = 0;                                                     \
+        if ((n1) == (n) && (n2) == (n))                                      \
+            RUN(MOD_ITERATE2_SAME_SAME_CORE, ncheck, n,                      \
+                n1, n2, i, i1, i2, loop_body);                               \
+        else if ((n1) == (n) && (n2) == 1)                                   \
+            RUN(MOD_ITERATE2_SAME_ONE_CORE, ncheck, n,                       \
+                n1, n2, i, i1, i2, loop_body);                               \
+        else if ((n1) == 1 && (n2) == (n))                                   \
+            RUN(MOD_ITERATE2_ONE_SAME_CORE, ncheck, n,                       \
+                n1, n2, i, i1, i2, loop_body);                               \
+        else                                                                 \
+            RUN(MOD_ITERATE2_CORE, ncheck, n,                                \
+                n1, n2, i, i1, i2, loop_body);                               \
+        if (i1 == (n1))                                                      \
+            i1 = 0;                                                          \
+        if (i2 == (n2))                                                      \
+            i2 = 0;                                                          \
     } while (0)
 
-#define MOD_ITERATE2(n, n1, n2, i, i1, i2, loop_body)			\
-    MOD_ITERATE2_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,		\
-			  n1, n2, i, i1, i2, loop_body)
+#define MOD_ITERATE2(n, n1, n2, i, i1, i2, loop_body)                        \
+    MOD_ITERATE2_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,                \
+                          n1, n2, i, i1, i2, loop_body)
 
-#define MOD_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2, loop_body)	\
-    MOD_ITERATE2_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,		\
-			  n1, n2, i, i1, i2, loop_body)
+#define MOD_ITERATE2_CHECK(ncheck, n, n1, n2, i, i1, i2, loop_body)          \
+    MOD_ITERATE2_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,              \
+                          n1, n2, i, i1, i2, loop_body)
 
 #define MOD_ITERATE MOD_ITERATE2
 #define MOD_ITERATE_CORE MOD_ITERATE2_CORE
