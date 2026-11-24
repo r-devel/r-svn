@@ -4592,6 +4592,40 @@ local({
 ## wrote past the end of the counts (C) or dropped points (R), in R <= 4.6.2
 
 
+## pmin(), pmax(), x[i] <- v and rep_len() for lengths 0 to 65, with and without recycling
+local({
+    set.seed(123)
+    mk <- function(n, type)
+        switch(type,
+               double = sample(c(-1.5, 0, 2, Inf, NA), n, replace = TRUE),
+               integer = sample(c(-2L, 0L, 3L, .Machine$integer.max, NA), n, replace = TRUE),
+               character = sample(c("a", "B", "", NA), n, replace = TRUE))
+    for (n in 1:65) for (type in c("double", "integer", "character")) suppressWarnings({
+        x <- mk(n, type)
+        y <- mk(n, type)
+        ## as long as the result, of length one, recycled
+        for (v in if (n >= 2L) list(y, y[1L], y[1:2]) else list(y)) {
+            ## v recycled to length n without the code under test
+            vn <- v[(seq_len(n) - 1L) %% length(v) + 1L]
+            for (f in list(pmin, pmax)) for (na.rm in c(FALSE, TRUE))
+                stopifnot(identical(f(x, v, na.rm = na.rm),
+                                    mapply(f, x, vn, na.rm = na.rm,
+                                           USE.NAMES = FALSE)))
+            z <- x
+            z[n:1] <- v
+            stopifnot(identical(z, rev(vn)),
+                      identical(rep_len(v, n), vn))
+        }
+    })
+    x <- double()
+    x[integer()] <- 1
+    stopifnot(identical(pmax(double(), 1), double()),
+              identical(rep_len(1, 0L), double()),
+              identical(x, double()))
+})
+## the cases without recycling have a loop of their own in R > 4.6.2
+
+
 
 
 ## keep at end

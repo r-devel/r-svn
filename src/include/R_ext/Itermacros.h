@@ -41,6 +41,9 @@
 	}								\
     } while (0)
 
+#define LOOP_WITHOUT_INTERRUPT_CHECK(LOOP, ncheck, n, ...)                   \
+    LOOP(n, __VA_ARGS__)
+
 #define R_ITERATE_CORE(n, i, loop_body) do {	\
 	for (; i < n; ++i) { loop_body }	\
     } while (0)
@@ -64,16 +67,45 @@
 		}							\
     } while (0)
 
-#define MOD_ITERATE1(n, n1, i, i1, loop_body) do {	\
-	i = i1 = 0;					\
-	MOD_ITERATE1_CORE(n, n1, i, i1, loop_body);	\
+/* An operand that is as long as the result, or of length one, is not
+   recycled: its index advances by one, or stays at zero, and needs no
+   test for wrapping around. MOD_ITERATE1 runs the loop below for these
+   lengths and the recycling loop for any others. As long as loop_body
+   changes neither the lengths nor the indices, it sees the same index
+   values as in the recycling loop, and the indices are left as that loop
+   leaves them. loop_body is expanded once for each of the two loops, so
+   it should not define labels or static variables.
+
+   The two lengths share one loop, with a step of one or zero, to keep
+   it at two copies of loop_body. A loop for each made some callers
+   slower on x86_64: GCC 13 and 14 then reload a pointer from the stack
+   in every iteration of the loops of VectorAssign(), and pmin() on
+   unpredictable input was slower with GCC 13 to 16. */
+
+#define MOD_ITERATE1_STEP_CORE(n, n1, i, i1, loop_body) do {                 \
+        const int __step1__ = ((n1) == 1) ? 0 : 1;                           \
+        for (; i < n; i1 += __step1__, ++i) {                                \
+            loop_body                                                        \
+        }                                                                    \
     } while (0)
 
-#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body) do {	\
-	i = i1 = 0;							\
-	LOOP_WITH_INTERRUPT_CHECK(MOD_ITERATE1_CORE, ncheck, n,		\
-				  n1, i, i1, loop_body);		\
+#define MOD_ITERATE1_DISPATCH(RUN, ncheck, n, n1, i, i1, loop_body) do {     \
+        i = i1 = 0;                                                          \
+        if ((n1) == (n) || (n1) == 1)                                        \
+            RUN(MOD_ITERATE1_STEP_CORE, ncheck, n, n1, i, i1, loop_body);    \
+        else                                                                 \
+            RUN(MOD_ITERATE1_CORE, ncheck, n, n1, i, i1, loop_body);         \
+        if (i1 == (n1))                                                      \
+            i1 = 0;                                                          \
     } while (0)
+
+#define MOD_ITERATE1(n, n1, i, i1, loop_body)                                \
+    MOD_ITERATE1_DISPATCH(LOOP_WITHOUT_INTERRUPT_CHECK, 0, n,                \
+                          n1, i, i1, loop_body)
+
+#define MOD_ITERATE1_CHECK(ncheck, n, n1, i, i1, loop_body)                  \
+    MOD_ITERATE1_DISPATCH(LOOP_WITH_INTERRUPT_CHECK, ncheck, n,              \
+                          n1, i, i1, loop_body)
 
 #define MOD_ITERATE2_CORE(n, n1, n2, i, i1, i2, loop_body) do {	\
 	for (; i < n;							\
