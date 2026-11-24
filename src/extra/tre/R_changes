@@ -1,8 +1,9 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit 46577ec6241529f1b5117445401eab356a46eeae of the
+taken from git commit 4723ea5f102b95d1e1caf4b59b4d1c12e6a2355b of the
 integration branch at https://github.com/kevinushey/tre/tree/r-integration.
-That branch is upstream master (2026-05-23, post-0.9.0) plus the following
-pull requests pending upstream.  The first five restore behaviors R's
+That branch is upstream master (2026-11-17, post-0.9.0; its library
+sources are unchanged since 2026-05-23) plus the following pull
+requests pending upstream.  The first five restore behaviors R's
 previous bundled copy (based on TRE 0.8.0) had patched in locally:
 
   #144  Convert tre_ast_to_tnfa() to iteration over a tre_stack
@@ -24,6 +25,17 @@ and the others fix bugs present in both copies:
   #163  Keep every empty path through a nullable subexpression, so that
         each alternative's assertions are tried: "(^|\b)a" now matches
         wherever "(\b|^)a" does (PR#17992)
+
+and two fixes on branches of that repository, not yet submitted upstream:
+
+  bugfix/expand-ast-node-type
+        Keep the node type when wrapping an approximate repetition:
+        bounds such as (ab){2~1} failed an assertion while compiling
+        (in R, an "assertion ... failed" error; the 0.8.0 copy could
+        crash)
+  bugfix/class-name-buffer
+        Leave room for the terminator when converting a class name with
+        wcsrtombs(); R uses the wcstombs() branch, which was not affected
 
 The files in lib/ and include/tre/tre.h were copied verbatim into this
 flat directory, except for the R-specific changes listed below.  Files
@@ -70,9 +82,9 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-46577ec"), since these sources are
-   post-0.9.0 plus the pull requests above; update it whenever the copy
-   is refreshed.
+   carries the upstream commit ("0.9.0-4723ea5"), since these sources are
+   post-0.9.0 plus the changes above; update it whenever the copy is
+   refreshed.
 
 Patterns whose expansion exceeds TRE_MAX_POS positions or TRE_MAX_TRANS
 transitions now fail to compile with REG_ESPACE ("Out of memory").  The

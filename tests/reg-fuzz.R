@@ -531,6 +531,20 @@ stopifnot(identical(attr(tt, "term.labels"), ":b"))
 ## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
 
 
+## TRE: approximate matching parameters on a bounded repetition
+x <- c("aaaa", "aaa", "aa", "aaaaa", "aaaaaa", "aXaa", "aXXa")
+stopifnot(exprs = {
+    identical(regmatches("xabaXcx", regexpr("(ab){2~1}c", "xabaXcx")), "abaXc")
+    identical(grepl("(ab){2~1}c", c("ababc", "abXbc", "aXXbc", "abc")),
+              c(TRUE, TRUE, FALSE, FALSE))
+    ## the parameters apply to the expansion as a whole
+    identical(grepl("^(aa){2~1}$", x), grepl("^a{4~1}$", x))
+    grepl("a{2~1}{2~1}", "aaaa")
+    identical(grepl("^a{2+14}{2+4}$", c("aaaa", "aaa")), c(TRUE, FALSE))
+})
+## failed an assertion while compiling in R-devel, and could crash R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
