@@ -498,28 +498,44 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	copyVector(s, t);
 }
 
-#define COPY_WITH_RECYCLE(VALTYPE, TNAME) \
-attribute_hidden void \
-xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc) { \
-							\
-    if (nsrc >= n) { /* no recycle needed */		\
-	for(R_xlen_t i = 0; i < n; i++)		\
-	    dst[dstart + i] = src[i];			\
-	return;					\
-    }							\
-    if (nsrc == 1) {					\
-	VALTYPE val = src[0];				\
-	for(R_xlen_t i = 0; i < n; i++)			\
-	    dst[dstart + i] = val;			\
-	return;						\
-    }							\
-							\
-    /* recycle needed */					\
-    R_xlen_t sidx = 0;					\
-    for(R_xlen_t i = 0; i < n; i++, sidx++) {		\
-	if (sidx == nsrc) sidx = 0;			\
-	dst[dstart + i] = src[sidx];			\
-    }							\
+/* Recycling copies src once. A shorter src is then doubled from what has
+   been written until the copied part is XCOPY_RECYCLE_BLOCK bytes or more,
+   and copies of that part follow; it stays in the cache while it is reused.
+   A longer src is copied from src itself, not read back from dst. */
+#define XCOPY_RECYCLE_BLOCK 8192
+
+#define COPY_WITH_RECYCLE(VALTYPE, TNAME)                                    \
+attribute_hidden void                                                        \
+xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
+                          R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc)        \
+{                                                                            \
+    if (nsrc >= n) { /* no recycle needed */                                 \
+        for (R_xlen_t i = 0; i < n; i++)                                     \
+            dst[dstart + i] = src[i];                                        \
+        return;                                                              \
+    }                                                                        \
+    if (nsrc == 1) {                                                         \
+        VALTYPE val = src[0];                                                \
+        for (R_xlen_t i = 0; i < n; i++)                                     \
+            dst[dstart + i] = val;                                           \
+        return;                                                              \
+    }                                                                        \
+    if (nsrc < 1)                                                            \
+        return;                                                              \
+                                                                             \
+    /* recycle needed */                                                     \
+    VALTYPE *to = dst + dstart;                                              \
+    const VALTYPE *from = src;                                               \
+    R_xlen_t done = 0, block = nsrc;                                         \
+    while (done < n) {                                                       \
+        R_xlen_t len = (n - done < block) ? n - done : block;                \
+        memcpy(to + done, from, (size_t) len * sizeof(VALTYPE));             \
+        done += len;                                                         \
+        if ((size_t) block * sizeof(VALTYPE) < XCOPY_RECYCLE_BLOCK) {        \
+            from = to;                                                       \
+            block = done;                                                    \
+        }                                                                    \
+    }                                                                        \
 }
 
 COPY_WITH_RECYCLE(Rcomplex, Complex)	/* xcopyComplexWithRecycle */

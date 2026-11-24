@@ -4514,6 +4514,37 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## array(), matrix(), cbind() and pmin() recycling a shorter vector, for result
+## lengths around the copied block sizes
+local({
+    set.seed(11)
+    vals <- list(logical = c(TRUE, NA, FALSE), integer = c(3L, NA, -7L, 0L, 9L),
+                 double = c(-0, NaN, NA, 1.5, Inf, 2.25, -3),
+                 complex = complex(real = c(1, NA, -2), imaginary = c(0, 3, NaN)),
+                 raw = as.raw(c(1, 255, 7, 0)))
+    lens <- c(4:9, 63:65, 511:513, 1023:1025, 2047:2049, 4095:4097, 8191:8193, 24581L)
+    for (v in vals) for (m in unique(c(2L, 3L, length(v)))) for (n in lens[lens > m]) {
+        u <- v[seq_len(m)]
+        ## u recycled to length n without the code under test
+        un <- u[(seq_len(n) - 1L) %% m + 1L]
+        suppressWarnings({
+            mat <- matrix(u, n, 1L)
+            cb <- cbind(un, u)
+            if (is.numeric(u)) {
+                lo <- pmin(u, rep_len(Inf, n))
+                hi <- pmax(u, rep_len(-Inf, n))
+            }
+        })
+        stopifnot(identical(as.vector(array(u, n)), un),
+                  identical(as.vector(mat), un),
+                  identical(unname(cb[, 2L]), un))
+        if (is.numeric(u))
+            stopifnot(identical(lo, as.double(un)), identical(hi, as.double(un)))
+    }
+})
+## these copy the shorter vector once and then copy blocks in R > 4.6.2
+
+
 ## socketSelect() on a socket connection that is not open -- PR#19298
 s <- socketConnection(port = 8083L, open = "")
 msg <- tryCmsg(socketSelect(list(s), timeout = 0))
