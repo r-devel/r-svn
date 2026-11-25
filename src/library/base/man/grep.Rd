@@ -209,12 +209,17 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 }
 
 \section{Warning}{
-  The POSIX 1003.2 mode of \code{gsub} and \code{gregexpr} does not
-  work correctly with repeated word-boundaries (e.g.,
-  \code{pattern = "\\b"}, see Examples).
-  Use \code{perl = TRUE} for such matches (but that may not
+  In the POSIX 1003.2 mode, \samp{\\b} matches at the start and at
+  the end of a string and \samp{\\B} at neither, whatever characters
+  are there (see Examples).
+  Use \code{perl = TRUE} where that matters (but that may not
   work as expected with non-ASCII inputs, as the meaning of
   \sQuote{word} is system-dependent).
+
+  For a pattern containing an unmatched \samp{)} (taken literally in
+  that mode), \code{gsub}, \code{gregexpr} and \code{grepRaw} may also
+  misplace word boundaries after the first match: write it as
+  \samp{\\)} instead.
 }
 
 \section{Performance considerations}{
@@ -389,9 +394,9 @@ sub("[[:space:]]+$", "", str) ## white space, POSIX-style
 ## what PCRE considered white space changed in version 8.34: see ?regex
 sub("\\\\s+$", "", str, perl = TRUE) ## PCRE-style white space
 
-## match word boundaries repeatedly: use perl=TRUE
-gsub("\\\\b", "|", "see the warning")  # wrongly matches every position
-gsub("\\\\b", "|", "see the warning", perl = TRUE)
+## word boundaries at the ends of a string: use perl=TRUE
+gsub("\\\\b", "|", " see the warning ")  # wrongly matches at both ends
+gsub("\\\\b", "|", " see the warning ", perl = TRUE)
 
 ## capitalizing
 txt <- "a test of capitalizing"

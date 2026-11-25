@@ -4605,6 +4605,38 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
+## gsub() and gregexpr() tested word boundaries at a restart without the character before it -- PR#17992
+x <- "the quick  fox"
+stopifnot(exprs = {
+    identical(gsub("\\b", "|", x), "|the| |quick|  |fox|")
+    identical(gsub("\\b[a-z]", "X", x), "Xhe Xuick  Xox")
+    identical(gsub("\\<", "|", x), "|the |quick  |fox")
+    identical(gsub("\\>", "|", x), "the| quick|  fox|")
+    identical(gsub("\\Ba", "X", "aaa a"), "aXX a")
+    identical(gsub("\\b(\\w)", "<\\1>", x), "<t>he <q>uick  <f>ox")
+    identical(gsub("\\b(a)\\1", "X", "aaaa aa"), "Xaa X") # back-reference
+    identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
+    identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
+    identical(grepRaw("\\ba", as.raw(c(0x61, 0x61, 0, 0x61)), all = TRUE), c(1L, 4L))
+    identical(grepRaw("\\B", charToRaw("abc"), all = TRUE), 2:3)
+    identical(grepRaw("\\>", charToRaw("ab cd"), all = TRUE), c(3L, 6L))
+    identical(grepRaw("a|\\>", charToRaw("a a"), all = TRUE), 1:3)
+    identical(grepRaw("\\b", charToRaw("a b"), all = TRUE), 1:4)
+    identical(grepRaw("\\b", charToRaw(x), all = TRUE), c(1L, 4L, 5L, 10L, 12L, 15L))
+    identical(gsub("\\b\\Qx", "X", "xx"), "Xx") # "\Q" up to the end
+    identical(gsub("\\ba|[\\0]", "X", "aaa"), "Xaa") # a literal "\0"
+    identical(gsub("\\ba|z\\)", "X", "aaa"), "Xaa") # ")" written as "\)"
+    ## patterns with "\0" (the whole match) or an unmatched ")" restart as before
+    identical(gsub("\\ba\\0", "X", "aa aa"), "X X")
+    identical(gsub("a)\\b", "X", "a)xa) "), "Xxa) ")
+})
+if(l10n_info()[["UTF-8"]]) stopifnot(exprs = { # wide characters
+    identical(gsub("\\b", "|", "ab\u2014cd ef"), "|ab|\u2014|cd| |ef|")
+    identical(gsub("\\b\\Qx", "X", "xx\u2014x"), "Xx\u2014X")
+})
+## every restart looked like the start of a word in R <= 4.6.2
+
+
 
 ## an error in a clipping path function left the PDF device locked -- PR#19335
 pdf(tf <- tempfile(fileext = ".pdf"))

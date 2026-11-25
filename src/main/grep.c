@@ -553,6 +553,7 @@ R_pcre_prepare(const char *pattern, SEXP subject, bool use_UTF8,
 typedef struct {
     bool fixed_opt, perl_opt;
     regex_t *reg;
+    regex_t *restart_reg; /* from compileRestartRegex(), if any */
     const unsigned char *tables;
 #ifdef HAVE_PCRE2
     pcre2_code *re;
@@ -588,6 +589,8 @@ static void regex_cleanup(void *data)
 #endif
     } else {
 	tre_regfree(ci->reg);
+	if (ci->restart_reg)
+	    tre_regfree(ci->restart_reg);
     }
 }
 
@@ -607,6 +610,7 @@ static void regex_cleanup_begin(regex_cleanup_info *ci, RCNTXT *cntxt,
     ci->fixed_opt = fixed_opt;
     ci->perl_opt = perl_opt;
     ci->reg = reg;
+    ci->restart_reg = NULL;
     ci->tables = tables;
 #ifdef HAVE_PCRE2
     ci->re = re;
@@ -628,6 +632,151 @@ static void regex_cleanup_end(regex_cleanup_info *ci, RCNTXT *cntxt)
 {
     endcontext(cntxt);
     regex_cleanup(ci);
+}
+
+/* gsub(), gregexpr() and grepRaw(all = TRUE) look for each further match
+   by running TRE on the rest of the string.  TRE takes the character
+   before where it starts to be a non-word one, and lets \b hold and \B
+   fail there whatever follows, so word assertions would be tested wrongly
+   at every restart.  For a pattern with one, a restart instead searches
+   from one character earlier for ".(?:<pattern>)", whose "." takes up
+   that character.  "(?:" does not capture, so subexpressions keep their
+   numbers.  A "\Q" literal that runs to the end of the pattern would take
+   in the final ")", so that is preceded by "\E" if needed.  Some
+   patterns restart as before: one with "\0", TRE's back-reference to the
+   whole match, which would take in the "."; one with an unmatched ")",
+   which TRE reads as a literal and which would close the group early;
+   and one too close to TRE's length limit (TRE_MAX_RE) to take the
+   added characters. */
+
+/* Whether 'pat' has a word assertion and no "\0".  A "\0" in a pattern
+   without back-references ('backrefs' false) is a literal. */
+static bool needsRestartRegex(const char *pat, size_t len, bool backrefs)
+{
+    bool found = false;
+    for (size_t k = 0; k + 1 < len; k++)
+	if (pat[k] == '\\') {
+	    char c = pat[++k];
+	    if (c == '0' && backrefs)
+		return false;
+	    if (c == 'b' || c == 'B' || c == '<' || c == '>')
+		found = true;
+	}
+    return found;
+}
+
+static bool needsRestartRegexW(const wchar_t *pat, size_t len, bool backrefs)
+{
+    bool found = false;
+    for (size_t k = 0; k + 1 < len; k++)
+	if (pat[k] == L'\\') {
+	    wchar_t c = pat[++k];
+	    if (c == L'0' && backrefs)
+		return false;
+	    if (c == L'b' || c == L'B' || c == L'<' || c == L'>')
+		found = true;
+	}
+    return found;
+}
+
+/* Compile into 'rreg' the regex that restarts a search for 'pat', of
+   'len' bytes, compiled as 'reg'; false if the pattern needs none or
+   cannot use one.  This does not raise R errors, so it can run before the
+   cleanup context. */
+static bool compileRestartRegex(regex_t *rreg, const regex_t *reg,
+				const char *pat, size_t len, int cflags)
+{
+    if (!needsRestartRegex(pat, len, tre_have_backrefs(reg)))
+	return false;
+
+    char *buf = malloc(len + 7);
+    if (!buf)
+	return false;
+    memcpy(buf, ".(?:", 4);
+    memcpy(buf + 4, pat, len);
+    buf[len + 4] = ')';
+
+    /* Without the final ")", the group has to be left open. */
+    regex_t probe;
+    int rc = tre_regncompb(&probe, buf + 1, len + 3, cflags);
+    if (rc == REG_OK)
+	tre_regfree(&probe);
+    bool ok = false;
+    if (rc == REG_EPAREN) {
+	rc = tre_regncompb(rreg, buf, len + 5, cflags);
+	if (rc == REG_EPAREN) {
+	    memcpy(buf + len + 4, "\\E)", 3);
+	    rc = tre_regncompb(rreg, buf, len + 7, cflags);
+	}
+	ok = rc == REG_OK;
+    }
+
+    free(buf);
+    return ok;
+}
+
+static bool compileRestartRegexW(regex_t *rreg, const regex_t *reg,
+				 const wchar_t *pat, int cflags)
+{
+    size_t len = wcslen(pat);
+    if (!needsRestartRegexW(pat, len, tre_have_backrefs(reg)))
+	return false;
+
+    wchar_t *buf = malloc((len + 7) * sizeof(wchar_t));
+    if (!buf)
+	return false;
+    memcpy(buf, L".(?:", 4 * sizeof(wchar_t));
+    memcpy(buf + 4, pat, len * sizeof(wchar_t));
+    buf[len + 4] = L')';
+
+    regex_t probe;
+    int rc = tre_regwncomp(&probe, buf + 1, len + 3, cflags);
+    if (rc == REG_OK)
+	tre_regfree(&probe);
+    bool ok = false;
+    if (rc == REG_EPAREN) {
+	rc = tre_regwncomp(rreg, buf, len + 5, cflags);
+	if (rc == REG_EPAREN) {
+	    memcpy(buf + len + 4, L"\\E)", 3 * sizeof(wchar_t));
+	    rc = tre_regwncomp(rreg, buf, len + 7, cflags);
+	}
+	ok = rc == REG_OK;
+    }
+
+    free(buf);
+    return ok;
+}
+
+/* Turn a match of a restart regex run from 'at' - 1 into a match of the
+   pattern relative to 'at'. */
+static void shiftRestartMatch(regmatch_t pmatch[], size_t nmatch)
+{
+    for (size_t k = 0; k < nmatch; k++)
+	if (pmatch[k].rm_so >= 0) {
+	    pmatch[k].rm_so--;
+	    pmatch[k].rm_eo--;
+	}
+    pmatch[0].rm_so++;
+}
+
+/* Search on from 'at', which follows an earlier match in the same string
+   and has 'len' bytes left, with restart regex 'rreg'. */
+static int execRestart(const regex_t *rreg, const char *at, size_t len,
+		       size_t nmatch, regmatch_t pmatch[], int eflags)
+{
+    int rc = tre_regnexecb(rreg, at - 1, len + 1, nmatch, pmatch, eflags);
+    if (rc == REG_OK)
+	shiftRestartMatch(pmatch, nmatch);
+    return rc;
+}
+
+static int execRestartW(const regex_t *rreg, const wchar_t *at,
+			size_t nmatch, regmatch_t pmatch[], int eflags)
+{
+    int rc = tre_regwexec(rreg, at - 1, nmatch, pmatch, eflags);
+    if (rc == REG_OK)
+	shiftRestartMatch(pmatch, nmatch);
+    return rc;
 }
 
 // FIXME: Do not rebuild locale tables repeatedly.
@@ -1883,12 +2032,28 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
        to allow use on big binary strings with many matches (it could be done
        by re-allocating a temp buffer but I chose sequential allocations to
        reduce possible fragmentation) */
+    regex_t restart_reg;
+    bool have_restart_reg =
+	compileRestartRegex(&restart_reg, &reg, (const char*) RAW(pat),
+			    LENGTH(pat), cflags);
+    regex_cleanup_info ci;
+    RCNTXT cntxt;
+    regex_cleanup_begin(&ci, &cntxt, call, false, false, &reg, NULL,
+			NULL, NULL, NULL);
+    if (have_restart_reg)
+	ci.restart_reg = &restart_reg;
+
     res_head = res_tail = PROTECT(list1(allocVector(INTSXP, res_alloc)));
     res_val = INTEGER(CAR(res_tail));
     res_ptr = 0;
+    bool stepped_over = false;
     while (1) {
 	regmatch_t ptag;
-	rc = tre_regnexecb(&reg, (const char*) RAW(text) + offset, LENGTH(text) - offset, 1, &ptag, eflags);
+	if (nmatches && have_restart_reg)
+	    rc = execRestart(&restart_reg, (const char*) RAW(text) + offset,
+			     LENGTH(text) - offset, 1, &ptag, eflags);
+	else
+	    rc = tre_regnexecb(&reg, (const char*) RAW(text) + offset, LENGTH(text) - offset, 1, &ptag, eflags);
 	if (rc)
 	    break;
 	if (!nmatches) eflags |= REG_NOTBOL;
@@ -1904,7 +2069,15 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (value) res_val[res_ptr++] = ptag.rm_eo - ptag.rm_so;
 	offset += ptag.rm_eo;
 	nmatches++;
-	if (ptag.rm_eo == 0) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
+	if (have_restart_reg) {
+	    /* The restart regex sees the character before 'offset', so it
+	       would find an empty match there again: step over it, as
+	       gregexpr() does.  Each search then starts further on, and one
+	       that starts at the end can still find an empty match there. */
+	    stepped_over = ptag.rm_so == ptag.rm_eo;
+	    if (stepped_over)
+		offset++;
+	} else if (ptag.rm_eo == 0) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
 	    int infinite_match = 1;
 	    /* the only place where this is acceptable is "^" as that will go away in the next step */
 	    if (nmatches == 1) { /* to see if that is true, re-run the match with REG_NOTBOL (added above) */
@@ -1916,7 +2089,8 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 		warning(_("pattern matches an empty string infinitely, returning first match only"));
 	    break;
 	}
-	if (offset >= LENGTH(text)) break;
+	if (offset > LENGTH(text) || (offset == LENGTH(text) && !stepped_over))
+	    break;
     }
 
     if (value) { /* for values we store in fact the absolute start offsets and length in the integer vector */
@@ -1971,7 +2145,7 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     UNPROTECT(1);
 
-    tre_regfree(&reg);
+    regex_cleanup_end(&ci, &cntxt);
 
     return ans;
 }
@@ -2207,7 +2381,8 @@ wsub_buffer_expand(double needed, int *nns, wchar_t **cbuf, wchar_t **u)
 attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP pat, rep, text, ans;
-    regex_t reg;
+    regex_t reg, restart_reg;
+    bool have_restart_reg = false;
     regmatch_t regmatch[10];
     R_xlen_t i, n;
     int j, ns, nns, nmatch, offset, rc;
@@ -2339,10 +2514,15 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	    rc =  tre_regcompb(&reg, spat, cflags);
 	    if (rc) reg_report(rc, &reg, spat);
 	    replen = strlen(srep);
+	    have_restart_reg = global &&
+		compileRestartRegex(&restart_reg, &reg, spat, strlen(spat),
+				    cflags);
 	} else {
 	    rc  = tre_regwcomp(&reg, wpat, cflags);
 	    if (rc) reg_report(rc, &reg, translateChar(STRING_ELT(pat, 0)));
 	    replen = wcslen(wrep);
+	    have_restart_reg = global &&
+		compileRestartRegexW(&restart_reg, &reg, wpat, cflags);
 	}
     }
 
@@ -2355,6 +2535,8 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
     regex_cleanup_begin(&ci, &cntxt, call, fixed_opt, perl_opt, &reg, tables,
 			re_pcre, re_pe, NULL);
 #endif
+    if (have_restart_reg)
+	ci.restart_reg = &restart_reg;
 
     PROTECT(ans = allocVector(STRSXP, n));
     vmax = vmaxget();
@@ -2522,7 +2704,10 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	                         &nns, &maxrep);
 	    u = cbuf = R_Calloc(nns, char);
 	    offset = 0; nmatch = 0; eflags = 0; last_end = -1;
-	    while ((rc = tre_regexecb(&reg, s+offset, 10, regmatch, eflags))
+	    while ((rc = (ci.restart_reg && offset > 0)
+		    ? execRestart(ci.restart_reg, s+offset, ns-offset, 10,
+				  regmatch, eflags)
+		    : tre_regexecb(&reg, s+offset, 10, regmatch, eflags))
 		   == 0) {
 		/* printf("%s, %d %d\n", &s[offset],
 		   regmatch[0].rm_so, regmatch[0].rm_eo); */
@@ -2575,7 +2760,11 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	                         &nns, &maxrep);
 	    u = cbuf = R_Calloc(nns, wchar_t);
 	    offset = 0; nmatch = 0; eflags = 0; last_end = -1;
-	    while (tre_regwexec(&reg, ws+offset, 10, regmatch, eflags) == 0) {
+	    while (((ci.restart_reg && offset > 0)
+		    ? execRestartW(ci.restart_reg, ws+offset, 10, regmatch,
+				   eflags)
+		    : tre_regwexec(&reg, ws+offset, 10, regmatch, eflags))
+		   == 0) {
 		nmatch++;
 		for (j = 0; j < regmatch[0].rm_so ; j++)
 		    *u++ = ws[offset+j];
@@ -2632,8 +2821,8 @@ static int getNc(const char *s, int st)
 static SEXP gregexpr_BadStringAns(void);
 
 static SEXP
-gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
-		R_xlen_t i, SEXP itype, int *nwarn)
+gregexpr_Regexc(const regex_t *reg, const regex_t *restart_reg, SEXP sstr,
+		int useBytes, int use_WC, R_xlen_t i, SEXP itype, int *nwarn)
 {
     int matchIndex = -1, j, st, foundAll = 0, foundAny = 0;
     size_t len, offset = 0;
@@ -2675,10 +2864,18 @@ gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
 
     while (!foundAll) {
         int rc = REG_OK; // in case offset>=len (e.g., when len==0)
-	if ( offset < len &&
-	     (rc = !use_WC ? tre_regexecb(reg, string+offset, 1, regmatch, eflags) :
-	      tre_regwexec(reg, ws+offset, 1, regmatch, eflags))
-	     == REG_OK) {
+	if (offset < len) {
+	    if (restart_reg && offset > 0)
+		rc = !use_WC
+		    ? execRestart(restart_reg, string+offset, len-offset, 1,
+				  regmatch, eflags)
+		    : execRestartW(restart_reg, ws+offset, 1, regmatch, eflags);
+	    else
+		rc = !use_WC
+		    ? tre_regexecb(reg, string+offset, 1, regmatch, eflags)
+		    : tre_regwexec(reg, ws+offset, 1, regmatch, eflags);
+	}
+	if (offset < len && rc == REG_OK) {
 	    if ((matchIndex + 1) == bufsize) {
 		/* Reallocate match buffers */
 		int newbufsize = bufsize * 2;
@@ -3061,7 +3258,8 @@ static SEXP gregexpr_BadStringAns(void)
 attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP pat, text, ans, itype;
-    regex_t reg;
+    regex_t reg, restart_reg;
+    bool have_restart_reg = false;
     regmatch_t regmatch[10];
     R_xlen_t i, n;
     bool igcase_opt, perl_opt, fixed_opt, useBytes;
@@ -3200,6 +3398,11 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 	else
 	    rc = tre_regwcomp(&reg, wpat, cflags);
 	if (rc) reg_report(rc, &reg, spat);
+	if (PRIMVAL(op) == 1) /* gregexpr */
+	    have_restart_reg = !use_WC
+		? compileRestartRegex(&restart_reg, &reg, spat, strlen(spat),
+				      cflags)
+		: compileRestartRegexW(&restart_reg, &reg, wpat, cflags);
     }
 
     regex_cleanup_info ci;
@@ -3211,6 +3414,8 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
     regex_cleanup_begin(&ci, &cntxt, call, fixed_opt, perl_opt, &reg, tables,
 			re_pcre, re_pe, ovector);
 #endif
+    if (have_restart_reg)
+	ci.restart_reg = &restart_reg;
 
     if (PRIMVAL(op) == 0) { /* regexpr */
 	SEXP matchlen, capture_start, capturelen;
@@ -3389,8 +3594,9 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 		    }
 		} else
-		    elt = gregexpr_Regexc(&reg, STRING_ELT(text, i),
-					  useBytes, use_WC, i, itype, &nwarn);
+		    elt = gregexpr_Regexc(&reg, ci.restart_reg,
+					  STRING_ELT(text, i), useBytes,
+					  use_WC, i, itype, &nwarn);
 	    }
 	    SET_VECTOR_ELT(ans, i, elt);
 	    vmaxset(vmax);
