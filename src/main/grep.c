@@ -641,11 +641,13 @@ static void regex_cleanup_end(regex_cleanup_info *ci, RCNTXT *cntxt)
    at every restart.  For a pattern with one, a restart instead searches
    from one character earlier for ".(?:<pattern>)", whose "." takes up
    that character.  "(?:" does not capture, so subexpressions keep their
-   numbers.  Some patterns restart as before: one with "\0", TRE's
-   back-reference to the whole match, which would take in the "."; one
-   with an unmatched ")", which TRE reads as a literal and which would
-   close the group early; and one too close to TRE's length limit
-   (TRE_MAX_RE) to take the five added characters. */
+   numbers.  A "\Q" literal that runs to the end of the pattern would take
+   in the final ")", so that is preceded by "\E" if needed.  Some
+   patterns restart as before: one with "\0", TRE's back-reference to the
+   whole match, which would take in the "."; one with an unmatched ")",
+   which TRE reads as a literal and which would close the group early;
+   and one too close to TRE's length limit (TRE_MAX_RE) to take the
+   added characters. */
 
 /* Whether 'pat' has a word assertion and no "\0". */
 static bool needsRestartRegex(const char *pat, size_t len)
@@ -685,7 +687,7 @@ static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
     if (!needsRestartRegex(pat, len))
 	return false;
 
-    char *buf = malloc(len + 5);
+    char *buf = malloc(len + 7);
     if (!buf)
 	return false;
     memcpy(buf, ".(?:", 4);
@@ -697,8 +699,14 @@ static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
     int rc = tre_regncompb(&probe, buf + 1, len + 3, cflags);
     if (rc == REG_OK)
 	tre_regfree(&probe);
-    bool ok = rc == REG_EPAREN &&
-	tre_regncompb(rreg, buf, len + 5, cflags) == REG_OK;
+    bool ok = false;
+    if (rc == REG_EPAREN) {
+	ok = tre_regncompb(rreg, buf, len + 5, cflags) == REG_OK;
+	if (!ok) {
+	    memcpy(buf + len + 4, "\\E)", 3);
+	    ok = tre_regncompb(rreg, buf, len + 7, cflags) == REG_OK;
+	}
+    }
 
     free(buf);
     return ok;
@@ -711,7 +719,7 @@ static bool compileRestartRegexW(regex_t *rreg, const wchar_t *pat,
     if (!needsRestartRegexW(pat, len))
 	return false;
 
-    wchar_t *buf = malloc((len + 5) * sizeof(wchar_t));
+    wchar_t *buf = malloc((len + 7) * sizeof(wchar_t));
     if (!buf)
 	return false;
     memcpy(buf, L".(?:", 4 * sizeof(wchar_t));
@@ -722,8 +730,14 @@ static bool compileRestartRegexW(regex_t *rreg, const wchar_t *pat,
     int rc = tre_regwncomp(&probe, buf + 1, len + 3, cflags);
     if (rc == REG_OK)
 	tre_regfree(&probe);
-    bool ok = rc == REG_EPAREN &&
-	tre_regwncomp(rreg, buf, len + 5, cflags) == REG_OK;
+    bool ok = false;
+    if (rc == REG_EPAREN) {
+	ok = tre_regwncomp(rreg, buf, len + 5, cflags) == REG_OK;
+	if (!ok) {
+	    memcpy(buf + len + 4, L"\\E)", 3 * sizeof(wchar_t));
+	    ok = tre_regwncomp(rreg, buf, len + 7, cflags) == REG_OK;
+	}
+    }
 
     free(buf);
     return ok;

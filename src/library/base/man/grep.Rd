@@ -209,8 +209,8 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 }
 
 \section{Warning}{
-  In the POSIX 1003.2 mode, \code{"\\b"} matches at the start and at
-  the end of a string and \code{"\\B"} at neither, whatever characters
+  In the POSIX 1003.2 mode, \samp{\\b} matches at the start and at
+  the end of a string and \samp{\\B} at neither, whatever characters
   are there.
   Use \code{perl = TRUE} where that matters (but that may not
   work as expected with non-ASCII inputs, as the meaning of

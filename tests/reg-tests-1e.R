@@ -4621,12 +4621,15 @@ stopifnot(exprs = {
     identical(grepRaw("a|\\>", charToRaw("a a"), all = TRUE), 1:3)
     identical(grepRaw("\\B|$", charToRaw("ab"), all = TRUE), 2:3)
     identical(grepRaw("\\b", charToRaw(x), all = TRUE), c(1L, 4L, 5L, 10L, 12L, 15L))
+    identical(gsub("\\b\\Qx", "X", "xx"), "Xx") # "\Q" up to the end
     ## patterns with "\0" (the whole match) or an unmatched ")" restart as before
     identical(gsub("\\ba\\0", "X", "aa aa"), "X X")
     identical(gsub("a)\\b", "X", "a)xa) "), "Xxa) ")
 })
-if(l10n_info()[["UTF-8"]]) # wide characters
-    stopifnot(identical(gsub("\\b", "|", "ab\u2014cd ef"), "|ab|\u2014|cd| |ef|"))
+if(l10n_info()[["UTF-8"]]) stopifnot(exprs = { # wide characters
+    identical(gsub("\\b", "|", "ab\u2014cd ef"), "|ab|\u2014|cd| |ef|")
+    identical(gsub("\\b\\Qx", "X", "xx\u2014x"), "Xx\u2014X")
+})
 ## every restart looked like the start of a word in R <= 4.6.2
 
 
