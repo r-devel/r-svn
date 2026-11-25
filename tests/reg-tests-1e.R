@@ -1291,6 +1291,17 @@ y <- c(7.645296e-298, 2.225074e-308, 1.23456e-293)
 stopifnot(all.equal(x, y))
 
 
+## hexadecimal constants with a binary exponent below -1023
+x <- c(2^-1024, 2^-1040, 2^-1074, 3 * 2^-1074, 2^-1074, 2^-1074)
+stopifnot(identical(as.numeric(c("0x1p-1024", "0x1p-1040", "0x1p-1074",
+                                 "0x1.8p-1073", "0x0.8p-1073", "0x1.8p-1075")),
+                    x),
+          identical(0x1p-1074, 2^-1074),
+          identical(as.numeric("0x1p-1075"), 0), # a tie, to even
+          identical(as.numeric(sprintf("%a", x)), x))
+## gave 0 in R <= 4.6.x, so also the round trip where "%a" gives 0x1p-1074
+
+
 ## require a non-empty exponent digit sequence in R_strtod.
 ## R 4.4.0 (and many accounts) accepted empty one.
 {
