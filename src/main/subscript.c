@@ -976,6 +976,10 @@ stringSubscript(SEXP s, R_xlen_t ns /* = xlength(s) */, R_xlen_t nx /* = xlength
 	    if (!canstretch) {
 		ECALL_OutOfBoundsCHAR(x, dim, STRING_ELT(s, i), call);
 	    }
+	    /* indx stores positions as int: one past INT_MAX would wrap */
+	    if (extra >= INT_MAX)
+		error(_("long vectors not supported yet: %s:%d"),
+		      __FILE__, __LINE__);
 	    extra += 1;
 	    sub = extra;
 	    SET_VECTOR_ELT(indexnames, i, STRING_ELT(s, i));
