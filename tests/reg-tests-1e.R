@@ -4514,6 +4514,13 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
+## toupper() and tolower() of non-BMP characters after the first one -- PR#19339
+x <- intToUtf8(c(97, 0x1F600, 0x1F64F)) # marked UTF-8 in any locale
+stopifnot(identical(utf8ToInt(toupper(x)), c(65L, 0x1F600L, 0x1F64FL)),
+          identical(utf8ToInt(tolower(x)), c(97L, 0x1F600L, 0x1F64FL)))
+## changed them into other characters on Windows in R <= 4.6.2
+
+
 ## socketSelect() on a socket connection that is not open -- PR#19298
 s <- socketConnection(port = 8083L, open = "")
 msg <- tryCmsg(socketSelect(list(s), timeout = 0))
