@@ -416,13 +416,14 @@ static SEXP MatrixSubset(SEXP x, SEXP s, SEXP call, int drop)
     return result;
 }
 
-static R_INLINE R_xlen_t findASubIndex(R_xlen_t k, const int * const *subs,
-				       const int *indx, const int *pxdims,
-				       const R_xlen_t *offset,
-				       SEXP call)
+/* The offset of the current subscripts of dimensions 2 to k, or
+   NA_INTEGER if one of them is NA. */
+static R_INLINE R_xlen_t findASubIndex(int k, const int * const *subs,
+				       const int *indx,
+				       const R_xlen_t *offset)
 {
     R_xlen_t ii = 0;
-    for (int j = 0; j < k; j++) {
+    for (int j = 1; j < k; j++) {
 	int jj = subs[j][indx[j]];
 	if (jj == NA_INTEGER)
 	    return NA_INTEGER;
@@ -431,22 +432,25 @@ static R_INLINE R_xlen_t findASubIndex(R_xlen_t k, const int * const *subs,
     return ii;
 }
 
-#define ARRAY_SUBSET_LOOP(STDCODE, NACODE) do {			\
-	for (R_xlen_t i = 0; i < n; i++) {			\
-	    R_xlen_t ii = findASubIndex(k, subs, indx,		\
-					pxdims, offset, call);	\
-	    if (ii != NA_INTEGER)				\
-		STDCODE;					\
-	    else						\
-		NACODE;						\
-	    if (n > 1) {					\
-		int j = 0;					\
-		while (++indx[j] >= bound[j]) {			\
-		    indx[j] = 0;				\
-		    j = (j + 1) % k;				\
-		}						\
-	    }							\
-	}							\
+/* The first subscript varies fastest, so the offset of the other
+   dimensions is computed once for each run over the first. */
+#define ARRAY_SUBSET_LOOP(STDCODE, NACODE) do {                         \
+        const int *subs0 = subs[0];                                     \
+        int n0 = bound[0];                                              \
+        for (R_xlen_t i = 0; i < n; ) {                                 \
+            R_xlen_t base = findASubIndex(k, subs, indx, offset);       \
+            for (int i0 = 0; i0 < n0; i0++, i++) {                      \
+                int jj = subs0[i0];                                     \
+                if (base != NA_INTEGER && jj != NA_INTEGER) {           \
+                    R_xlen_t ii = base + jj - 1;                        \
+                    STDCODE;                                            \
+                }                                                       \
+                else                                                    \
+                    NACODE;                                             \
+            }                                                           \
+            for (int j = 1; j < k && ++indx[j] >= bound[j]; j++)        \
+                indx[j] = 0;                                            \
+        }                                                               \
     } while (0)
 
 static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
@@ -470,13 +474,22 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
     /* Store its extents. */
 
     R_xlen_t n = 1;
+    bool toolong = false;
     r = s;
     for (int i = 0; i < k; i++) {
 	SETCAR(r, int_arraySubscript(i, CAR(r), xdims, x, call));
 	bound[i] = LENGTH(CAR(r));
-	n *= bound[i];
+	if (bound[i] > 0 && n > R_XLEN_T_MAX / bound[i])
+	    toolong = true;
+	else
+	    n *= bound[i];
 	r = CDR(r);
     }
+    /* ARRAY_SUBSET_LOOP writes whole runs of bound[0] elements, so n
+       must be the exact product; an empty subscript still gives an
+       empty result. */
+    if (toolong && n > 0)
+	error(_("dimensions would exceed maximum size of array"));
 
     r = s;
     for (int i = 0; i < k; i++) {
