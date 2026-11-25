@@ -867,10 +867,13 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	} else {
 	    indx = allocVector(REALSXP, cnt);
 	    double *pindx = REAL(indx);
-	    for (i = 0, cnt = 0; i < ns; i++) {
-		double ds = ps[i];
-		if (!R_FINITE(ds) || (R_xlen_t) ds != 0) pindx[cnt++] = ds;
-	    }
+	    if (zct == 0)
+		memcpy(pindx, ps, sizeof(double) * ns);
+	    else
+		for (i = 0, cnt = 0; i < ns; i++) {
+		    double ds = ps[i];
+		    if (!R_FINITE(ds) || (R_xlen_t) ds != 0) pindx[cnt++] = ds;
+		}
 	}
 	return indx;
     }

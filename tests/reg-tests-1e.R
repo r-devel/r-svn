@@ -4621,8 +4621,10 @@ local({
             stopifnot(identical(y, z))
         }
     }
-    stopifnot(identical(x[c(2^31, 0, 1)], c(NA, 10)),
-              identical(x[c(2^31 - 1, 0.5, 2)], c(NA, 20)))
+    stopifnot(identical(x[c(2^31 - 1, 0.5, 2)], c(NA, 20)))
+    if (.Machine$sizeof.pointer >= 8) # 32-bit R: "subscript too large"
+        stopifnot(identical(x[c(2^31, 0, 1)], c(NA, 10)),
+                  identical(x[c(1, 2^31, Inf)], c(10, NA, NA)))
 })
 ## the zeros of a double subscript are counted in the first pass over it in R > 4.6.2
 
