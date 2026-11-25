@@ -187,7 +187,7 @@
                identical(curPkg, objPkg))
                 return(obj)
             else {
-                merge <- new.env()
+                merge <- new.env(parent = baseenv())
                 var <- .pkgMethodLabel(obj)
                 if(nzchar(var)) assign(var, obj, envir = merge)
                 var <- .pkgMethodLabel(current)
@@ -196,7 +196,7 @@
             }
         }
         else if(is.environment(obj)) {
-            merge <- new.env()
+            merge <- new.env(parent = baseenv())
             assign(.pkgMethodLabel(current), current, envir = merge)
             list2env(as.list(obj, all.names=TRUE), merge)
             return(merge)
@@ -309,7 +309,7 @@
                     pkg <- attr(current@target, "package")
                     if(length(pkg) == 0)
                         current <- .fixPackageSlot(current, current@target)
-                    env <- new.env()
+                    env <- new.env(parent = baseenv())
                     ## zero-length seen 2011-07-29
                     var <- .pkgMethodLabel(current)
                     if(nzchar(var)) assign(var, current, envir = env)
@@ -323,7 +323,7 @@
                          domain = NA)
             }
             else
-                env <- new.env()
+                env <- new.env(parent = baseenv())
             assign(.pkgMethodLabel(def), def, envir = env)
             env
         }
@@ -1309,7 +1309,7 @@ outerLabels <- function(labels, new) {
       .resetTable(table, length(signature), fdef@signature[seq_along(signature)])
   }
   else {
-    table <- new.env(TRUE, environment(fdef))
+    table <- new.env(parent = baseenv())
     assign(tname, table, envir = where)
   }
   .cacheMethodInTable(fdef, signature, definition, table)
@@ -1450,8 +1450,10 @@ listFromMethods <- function(generic, where, table) {
 ## from the generic function with the initial methods, if any.
 .assignMethodsTableMetaData <- function(name, generic, where, table) {
     what <-  .TableMetaName(generic@generic, generic@package)
-    if(missing(table))
+    if(missing(table)) {
 	table <- .copyEnv(.getMethodsTable(generic))
+	parent.env(table) <- baseenv()
+    }
     assign(what, table, envir = as.environment(where))
 }
 
