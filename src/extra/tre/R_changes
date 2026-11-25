@@ -1,5 +1,5 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit cb5ebee59e455890f7b73cf107ca08fd71be3e2c of the
+taken from git commit d3aba44ec57fc1047ed046554495c482cc428e08 of the
 integration branch at https://github.com/r-devel/tre/tree/r-integration.
 That branch is upstream master (2026-11-17, post-0.9.0; its library
 sources are unchanged since 2026-05-23) plus the following pull
@@ -37,6 +37,16 @@ and the others fix bugs present in both copies:
   #172  Reject patterns with more approximate bounds than the matcher
         keeps costs for (three), instead of writing past them; in R both
         copies raised an "assertion 'value <= 3' failed" error for these
+
+and one change made on the integration branch only, not submitted
+upstream (branch bugfix/word-boundary-edges):
+
+  Test \b and \B at the ends of the string like anywhere else, against
+  the non-word character that the matchers take to lie beyond it.  Both
+  copies let \b hold at the start and the end of every string and \B at
+  neither, so regexpr("\\b", " a") was 1 and grepl("\\b", "") TRUE,
+  contrary to ?regex ("\b matches the empty string at either edge of a
+  word") and to perl = TRUE.
 
 The files in lib/ and include/tre/tre.h were copied verbatim into this
 flat directory, except for the R-specific changes listed below.  Files
@@ -83,7 +93,7 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-cb5ebee"), since these sources are
+   carries the upstream commit ("0.9.0-d3aba44"), since these sources are
    post-0.9.0 plus the changes above; update it whenever the copy is
    refreshed.
 

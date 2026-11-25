@@ -565,6 +565,13 @@ stopifnot(identical(agrepl(p, c("ab", "zab", "zzz"), max.distance = 2, fixed = F
 ## failed an assertion in R <= 4.6.2
 
 
+## TRE: \b and \B next to a non-word character at either end of a string
+x <- c(" a", "a ", " ", "")
+for (p in c("\\b", "\\B", "\\b ", " \\b", " \\B"))
+    stopifnot(identical(c(regexpr(p, x)), c(regexpr(p, x, perl = TRUE))))
+## \b held at both ends and \B at neither in R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
