@@ -1444,6 +1444,11 @@ static R_exprhash_t JIT_cache_hashes[JIT_CACHE_SIZE];
 
 /**** allow MIN_JIT_SCORE, or both, to be changed by environment variables? */
 static int MIN_JIT_SCORE = 50;
+
+/* The JIT uses the C implementation of the byte code compiler
+   (bccompile.c) unless R_BYTECODE_COMPILER is set to "R", in which
+   case the compiler package is used. Both generate the same code. */
+static int R_use_native_compiler = TRUE;
 #define LOOP_JIT_SCORE MIN_JIT_SCORE
 
 static struct { unsigned long count, envcount, bdcount; } jit_info = {0, 0, 0};
@@ -1464,6 +1469,10 @@ attribute_hidden void R_init_jit_enabled(void)
 	checkCompilerOptions(val);
     }
     R_jit_enabled = val;
+
+    const char *cmp = getenv("R_BYTECODE_COMPILER");
+    if (cmp != NULL && (strcmp(cmp, "R") == 0 || strcmp(cmp, "r") == 0))
+	R_use_native_compiler = FALSE;
 
     if (R_compile_pkgs <= 0) {
 	char *compile = getenv("_R_COMPILE_PKGS_");
@@ -1822,6 +1831,18 @@ attribute_hidden SEXP R_cmpfun1(SEXP fun)
     Rboolean old_visible = R_Visible;
     SEXP packsym, funsym, call, fcall, val;
 
+    if (R_use_native_compiler) {
+	/* the compiler package's .onLoad() applies the R_COMPILER_*
+	   settings that the C compiler reads from the package */
+	loadCompilerNamespace();
+	PROTECT(val = R_bcTryCmpfun(fun));
+	if (TYPEOF(BODY(val)) != BCODESXP)
+	    R_gc(); /* see below */
+	UNPROTECT(1);
+	R_Visible = old_visible;
+	return val;
+    }
+
     packsym = install("compiler");
     funsym = install("tryCmpfun");
 
@@ -1909,6 +1930,13 @@ static SEXP R_compileExpr(SEXP expr, SEXP rho)
     SEXP packsym, funsym, quotesym;
     SEXP qexpr, call, fcall, val;
 
+    if (R_use_native_compiler) {
+	loadCompilerNamespace();
+	val = R_bcTryCompile(expr, rho, R_getCurrentSrcref());
+	R_Visible = old_visible;
+	return val;
+    }
+
     packsym = install("compiler");
     funsym = install("tryCompile");
     quotesym = install("quote");
@@ -1957,6 +1985,18 @@ attribute_hidden SEXP do_enablejit(SEXP call, SEXP op, SEXP args, SEXP rho)
     }
     /* negative 'new' just returns 'old' */
     return ScalarInteger(old);
+}
+
+/* Select the C or the R implementation of the compiler for the JIT and
+   for compiler::cmpfun()/compile(); NA just returns the current setting. */
+attribute_hidden SEXP do_nativecompiler(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int old = R_use_native_compiler;
+    int enable = asLogical(CAR(args));
+    if (enable != NA_LOGICAL)
+	R_use_native_compiler = enable;
+    return ScalarLogical(old);
 }
 
 attribute_hidden SEXP do_compilepkgs(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -4542,6 +4582,11 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 static int R_bcVersion = 12;
 static int R_bcMinVersion = 9;
 
+attribute_hidden int R_bcVersionNumber(void)
+{
+    return R_bcVersion;
+}
+
 static SEXP R_AddSym = NULL;
 static SEXP R_SubSym = NULL;
 static SEXP R_MulSym = NULL;
@@ -4621,138 +4666,7 @@ void R_initialize_bcode(void)
   R_BCProtCommitted = R_BCNodeStackBase;
 }
 
-enum {
-  BCMISMATCH_OP,
-  RETURN_OP,
-  GOTO_OP,
-  BRIFNOT_OP,
-  POP_OP,
-  DUP_OP,
-  PRINTVALUE_OP,
-  STARTLOOPCNTXT_OP,
-  ENDLOOPCNTXT_OP,
-  DOLOOPNEXT_OP,
-  DOLOOPBREAK_OP,
-  STARTFOR_OP,
-  STEPFOR_OP,
-  ENDFOR_OP,
-  SETLOOPVAL_OP,
-  INVISIBLE_OP,
-  LDCONST_OP,
-  LDNULL_OP,
-  LDTRUE_OP,
-  LDFALSE_OP,
-  GETVAR_OP,
-  DDVAL_OP,
-  SETVAR_OP,
-  GETFUN_OP,
-  GETGLOBFUN_OP,
-  GETSYMFUN_OP,
-  GETBUILTIN_OP,
-  GETINTLBUILTIN_OP,
-  CHECKFUN_OP,
-  MAKEPROM_OP,
-  DOMISSING_OP,
-  SETTAG_OP,
-  DODOTS_OP,
-  PUSHARG_OP,
-  PUSHCONSTARG_OP,
-  PUSHNULLARG_OP,
-  PUSHTRUEARG_OP,
-  PUSHFALSEARG_OP,
-  CALL_OP,
-  CALLBUILTIN_OP,
-  CALLSPECIAL_OP,
-  MAKECLOSURE_OP,
-  UMINUS_OP,
-  UPLUS_OP,
-  ADD_OP,
-  SUB_OP,
-  MUL_OP,
-  DIV_OP,
-  EXPT_OP,
-  SQRT_OP,
-  EXP_OP,
-  EQ_OP,
-  NE_OP,
-  LT_OP,
-  LE_OP,
-  GE_OP,
-  GT_OP,
-  AND_OP,
-  OR_OP,
-  NOT_OP,
-  DOTSERR_OP,
-  STARTASSIGN_OP,
-  ENDASSIGN_OP,
-  STARTSUBSET_OP,
-  DFLTSUBSET_OP,
-  STARTSUBASSIGN_OP,
-  DFLTSUBASSIGN_OP,
-  STARTC_OP,
-  DFLTC_OP,
-  STARTSUBSET2_OP,
-  DFLTSUBSET2_OP,
-  STARTSUBASSIGN2_OP,
-  DFLTSUBASSIGN2_OP,
-  DOLLAR_OP,
-  DOLLARGETS_OP,
-  ISNULL_OP,
-  ISLOGICAL_OP,
-  ISINTEGER_OP,
-  ISDOUBLE_OP,
-  ISCOMPLEX_OP,
-  ISCHARACTER_OP,
-  ISSYMBOL_OP,
-  ISOBJECT_OP,
-  ISNUMERIC_OP,
-  VECSUBSET_OP,
-  MATSUBSET_OP,
-  VECSUBASSIGN_OP,
-  MATSUBASSIGN_OP,
-  AND1ST_OP,
-  AND2ND_OP,
-  OR1ST_OP,
-  OR2ND_OP,
-  GETVAR_MISSOK_OP,
-  DDVAL_MISSOK_OP,
-  VISIBLE_OP,
-  SETVAR2_OP,
-  STARTASSIGN2_OP,
-  ENDASSIGN2_OP,
-  SETTER_CALL_OP,
-  GETTER_CALL_OP,
-  SWAP_OP,
-  DUP2ND_OP,
-  SWITCH_OP,
-  RETURNJMP_OP,
-  STARTSUBSET_N_OP,
-  STARTSUBASSIGN_N_OP,
-  VECSUBSET2_OP,
-  MATSUBSET2_OP,
-  VECSUBASSIGN2_OP,
-  MATSUBASSIGN2_OP,
-  STARTSUBSET2_N_OP,
-  STARTSUBASSIGN2_N_OP,
-  SUBSET_N_OP,
-  SUBSET2_N_OP,
-  SUBASSIGN_N_OP,
-  SUBASSIGN2_N_OP,
-  LOG_OP,
-  LOGBASE_OP,
-  MATH1_OP,
-  DOTCALL_OP,
-  COLON_OP,
-  SEQALONG_OP,
-  SEQLEN_OP,
-  BASEGUARD_OP,
-  INCLNK_OP,
-  DECLNK_OP,
-  DECLNK_N_OP,
-  INCLNKSTK_OP,
-  DECLNKSTK_OP,
-  OPCOUNT
-};
+#include "bcopcodes.h"
 
 
 SEXP R_unary(SEXP, SEXP, SEXP);
@@ -5341,7 +5255,6 @@ static R_INLINE double (*getMath1Fun(int i, SEXP call))(double) {
 
 #include <Rdynpriv.h>
 
-#define DOTCALL_MAX 16
 #define DO_DOTCALL() do {						\
 	SEXP call = GETCONST(constants, GETOP());			\
 	int nargs = GETOP();						\

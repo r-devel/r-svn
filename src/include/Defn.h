@@ -1718,6 +1718,11 @@ extern0 int R_compile_pkgs INI_as(0);
 extern0 int R_check_constants INI_as(0);
 extern0 int R_disable_bytecode INI_as(0);
 extern SEXP R_cmpfun1(SEXP); /* unconditional fresh compilation */
+int R_bcVersionNumber(void); /* eval.c */
+SEXP R_bcCmpfun(SEXP, SEXP); /* bccompile.c */
+SEXP R_bcCompile(SEXP, SEXP, SEXP, SEXP);
+SEXP R_bcTryCmpfun(SEXP);
+SEXP R_bcTryCompile(SEXP, SEXP, SEXP);
 extern void R_init_jit_enabled(void);
 extern void R_initEvalSymbols(void);
 #ifdef R_USE_SIGNALS
