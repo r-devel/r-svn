@@ -1124,7 +1124,7 @@ makeSubscriptNA(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call, bool *noNA)
 	/* An unmatched name, NA and "" included, gets a new position past
 	   the end (or an error), never NA; but stringSubscript() stores
 	   positions as int, and one above INT_MAX wraps, possibly to NA. */
-	*noNA = nx + ns <= INT_MAX;
+	*noNA = nx <= INT_MAX - ns;
 	break;
     }
     case SYMSXP:
