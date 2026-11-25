@@ -934,17 +934,17 @@ SEXP updateform(SEXP old, SEXP new)
     if (length(old) == 3) {
 	SEXP lhs = CADR(old);
 	SEXP rhs = CADDR(old);
-	/* We now check that new formula has a valid lhs.
-	   If it doesn't, we add one and set it to the rhs of the old
-	   formula. */
+	/* Substitute the old sides for any "." templates in the new
+	   formula.  We must parenthesize the rhs or we might upset arity
+	   and precedence.  A new formula without a lhs takes the old lhs
+	   as it is: that lhs is not part of the template, and expanding
+	   its own dots with itself, while it is being modified, would
+	   grow it exponentially and change 'old'. */
 	if (length(_new) == 2)
 	    SETCDR(_new, CONS(lhs, CDR(_new)));
-	/* Now we check the left and right sides of the new formula
-	   and substitute the correct value for any "." templates.
-	   We must parenthesize the rhs or we might upset arity and
-	   precedence. */
+	else
+	    SETCADR(_new, ExpandDots(CADR(_new), lhs));
 	PROTECT(rhs);
-	SETCADR(_new, ExpandDots(CADR(_new), lhs));
 	SETCADDR(_new, ExpandDots(CADDR(_new), rhs));
 	UNPROTECT(1);
     }

@@ -560,6 +560,14 @@ stopifnot(identical(attr(tt, "term.labels"), ":b"))
 ## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
 
 
+## update() to a formula without a lhs keeps the old lhs as it is
+old <- log(.) - . ~ x
+stopifnot(identical(update(old, ~ z), log(.) - . ~ z),
+          identical(old, log(.) - . ~ x))
+## expanded the old lhs's dots with itself, growing it exponentially and
+## changing 'old', in R <= 4.6.2
+
+
 ## deparse() of a `=` call in list(), expression() or quote() -- PR#19352
 local({
     eq <- quote(`=`(a, 1))
