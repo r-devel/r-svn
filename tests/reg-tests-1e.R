@@ -4520,6 +4520,34 @@ msg <- tryCmsg(socketSelect(list(s), timeout = 0))
 close(s)
 stopifnot(is.character(msg), !englishMsgs || grepl("not open", msg))
 ## used an uninitialized file descriptor, possibly segfaulting, in R <= 4.6.2
+## R_strtod() accumulated every mantissa digit before scaling, so long
+## digit strings overflowed to Inf or NaN even for small values
+for(n in c(310L, 4931L, 5000L, 20000L)) {
+    z <- strrep("0", n)
+    stopifnot(exprs = {
+        identical(as.numeric(paste0("1.", z)), 1)
+        identical(as.numeric(paste0("2.5", z)), 2.5)
+        identical(as.numeric(paste0("-2.5", z)), -2.5)
+        identical(as.numeric(paste0("0.", z, "1e", n + 1L)), 1)
+        identical(as.numeric(paste0("25", z, "e-", n + 1L)), 2.5)
+        identical(as.numeric(paste0("1", z)), Inf)
+        identical(as.numeric(paste0("0x1.", z)), 1)
+        identical(as.numeric(paste0("0x1", z, "p-", 4L * n)), 1)
+        n > 8000L || identical(eval(str2lang(paste0("2.5", z))), 2.5) # parser's token limit
+        identical(scan(text = paste0("2.5", z), quiet = TRUE), 2.5)
+        identical(type.convert(paste0("2.5", z), as.is = TRUE), 2.5)
+    })
+}
+## gave Inf or NaN in R <= 4.6.2 (from about 4932 digits, or 309 where
+## long double is double)
+## The byte compiler's constant pool treated 0 and -0 as the same
+## constant, so a folded -0 could be loaded as 0
+f <- function() { s <- 0; -(0 * 0) }
+fc <- compiler::cmpfun(f)
+stopifnot(identical(1/f(), -Inf), identical(1/fc(), -Inf))
+g <- function() c(0, -(0 * 0), 0 * -1)
+stopifnot(identical(1/compiler::cmpfun(g)(), c(Inf, -Inf, -Inf)))
+## the compiled versions gave 0 in R <= 4.6.2
 
 
 ## Serializing a wrapper around an ALTREP object incremented the wrapped
