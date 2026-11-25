@@ -498,58 +498,86 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	copyVector(s, t);
 }
 
-/* The copies use memmove() rather than element loops, which GCC at -O2
-   leaves scalar; memmove() and not memcpy(), as copyVector() passes on
-   data pointers that can overlap (a vector copied onto itself, or ALTREP
-   views of one buffer). src is copied once, or as far as it is needed.
-   When recycling, a shorter src is then doubled from what has been written
-   until the copied part is XCOPY_RECYCLE_BLOCK bytes or more, and copies
-   of that part follow; it stays in the cache while it is reused. A longer
-   src is copied from src itself, not read back from dst.
-   No memmove() copies more than XCOPY_RECYCLE_CHUNK elements, as in the
-   macOS DUPLICATE_ATOMIC_VECTOR() above; the limit is kept on all
-   platforms so that there is one code path. */
-#define XCOPY_RECYCLE_BLOCK 8192
+/* As in the macOS DUPLICATE_ATOMIC_VECTOR() above, limit each memmove()
+   to a million elements. */
 #define XCOPY_RECYCLE_CHUNK 1000000
+#define XCOPY_RECYCLE_BLOCK 8192
+
+static void copy_in_chunks(unsigned char *to, const unsigned char *from,
+                           size_t n, size_t chunk, bool backwards)
+{
+    while (n > chunk) {
+        n -= chunk;
+        if (backwards)
+            memmove(to + n, from + n, chunk);
+        else {
+            memmove(to, from, chunk);
+            to += chunk;
+            from += chunk;
+        }
+    }
+    memmove(to, from, n);
+}
+
+/* All lengths here are in bytes.  On entry block is one source period,
+   truncated to n if the destination is shorter. */
+static void copy_recycled(void *dst, const void *src, size_t n,
+                          size_t block, size_t chunk)
+{
+    unsigned char *to = dst;
+    const unsigned char *from = src;
+    uintptr_t d = (uintptr_t) dst, s = (uintptr_t) src;
+    bool backwards = d > s && d - s < block;
+
+    if (to != from)
+        copy_in_chunks(to, from, block, chunk, backwards);
+    if (block == n)
+        return;
+
+    /* If any destination write can overwrite the source, recycle from the
+       first complete period in the destination.  For short periods we
+       also use the destination to build a cache-sized multiple. */
+    if (block < XCOPY_RECYCLE_BLOCK || backwards || (s >= d && s - d < n))
+        from = to;
+    for (size_t done = block; done < n; ) {
+        size_t len = n - done < block ? n - done : block;
+        copy_in_chunks(to + done, from, len, chunk, false);
+        done += len;
+        if (block < XCOPY_RECYCLE_BLOCK)
+            block = done;
+    }
+}
 
 #define COPY_WITH_RECYCLE(VALTYPE, TNAME)                                    \
 attribute_hidden void                                                        \
 xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
                           R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc)        \
 {                                                                            \
-    /* an empty dst may have a sentinel pointer: no arithmetic on it */      \
-    if (n < 1)                                                               \
+    /* An empty vector may have a sentinel pointer. */                       \
+    if (n < 1 || nsrc < 1)                                                   \
         return;                                                              \
+    VALTYPE *to = dst + dstart;                                              \
     if (nsrc == 1) {                                                         \
         VALTYPE val = src[0];                                                \
         for (R_xlen_t i = 0; i < n; i++)                                     \
-            dst[dstart + i] = val;                                           \
+            to[i] = val;                                                     \
         return;                                                              \
     }                                                                        \
-    /* nothing to recycle, and the loop below would not advance */           \
-    if (nsrc < 1)                                                            \
-        return;                                                              \
-                                                                             \
-    VALTYPE *to = dst + dstart;                                              \
-    const VALTYPE *from = src;                                               \
-    R_xlen_t done = 0, block = nsrc, off = 0;                                \
-    while (done < n) {                                                       \
-        R_xlen_t len = block - off;                                          \
-        if (len > n - done)                                                  \
-            len = n - done;                                                  \
-        if (len > XCOPY_RECYCLE_CHUNK)                                       \
-            len = XCOPY_RECYCLE_CHUNK;                                       \
-        memmove(to + done, from + off, (size_t) len * sizeof(VALTYPE));      \
-        done += len;                                                         \
-        off += len;                                                          \
-        if (off == block) {                                                  \
-            off = 0;                                                         \
-            if ((size_t) block * sizeof(VALTYPE) < XCOPY_RECYCLE_BLOCK) {    \
-                from = to;                                                   \
-                block = done;                                                \
-            }                                                                \
+    if (nsrc == 2 && n >= 2) {                                               \
+        VALTYPE a = src[0], b = src[1];                                      \
+        R_xlen_t i = 0;                                                      \
+        for (; i < n - 1; i += 2) {                                          \
+            to[i] = a;                                                       \
+            to[i + 1] = b;                                                   \
         }                                                                    \
+        if (i < n)                                                           \
+            to[i] = a;                                                       \
+        return;                                                              \
     }                                                                        \
+    size_t size = sizeof(VALTYPE);                                           \
+    size_t first = (size_t) (n < nsrc ? n : nsrc) * size;                    \
+    copy_recycled(to, src, (size_t) n * size, first,                         \
+                  XCOPY_RECYCLE_CHUNK * size);                               \
 }
 
 COPY_WITH_RECYCLE(Rcomplex, Complex)	/* xcopyComplexWithRecycle */
