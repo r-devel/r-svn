@@ -66,8 +66,9 @@ typedef struct {
     char       *name;
     DL_FUNC     fun;
     int         numArgs;
+    unsigned int hash;  /* of name; see R_nativeSymbolHash() in Rdynload.c */
 
-    R_NativePrimitiveArgType *types;   
+    R_NativePrimitiveArgType *types;
 } Rf_DotCSymbol;
 
 typedef Rf_DotCSymbol Rf_DotFortranSymbol;
@@ -77,6 +78,7 @@ typedef struct {
     char       *name;
     DL_FUNC     fun;
     int         numArgs;
+    unsigned int hash;  /* of name; see R_nativeSymbolHash() in Rdynload.c */
 } Rf_DotCallSymbol;
 
 typedef Rf_DotCallSymbol Rf_DotExternalSymbol;
