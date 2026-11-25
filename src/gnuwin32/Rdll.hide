@@ -514,6 +514,7 @@
  Rf_lgammacor
  Rf_lookupCachedSymbol
  Rf_makeSubscript
+ Rf_makeSubscriptNA
  Rf_markKnown
  Rf_mat2indsub
  Rf_matchArg

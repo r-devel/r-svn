@@ -4611,7 +4611,8 @@ local({
     for (i in list(NA_integer_, NA_real_, NaN, Inf, -Inf, NA, c(2L, NA),
                    c(2, NaN), c(TRUE, NA, TRUE))) {
         x <- x0
-        stopifnot(inherits(tryCid(x[i] <- c(1, 2)), "error"),
+        ## under warn = 2 the length-mismatch warning would also be an error
+        stopifnot(inherits(tryCid(suppressWarnings(x[i] <- c(1, 2))), "error"),
                   identical(x, x0))
     }
     for (n in c(2:9, 1000L)) {

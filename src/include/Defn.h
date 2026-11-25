@@ -1939,6 +1939,7 @@ int R_XDRDecodeInteger(void *buf);
 # define LogicalFromString	Rf_LogicalFromString
 # define mainloop		Rf_mainloop
 # define makeSubscript		Rf_makeSubscript
+# define makeSubscriptNA	Rf_makeSubscriptNA
 # define markKnown		Rf_markKnown
 # define mat2indsub		Rf_mat2indsub
 # define matchArg		Rf_matchArg
