@@ -184,7 +184,7 @@ attribute_hidden SEXP matchArgExact(SEXP tag, SEXP * list)
 
 attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 {
-    bool seendots;
+    bool seendots, hasdots = FALSE, anytags = FALSE;
     int i, arg_i = 0;
     SEXP f, a, b, dots, actuals;
 
@@ -195,6 +195,8 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 	   counts */
 	actuals = CONS_NR(R_MissingArg, actuals);
 	SET_MISSING(actuals, 1);
+	if (TAG(f) == R_DotsSymbol)
+	    hasdots = TRUE;
     }
     /* We use fargused instead of ARGUSED/SET_ARGUSED on elements of
        formals to avoid modification of the formals SEXPs.  A gc can
@@ -207,9 +209,17 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
     int fargused[arg_i ? arg_i : 1]; // avoid undefined behaviour
     memset(fargused, 0, sizeof(fargused));
 
-    for(b = supplied; b != R_NilValue; b = CDR(b)) SET_ARGUSED(b, 0);
+    for(b = supplied; b != R_NilValue; b = CDR(b)) {
+	SET_ARGUSED(b, 0);
+	if (TAG(b) != R_NilValue)
+	    anytags = TRUE;
+    }
 
     PROTECT(actuals);
+
+    /* The first two passes match supplied arguments by tag, so they
+       have nothing to do when no supplied argument is tagged -- the
+       common case for calls between internal helper functions. */
 
     /* First pass: exact matches by tag */
     /* Grab matched arguments and check */
@@ -218,7 +228,7 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
     f = formals;
     a = actuals;
     arg_i = 0;
-    while (f != R_NilValue) {
+    while (anytags && f != R_NilValue) {
       SEXP ftag = TAG(f);
       const char *ftag_name = CHAR(PRINTNAME(ftag));
       if (ftag != R_DotsSymbol && ftag != R_NilValue) {
@@ -257,7 +267,7 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
     f = formals;
     a = actuals;
     arg_i = 0;
-    while (f != R_NilValue) {
+    while (anytags && f != R_NilValue) {
 	if (fargused[arg_i] == 0) {
 	    if (TAG(f) == R_DotsSymbol && !seendots) {
 		/* Record where ... value goes */
@@ -294,6 +304,16 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
 	f = CDR(f);
 	a = CDR(a);
         arg_i++;
+    }
+
+    /* The second pass was skipped, so locate the ... formal here. */
+    if (!anytags && hasdots) {
+	for (f = formals, a = actuals; f != R_NilValue; f = CDR(f), a = CDR(a)) {
+	    if (TAG(f) == R_DotsSymbol) {
+		dots = a;
+		break;
+	    }
+	}
     }
 
     /* Third pass: matches based on order */
