@@ -474,13 +474,22 @@ static SEXP ArraySubset(SEXP x, SEXP s, SEXP call, int drop)
     /* Store its extents. */
 
     R_xlen_t n = 1;
+    bool toolong = false;
     r = s;
     for (int i = 0; i < k; i++) {
 	SETCAR(r, int_arraySubscript(i, CAR(r), xdims, x, call));
 	bound[i] = LENGTH(CAR(r));
-	n *= bound[i];
+	if (bound[i] > 0 && n > R_XLEN_T_MAX / bound[i])
+	    toolong = true;
+	else
+	    n *= bound[i];
 	r = CDR(r);
     }
+    /* ARRAY_SUBSET_LOOP writes whole runs of bound[0] elements, so n
+       must be the exact product; an empty subscript still gives an
+       empty result. */
+    if (toolong && n > 0)
+	error(_("dimensions would exceed maximum size of array"));
 
     r = s;
     for (int i = 0; i < k; i++) {

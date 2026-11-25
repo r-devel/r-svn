@@ -4617,7 +4617,8 @@ local({
                    list(c(1L, NA), c(2L, 2L), 2:1, 3L),
                    list(1:3, c(4L, NA, 1L), 1:2, 2:3),
                    list(2L, 1:4, c(2L, NA), c(NA, 1L)),
-                   list(1:3, 1:4, integer(), 1:3))) {
+                   list(1:3, 1:4, integer(), 1:3),
+                   list(c(3L, 1L, 2L), c(4L, 2L), 1L, 3:2))) {
         i <- lin(s)
         stopifnot(identical(as.vector(do.call(`[`, c(list(a), s))), a[i]),
                   identical(dim(do.call(`[`, c(list(a), s, drop = FALSE))),
@@ -4626,11 +4627,25 @@ local({
         b <- do.call(`[<-`, c(list(a), s, value = 0))
         stopifnot(identical(b, replace(a, i[!is.na(i)], 0)))
         if (!anyNA(i)) {
-            v <- -seq_along(i)
-            b <- do.call(`[<-`, c(list(a), s, list(value = v)))
-            stopifnot(identical(b, replace(a, i, v)))
+            vs <- list(-seq_along(i))
+            if (length(i) %% 2L == 0L) # recycled across the runs of s[[1]]
+                vs <- c(vs, list(c(-1, -2)))
+            for (v in vs) {
+                b <- do.call(`[<-`, c(list(a), s, list(value = v)))
+                stopifnot(identical(b, replace(a, i, v)))
+            }
         }
     }
+    ## lengths whose product is 2^64 + 6464: an error, unless one is empty
+    s <- lapply(c(3805L, 167L, 1336L, 2577L, 2577L, 3272L),
+                function(m) rep(1L, m))
+    a <- array(0, rep(1L, 6L))
+    assertErrV(do.call(`[`, c(list(a), s)))
+    assertErrV(do.call(`[<-`, c(list(a), s, value = 1)))
+    a <- array(0, rep(1L, 7L))
+    stopifnot(identical(dim(do.call(`[`, c(list(a), s, list(integer())))),
+                        c(lengths(s), 0L)),
+              identical(do.call(`[<-`, c(list(a), s, list(integer(), 1))), a))
 })
 ## the offset of the last subscripts is computed once per run of the first in R > 4.6.2
 

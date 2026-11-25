@@ -1214,14 +1214,23 @@ static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     }
 
     R_xlen_t n = 1;
+    bool toolong = false;
     tmp = s;
     for (int i = 0; i < k; i++) {
 	indx[i] = 0;
 	subs[i] = INTEGER_RO(CAR(tmp));
 	bound[i] = LENGTH(CAR(tmp));
-	n *= bound[i];
+	if (bound[i] > 0 && n > R_XLEN_T_MAX / bound[i])
+	    toolong = true;
+	else
+	    n *= bound[i];
 	tmp = CDR(tmp);
     }
+    /* ARRAY_ASSIGN_LOOP runs over whole runs of bound[0] elements, so
+       n must be the exact product; an empty subscript still assigns
+       nothing. */
+    if (toolong && n > 0)
+	error(_("dimensions would exceed maximum size of array"));
 
     if (n > 0 && ny == 0)
 	error(_("replacement has length zero"));
