@@ -502,10 +502,14 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
    and memset() to a million elements.
    A src of one element whose bytes are all the same (0, FALSE, any raw
    byte) is written with memset(), which beats the fill loop with GCC and
-   clang alike. Other values keep the loop: doubling them with memmove()
-   would read as much as it writes, and is slower than clang's loop. */
+   clang alike. Other values are written from a seed of XCOPY_FILL_SEED
+   bytes by memcpy() calls of that fixed size, which GCC and clang inline
+   as vector stores: GCC at -O2 keeps an element loop scalar, and clang
+   does for Rcomplex. Doubling the value with memmove() instead would read
+   as much as it writes, and is slower than clang's loop. */
 #define XCOPY_RECYCLE_CHUNK 1000000
 #define XCOPY_RECYCLE_BLOCK 8192
+#define XCOPY_FILL_SEED 64
 
 static void copy_in_chunks(unsigned char *to, const unsigned char *from,
                            size_t n, size_t chunk, bool backwards)
@@ -579,7 +583,14 @@ xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
             return;                                                          \
         }                                                                    \
                                                                              \
-        for (R_xlen_t i = 0; i < n; i++)                                     \
+        VALTYPE seed[XCOPY_FILL_SEED / sizeof(VALTYPE)];                     \
+        const R_xlen_t step = XCOPY_FILL_SEED / sizeof(VALTYPE);             \
+        for (R_xlen_t j = 0; j < step; j++)                                  \
+            seed[j] = val;                                                   \
+        R_xlen_t i = 0;                                                      \
+        for (; n - i >= step; i += step)                                     \
+            memcpy(to + i, seed, sizeof(seed));                              \
+        for (; i < n; i++)                                                   \
             to[i] = val;                                                     \
         return;                                                              \
     }                                                                        \

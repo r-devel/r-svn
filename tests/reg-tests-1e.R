@@ -4522,7 +4522,7 @@ local({
                  double = c(-0, NaN, -NaN, NA, 1.5, Inf, 2.25, -3),
                  complex = complex(real = c(1, NA, -2), imaginary = c(0, 3, NaN)),
                  raw = as.raw(c(1, 255, 7, 0)))
-    lens <- c(4:9, 15:17, 31:33, 63:65, 255:257, 511:513, 1023:1025, 2047:2049,
+    lens <- c(2:9, 15:17, 31:33, 63:65, 255:257, 511:513, 1023:1025, 2047:2049,
               4095:4097, 8191:8193, 24581L)
     cases <- list()
     for (v in vals) {
@@ -4571,7 +4571,7 @@ local({
     ## a result that ends in the second piece of the first copy of big
     stopifnot(identical(as.vector(array(big, 1000001L)), big[seq_len(1000001L)]))
 })
-## these copy with memmove() or memset() in R > 4.6.2
+## these copy with memmove(), memset() or memcpy() in R > 4.6.2
 
 
 ## socketSelect() on a socket connection that is not open -- PR#19298
