@@ -67,8 +67,7 @@ setOldClass <- function(Classes, prototype = NULL,
     dataPartClass <- NULL
     for(cl in rev(Classes)) {
        S3Class <- c(cl, S3Class)
-        if(isClass(cl, where)) {
-            def <- getClass(cl, where)
+        if(!is.null(def <- getClassDef(cl, where))) {
             if(!extends(def, prevClass)) {
                 ## maybe an object type or other valid data part
                 cl1 <- .validDataPartClass(cl, where, dataPartClass)
