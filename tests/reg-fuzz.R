@@ -204,6 +204,20 @@ local({
 })
 ## read freed memory (visible under ASan or valgrind) in R <= 4.6.2
 
+## memDecompress(<empty>, "gzip") must not read the gzip magic number -- PR#19332
+## of a zero-length vector; it gives an error, as for other non-gzip input
+local({
+    E <- tryCid(memDecompress(raw(0), "gzip"))
+    ## a zero-length ALTREP raw vector has a data pointer that cannot be read
+    E2 <- tryCid(memDecompress(.Internal(wrap_meta(raw(0), 0L, 0L)), "gzip"))
+    stopifnot(inherits(E, "error"), inherits(E2, "error"),
+              identical(memDecompress(memCompress(raw(0), "gzip"), "gzip"),
+                        raw(0)))
+})
+## segfaulted for the ALTREP vector, and for raw(0) when zero-length
+## vectors are checked (e.g. under ASan at -O0), in R <= 4.6.2
+
+
 
 ## parse_Rd() with a user macro whose expansion ends by calling itself -- PR#19348
 for (txt in c("\\newcommand{\\foo}{\\foo}\\foo", "\\newcommand{\\foo}{x\\foo}\\foo",
@@ -529,6 +543,29 @@ stopifnot(exprs = {
 tt <- terms(eval(call("~", call(":", quote(expr = ), quote(b)))))
 stopifnot(identical(attr(tt, "term.labels"), ":b"))
 ## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
+
+
+## deparse() of a `=` call in list(), expression() or quote() -- PR#19352
+local({
+    eq <- quote(`=`(a, 1))
+    stopifnot(exprs = {
+        identical(deparse(list(eq)), "list((a = 1))")
+        identical(deparse(list(x = eq)), "list(x = (a = 1))")
+        identical(deparse(as.expression(eq)), "expression((a = 1))")
+        identical(deparse(eq, control = "all"), "quote((a = 1))")
+        identical(deparse(list(eq), control = "all"), "list(quote((a = 1)))")
+        ## unchanged:
+        identical(deparse(eq), "a = 1")
+        identical(deparse(list(quote(a <- 1)), control = "all"),
+                  "list(quote(a <- 1))")
+    })
+    e <- eval(parse(text = deparse(parse(text = "x = 1"))))
+    l <- eval(parse(text = deparse(list(eq), control = "all")))
+    stopifnot(is.null(names(e)), is.call(e[[1]]),
+              identical(l[[1]][[2]], eq))
+})
+## gave "list(a = 1)" (a name), "quote(a = 1)" (an error) or "list(x = a = 1)"
+## (a parse error) in R <= 4.6.2
 
 
 
