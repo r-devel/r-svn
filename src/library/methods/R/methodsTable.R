@@ -1015,26 +1015,30 @@
 }
 
 .resetInheritedMethods <- function(fenv, mtable) {
-    allObjects <- character()
     direct <- names(mtable)
     if(!is.null(allTable <- fenv$.AllMTable)) {
         ## remove all inherited methods.  Note that code (e.g. setMethod) that asigns
         ## a new method to mtable is responsible for copying it to allTable as well.
         allObjects <- names(allTable)
-        remove(list = setdiff(allObjects, direct), envir = allTable)
+        idx <- match(allObjects, direct)
+        if (anyNA(idx))
+            remove(list = allObjects[is.na(idx)], envir = allTable)
     }
     else {
         allTable <- new.env(TRUE, fenv)
         assign(".AllMTable", allTable, envir = fenv)
     }
     ## check for missing direct objects; usually a non-existent AllMTable?
-    if(anyNA(match(direct, allObjects))) {
+    if(length(direct) > length(allTable)) {
         list2env(as.list(mtable, all.names=TRUE), allTable)
     }
     for (d in direct) {
         m <- allTable[[d]]
-        if (is(m, "MethodWithNext"))
-            allTable[[d]] <- as(m, "MethodDefinition")
+        if (!isS4(m)) next
+        m_class <- class(m)
+        if (.identC(m_class, "MethodDefinition") || .identC(m_class, "derivedDefaultMethod")) next
+        if (!is(m, "MethodWithNext")) next
+        allTable[[d]] <- as(m, "MethodDefinition")
     }
     NULL
 }
