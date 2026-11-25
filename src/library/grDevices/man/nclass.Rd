@@ -4,6 +4,7 @@
 % Distributed under GPL 2 or later
 
 \name{nclass}
+\alias{nclass}
 \alias{nclass.Sturges}
 \alias{nclass.scott}
 \alias{nclass.FD}
