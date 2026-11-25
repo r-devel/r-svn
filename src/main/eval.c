@@ -2275,6 +2275,11 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
        environment layout.  We can live with it for now since it only
        happens immediately after the environment creation.  LT */
 
+    /* The frame's tags are the formals' tags, so check for special
+       symbols while walking them rather than scanning the frame again
+       afterwards. */
+    Rboolean nospecial = TRUE;
+
     f = formals;
     a = actuals;
     while (f != R_NilValue) {
@@ -2282,16 +2287,20 @@ static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 	    SETCAR(a, mkPROMISE(CAR(f), newrho));
 	    SET_MISSING(a, 2);
 	}
+	if (IS_SPECIAL_SYMBOL(TAG(f)))
+	    nospecial = FALSE;
 	f = CDR(f);
 	a = CDR(a);
     }
 
     /*  Fix up any extras that were supplied by usemethod. */
 
-    if (suppliedvars != R_NilValue)
+    if (suppliedvars != R_NilValue) {
 	addMissingVarsToNewEnv(newrho, suppliedvars);
+	nospecial = R_envHasNoSpecialSymbols(newrho);
+    }
 
-    if (R_envHasNoSpecialSymbols(newrho))
+    if (nospecial)
 	SET_NO_SPECIAL_SYMBOLS(newrho);
 
     UNPROTECT(1); /* newrho */
