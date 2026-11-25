@@ -40,6 +40,7 @@
 #include <Rconnections.h>
 #include <errno.h>
 #include <Print.h>
+#include "RBufferUtils.h" /* for R_StringBuffer, used in LocalData */
 
 #include <rlocale.h> /* for btowc */
 
@@ -82,6 +83,9 @@ typedef struct {
     bool embedWarn;
     bool skipNul;
     char convbuf[100];
+    /* the string buffer scanVector/scanFrame are reading into, so the
+       scan_cleanup context can free it if an error unwinds mid-scan */
+    R_StringBuffer *sbuf;
 } LocalData;
 
 static SEXP insertString(char *str, LocalData *l)
@@ -319,9 +323,12 @@ static void scan_cleanup(void *data)
 	free(ld->quoteset);
 	ld->quoteset = NULL;
     }
+    if(ld->sbuf) {
+	R_FreeStringBuffer(ld->sbuf);
+	ld->sbuf = NULL;
+    }
 }
 
-#include "RBufferUtils.h"
 
 /*XX  Can we pass this routine an R_StringBuffer? appears so.
    But do we have to worry about continuation lines and whatever
@@ -569,6 +576,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     else blocksize = SCAN_BLOCKSIZE;
 
     R_AllocStringBuffer(0, &strBuf);
+    d->sbuf = &strBuf;
     PROTECT(ans = allocVector(type, blocksize));
 
     nprev = 0; n = 0; linesread = 0; bch = 1;
@@ -636,11 +644,13 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     if (n == 0) {
 	UNPROTECT(1);
 	R_FreeStringBuffer(&strBuf);
+	d->sbuf = NULL;
 	return allocVector(type,0);
     }
     if (n == maxitems) {
 	UNPROTECT(1);
 	R_FreeStringBuffer(&strBuf);
+	d->sbuf = NULL;
 	return ans;
     }
 
@@ -672,6 +682,7 @@ static SEXP scanVector(SEXPTYPE type, R_xlen_t maxitems, R_xlen_t maxlines,
     }
     UNPROTECT(1);
     R_FreeStringBuffer(&strBuf);
+    d->sbuf = NULL;
     return bns;
 }
 
@@ -697,6 +708,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
     else blksize = SCAN_BLOCKSIZE;
 
     R_AllocStringBuffer(0, &buf);
+    d->sbuf = &buf;
     PROTECT(ans = allocVector(VECSXP, nc));
     for (i = 0; i < nc; i++) {
 	w = VECTOR_ELT(what, i);
@@ -845,6 +857,7 @@ static SEXP scanFrame(SEXP what, R_xlen_t maxitems, R_xlen_t maxlines,
     }
     UNPROTECT(1);
     R_FreeStringBuffer(&buf);
+    d->sbuf = NULL;
     return ans;
 }
 
