@@ -32,6 +32,9 @@
 #include <Rmath.h> /* for imax2 */
 #include <R_ext/Print.h>
 #include <stdarg.h>
+#ifdef Win32
+#include <winprintf.h>
+#endif
 
 /* eval() sets R_Visible = TRUE. Thas may not be wanted when eval() is
    used in C code. This is a version that saves/restores R_Visible.
@@ -285,24 +288,6 @@ static void setupwarnings(void)
    REvprintf is also used in R_Suicide on Unix.
 
    Dangerous pattern: `Rvsnprintf_mbcs(buf, size - n, )` with n >= size */
-#ifdef Win32
-int trio_vsnprintf(char *buffer, size_t bufferSize, const char *format,
-		   va_list args);
-
-attribute_hidden
-int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
-{
-    int val;
-    val = trio_vsnprintf(buf, size, format, ap);
-    if (size) {
-	if (val < 0) buf[0] = '\0'; /* not all uses check val < 0 */
-	else buf[size-1] = '\0';
-	if (val >= size)
-	    mbcsTruncateToValid(buf);
-    }
-    return val;
-}
-#else
 attribute_hidden
 int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
 {
@@ -316,7 +301,6 @@ int Rvsnprintf_mbcs(char *buf, size_t size, const char *format, va_list ap)
     }
     return val;
 }
-#endif
 
 /* Rsnprintf_mbcs: like snprintf, but guaranteed to null-terminate and
    not to split multi-byte characters, except if size is zero in which

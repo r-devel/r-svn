@@ -28,7 +28,7 @@
 #include "RBufferUtils.h"
 #include <R_ext/RS.h> /* for R_Calloc/R_Free */
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 #define MAXLINE MAXELTSIZE
@@ -68,6 +68,27 @@ static bool checkfmt(const char *fmt, const char *pattern)
     if(*p != '%') return true;
     p = findspec(fmt);
     return strcspn(p, pattern) ? true : false;
+}
+
+/* NA, NaN and Inf are printed with %s in place of a numeric conversion:
+   drop its precision, and its '0' and '#' flags, as some C libraries pad
+   strings with zeros and C leaves '#' undefined for %s.  ('+' and ' '
+   stay: the caller reads them.) */
+static void nastringspec(char *fmt)
+{
+    char *p = Rf_strchr(fmt, '.');
+
+    if (p) {
+	*p++ = 's';
+	*p = '\0';
+    } else
+	fmt[strlen(fmt) - 1] = 's';
+
+    char *q = fmt + 1;
+    for (p = q; *p && strchr("-+ #0", *p); p++)
+	if (*p != '0' && *p != '#')
+	    *q++ = *p;
+    memmove(q, p, strlen(p) + 1);
 }
 
 /* Read a run of digits, saturating at INT_MAX. */
@@ -123,9 +144,10 @@ static void boundspec(char *fmt)
 attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     int i, nargs, cnt, v, thislen, nfmt, nprotect = 0;
-    /* fmt2 is a copy of fmt with '*' expanded.
+    /* fmt2 is a copy of fmt with '*' expanded, by up to 10 characters
+       (to -2147483647), checked against MAXLINE afterwards.
        bit will hold numeric formats and %<w>s, so be quite small. */
-    char fmt[MAXLINE+1], fmt2[MAXLINE+10], *fmtp, bit[MAXLINE+1],
+    char fmt[MAXLINE+1], fmt2[MAXLINE+11], *fmtp, bit[MAXLINE+1],
 	*outputString;
     const char *formatString;
     size_t n, cur, chunk;
@@ -302,10 +324,14 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 			if (has_star) {
 			    size_t nf; char *p, *q = fmt2;
 			    for (p = fmt; *p; p++)
-				if (*p == '*')
+				if (*p != '*')
+				    *q++ = *p;
+				else if (star_arg < 0 && p > fmt && p[-1] == '.')
+				    /* a negative precision is taken as omitted */
+				    q--;
+				else
 				    q += snprintf(q, sizeof(fmt2) - (q - fmt2),
 						  "%d", star_arg);
-				else *q++ = *p;
 			    *q = '\0';
 			    nf = strlen(fmt2);
 			    if (nf > MAXLINE)
@@ -410,7 +436,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				    error(_("invalid format '%s'; %s"), fmtp,
 					  _("use format %d or %i for logical objects"));
 				if (x == NA_LOGICAL) {
-				    fmtp[strlen(fmtp)-1] = 's';
+				    nastringspec(fmtp);
 				    _my_sprintf("NA")
 				} else {
 				    _my_sprintf(x)
@@ -424,7 +450,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				    error(_("invalid format '%s'; %s"), fmtp,
 					  _("use format %d, %i, %o, %x or %X for integer objects"));
 				if (x == NA_INTEGER) {
-				    fmtp[strlen(fmtp)-1] = 's';
+				    nastringspec(fmtp);
 				    _my_sprintf("NA")
 				} else {
 				    _my_sprintf(x)
@@ -440,11 +466,7 @@ attribute_hidden SEXP do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 				if (R_FINITE(x)) {
 				    _my_sprintf(x)
 				} else {
-				    char *p = Rf_strchr(fmtp, '.');
-				    if (p) {
-					*p++ = 's'; *p ='\0';
-				    } else
-					fmtp[strlen(fmtp)-1] = 's';
+				    nastringspec(fmtp);
 				    if (ISNA(x)) {
 					if (strcspn(fmtp, " ") < strlen(fmtp))
 					    _my_sprintf(" NA")

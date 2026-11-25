@@ -37,7 +37,7 @@
 #include <Print.h>
 
 #ifdef Win32
-#include <trioremap.h> /* for %lld */
+#include <winprintf.h>
 #endif
 
 /* This section of code handles type conversion for elements */

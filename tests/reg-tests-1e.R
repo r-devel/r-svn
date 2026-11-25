@@ -4553,6 +4553,29 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
+## sprintf() shows NA, NaN and Inf in full and pads them with spaces
+stopifnot(identical(sprintf("%05.1f", c(1.5, NA, NaN, Inf, -Inf)),
+                    c("001.5", "   NA", "  NaN", "  Inf", " -Inf")),
+          identical(sprintf("%03d", c(7L, NA)), c("007", " NA")),
+          identical(sprintf("%-05d|", NA), "NA   |"),
+          identical(sprintf("%+06.1f", Inf), "  +Inf"),
+          identical(sprintf(c("%05.0d", "%.1d", "%5.3i", "%#08.1x"), NA_integer_),
+                    c("   NA", "NA", "   NA", "      NA")),
+          identical(sprintf("%.1d", NA), "NA"))
+## gave "000NA" etc on macOS, and "N" or "" for integer NA with a
+## precision, in R <= 4.6.x
+
+
+## sprintf() takes a negative '*' precision as omitted, as documented
+stopifnot(identical(sprintf("%.*f", -1L, 1.25), sprintf("%f", 1.25)),
+          identical(sprintf("%.*e", -3L, pi), sprintf("%e", pi)),
+          identical(sprintf("%.*s", -1L, "abc"), "abc"),
+          identical(sprintf("%*d", -4L, 1L), "1   "))
+tools::assertError(sprintf(paste0("%", strrep("0", 8189), "*d"), -2147483647L, 1L))
+## gave "1" for the first, except on Windows, in R <= 4.6.x; the last
+## wrote one byte past a buffer
+
+
 ## an error after saveToConn() opened its connection itself -- PR#19336
 saveToConnObj <- 1
 f <- function(con) {

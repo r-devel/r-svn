@@ -76,7 +76,7 @@ static void Renviron_error(const char *msg)
 # include <Rinterface.h>
 
 # ifdef Win32
-#  include <trioremap.h> /* to ensure snprintf result is null terminated */
+#  include <winprintf.h>
 # endif
 
 # define Renviron_strchr Rf_strchr

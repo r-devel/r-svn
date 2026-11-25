@@ -110,7 +110,7 @@
 #include <Print.h>
 #include <Fileio.h>
 #ifdef Win32
-#include <trioremap.h>
+#include <winprintf.h>
 #endif
 
 #define BUFSIZE 512
@@ -1514,13 +1514,8 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 	vector2buff(s, d);
 	break;
     case EXTPTRSXP:
-    {
-	char tpb[32]; /* need 12+2+2*sizeof(void*) */
 	d->sourceable = false;
-	snprintf(tpb, 32, "<pointer: %p>", R_ExternalPtrAddr(s));
-	tpb[31] = '\0';
-	print2buff(tpb, d);
-    }
+	print2buff(EncodeExtptr(s), d);
 	break;
     case BCODESXP:
 	d->sourceable = false;
@@ -1810,8 +1805,6 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 		strp = EncodeRaw(RAW(vector)[i], "0x");
 	    } else if (TYPEOF(vector) == REALSXP && (d->opts & HEXNUMERIC)) {
 		double x = REAL(vector)[i];
-		// Windows warns here, but incorrectly as this is C99
-		// and the snprintf used from trio is compliant.
 		if (R_FINITE(x)) {
 		    snprintf(hex, 32, "%a", x);
 		    strp = hex;

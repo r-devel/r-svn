@@ -126,7 +126,8 @@ gettextf(fmt, \dots, domain = NULL, trim = TRUE)
       negative numbers are printed with a sign.}
     \item{a space}{Prefix a space if the first character is not a sign.}
     \item{\code{0}}{For numbers, pad to the field width with leading
-      zeros. For characters, this zero-pads on some platforms and is
+      zeros (but \code{NA}, \code{NaN} and \code{Inf} with spaces).
+      For characters, this zero-pads on some platforms and is
       ignored on others.}
     \item{\code{#}}{specifies \dQuote{alternate output} for numbers, its
       action depending on the type:

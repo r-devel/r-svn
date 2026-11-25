@@ -86,7 +86,7 @@ CSOURCES = \
 OBJS = $(CSOURCES:.c=.o) dllversion.o
 MAINLIBS = ../main/libmain.a ../appl/libappl.a ../nmath/libnmath.a
 EXTRALIBS = getline/gl.a ../extra/xdr/libxdr.a \
-   ../extra/intl/libintl.a ../extra/trio/libtrio.a ../extra/tzone/libtz.a \
+   ../extra/intl/libintl.a ../extra/tzone/libtz.a \
    ../extra/tre/libtre.a
 
 R-DLLLIBS = $(OPENMP) -L. $(FLIBS) -lRblas -L../../$(IMPDIR) -lRgraphapp \
@@ -129,7 +129,7 @@ rlibs:
 	$(MK) -C ../nmath CFLAGS='$(CFLAGS)' FFLAGS='${FFLAGS}' -f Makefile.win
 	$(MK) -C ../main CFLAGS='$(CFLAGS)' FFLAGS='$(FFLAGS)' malloc-DEFS='$(malloc-DEFS)' -f Makefile.win
 	$(MK) -C ./getline CFLAGS='$(CFLAGS)'
-	@for ex in graphapp xdr tre trio tzone win_iconv ; do \
+	@for ex in graphapp xdr tre tzone win_iconv ; do \
 	  $(MK) -C ../extra/$${ex} CFLAGS='$(CFLAGS)' -f Makefile.win || exit 1; \
 	done
 
@@ -209,9 +209,6 @@ front-ends:
 ../extra/tre/libtre.a:
 	$(MK) -C ../extra/tre -f Makefile.win
 
-../extra/trio/libtrio.a:
-	$(MK) -C ../extra/trio -f Makefile.win
-
 NEWSdocs:
 	@$(MK) -C ../../doc -f Makefile.win
 
@@ -241,7 +238,7 @@ PKGDIR = ../library
 pkgclean-%:
 	@(cd $(PKGDIR)/$*/src; rm -f *.d *.o *.dll *_res.rc Makedeps)
 
-EXTRA_DIRS = blas graphapp intl tre trio tzone xdr win_iconv
+EXTRA_DIRS = blas graphapp intl tre tzone xdr win_iconv
 
 cleaninstaller:
 	-$(MAKE) -C installer clean
@@ -275,7 +272,7 @@ distclean: cleaninstaller distcleaninstaller clean0
 	$(RM) -R ../../bin ../../include ../../lib ../../library ../../modules
 	$(RM) ../include/config.h ../include/iconv.h ../include/psignal.h \
 	../include/Rconfig.h ../include/Rversion.h ../include/Rmath.h \
-	../include/libintl.h ../include/trioremap.h
+	../include/libintl.h ../include/winprintf.h
 	$(RM) ../library/*/src/*.o ../library/*/src/*.a
 	$(RM) ../library/*/src/*.d ../library/*/src/Makedeps
 	$(RM) ../library/*/src/*.dll
