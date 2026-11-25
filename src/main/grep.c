@@ -649,14 +649,15 @@ static void regex_cleanup_end(regex_cleanup_info *ci, RCNTXT *cntxt)
    and one too close to TRE's length limit (TRE_MAX_RE) to take the
    added characters. */
 
-/* Whether 'pat' has a word assertion and no "\0". */
-static bool needsRestartRegex(const char *pat, size_t len)
+/* Whether 'pat' has a word assertion and no "\0".  A "\0" in a pattern
+   without back-references ('backrefs' false) is a literal. */
+static bool needsRestartRegex(const char *pat, size_t len, bool backrefs)
 {
     bool found = false;
     for (size_t k = 0; k + 1 < len; k++)
 	if (pat[k] == '\\') {
 	    char c = pat[++k];
-	    if (c == '0')
+	    if (c == '0' && backrefs)
 		return false;
 	    if (c == 'b' || c == 'B' || c == '<' || c == '>')
 		found = true;
@@ -664,13 +665,13 @@ static bool needsRestartRegex(const char *pat, size_t len)
     return found;
 }
 
-static bool needsRestartRegexW(const wchar_t *pat, size_t len)
+static bool needsRestartRegexW(const wchar_t *pat, size_t len, bool backrefs)
 {
     bool found = false;
     for (size_t k = 0; k + 1 < len; k++)
 	if (pat[k] == L'\\') {
 	    wchar_t c = pat[++k];
-	    if (c == L'0')
+	    if (c == L'0' && backrefs)
 		return false;
 	    if (c == L'b' || c == L'B' || c == L'<' || c == L'>')
 		found = true;
@@ -679,12 +680,13 @@ static bool needsRestartRegexW(const wchar_t *pat, size_t len)
 }
 
 /* Compile into 'rreg' the regex that restarts a search for 'pat', of
-   'len' bytes; false if the pattern needs none or cannot use one.  This
-   does not raise R errors, so it can run before the cleanup context. */
-static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
-				int cflags)
+   'len' bytes, compiled as 'reg'; false if the pattern needs none or
+   cannot use one.  This does not raise R errors, so it can run before the
+   cleanup context. */
+static bool compileRestartRegex(regex_t *rreg, const regex_t *reg,
+				const char *pat, size_t len, int cflags)
 {
-    if (!needsRestartRegex(pat, len))
+    if (!needsRestartRegex(pat, len, tre_have_backrefs(reg)))
 	return false;
 
     char *buf = malloc(len + 7);
@@ -713,11 +715,11 @@ static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
     return ok;
 }
 
-static bool compileRestartRegexW(regex_t *rreg, const wchar_t *pat,
-				 int cflags)
+static bool compileRestartRegexW(regex_t *rreg, const regex_t *reg,
+				 const wchar_t *pat, int cflags)
 {
     size_t len = wcslen(pat);
-    if (!needsRestartRegexW(pat, len))
+    if (!needsRestartRegexW(pat, len, tre_have_backrefs(reg)))
 	return false;
 
     wchar_t *buf = malloc((len + 7) * sizeof(wchar_t));
@@ -2032,8 +2034,8 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
        reduce possible fragmentation) */
     regex_t restart_reg;
     bool have_restart_reg =
-	compileRestartRegex(&restart_reg, (const char*) RAW(pat), LENGTH(pat),
-			    cflags);
+	compileRestartRegex(&restart_reg, &reg, (const char*) RAW(pat),
+			    LENGTH(pat), cflags);
     regex_cleanup_info ci;
     RCNTXT cntxt;
     regex_cleanup_begin(&ci, &cntxt, call, false, false, &reg, NULL,
@@ -2513,13 +2515,14 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (rc) reg_report(rc, &reg, spat);
 	    replen = strlen(srep);
 	    have_restart_reg = global &&
-		compileRestartRegex(&restart_reg, spat, strlen(spat), cflags);
+		compileRestartRegex(&restart_reg, &reg, spat, strlen(spat),
+				    cflags);
 	} else {
 	    rc  = tre_regwcomp(&reg, wpat, cflags);
 	    if (rc) reg_report(rc, &reg, translateChar(STRING_ELT(pat, 0)));
 	    replen = wcslen(wrep);
 	    have_restart_reg = global &&
-		compileRestartRegexW(&restart_reg, wpat, cflags);
+		compileRestartRegexW(&restart_reg, &reg, wpat, cflags);
 	}
     }
 
@@ -3397,8 +3400,9 @@ attribute_hidden SEXP do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (rc) reg_report(rc, &reg, spat);
 	if (PRIMVAL(op) == 1) /* gregexpr */
 	    have_restart_reg = !use_WC
-		? compileRestartRegex(&restart_reg, spat, strlen(spat), cflags)
-		: compileRestartRegexW(&restart_reg, wpat, cflags);
+		? compileRestartRegex(&restart_reg, &reg, spat, strlen(spat),
+				      cflags)
+		: compileRestartRegexW(&restart_reg, &reg, wpat, cflags);
     }
 
     regex_cleanup_info ci;

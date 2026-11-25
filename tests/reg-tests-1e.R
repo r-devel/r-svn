@@ -4623,6 +4623,8 @@ stopifnot(exprs = {
     identical(grepRaw("\\B|$", charToRaw("ab"), all = TRUE), 2:3)
     identical(grepRaw("\\b", charToRaw(x), all = TRUE), c(1L, 4L, 5L, 10L, 12L, 15L))
     identical(gsub("\\b\\Qx", "X", "xx"), "Xx") # "\Q" up to the end
+    identical(gsub("\\ba|[\\0]", "X", "aaa"), "Xaa") # a literal "\0"
+    identical(gsub("\\ba|z\\)", "X", "aaa"), "Xaa") # ")" written as "\)"
     ## patterns with "\0" (the whole match) or an unmatched ")" restart as before
     identical(gsub("\\ba\\0", "X", "aa aa"), "X X")
     identical(gsub("a)\\b", "X", "a)xa) "), "Xxa) ")
