@@ -808,10 +808,10 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	    if (ii > max) max = ii;
 	} else isna = true;
     }
-    /* Without long vector support, gi() in subassign.c reads a double
-       index above INT_MAX as NA. */
+    /* Without long vector support, where R_XLEN_T_MAX is INT_MAX, gi() in
+       subassign.c reads a double index above it as NA. */
     if (noNA)
-	*noNA = !isna && max <= INT_MAX;
+	*noNA = !isna && max <= R_XLEN_T_MAX;
     if (max >= (double)nx+1.) {
 #ifdef LONG_VECTOR_SUPPORT
 	/* Avoid an out-of-range conversion to R_xlen_t. */
