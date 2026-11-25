@@ -531,6 +531,47 @@ stopifnot(identical(attr(tt, "term.labels"), ":b"))
 ## wrote one byte past the label buffer in R <= 4.6.2 (visible under ASan)
 
 
+## TRE: approximate matching parameters on a bounded repetition
+x <- c("aaaa", "aaa", "aa", "aaaaa", "aaaaaa", "aXaa", "aXXa")
+stopifnot(exprs = {
+    identical(regmatches("xabaXcx", regexpr("(ab){2~1}c", "xabaXcx")), "abaXc")
+    identical(grepl("(ab){2~1}c", c("ababc", "abXbc", "aXXbc", "abc")),
+              c(TRUE, TRUE, FALSE, FALSE))
+    ## the parameters apply to the expansion as a whole
+    identical(grepl("^(aa){2~1}$", x), grepl("^a{4~1}$", x))
+    grepl("a{2~1}{2~1}", "aaaa")
+    identical(grepl("^a{2+14}{2+4}$", c("aaaa", "aaa")), c(TRUE, FALSE))
+})
+## failed an assertion while compiling in R-devel, and could crash R <= 4.6.2
+
+
+## TRE: more approximate bounds than the matcher keeps costs for
+stopifnot(grepl("a{~1}b{~1}c{~1}", "xbc"))
+for (p in c("a{~1}b{~1}c{~1}d{~1}", "{~}?{~}?{~}?{~}?{~}?D")) {
+    r <- tryCid(suppressWarnings(grepl(p, "abcd")))
+    stopifnot(inherits(r, "error"),
+              grepl(p, conditionMessage(r), fixed = TRUE),
+              !grepl("tre-match-approx.c", conditionMessage(r), fixed = TRUE))
+}
+## failed an assertion while matching in R <= 4.6.2; upstream TRE wrote past
+## its cost table
+
+
+## TRE: one state reaching many by deletion fills the approximate matcher's
+## delete-handling deque
+p <- paste0("x(", paste(rep("a", 300), collapse = "|"), ")b")
+stopifnot(identical(agrepl(p, c("ab", "zab", "zzz"), max.distance = 2, fixed = FALSE),
+                    c(TRUE, TRUE, FALSE)))
+## failed an assertion in R <= 4.6.2
+
+
+## TRE: \b and \B next to a non-word character at either end of a string
+x <- c(" a", "a ", " ", "")
+for (p in c("\\b", "\\B", "\\b ", " \\b", " \\B"))
+    stopifnot(identical(c(regexpr(p, x)), c(regexpr(p, x, perl = TRUE))))
+## \b held at both ends and \B at neither in R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,
