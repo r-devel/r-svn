@@ -4605,30 +4605,41 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
-## x[i] <- v with an NA in i, for index lengths 2 to 65, 127 to 129 and 255 to 257
+## x[i] <- v with an NA, NaN or infinite subscript: an error with several values
 local({
-    for (n in c(2:65, 127:129, 255:257)) {
+    x0 <- c(10, 20, 30)
+    for (i in list(NA_integer_, NA_real_, NaN, Inf, -Inf, NA, c(2L, NA),
+                   c(2, NaN), c(TRUE, NA, TRUE))) {
+        x <- x0
+        stopifnot(inherits(tryCid(x[i] <- c(1, 2)), "error"),
+                  identical(x, x0))
+    }
+    for (n in c(2:9, 1000L)) {
         v <- seq_len(n) + 0.5
-        for (k in unique(c(1L, (n + 1L) %/% 2L, n - 1L, n))) {
+        for (k in unique(c(1L, (n + 1L) %/% 2L, n))) {
             i <- seq_len(n)
             i[k] <- NA
             l <- rep(TRUE, n)
             l[k] <- NA
             x <- double(n)
-            ## more than one value: an error, before anything is assigned
+            ## before anything is assigned
             stopifnot(inherits(tryCid(x[i] <- v), "error"),
                       inherits(tryCid(x[as.double(i)] <- v), "error"),
                       inherits(tryCid(x[l] <- v), "error"),
                       identical(x, double(n)))
-            ## one value: NA indices are skipped
+            ## one value: NA subscripts are skipped
             x[i] <- 1
             stopifnot(identical(x, replace(double(n), -k, 1)))
-            x[seq_len(n)] <- v
-            stopifnot(identical(x, v))
         }
     }
+    ## no NA
+    x <- x0; x[-1L] <- c(1, 2); stopifnot(identical(x, c(10, 1, 2)))
+    x <- x0; x[-1] <- c(1, 2); stopifnot(identical(x, c(10, 1, 2)))
+    x <- x0; x[c(3, 0.5, 1)] <- c(1, 2); stopifnot(identical(x, c(2, 20, 1)))
+    x <- x0; x[3:1] <- c(1, 2, 3); stopifnot(identical(x, c(3, 2, 1)))
+    x <- x0; x[] <- c(1, 2, 3); stopifnot(identical(x, c(1, 2, 3)))
 })
-## the index is checked in blocks without an early exit in R > 4.6.2
+## subscripts known to have no NA skip the check in R > 4.6.2
 
 
 

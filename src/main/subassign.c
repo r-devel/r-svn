@@ -539,30 +539,6 @@ static R_INLINE int gi(SEXP indx, R_xlen_t i)
 }
 #endif
 
-static bool hasNAIndex(SEXP indx, R_xlen_t n)
-{
-    if (TYPEOF(indx) == INTSXP) {
-	/* No early exit, so that the loop vectorizes. GCC at -O2 only
-	   vectorizes a loop of fixed length, hence the blocks. 128: clang
-	   spends time on a reduction per block of 64, and longer blocks
-	   leave more of a short index to GCC's scalar remainder loop. */
-	const int *pindx = INTEGER_RO(indx);
-	const int na = NA_INTEGER;
-	int found = 0;
-	R_xlen_t i = 0;
-	for (; i + 128 <= n; i += 128)
-	    for (int j = 0; j < 128; j++)
-		found |= (pindx[i + j] == na);
-	for (; i < n; i++)
-	    found |= (pindx[i] == na);
-	return found;
-    }
-    for (R_xlen_t i = 0; i < n; i++)
-	if (gi(indx, i) == NA_INTEGER)
-	    return true;
-    return false;
-}
-
 static SEXP DeleteListElements(SEXP x, SEXP which)
 {
     SEXP include, xnew, xnames, xnewnames;
@@ -694,10 +670,13 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     }
 
     R_xlen_t stretch = 1;
-    SEXP indx = PROTECT(makeSubscript(x, s, &stretch, R_NilValue));
+    bool noNA;
+    SEXP indx = PROTECT(makeSubscriptNA(x, s, &stretch, R_NilValue, &noNA));
     R_xlen_t i, ii, n = xlength(indx);
-    if(xlength(y) > 1 && hasNAIndex(indx, n))
-	error(_("NAs are not allowed in subscripted assignments"));
+    if(xlength(y) > 1 && !noNA)
+	for(i = 0; i < n; i++)
+	    if(gi(indx, i) == NA_INTEGER)
+		error(_("NAs are not allowed in subscripted assignments"));
 
     /* Here we make sure that the LHS has */
     /* been coerced into a form which can */
