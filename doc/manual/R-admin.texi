@@ -3406,11 +3406,12 @@ tell you what other libraries are required for linking, for example by
 @code{pkg-config libtiff-4 --static --libs}.
 @c --print-requires and --print-requires-private are not recursive.
 
-Option @option{--with-system-tre} is also available: it needs a recent
-version of @I{TRE}. (The latest sources are in the @command{git} repository
-at @url{https://github.com/laurikari/tre/}, but at the time of writing
-the resulting build did not complete its checks, nor did @R{} built
-against the version supplied by Fedora.)
+Option @option{--with-system-tre} is also available: it needs @I{TRE}
+0.9.0 or later (@command{configure} uses the bundled copy if the library
+lacks @code{tre_regncompb}, as 0.8.0 does).  The bundled copy has fixes
+not yet in a @I{TRE} release, listed in @file{src/extra/tre/R_changes},
+some of them for patterns that make @I{TRE} 0.9.0 read or write out of
+bounds.
 
 An implementation of @acronym{XDR} is required, and the @R{} sources
 contain one which is likely to suffice (although a system version may
