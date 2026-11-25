@@ -46,8 +46,13 @@ pasteExpr <- function(e, prefix = "\n    ") {
     else paste(prefix, deparse(e), collapse="")
 }
 
+## The argument helpers and the loops over call elements below convert
+## the call to a list first: indexing a call by position walks a
+## pairlist, which makes a loop over a long call quadratic. The internal
+## is called directly; see the note at cenvCacheMiss.
 dots.or.missing <- function(args) {
-    for (i in 1:length(args)) {
+    args <- .asList(args)
+    for (i in seq_along(args)) {
         a <-args[[i]]
         if (missing(a)) return(TRUE) #**** better test?
         if (identical(a, quote(`...`))) return(TRUE)
@@ -56,7 +61,8 @@ dots.or.missing <- function(args) {
 }
 
 anyDots <- function(args) {
-    for (i in 1:length(args)) {
+    args <- .asList(args)
+    for (i in seq_along(args)) {
         a <-args[[i]]
         if (! missing(a) && identical(a, quote(`...`)))
             return(TRUE)
@@ -65,12 +71,15 @@ anyDots <- function(args) {
 }
 
 is.ddsym <- function(name) {
-    (is.symbol(name) || is.character(name)) &&
-    length(grep("^\\.\\.[0-9]+$", as.character(name))) != 0
+    (is.symbol(name) || is.character(name)) && {
+        name <- as.character(name)
+        any(startsWith(name, "..")) && length(grep("^\\.\\.[0-9]+$", name)) != 0
+    }
 }
 
 
 missingArgs <- function(args) {
+    args <- .asList(args)
     val <- logical(length(args))
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -203,7 +212,7 @@ getAssignedVar <- function(e, cntxt) {
     v <- e[[2]]
     if (missing(v))
         cntxt$stop(gettextf("bad assignment: %s", pasteExpr(e)), cntxt)
-    else if (typeof(v) %in% c("symbol", "character"))
+    else if (typeof(v) == "symbol" || typeof(v) == "character")
         as.character(v)
     else {
         while (typeof(v) == "language") {
@@ -219,69 +228,134 @@ getAssignedVar <- function(e, cntxt) {
     }
 }
 
-addVar <- function(v, vars) assign(v, 1, envir = vars)
-findLocals1 <- function(e, shadowed = character(0), cntxt, vars) {
-    if (typeof(e) == "language") {
-        if (typeof(e[[1]]) %in% c("symbol", "character")) {
-            v <- as.character(e[[1]])
-            switch(v,
-                   "=" =,
-                   "<-" = { addVar(getAssignedVar(e, cntxt), vars); e[-1] },
+## Record a variable assigned at a node; 'region' is a bit mask of the
+## kinds of call (quote(), expression(), single-argument local()) that
+## enclose the node (see findLocalsList). A tagged variable keeps the
+## distinct masks it was seen with, at most eight.
+regionBits <- c(expression = 1L, local = 2L, quote = 4L)
 
-                   "for" = { addVar(as.character(e[2]), vars); e[-2] },
+addVar <- function(v, region, vars) {
+    if (region == 0L)
+        .assign(v, TRUE, vars$plain)
+    else {
+        masks <- .get0(v, vars$tagged, inherits = FALSE)
+        if (! (match(region, masks, 0L) > 0L))
+            .assign(v, c(masks, region), vars$tagged)
+    }
+}
 
-                   "delayedAssign" =,
-                   "assign" = if (length(e) == 3 &&
-                                  is.character(e[[2]]) &&
-                                  length(e[[2]]) == 1) {
-
-                                  addVar(e[[2]], vars); list(e[[3]])
-                              }
-                              else e[1],
-                   "function" = character(0),
-                   "~" = character(0),
-                   "local" = if (! v %in% shadowed && length(e) == 2)
-                                 NULL
-                             else e[-1],
-                   "expression" =,
-                   "quote" = if (! v %in% shadowed)
-                                 NULL
-                             else e[-1],
-                   e[-1])
+## Walk the expressions with an explicit stack, recording the assigned
+## variables. Elements are tested in place rather than bound to a
+## variable first, since a formal without a default or an empty argument
+## is the empty symbol. Variables assigned outside any quote(),
+## expression() or local(x) call go in 'plain'; the others go in
+## 'tagged' with the kinds of enclosing call.
+findLocalsList1 <- function(elist, cntxt) {
+    vars <- list(plain = new.env(), tagged = new.env())
+    stack <- .asList(elist)
+    regions <- integer(length(stack))
+    n <- length(stack)
+    while (n > 0L) {
+        if (typeof(stack[[n]]) != "language") {
+            n <- n - 1L
+            next
         }
-        else e
+        e <- stack[[n]]
+        region <- regions[n]
+        n <- n - 1L
+
+        kidRegion <- region
+        ftype <- typeof(e[[1]])
+        if (ftype == "symbol" || ftype == "character") {
+            v <- as.character(e[[1]])
+            kids <- switch(v,
+                           "=" =,
+                           "<-" = {
+                               addVar(getAssignedVar(e, cntxt), region, vars)
+                               e[-1]
+                           },
+                           "for" = {
+                               addVar(as.character(e[2]), region, vars)
+                               e[-2]
+                           },
+                           "delayedAssign" =,
+                           "assign" = if (length(e) == 3 &&
+                                          is.character(e[[2]]) &&
+                                          length(e[[2]]) == 1) {
+                                          addVar(e[[2]], region, vars)
+                                          list(e[[3]])
+                                      }
+                                      else e[1],
+                           "function" = character(0),
+                           "~" = character(0),
+                           "local" = {
+                               if (length(e) == 2)
+                                   kidRegion <- bitwOr(region, regionBits[[v]])
+                               e[-1]
+                           },
+                           "expression" =,
+                           "quote" = {
+                               kidRegion <- bitwOr(region, regionBits[[v]])
+                               e[-1]
+                           },
+                           e[-1])
+        }
+        else
+            kids <- e
+
+        ## as a list: indexing a call by position walks a pairlist
+        kids <- .asList(kids)
+        for (i in seq_along(kids))
+            if (typeof(kids[[i]]) == "language") {
+                n <- n + 1L
+                if (n > length(stack)) {
+                    stack <- c(stack, vector("list", length(stack)))
+                    regions <- c(regions, integer(length(regions)))
+                }
+                stack[[n]] <- kids[[i]]
+                regions[n] <- kidRegion
+            }
     }
-    else NULL
+    vars
 }
 
-findLocalsList1 <- function(elist, shadowed, cntxt) {
-    todo <- elist
-    vars <- new.env()
-    while(length(todo) > 0) {
-        newtodo <- list()
-        lapply(todo, function(e)
-            lapply(findLocals1(e, shadowed, cntxt, vars),
-                   function(x)
-                       if (typeof(x) == "language")
-                           newtodo <<- append(newtodo, x))
-        )
-        todo <- newtodo
+## the tagged variables with an occurrence whose enclosing calls are all
+## shadowed, i.e. whose mask is within the mask of the shadowed functions
+taggedLocals <- function(tagged, names, sf) {
+    sfMask <- sum(regionBits[sf])
+    keep <- logical(length(names))
+    for (i in seq_along(names)) {
+        masks <- tagged[[names[i]]]
+        keep[i] <- any(bitwAnd(masks, sfMask) == masks)
     }
-    ls(vars, all.names=T)
+    names[keep]
 }
-
 
 findLocals <- function(e, cntxt)
     findLocalsList(list(e), cntxt)
 
+## The arguments of quote(), expression() and single-argument local()
+## calls hold no locals unless the function is shadowed, globally or by
+## an assignment in the code itself. Every assigned variable is recorded
+## in one walk together with the enclosing calls of those kinds, and the
+## set of shadowed functions is then settled on the recorded names rather
+## than by walking again.
 findLocalsList <- function(elist, cntxt) {
     initialShadowedFuns <- c("expression", "local", "quote")
     shadowed <- Filter(function(n) ! isBaseVar(n, cntxt), initialShadowedFuns)
     specialSyntaxFuns <- c("~", "<-", "=", "for", "function")
+    found <- findLocalsList1(elist, cntxt)
+    plain <- ls(found$plain, all.names = TRUE)
+    taggedNames <- ls(found$tagged, all.names = TRUE)
     sf <- initialShadowedFuns
     nsf <- length(sf)
     repeat {
-        vals <- findLocalsList1(elist, sf, cntxt)
+        if (length(taggedNames) == 0L)
+            vals <- plain
+        else
+            vals <- sort(unique(c(plain,
+                                  taggedLocals(found$tagged, taggedNames,
+                                               sf))))
         redefined <- sf %in% vals
         last.nsf <- nsf
         sf <- unique(c(shadowed, sf[redefined]))
@@ -297,31 +371,73 @@ findLocalsList <- function(elist, cntxt) {
     }
 }
 
-
 ##
 ## Compilation environment implementation
 ##
 
-## Create a new compiler environment
+## Create a new compiler environment (a plain list: a class attribute
+## would make every `$` access attempt method dispatch)
 ## **** need to explain the structure
+##
+## The variables the compiler knows will be bound in a frame (formals and
+## assigned locals) are kept in hashed environments, one per frame, so
+## that looking one up does not scan a vector of all locals. Lookup
+## results (findCenvVar, and getInlineInfo with and without a guard) are
+## cached per compiler environment; the caches are replaced whenever a
+## frame is added or extended, since results may change.
 makeCenv <- function(env) {
-    structure(list(extra = list(character(0)),
-                   env = env,
-                   ftypes = frameTypes(env)),
-              class = "compiler_environment")
+    list(extra = list(newExtraFrame()),
+         env = env,
+         ftypes = frameTypes(env),
+         cache = newCenvCache())
 }
+
+newExtraFrame <- function() new.env(hash = TRUE, parent = emptyenv())
+
+newCenvCache <- function()
+    list(var = new.env(hash = TRUE, parent = emptyenv()),
+         inline = new.env(hash = TRUE, parent = emptyenv()),
+         inlineGuarded = new.env(hash = TRUE, parent = emptyenv()))
+
+## marks a cache miss (a cached result may be NULL)
+cenvCacheMiss <- new.env(parent = emptyenv())
+
+## Variants of the environment accessors and of as.vector() for use in
+## this file. The lookup caches and the argument list conversions run
+## for every symbol and call compiled, and a call to the closure wrapper
+## (get0, assign, new.env, delayedAssign, as.vector) costs about a
+## microsecond of argument matching and frame setup, which came to 7% of
+## the time to compile a package. The base functions cannot be inlined
+## because some of their defaults are calls; these take the environment
+## as a required argument and are registered with cmpSimpleInternal
+## below, so a call compiles to the internal directly. Membership tests
+## against the fixed symbol tables use match(), which the compiler
+## inlines, rather than %in%, which is two closure calls.
+.get0 <- function(x, envir, mode = "any", inherits = TRUE, ifnotfound = NULL)
+    .Internal(get0(x, envir, mode, inherits, ifnotfound))
+.assign <- function(x, value, envir, inherits = FALSE)
+    .Internal(assign(x, value, envir, inherits))
+.newEnv <- function(parent, hash = TRUE, size = 29L)
+    .Internal(new.env(hash, parent, size))
+.delayedAssign <- function(x, expr, eval.env, assign.env)
+    .Internal(delayedAssign(x, expr, eval.env, assign.env))
+.asList <- function(x) .Internal(as.vector(x, "list"))
 
 ## Add vars to the top compiler environment frame
 addCenvVars <- function(cenv, vars) {
-    cenv$extra[[1]] <- union(cenv$extra[[1]], vars)
+    frame <- cenv$extra[[1]]
+    for (v in vars)
+        .assign(v, TRUE, frame)
+    cenv$cache <- newCenvCache()
     cenv
 }
 
 ## Add a new frame to a compiler environment
 addCenvFrame <- function(cenv, vars) {
-    cenv$extra <- c(list(character(0)), cenv$extra)
+    cenv$extra <- c(list(newExtraFrame()), cenv$extra)
     cenv$env <- new.env(parent = cenv$env)
     cenv$ftypes <- c("local", cenv$ftypes)
+    cenv$cache <- newCenvCache()
     if (missing(vars))
         cenv
     else
@@ -339,41 +455,32 @@ addCenvFrame <- function(cenv, vars) {
 findCenvVar <- function(var, cenv) {
     if (typeof(var) == "symbol")
         var <- as.character(var)
-    extra <- cenv$extra
-    env <- cenv$env
-    frame <- NULL
-    for (i in seq_along(cenv$extra)) {
-        if (var %in% extra[[i]] || exists(var, env, inherits = FALSE)) {
-            frame <- env
-            break
-        }
-        else
-            env <- parent.env(env)
+    cache <- cenv$cache$var
+    info <- .get0(var, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
+    if (is.environment(info)) {
+        info <- findCenvVar1(var, cenv)
+        .assign(var, info, cache)
     }
-    if (is.null(frame)) {
-        empty <- emptyenv()
-        while (! identical(env, empty)) {
-            i <- i + 1
-            if (exists(var, env, inherits = FALSE)) {
-                frame <- env
-                break
-            }
-            else
-                env <- parent.env(env)
-        }
-    }
-    if (! is.null(frame)) {
-        if (exists(var, frame, inherits = FALSE) && var != "...") {
-            value <- new.env(parent = emptyenv())
-            delayedAssign("value", get(var, frame, inherits = FALSE),
-                          assign.env = value)
-        }
-        else
-            value <- NULL
-        list(frame = frame, ftype = cenv$ftypes[i], value = value, index = i)
+    info
+}
+
+## The walk over the environment chain and the extra frames is done in
+## C (do_findcenvframe in eval.c): one call instead of an exists() per
+## frame, which for a base function seen from a package is ten frames.
+findCenvVar1 <- function(var, cenv) {
+    found <- .Internal(findCenvFrame(var, cenv$env, cenv$extra))
+    if (is.null(found))
+        return(NULL)
+    frame <- found$frame
+    i <- found$index
+    if (found$bound && var != "...") {
+        value <- .newEnv(emptyenv(), hash = FALSE)
+        .delayedAssign("value", quote(get(var, frame, inherits = FALSE)),
+                       environment(), value)
     }
     else
-        NULL
+        value <- NULL
+    list(frame = frame, ftype = cenv$ftypes[i], value = value, index = i)
 }
 
 isBaseVar <- function(var, cntxt) {
@@ -425,7 +532,7 @@ constModes <- c("numeric", "logical", "NULL", "complex", "character")
 constNames <- c("pi", "T", "F")
 
 checkConst <- function(e) {
-    if (mode(e) %in% constModes && length(e) <= maxConstSize)
+    if ((match(mode(e), constModes, 0L) > 0L) && length(e) <= maxConstSize)
         list(value = e)
     else
         NULL
@@ -437,16 +544,16 @@ checkConst <- function(e) {
 ## Allow local declaration of optimize, notinline declaration.
 constantFoldSym <- function(var, cntxt) {
     var <- as.character(var)
-    if (var %in% constNames && isBaseVar(var, cntxt))
-        checkConst(get(var, .BaseNamespaceEnv))
+    if ((match(var, constNames, 0L) > 0L) && isBaseVar(var, cntxt))
+        checkConst(.get0(var, .BaseNamespaceEnv, inherits = FALSE))
     else NULL
 }
 
 ## For now assume all foldable functions are in base
 getFoldFun <- function(var, cntxt) {
     var <- as.character(var)
-    if (var %in% foldFuns && isBaseVar(var, cntxt)) {
-        val <- get(var, .BaseNamespaceEnv)
+    if ((match(var, foldFuns, 0L) > 0L) && isBaseVar(var, cntxt)) {
+        val <- .get0(var, .BaseNamespaceEnv, inherits = FALSE)
         if (is.function(val))
             val
         else
@@ -455,32 +562,62 @@ getFoldFun <- function(var, cntxt) {
     else NULL
 }
 
-constantFoldCall <- function(e, cntxt) {
-    fun <- e[[1]]
-    if (typeof(fun) == "symbol") {
-        ffun <- getFoldFun(fun, cntxt)
-        if (! is.null(ffun)) {
-            args <- as.list(e[-1])
-            for (i in seq_along(args)) {
-                a <- args[[i]]
-                if (missing(a))
-                    return(NULL)
-                val <- constantFold(a, cntxt)
-                if (! is.null(val))
-                    args[i] <- list(val$value) ## **** in case value is NULL
-                else return(NULL)
-            }
-            modes <- unlist(lapply(args, mode))
-            if (all(modes %in% constModes)) {
-                tryCatch(checkConst(do.call(ffun, args)),
-                         error = function(e) NULL, warning = function(w) NULL)
-                ## **** issue warning??
-            }
-            else NULL
+## Fold the arguments of e and apply ffun; 'first' is the folded first
+## argument when the caller has it already. NULL if the call does not
+## fold, with e pushed on the fold-failure stack when an argument did not
+## fold (but not when the fold itself fails).
+foldCallArgs <- function(e, ffun, first, cntxt) {
+    args <- .asList(e[-1])
+    for (i in seq_along(args)) {
+        a <- args[[i]]
+        if (missing(a))
+            return(NULL)
+        val <- if (i == 1L && ! is.null(first)) first
+               else constantFold(a, cntxt)
+        if (! is.null(val))
+            args[i] <- list(val$value) ## **** in case value is NULL
+        else {
+            pushFoldFailure(e, cntxt)
+            return(NULL)
         }
-        else NULL
+    }
+    modes <- unlist(lapply(args, mode))
+    if (all((match(modes, constModes, 0L) > 0L))) {
+        tryCatch(checkConst(do.call(ffun, args)),
+                 error = function(e) NULL, warning = function(w) NULL)
+        ## **** issue warning??
     }
     else NULL
+}
+
+## A left-nested chain x1 + x2 + ... + xn is folded with a loop over the
+## calls to the same function in first-argument position, innermost
+## first, rather than by a recursive constantFold() per level, which
+## overflows the stack for long chains; a call that does not fold makes
+## every call above it fail as the recursion would.
+constantFoldCall <- function(e, cntxt) {
+    fun <- e[[1]]
+    if (typeof(fun) != "symbol")
+        return(NULL)
+    ffun <- getFoldFun(fun, cntxt)
+    if (is.null(ffun))
+        return(NULL)
+    above <- NULL
+    while (length(e) > 1L && typeof(e[[2]]) == "language" &&
+           identical(e[[2]][[1L]], fun)) {
+        above <- list(e, above)
+        e <- e[[2]]
+    }
+    val <- foldCallArgs(e, ffun, NULL, cntxt)
+    while (! is.null(above)) {
+        e <- above[[1L]]
+        above <- above[[2L]]
+        if (is.null(val))
+            pushFoldFailure(e, cntxt)
+        else
+            val <- foldCallArgs(e, ffun, val, cntxt)
+    }
+    val
 }
 
 ## **** rewrite using switch??
@@ -497,6 +634,33 @@ constantFold <- function(e, cntxt, loc = NULL) {
         cntxt$stop(gettext("cannot constant fold literal bytecode objects"),
                    cntxt, loc = loc)
     else checkConst(e)
+}
+
+## Folding a call walks its arguments and gives up at the first one that
+## does not fold. Compiling the call then compiles that argument, which
+## folds it again, so a left-nested chain such as x1 + x2 + ... + xn costs
+## time quadratic in n. To fold each node once, calls that fail to fold
+## are pushed on a per-function stack as the failure unwinds (deepest
+## first), and cmp() pops a call it finds on top instead of folding it.
+## The stack is a chain of two-element lists in the fold state
+## environment, assigned with .assign(): a complex assignment such as
+## fs$failed[[n]] <- e checks the value for reference cycles, which for a
+## call means walking its whole subtree, so pushing the levels of a long
+## chain one by one would again take time quadratic in its length.
+pushFoldFailure <- function(e, cntxt) {
+    fs <- cntxt$foldState
+    .assign("failed", list(e, fs$failed), fs)
+}
+
+## TRUE, and pop, if e is the call on top of the stack
+popFoldFailure <- function(e, cntxt) {
+    fs <- cntxt$foldState
+    top <- fs$failed
+    if (! is.null(top) && identical(top[[1L]], e)) {
+        .assign("failed", top[[2L]], fs)
+        TRUE
+    }
+    else FALSE
 }
 
 foldFuns <- c("+", "-", "*", "/", "^", "(",
@@ -838,8 +1002,14 @@ make.codeBuf <- function(expr, loc = NULL) {
         ##   smaller
         srcrefTrackingOn <- FALSE
 
-    exprBuf <- NA   ## exprBuf will have the same length as codeBuf
-    srcrefBuf <- NA ## srcrefBuf will have the same length as codeBuf
+    ## The code buffer and the parallel buffers of expression and srcref
+    ## indices are filled in place by .Internal(putcode()), so they are
+    ## always fresh vectors, grown by doubling and kept the same length.
+    codeBuf <- vector("list", 32L)
+    codeBuf[[1L]] <- .Internal(bcVersion())
+    codeCount <- 1L
+    exprBuf <- rep(NA_integer_, 32L)
+    srcrefBuf <- rep(NA_integer_, 32L)
 
     if (!exprTrackingOn) {
         curExpr <- NULL
@@ -854,14 +1024,13 @@ make.codeBuf <- function(expr, loc = NULL) {
     ## also update the srcref according to expr, if expr has srcref attribute
     ##   (note: never clears current srcref)
     setcurexpr <- function(expr) {
-        if (exprTrackingOn) {
+        if (exprTrackingOn)
             curExpr <<- expr
-        }
         if (srcrefTrackingOn) {
             sref <- getExprSrcref(expr)
             if (!is.null(sref) && srcrefTrackingOn)
                 curSrcref <<- sref
-         }
+        }
     }
     ## unconditionally sets the current expression and srcrefs
     setcurloc <- function(expr, sref) {
@@ -892,11 +1061,11 @@ make.codeBuf <- function(expr, loc = NULL) {
         list(expr = curExpr, srcref = curSrcref)
     }
     restorecurloc <- function(saved) {
-        if (exprTrackingOn) curExpr <<- saved$expr
-        if (srcrefTrackingOn) curSrcref <<- saved$srcref
+        if (exprTrackingOn)
+            curExpr <<- saved$expr
+        if (srcrefTrackingOn)
+            curSrcref <<- saved$srcref
     }
-    codeBuf <- list(.Internal(bcVersion()))
-    codeCount <- 1
     putcode <- function(...) {
         new <- list(...)
         newLen <- length(new)
@@ -907,19 +1076,12 @@ make.codeBuf <- function(expr, loc = NULL) {
             if (srcrefTrackingOn)
                 srcrefBuf <<- c(srcrefBuf, vector("integer", length(srcrefBuf)))
         }
-        codeRange <- (codeCount + 1) : (codeCount + newLen)
-        codeBuf[codeRange] <<- new
-
-        if (exprTrackingOn) {   ## put current expression into the constant pool
-            ei <- putconst(curExpr)
-            exprBuf[codeRange] <<- ei
-        }
-        if (srcrefTrackingOn) { ## put current srcref into the constant pool
-            si <- putconst(curSrcref)
-            srcrefBuf[codeRange] <<- si
-        }
-
-        codeCount <<- codeCount + newLen
+        ## put the current expression and srcref into the constant pool
+        ## (a hashed lookup when they are already there)
+        exprIdx <- if (exprTrackingOn) putconst(curExpr) else NULL
+        srcrefIdx <- if (srcrefTrackingOn) putconst(curSrcref) else NULL
+        codeCount <<- .Internal(putcode(codeBuf, codeCount, new, exprBuf,
+                                        exprIdx, srcrefBuf, srcrefIdx))
     }
     getcode <- function() as.integer(codeBuf[1 : codeCount])
     constBuf <- vector("list", 1)
@@ -934,20 +1096,30 @@ make.codeBuf <- function(expr, loc = NULL) {
     }
     getconst <- function()
         .Internal(getconst(constBuf, constCount))
-    idx <- 0
-    labels <- vector("list")
-    makelabel <- function() { idx <<- idx + 1; paste0("L", idx) }
-    putlabel <- function(name) labels[[name]] <<- codeCount
+    ## Labels are negative integers (opcodes and constant indices are not
+    ## negative), with their offsets in a vector indexed by label number.
+    ## Naming them would intern a symbol for every label of every function
+    ## compiled, and symbols are never freed.
+    idx <- 0L
+    offsets <- rep(NA_integer_, 32L)
+    makelabel <- function() {
+        idx <<- idx + 1L
+        if (idx > length(offsets))
+            offsets <<- c(offsets, rep(NA_integer_, length(offsets)))
+        -idx
+    }
+    putlabel <- function(label) offsets[-label] <<- codeCount
     patchlabels <- function(cntxt) {
         offset <- function(lbl) {
-            if (is.null(labels[[lbl]]))
+            off <- offsets[-lbl]
+            if (is.na(off))
                 cntxt$stop(gettextf("no offset recorded for label \"%s\"", lbl),
                            cntxt)
-            labels[[lbl]]
+            off
         }
         for (i in 1 : codeCount) {
             v <- codeBuf[[i]]
-            if (is.character(v))
+            if (is.integer(v) && length(v) == 1L && v < 0L)
                 codeBuf[[i]] <<- offset(v)
             else if (typeof(v) == "list") {
                 off <- as.integer(lapply(v, offset))
@@ -956,18 +1128,20 @@ make.codeBuf <- function(expr, loc = NULL) {
             }
         }
     }
-    cb <- list(code = getcode,
-               const = getconst,
-               putcode = putcode,
+    ## `$` on a list matches the names in order, so the functions called
+    ## for every expression come first
+    cb <- list(putcode = putcode,
                putconst = putconst,
+               savecurloc = savecurloc,
+               restorecurloc = restorecurloc,
+               setcurexpr = setcurexpr,
                makelabel = makelabel,
                putlabel = putlabel,
                patchlabels = patchlabels,
-               setcurexpr = setcurexpr,
                setcurloc = setcurloc,
                commitlocs = commitlocs,
-               savecurloc = savecurloc,
-               restorecurloc = restorecurloc)
+               code = getcode,
+               const = getconst)
     cb$putconst(expr) ## insert expression as first constant.
       ## NOTE: this will also insert the srcref directly into the constant
       ## pool
@@ -994,24 +1168,26 @@ genCode <- function(e, cntxt, gen = NULL, loc = NULL) {
 ## Compiler contexts
 ##
 
+## Contexts are plain lists for the same reason as compiler environments.
+## the fields read for every expression come first (see make.codeBuf)
 make.toplevelContext <- function(cenv, options = NULL)
-    structure(list(toplevel = TRUE,
-                   tailcall = TRUE,
-                   needRETURNJMP = FALSE,
-                   env = cenv,
-                   optimize = getCompilerOption("optimize", options),
-                   suppressAll = getCompilerOption("suppressAll", options),
-                   suppressNoSuperAssignVar =
-                       getCompilerOption("suppressNoSuperAssignVar", options),
-                   suppressUndefined = getCompilerOption("suppressUndefined",
-                                                         options),
-                   call = NULL,
-                   stop = function(msg, cntxt, loc = NULL)
-                       stop(simpleError(addLocString(msg, loc), cntxt$call)),
-                   warn = function(x, cntxt, loc = NULL)
-                       cat(paste("Note:", addLocString(x, loc), "\n"))
-              ),
-              class = "compiler_context")
+    list(env = cenv,
+         tailcall = TRUE,
+         optimize = getCompilerOption("optimize", options),
+         toplevel = TRUE,
+         needRETURNJMP = FALSE,
+         suppressAll = getCompilerOption("suppressAll", options),
+         suppressNoSuperAssignVar =
+             getCompilerOption("suppressNoSuperAssignVar", options),
+         suppressUndefined = getCompilerOption("suppressUndefined",
+                                               options),
+         call = NULL,
+         foldState = new.env(parent = emptyenv()),
+         stop = function(msg, cntxt, loc = NULL)
+             stop(simpleError(addLocString(msg, loc), cntxt$call)),
+         warn = function(x, cntxt, loc = NULL)
+             cat(paste("Note:", addLocString(x, loc), "\n"))
+    )
 
 make.callContext <- function(cntxt, call) {
     cntxt$call <- call
@@ -1071,7 +1247,13 @@ cmp <- function(e, cb, cntxt, missingOK = FALSE, setloc = TRUE) {
         sloc <- cb$savecurloc()
         cb$setcurexpr(e)
     }
-    ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+    if (popFoldFailure(e, cntxt))
+        ce <- NULL
+    else {
+        ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+        if (is.null(ce))
+            popFoldFailure(e, cntxt) ## drop the entry for e itself
+    }
     if (is.null(ce)) {
         if (typeof(e) == "language")
             cmpCall(e, cb, cntxt)
@@ -1169,7 +1351,7 @@ maybeNSESymbols <- c("bquote")
 cmpCallSymFun <- function(fun, args, call, cb, cntxt) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
-    nse <- as.character(fun) %in% maybeNSESymbols
+    nse <- (match(as.character(fun), maybeNSESymbols, 0L) > 0L)
     cmpCallArgs(args, cb, cntxt, nse)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
@@ -1188,6 +1370,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
 }
 
 cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
+    args <- .asList(args)
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1270,29 +1453,37 @@ cmpTag <- function(n, cb) {
     }
 }
 
+## Walk the expression with an explicit stack rather than a recursive
+## call per node (see findLocalsList1); nested functions are checked when
+## they are compiled.
 mayCallBrowser <- function(e, cntxt) {
-    if (typeof(e) == "language") {
+    stack <- list(e)
+    n <- 1L
+    while (n > 0L) {
+        e <- stack[[n]]
+        n <- n - 1L
+        if (typeof(e) != "language")
+            next
         fun <- e[[1]]
         if (typeof(fun) == "symbol") {
             fname <- as.character(fun)
             if (fname == "browser") ## not checking isBaseVar to err on the
                                     ## positive
-                TRUE
-            else if (fname == "function" && isBaseVar(fname, cntxt))
-                FALSE
-            else
-                mayCallBrowserList(e[-1], cntxt)
+                return(TRUE)
+            if (fname == "function" && isBaseVar(fname, cntxt))
+                next
+            kids <- .asList(e[-1])
         }
         else
-            mayCallBrowserList(e, cntxt)
+            kids <- .asList(e)
+        for (i in seq_along(kids))
+            if (typeof(kids[[i]]) == "language") {
+                n <- n + 1L
+                if (n > length(stack))
+                    stack <- c(stack, vector("list", length(stack)))
+                stack[[n]] <- kids[[i]]
+            }
     }
-    else FALSE
-}
-
-mayCallBrowserList <- function(elist, cntxt) {
-    for (a in as.list(elist))
-        if (! missing(a) && mayCallBrowser(a, cntxt))
-            return(TRUE)
     FALSE
 }
 
@@ -1315,21 +1506,15 @@ setInlineHandler <- function(name, h, package = "base") {
 }
 
 getInlineHandler <- function(name, package = "base") {
-    if (exists(name, inlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, inlineHandlers)
-        if (hinfo$package == package)
-            hinfo$handler
-        else NULL
-    }
+    hinfo <- .get0(name, inlineHandlers, inherits = FALSE)
+    if (! is.null(hinfo) && hinfo$package == package)
+        hinfo$handler
     else NULL
 }
 
 haveInlineHandler <- function(name, package = "base") {
-    if (exists(name, inlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, inlineHandlers)
-        package == hinfo$package
-    }
-    else FALSE
+    hinfo <- .get0(name, inlineHandlers, inherits = FALSE)
+    ! is.null(hinfo) && package == hinfo$package
 }
 
 ## tryInline implements the rule permitting inlining as they stand now:
@@ -1338,9 +1523,24 @@ haveInlineHandler <- function(name, package = "base") {
 
 noInlineSymbols <- c("standardGeneric")
 
+## The result also depends on the optimize level, which is fixed while
+## a function is compiled but may vary between calls with the same
+## compiler environment, so an entry records the level it was made for.
 getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
+    cache <- if (guardOK) cntxt$env$cache$inlineGuarded else cntxt$env$cache$inline
     optimize <- cntxt$optimize
-    if (optimize > 0 && ! (name %in% noInlineSymbols)) {
+    entry <- .get0(name, cache, inherits = FALSE, ifnotfound = cenvCacheMiss)
+    if (is.environment(entry) || entry$optimize != optimize) {
+        entry <- list(optimize = optimize,
+                      info = getInlineInfo1(name, cntxt, guardOK))
+        .assign(name, entry, cache)
+    }
+    entry$info
+}
+
+getInlineInfo1 <- function(name, cntxt, guardOK = FALSE) {
+    optimize <- cntxt$optimize
+    if (optimize > 0 && ! ((match(name, noInlineSymbols, 0L) > 0L))) {
         info <- findCenvVar(name, cntxt$env)
         if (is.null(info))
             NULL
@@ -1362,7 +1562,7 @@ getInlineInfo <- function(name, cntxt, guardOK = FALSE) {
             }
             else if (ftype == "global" &&
                      (optimize >= 3 ||
-                      (optimize >= 2 && name %in% languageFuns))) {
+                      (optimize >= 2 && (match(name, languageFuns, 0L) > 0L)))) {
                 info$package <- packFrameName(frame)
                 info$guard <- FALSE
                 info
@@ -1431,16 +1631,17 @@ setInlineHandler("{", function(e, cb, cntxt) {
     else {
         sloc <- cb$savecurloc()
         bsrefs <- attr(e, "srcref")
+        exprs <- .asList(e)
         if (n > 2) {
             ncntxt <- make.noValueContext(cntxt)
             for (i in 2 : (n - 1)) {
-                subexp <- e[[i]]
+                subexp <- exprs[[i]]
                 cb$setcurloc(subexp, getBlockSrcref(bsrefs, i))
                 cmp(subexp, cb, ncntxt, setloc = FALSE)
                 cb$putcode(POP.OP)
             }
         }
-        subexp <- e[[n]]
+        subexp <- exprs[[n]]
         cb$setcurloc(subexp, getBlockSrcref(bsrefs, n))
         cmp(subexp, cb, cntxt, setloc = FALSE)
         cb$restorecurloc(sloc)
@@ -1551,12 +1752,9 @@ setSetterInlineHandler <- function(name, h, package = "base") {
 }
 
 getSetterInlineHandler <- function(name, package = "base") {
-    if (exists(name, setterInlineHandlers, inherits = FALSE)) {
-        hinfo <- get(name, setterInlineHandlers)
-        if (hinfo$package == package)
-            hinfo$handler
-        else NULL
-    }
+    hinfo <- .get0(name, setterInlineHandlers, inherits = FALSE)
+    if (! is.null(hinfo) && hinfo$package == package)
+        hinfo$handler
     else NULL
 }
 
@@ -1937,7 +2135,7 @@ isLoopTopFun <- function(fname, cntxt)
      isBaseVar(fname, cntxt))
 
 checkSkipLoopCntxtList <- function(elist, cntxt, breakOK) {
-    for (a in as.list(elist))
+    for (a in .asList(elist))
         if (! missing(a) && ! checkSkipLoopCntxt(a, cntxt, breakOK))
             return(FALSE)
     TRUE
@@ -2107,6 +2305,80 @@ cmpPrim1 <- function(e, cb, op, cntxt) {
 checkNeedsInc <- function(e, cntxt)
     return(FALSE)
 
+## The left operand of a binary operator is compiled by cmpPrim2Left
+## rather than by cmp() when it is a call to the same operator: a chain
+## x1 + x2 + ... + xn is left-nested, and the recursion through cmp(),
+## cmpCall(), tryInline() and cmpPrim2() for every level overflows the
+## node stack at about 800 terms and slows the compiler down well before
+## that. The loop does for each level what the recursion would (the
+## location tracking of cmp() and cmpCall(), the fold-once check, the
+## guard that tryInline() emits for global code, the contexts) and emits
+## the same code; a level that does not have the expected shape, or that
+## folds to a constant, ends the loop and is compiled as usual.
+cmpPrim2Left <- function(fun, e, cb, op, cntxt) {
+    levels <- NULL
+    repeat {
+        if (typeof(e) != "language" || length(e) != 3 ||
+            ! identical(e[[1]], fun) || dots.or.missing(e[-1]))
+            break
+        ## as in cmp()
+        sloc <- cb$savecurloc()
+        cb$setcurexpr(e)
+        if (popFoldFailure(e, cntxt))
+            ce <- NULL
+        else {
+            ce <- constantFold(e, cntxt, loc = cb$savecurloc())
+            if (is.null(ce))
+                popFoldFailure(e, cntxt)
+        }
+        if (! is.null(ce)) {
+            cmpConst(ce$value, cb, cntxt)
+            cb$restorecurloc(sloc)
+            e <- NULL
+            break
+        }
+        ## as in cmpCall() and tryInline(); the operator resolves as it
+        ## did for the enclosing call, so the handler is this one again
+        csloc <- cb$savecurloc()
+        ccntxt <- make.callContext(cntxt, e)
+        info <- getInlineInfo(as.character(fun), ccntxt, guardOK = TRUE)
+        if (is.null(info)) {
+            cb$restorecurloc(sloc)
+            break
+        }
+        endlabel <- NULL
+        if (info$guard) {
+            ## the context is not a tail call, so no RETURN after the label
+            expridx <- cb$putconst(e)
+            endlabel <- cb$makelabel()
+            cb$putcode(BASEGUARD.OP, expridx, endlabel)
+        }
+        ## as in cmpPrim2() before its left operand
+        needInc <- checkNeedsInc(e[[3]], ccntxt)
+        levels <- list(list(e = e, cntxt = ccntxt, needInc = needInc,
+                            endlabel = endlabel, sloc = sloc, csloc = csloc),
+                       levels)
+        cntxt <- make.nonTailCallContext(ccntxt)
+        e <- e[[2]]
+    }
+    if (! is.null(e))
+        cmp(e, cb, cntxt)
+    while (! is.null(levels)) {
+        l <- levels[[1L]]
+        levels <- levels[[2L]]
+        ## as in cmpPrim2() after its left operand
+        if (l$needInc) cb$putcode(INCLNK.OP)
+        cmp(l$e[[3]], cb, make.argContext(l$cntxt))
+        if (l$needInc) cb$putcode(DECLNK.OP)
+        ci <- cb$putconst(l$e)
+        cb$putcode(op, ci)
+        if (! is.null(l$endlabel))
+            cb$putlabel(l$endlabel)
+        cb$restorecurloc(l$csloc)
+        cb$restorecurloc(l$sloc)
+    }
+}
+
 cmpPrim2 <- function(e, cb, op, cntxt) {
     if (dots.or.missing(e[-1]))
         cmpBuiltin(e, cb, cntxt)
@@ -2117,7 +2389,7 @@ cmpPrim2 <- function(e, cb, op, cntxt) {
     else {
         needInc <- checkNeedsInc(e[[3]], cntxt)
         ncntxt <- make.nonTailCallContext(cntxt)
-        cmp(e[[2]], cb, ncntxt);
+        cmpPrim2Left(e[[1]], e[[2]], cb, op, ncntxt)
         if (needInc) cb$putcode(INCLNK.OP)
         ncntxt <- make.argContext(cntxt)
         cmp(e[[3]], cb, ncntxt)
@@ -2297,6 +2569,7 @@ cmpBuiltin <- function(e, cb, cntxt, internal = FALSE) {
 }
 
 cmpBuiltinArgs <- function(args, names, cb, cntxt, missingOK = FALSE) {
+    args <- .asList(args)
     ncntxt <- make.argContext(cntxt)
     for (i in seq_along(args)) {
         a <- args[[i]]
@@ -2530,7 +2803,7 @@ simpleFormals <- function(def) {
 }
 
 simpleArgs <- function(icall, fnames) {
-    for (a in as.list(icall[-1])) {
+    for (a in .asList(icall[-1])) {
         if (missing(a))
             return(FALSE)
         else if (typeof(a) == "symbol") {
@@ -2576,7 +2849,7 @@ inlineSimpleInternalCall <- function(e, def) {
         cenv <- c(as.list(match.call(def, e, F))[-1], defaults)
         subst <- function(n)
             if (typeof(n) == "symbol") cenv[[as.character(n)]] else n
-        args <- lapply(as.list(icall[-1]), subst)
+        args <- lapply(.asList(icall[-1]), subst)
         as.call(list(quote(.Internal), as.call(c(icall[[1]], args))))
     }
     else NULL
@@ -2618,15 +2891,23 @@ safeStatsInternals <- c("dbinom", "dcauchy", "dgeom", "dhyper", "dlnorm",
 
 for (i in safeStatsInternals) setInlineHandler(i,  cmpSimpleInternal, "stats")
 
+## the compiler's own accessor variants (see .get0)
+for (i in c(".get0", ".assign", ".newEnv", ".delayedAssign", ".asList"))
+    setInlineHandler(i, cmpSimpleInternal, "compiler")
+
 
 ##
 ## Inline handler for switch
 ##
 
-findActionIndex <- function(name, nm, miss) {
-    start <- match(name, nm)
-    aidx <- c(which(! miss), length(nm) + 1)
-    min(aidx[aidx >= start])
+## For each name, the index of the alternative that acts for it: the
+## first non-empty one at or after the first alternative with that name,
+## or one past the end. Computed for all names at once.
+findActionIndex <- function(names, nm, miss) {
+    n <- length(nm)
+    act <- ifelse(miss, n + 1L, seq_len(n))
+    nxt <- rev(cummin(rev(act)))
+    nxt[match(names, nm)]
 }
 
 setInlineHandler("switch", function(e, cb, cntxt) {
@@ -2635,9 +2916,9 @@ setInlineHandler("switch", function(e, cb, cntxt) {
     else {
         ## **** check name on EXPR, if any, partially matches EXPR?
         expr <- e[[2]]
-        cases <-e[-c(1, 2)]
+        cases <- .asList(e[-c(1, 2)])
 
-        if (is.null(cases))
+        if (length(cases) == 0)
             notifyNoSwitchcases(cntxt, loc = cb$savecurloc())
 
         miss <- missingArgs(cases)
@@ -2688,7 +2969,7 @@ setInlineHandler("switch", function(e, cb, cntxt) {
             unm <- unique(nm[nm != ""])
             if (haveCharDflt)
                 unm <- c(unm, "")
-            nlabels <- labels[unlist(lapply(unm, findActionIndex, nm, miss))]
+            nlabels <- labels[findActionIndex(unm, nm, miss)]
             ## if there is no unnamed case to act as a default for a
             ## character switch then the numeric default becomes the
             ## character default as well.

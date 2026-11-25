@@ -88,9 +88,13 @@ stopifnot(sfc(x) == sf(x))
 
 ## Check that the handlers have been associated with the correct package
 h <- ls(compiler:::inlineHandlers, all.names = TRUE)
-p <- sub("package:", "", sapply(h, find))
 pp <- sapply(h, function(n) get(n, compiler:::inlineHandlers)$package)
-stopifnot(identical(p, pp))
+## handlers for the compiler's own helpers, which are not exported
+own <- pp == "compiler"
+stopifnot(all(sapply(h[own], exists, envir = asNamespace("compiler"),
+                     inherits = FALSE)))
+p <- sub("package:", "", sapply(h[!own], find))
+stopifnot(identical(p, pp[!own]))
 
 
 ## Check assumption about simple .Internals
