@@ -4518,7 +4518,7 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## lengths around the copied block sizes
 local({
     vals <- list(logical = c(TRUE, NA, FALSE), integer = c(3L, NA, -7L, 0L, 9L),
-                 double = c(-0, NaN, NA, 1.5, Inf, 2.25, -3),
+                 double = c(-0, NaN, -NaN, NA, 1.5, Inf, 2.25, -3),
                  complex = complex(real = c(1, NA, -2), imaginary = c(0, 3, NaN)),
                  raw = as.raw(c(1, 255, 7, 0)))
     lens <- c(4:9, 63:65, 511:513, 1023:1025, 2047:2049, 4095:4097, 8191:8193, 24581L)
@@ -4552,14 +4552,15 @@ local({
                 hi <- pmax(u, rep_len(-Inf, n))
             }
         })
-        ## num.eq = FALSE tells -0 from 0
-        stopifnot(identical(as.vector(array(u, n)), un, num.eq = FALSE),
-                  identical(as.vector(mat), un, num.eq = FALSE),
-                  identical(unname(cb[, 1L]), first, num.eq = FALSE),
-                  identical(unname(cb[, 2L]), un, num.eq = FALSE))
-        if (is.numeric(u))
-            stopifnot(identical(lo, as.double(un), num.eq = FALSE),
-                      identical(hi, as.double(un), num.eq = FALSE))
+        got <- list(array = as.vector(array(u, n)), matrix = as.vector(mat),
+                    cbind1 = unname(cb[, 1L]), cbind2 = unname(cb[, 2L]))
+        want <- list(array = un, matrix = un, cbind1 = first, cbind2 = un)
+        if (is.numeric(u)) {
+            got <- c(got, list(pmin = lo, pmax = hi))
+            want <- c(want, list(pmin = as.double(un), pmax = as.double(un)))
+        }
+        ## compared bitwise: -0 is not 0, and -NaN is not NaN
+        stopifnot(identical(got, want, num.eq = FALSE, single.NA = FALSE))
     }
 })
 ## these copy the shorter vector once and then copy blocks in R > 4.6.2
