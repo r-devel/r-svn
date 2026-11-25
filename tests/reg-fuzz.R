@@ -554,6 +554,19 @@ local({
 ## only the first alternative's assertion was tried in R <= 4.6.2
 
 
+## discrete quantiles far from their normal approximation, with a large mean
+local({
+    q <- qnbinom(0.5, size = 0.1, mu = 1e12)
+    stopifnot(pnbinom(q - 1, 0.1, mu = 1e12) < 0.5,
+              pnbinom(q, 0.1, mu = 1e12) >= 0.5)
+    lam <- 1e17; p <- -0.99 * lam
+    q <- qpois(p, lam, log.p = TRUE)
+    stopifnot(all.equal(ppois(q, lam, log.p = TRUE), p, tolerance = 1e-14))
+})
+## searched in steps of 1 from far below the quantile, practically never
+## returning, in R <= 4.6.2
+
+
 ## terms() of a term starting with the empty symbol -- PR#19362
 tt <- terms(eval(call("~", call(":", quote(expr = ), quote(b)))))
 stopifnot(identical(attr(tt, "term.labels"), ":b"))
