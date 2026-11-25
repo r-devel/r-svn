@@ -4566,7 +4566,7 @@ local({
     ## a result that ends in the second piece of the first copy of big
     stopifnot(identical(as.vector(array(big, 1000001L)), big[seq_len(1000001L)]))
 })
-## these copy with memcpy() in R > 4.6.2
+## these copy with memmove() in R > 4.6.2
 
 
 ## socketSelect() on a socket connection that is not open -- PR#19298
