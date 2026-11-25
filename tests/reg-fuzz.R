@@ -557,6 +557,14 @@ for (p in c("a{~1}b{~1}c{~1}d{~1}", "{~}?{~}?{~}?{~}?{~}?D")) {
 ## its cost table
 
 
+## TRE: one state reaching many by deletion fills the approximate matcher's
+## delete-handling deque
+p <- paste0("x(", paste(rep("a", 300), collapse = "|"), ")b")
+stopifnot(identical(agrepl(p, c("ab", "zab", "zzz"), max.distance = 2, fixed = FALSE),
+                    c(TRUE, TRUE, FALSE)))
+## failed an assertion in R <= 4.6.2
+
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

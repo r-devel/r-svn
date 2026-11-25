@@ -1,5 +1,5 @@
 This directory contains a copy of TRE (https://github.com/laurikari/tre),
-taken from git commit 461d50116173c235e64715318344b02b0f908992 of the
+taken from git commit cb5ebee59e455890f7b73cf107ca08fd71be3e2c of the
 integration branch at https://github.com/r-devel/tre/tree/r-integration.
 That branch is upstream master (2026-11-17, post-0.9.0; its library
 sources are unchanged since 2026-05-23) plus the following pull
@@ -8,6 +8,9 @@ previous bundled copy (based on TRE 0.8.0) had patched in locally:
 
   #144  Convert tre_ast_to_tnfa() to iteration over a tre_stack
   #145  Grow the delete-handling deque in tre_tnfa_run_approx() dynamically
+        (the 0.8.0 copy grew it only while it was first filled, so agrep()
+        could still fail with "assertion 'deque_end != deque_start'
+        failed")
   #146  Make REG_LITERAL match the empty pattern
   #148  Fix pointer truncation and under-alignment in ALIGN() on LLP64
   #149  Do not use the system wctype() on Windows
@@ -80,7 +83,7 @@ tre-config.h:
    macros come from R's config.h.  TRE_USE_ALLOCA is deliberately not
    defined: the matchers allocate buffers proportional to the automaton
    size, which for large patterns can exceed the stack.  TRE_VERSION
-   carries the upstream commit ("0.9.0-461d501"), since these sources are
+   carries the upstream commit ("0.9.0-cb5ebee"), since these sources are
    post-0.9.0 plus the changes above; update it whenever the copy is
    refreshed.
 
