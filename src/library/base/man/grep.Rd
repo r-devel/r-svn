@@ -209,10 +209,10 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 }
 
 \section{Warning}{
-  The POSIX 1003.2 mode of \code{gsub} and \code{gregexpr} does not
-  work correctly with repeated word-boundaries (e.g.,
-  \code{pattern = "\\b"}).
-  Use \code{perl = TRUE} for such matches (but that may not
+  In the POSIX 1003.2 mode, \code{"\\b"} matches at the start and at
+  the end of a string and \code{"\\B"} at neither, whatever characters
+  are there.
+  Use \code{perl = TRUE} where that matters (but that may not
   work as expected with non-ASCII inputs, as the meaning of
   \sQuote{word} is system-dependent).
 }

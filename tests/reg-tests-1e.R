@@ -4605,6 +4605,25 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
+## gsub() and gregexpr() tested word boundaries at a restart without the character before it -- PR#17992
+x <- "the quick  fox"
+stopifnot(exprs = {
+    identical(gsub("\\b", "|", x), "|the| |quick|  |fox|")
+    identical(gsub("\\b[a-z]", "X", x), "Xhe Xuick  Xox")
+    identical(gsub("\\<", "|", x), "|the |quick  |fox")
+    identical(gsub("\\>", "|", x), "the| quick|  fox|")
+    identical(gsub("\\Ba", "X", "aaa a"), "aXX a")
+    identical(gsub("\\b(\\w)", "<\\1>", x), "<t>he <q>uick  <f>ox")
+    identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
+    identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
+    ## a pattern with an unmatched ")" restarts as before
+    identical(gsub("a)\\b", "X", "a) a)"), "a) X")
+})
+if(l10n_info()[["UTF-8"]]) # wide characters
+    stopifnot(identical(gsub("\\b", "|", "ab\u2014cd ef"), "|ab|\u2014|cd| |ef|"))
+## every restart looked like the start of a word in R <= 4.6.2
+
+
 
 
 ## keep at end
