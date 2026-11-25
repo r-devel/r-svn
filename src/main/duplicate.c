@@ -515,6 +515,9 @@ attribute_hidden void                                                        \
 xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
                           R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc)        \
 {                                                                            \
+    /* an empty dst may have a sentinel pointer: no arithmetic on it */      \
+    if (n < 1)                                                               \
+        return;                                                              \
     if (nsrc == 1) {                                                         \
         VALTYPE val = src[0];                                                \
         for (R_xlen_t i = 0; i < n; i++)                                     \

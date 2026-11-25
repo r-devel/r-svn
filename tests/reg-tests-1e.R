@@ -4536,8 +4536,8 @@ local({
         }
     }
     ## a source of more than XCOPY_RECYCLE_CHUNK (duplicate.c) elements
-    cases <- c(cases, list(list(u = as.raw(seq_len(1000003L) %% 251L),
-                                ns = c(1000003L, 2500011L))))
+    big <- as.raw(seq_len(1000003L) %% 251L)
+    cases <- c(cases, list(list(u = big, ns = c(1000003L, 2500011L))))
     for (cs in cases) for (n in cs$ns) {
         u <- cs$u
         m <- length(u)
@@ -4563,6 +4563,8 @@ local({
         ## compared bitwise: -0 is not 0, and -NaN is not NaN
         stopifnot(identical(got, want, num.eq = FALSE, single.NA = FALSE))
     }
+    ## a result that ends in the second piece of the first copy of big
+    stopifnot(identical(as.vector(array(big, 1000001L)), big[seq_len(1000001L)]))
 })
 ## these copy with memcpy() in R > 4.6.2
 
