@@ -701,11 +701,12 @@ static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
 	tre_regfree(&probe);
     bool ok = false;
     if (rc == REG_EPAREN) {
-	ok = tre_regncompb(rreg, buf, len + 5, cflags) == REG_OK;
-	if (!ok) {
+	rc = tre_regncompb(rreg, buf, len + 5, cflags);
+	if (rc == REG_EPAREN) {
 	    memcpy(buf + len + 4, "\\E)", 3);
-	    ok = tre_regncompb(rreg, buf, len + 7, cflags) == REG_OK;
+	    rc = tre_regncompb(rreg, buf, len + 7, cflags);
 	}
+	ok = rc == REG_OK;
     }
 
     free(buf);
@@ -732,11 +733,12 @@ static bool compileRestartRegexW(regex_t *rreg, const wchar_t *pat,
 	tre_regfree(&probe);
     bool ok = false;
     if (rc == REG_EPAREN) {
-	ok = tre_regwncomp(rreg, buf, len + 5, cflags) == REG_OK;
-	if (!ok) {
+	rc = tre_regwncomp(rreg, buf, len + 5, cflags);
+	if (rc == REG_EPAREN) {
 	    memcpy(buf + len + 4, L"\\E)", 3 * sizeof(wchar_t));
-	    ok = tre_regwncomp(rreg, buf, len + 7, cflags) == REG_OK;
+	    rc = tre_regwncomp(rreg, buf, len + 7, cflags);
 	}
+	ok = rc == REG_OK;
     }
 
     free(buf);

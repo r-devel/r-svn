@@ -4616,6 +4616,7 @@ stopifnot(exprs = {
     identical(gsub("\\b(\\w)", "<\\1>", x), "<t>he <q>uick  <f>ox")
     identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
     identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
+    identical(grepRaw("\\ba", as.raw(c(0x61, 0x61, 0, 0x61)), all = TRUE), c(1L, 4L))
     identical(grepRaw("\\B", charToRaw("abc"), all = TRUE), 2:3)
     identical(grepRaw("\\>", charToRaw("ab cd"), all = TRUE), c(3L, 6L))
     identical(grepRaw("a|\\>", charToRaw("a a"), all = TRUE), 1:3)
