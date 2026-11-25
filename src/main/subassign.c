@@ -673,7 +673,7 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     bool noNA;
     SEXP indx = PROTECT(makeSubscriptNA(x, s, &stretch, R_NilValue, &noNA));
     R_xlen_t i, ii, n = xlength(indx);
-    if(xlength(y) > 1 && !noNA)
+    if(!noNA && xlength(y) > 1)
 	for(i = 0; i < n; i++)
 	    if(gi(indx, i) == NA_INTEGER)
 		error(_("NAs are not allowed in subscripted assignments"));
