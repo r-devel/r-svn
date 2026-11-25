@@ -4514,8 +4514,8 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## array(), matrix(), cbind() and pmin() recycling a shorter vector, for result
-## lengths around the copied block sizes
+## array(), matrix(), cbind() and pmin() copying a vector as long as the result
+## or recycling a shorter one, for lengths around the copied block sizes
 local({
     vals <- list(logical = c(TRUE, NA, FALSE), integer = c(3L, NA, -7L, 0L, 9L),
                  double = c(-0, NaN, -NaN, NA, 1.5, Inf, 2.25, -3),
@@ -4525,18 +4525,19 @@ local({
     cases <- list()
     for (v in vals) {
         for (m in unique(c(2L, 3L, length(v))))
-            cases <- c(cases, list(list(u = v[seq_len(m)], ns = lens[lens > m])))
+            cases <- c(cases, list(list(u = v[seq_len(m)], ns = c(m, lens[lens > m]))))
         ## sources of about 8192 bytes, which are doubled once or not at all
         size <- switch(typeof(v), raw = 1L, logical = , integer = 4L,
                        double = 8L, complex = 16L)
         for (m in 8192L %/% size + (-1:1)) {
             u <- as.vector(seq_len(m) %% 251L, typeof(v))
             u[seq_along(v)] <- v
-            cases <- c(cases, list(list(u = u, ns = c(m + 1L, 2L * m + 1L, 4L * m - 1L))))
+            cases <- c(cases, list(list(u = u, ns = c(m, m + 1L, 2L * m + 1L, 4L * m - 1L))))
         }
     }
     ## a source of more than XCOPY_RECYCLE_CHUNK (duplicate.c) elements
-    cases <- c(cases, list(list(u = as.raw(seq_len(1000003L) %% 251L), ns = 2500011L)))
+    cases <- c(cases, list(list(u = as.raw(seq_len(1000003L) %% 251L),
+                                ns = c(1000003L, 2500011L))))
     for (cs in cases) for (n in cs$ns) {
         u <- cs$u
         m <- length(u)
@@ -4563,7 +4564,7 @@ local({
         stopifnot(identical(got, want, num.eq = FALSE, single.NA = FALSE))
     }
 })
-## these copy the shorter vector once and then copy blocks in R > 4.6.2
+## these copy with memcpy() in R > 4.6.2
 
 
 ## socketSelect() on a socket connection that is not open -- PR#19298

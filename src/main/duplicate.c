@@ -498,10 +498,12 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	copyVector(s, t);
 }
 
-/* Recycling copies src once. A shorter src is then doubled from what has
-   been written until the copied part is XCOPY_RECYCLE_BLOCK bytes or more,
-   and copies of that part follow; it stays in the cache while it is reused.
-   A longer src is copied from src itself, not read back from dst.
+/* The copies use memcpy(), as GCC at -O2 leaves element loops for them
+   scalar. src is copied once, or as far as it is needed. When recycling, a
+   shorter src is then doubled from what has been written until the copied
+   part is XCOPY_RECYCLE_BLOCK bytes or more, and copies of that part
+   follow; it stays in the cache while it is reused. A longer src is copied
+   from src itself, not read back from dst.
    No memcpy() copies more than XCOPY_RECYCLE_CHUNK elements, as in the
    macOS DUPLICATE_ATOMIC_VECTOR() above; the limit is kept on all
    platforms so that there is one code path. */
@@ -513,11 +515,6 @@ attribute_hidden void                                                        \
 xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
                           R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc)        \
 {                                                                            \
-    if (nsrc >= n) { /* no recycle needed */                                 \
-        for (R_xlen_t i = 0; i < n; i++)                                     \
-            dst[dstart + i] = src[i];                                        \
-        return;                                                              \
-    }                                                                        \
     if (nsrc == 1) {                                                         \
         VALTYPE val = src[0];                                                \
         for (R_xlen_t i = 0; i < n; i++)                                     \
@@ -527,9 +524,11 @@ xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
     /* nothing to recycle, and the loop below would not advance */           \
     if (nsrc < 1)                                                            \
         return;                                                              \
-                                                                             \
-    /* recycle needed */                                                     \
     VALTYPE *to = dst + dstart;                                              \
+    /* copyVector(s, s): memcpy() must not copy onto itself */               \
+    if (to == src && nsrc >= n)                                              \
+        return;                                                              \
+                                                                             \
     const VALTYPE *from = src;                                               \
     R_xlen_t done = 0, block = nsrc, off = 0;                                \
     while (done < n) {                                                       \
