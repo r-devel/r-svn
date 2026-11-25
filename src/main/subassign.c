@@ -1156,30 +1156,34 @@ static SEXP MatrixAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
     return x;
 }
 
-#define ARRAY_ASSIGN_LOOP(CODE) do {			\
-	R_xlen_t i, iny;				\
-	MOD_ITERATE1(n, ny, i, iny, {			\
-		R_xlen_t ii = 0;			\
-		for (int j = 0; j < k; j++) {		\
-		    int jj = subs[j][indx[j]];		\
-		    if (jj == NA_INTEGER) {		\
-			ii = NA_INTEGER;		\
-			break;				\
-		    }					\
-		    else				\
-			ii += (jj - 1) * offset[j];	\
-		}					\
-		if (ii != NA_INTEGER)			\
-		    do { CODE } while (0);		\
-		if (n > 1) {				\
-		    int j = 0;				\
-		    while (++indx[j] >= bound[j]) {	\
-			indx[j] = 0;			\
-			j++;				\
-			if (j == k) j = 0;		\
-		    }					\
-		}					\
-	    });						\
+/* The first subscript varies fastest, so the offset of the other
+   dimensions is computed once for each run over the first. */
+#define ARRAY_ASSIGN_LOOP(CODE) do {                                    \
+        const int *subs0 = subs[0];                                     \
+        int n0 = bound[0];                                              \
+        R_xlen_t i = 0, iny = 0;                                        \
+        while (i < n) {                                                 \
+            R_xlen_t base = 0;                                          \
+            for (int j = 1; j < k; j++) {                               \
+                int jj = subs[j][indx[j]];                              \
+                if (jj == NA_INTEGER) {                                 \
+                    base = NA_INTEGER;                                  \
+                    break;                                              \
+                }                                                       \
+                base += (jj - 1) * offset[j];                           \
+            }                                                           \
+            for (int i0 = 0; i0 < n0; i0++, i++) {                      \
+                int jj = subs0[i0];                                     \
+                if (base != NA_INTEGER && jj != NA_INTEGER) {           \
+                    R_xlen_t ii = base + jj - 1;                        \
+                    do { CODE } while (0);                              \
+                }                                                       \
+                if (++iny == ny)                                        \
+                    iny = 0;                                            \
+            }                                                           \
+            for (int j = 1; j < k && ++indx[j] >= bound[j]; j++)        \
+                indx[j] = 0;                                            \
+        }                                                               \
     } while (0)
 
 static SEXP ArrayAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
