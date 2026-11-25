@@ -4605,6 +4605,32 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
+## x[i] <- v with an NA in i, for index lengths 2 to 65, 127 to 129 and 255 to 257
+local({
+    for (n in c(2:65, 127:129, 255:257)) {
+        v <- seq_len(n) + 0.5
+        for (k in unique(c(1L, (n + 1L) %/% 2L, n - 1L, n))) {
+            i <- seq_len(n)
+            i[k] <- NA
+            l <- rep(TRUE, n)
+            l[k] <- NA
+            x <- double(n)
+            ## more than one value: an error, before anything is assigned
+            stopifnot(inherits(tryCid(x[i] <- v), "error"),
+                      inherits(tryCid(x[as.double(i)] <- v), "error"),
+                      inherits(tryCid(x[l] <- v), "error"),
+                      identical(x, double(n)))
+            ## one value: NA indices are skipped
+            x[i] <- 1
+            stopifnot(identical(x, replace(double(n), -k, 1)))
+            x[seq_len(n)] <- v
+            stopifnot(identical(x, v))
+        }
+    }
+})
+## the index is checked in blocks without an early exit in R > 4.6.2
+
+
 
 
 ## keep at end
