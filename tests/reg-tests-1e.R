@@ -4514,18 +4514,23 @@ tools::assertError(getGeneric("initialize", where = x)) # caused segfault or bus
 ## in R <= 4.6.2
 
 
-## array(), matrix(), cbind() and pmin() copying a vector as long as the result
-## or recycling a shorter one, for lengths around the copied block sizes
+## array(), matrix(), cbind() and pmin() copying a vector as long as the result,
+## recycling a shorter one or filling from one element, for lengths around the
+## copied block sizes
 local({
     vals <- list(logical = c(TRUE, NA, FALSE), integer = c(3L, NA, -7L, 0L, 9L),
                  double = c(-0, NaN, -NaN, NA, 1.5, Inf, 2.25, -3),
                  complex = complex(real = c(1, NA, -2), imaginary = c(0, 3, NaN)),
                  raw = as.raw(c(1, 255, 7, 0)))
-    lens <- c(4:9, 63:65, 511:513, 1023:1025, 2047:2049, 4095:4097, 8191:8193, 24581L)
+    lens <- c(4:9, 15:17, 31:33, 63:65, 255:257, 511:513, 1023:1025, 2047:2049,
+              4095:4097, 8191:8193, 24581L)
     cases <- list()
     for (v in vals) {
-        for (m in unique(c(2L, 3L, length(v))))
+        for (m in unique(c(1L, 2L, 3L, length(v))))
             cases <- c(cases, list(list(u = v[seq_len(m)], ns = c(m, lens[lens > m]))))
+        ## one element whose bytes are all the same (0, FALSE, 0+0i, 00), and NA
+        for (u in list(as.vector(0, typeof(v)), v[NA_integer_]))
+            cases <- c(cases, list(list(u = u, ns = c(1L, lens))))
         ## sources of about 8192 bytes, which are doubled once or not at all
         size <- switch(typeof(v), raw = 1L, logical = , integer = 4L,
                        double = 8L, complex = 16L)
@@ -4566,7 +4571,7 @@ local({
     ## a result that ends in the second piece of the first copy of big
     stopifnot(identical(as.vector(array(big, 1000001L)), big[seq_len(1000001L)]))
 })
-## these copy with memmove() in R > 4.6.2
+## these copy with memmove() or memset() in R > 4.6.2
 
 
 ## socketSelect() on a socket connection that is not open -- PR#19298

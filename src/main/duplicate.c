@@ -499,7 +499,11 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 }
 
 /* As in the macOS DUPLICATE_ATOMIC_VECTOR() above, limit each memmove()
-   to a million elements. */
+   and memset() to a million elements.
+   A src of one element whose bytes are all the same (0, FALSE, any raw
+   byte) is written with memset(), which beats the fill loop with GCC and
+   clang alike. Other values keep the loop: doubling them with memmove()
+   would read as much as it writes, and is slower than clang's loop. */
 #define XCOPY_RECYCLE_CHUNK 1000000
 #define XCOPY_RECYCLE_BLOCK 8192
 
@@ -559,6 +563,22 @@ xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
     VALTYPE *to = dst + dstart;                                              \
     if (nsrc == 1) {                                                         \
         VALTYPE val = src[0];                                                \
+                                                                             \
+        /* are all bytes of val the same? */                                 \
+        const unsigned char *b = (const unsigned char *) &val;               \
+        size_t k = 1;                                                        \
+        while (k < sizeof(VALTYPE) && b[k] == b[0])                          \
+            k++;                                                             \
+        if (k == sizeof(VALTYPE)) {                                          \
+            for (R_xlen_t i = 0; i < n; i += XCOPY_RECYCLE_CHUNK) {          \
+                R_xlen_t len = n - i;                                        \
+                if (len > XCOPY_RECYCLE_CHUNK)                               \
+                    len = XCOPY_RECYCLE_CHUNK;                               \
+                memset(to + i, b[0], (size_t) len * sizeof(VALTYPE));        \
+            }                                                                \
+            return;                                                          \
+        }                                                                    \
+                                                                             \
         for (R_xlen_t i = 0; i < n; i++)                                     \
             to[i] = val;                                                     \
         return;                                                              \
