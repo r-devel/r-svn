@@ -2051,7 +2051,15 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (value) res_val[res_ptr++] = ptag.rm_eo - ptag.rm_so;
 	offset += ptag.rm_eo;
 	nmatches++;
-	if (ptag.rm_eo == 0 && !stepped_over) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
+	if (have_restart_reg) {
+	    /* The restart regex sees the character before 'offset', so it
+	       would find an empty match there again: step over it, as
+	       gregexpr() does.  Each search then starts further on, and one
+	       that starts at the end can still find an empty match there. */
+	    stepped_over = ptag.rm_so == ptag.rm_eo;
+	    if (stepped_over)
+		offset++;
+	} else if (ptag.rm_eo == 0) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
 	    int infinite_match = 1;
 	    /* the only place where this is acceptable is "^" as that will go away in the next step */
 	    if (nmatches == 1) { /* to see if that is true, re-run the match with REG_NOTBOL (added above) */
@@ -2063,13 +2071,8 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 		warning(_("pattern matches an empty string infinitely, returning first match only"));
 	    break;
 	}
-	/* The restart regex sees the character before 'offset', so it would
-	   find this empty match again: step over it, as gregexpr() does.  An
-	   empty match where the next search starts is then a new one. */
-	stepped_over = have_restart_reg && ptag.rm_so == ptag.rm_eo;
-	if (stepped_over)
-	    offset++;
-	if (offset >= LENGTH(text)) break;
+	if (offset > LENGTH(text) || (offset == LENGTH(text) && !stepped_over))
+	    break;
     }
 
     if (value) { /* for values we store in fact the absolute start offsets and length in the integer vector */
