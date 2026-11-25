@@ -26,6 +26,12 @@
 ## </NOTE>
 
 .set_ops_need_as_vector <- function(x, y) {
+    ## Fast path for plain vectors: is.vector() implies no class or dim
+    ## attribute, so the tests below reduce to comparing (implicit)
+    ## classes.  This avoids the two tryCatch() calls, which otherwise
+    ## dominate the cost of the set ops for small inputs.
+    if((is.vector(x) || is.null(x)) && (is.vector(y) || is.null(y)))
+        return(typeof(x) != typeof(y))
     ((length(dim(x)) >= 2L) ||
      (length(dim(y)) >= 2L) ||
      (!isa(x, class(y)) && !isa(y, class(x))) ||
@@ -80,11 +86,15 @@ function(x, y)
     }
     x <- unique(x)
     names(x) <- NULL
-    y <- unique(y)
-    names(y) <- NULL
+    ## Duplicates in y cannot change what match() finds, and for plain
+    ## vectors unique() and match() agree on equality, so the unique(y)
+    ## pass is only needed for objects, where a unique() method may
+    ## normalize y (e.g., drop the class) in a way match() relies on.
+    if(is.object(y))
+        y <- unique(y)
     ## Combining with y[0L] in the common class case is needed e.g. for 
     ## factors to combine levels, and otherwise to get a common mode.
-    c(x[match(x, y, 0L) > 0L], y[0L])
+    c(x[match(x, y, 0L) > 0L], unname(y[0L]))
 }
 
 setdiff <-
@@ -97,8 +107,8 @@ function(x, y)
     }
     x <- unique(x)
     names(x) <- NULL
-    y <- unique(y)
-    names(y) <- NULL
+    if(is.object(y)) # see intersect()
+        y <- unique(y)
     x[match(x, y, 0L) == 0L]
 }
 
