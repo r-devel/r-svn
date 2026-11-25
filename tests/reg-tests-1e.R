@@ -4614,6 +4614,7 @@ stopifnot(exprs = {
     identical(gsub("\\>", "|", x), "the| quick|  fox|")
     identical(gsub("\\Ba", "X", "aaa a"), "aXX a")
     identical(gsub("\\b(\\w)", "<\\1>", x), "<t>he <q>uick  <f>ox")
+    identical(gsub("\\b(a)\\1", "X", "aaaa aa"), "Xaa X") # back-reference
     identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
     identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
     identical(grepRaw("\\ba", as.raw(c(0x61, 0x61, 0, 0x61)), all = TRUE), c(1L, 4L))
