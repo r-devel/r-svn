@@ -799,11 +799,14 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
     double min = 0, max = 0;
     const double *ps = REAL_RO(s);
     bool isna = false;
+    R_xlen_t zct = 0;
     for (R_xlen_t i = 0; i < ns; i++) {
 	double ii = ps[i];
 	if (R_FINITE(ii)) {
 	    if (ii < min) min = ii;
 	    if (ii > max) max = ii;
+	    /* indices will be truncated, so these are zeros */
+	    if (-1 < ii && ii < 1) zct++;
 	} else isna = true;
     }
     if (max >= (double)nx+1.) {
@@ -844,32 +847,23 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
     } else {
 	/* Only return a REALSXP index if we need to */
 	SEXP indx;
-	R_xlen_t i, cnt = 0;
-	bool int_ok = true;
-	/* NB, indices will be truncated eventually,
-	   so need to do that to take '0' into account */
-	for (i = 0; i < ns; i++) {
-	    double ds = ps[i];
-#ifdef OLDCODE_LONG_VECTOR
-	    if (!R_FINITE(ds)) {
-		if (ds > INT_MAX) int_ok = false;
-		cnt++;
-	    } else if ((R_xlen_t) ds != 0) cnt++;
-#else
-	    if (R_FINITE(ds) && ds > INT_MAX) int_ok = false;
-	    if (!R_FINITE(ds) || (R_xlen_t) ds != 0) cnt++;
-#endif
-	}
-	if (int_ok) {
+	R_xlen_t i, cnt = ns - zct;
+	if (max <= INT_MAX) {
 	    indx = allocVector(INTSXP, cnt);
 	    int *pindx = INTEGER(indx);
-	    for (i = 0, cnt = 0; i < ns; i++) {
-		double ds = ps[i];
-		int ia;
-		if (!R_FINITE(ds)) ia = NA_INTEGER;
-		else ia = (int) ds;
-		if (ia != 0) pindx[cnt++] = ia;
-	    }
+	    if (zct == 0)
+		for (i = 0; i < ns; i++) {
+		    double ds = ps[i];
+		    pindx[i] = R_FINITE(ds) ? (int) ds : NA_INTEGER;
+		}
+	    else
+		for (i = 0, cnt = 0; i < ns; i++) {
+		    double ds = ps[i];
+		    int ia;
+		    if (!R_FINITE(ds)) ia = NA_INTEGER;
+		    else ia = (int) ds;
+		    if (ia != 0) pindx[cnt++] = ia;
+		}
 	} else {
 	    indx = allocVector(REALSXP, cnt);
 	    double *pindx = REAL(indx);
