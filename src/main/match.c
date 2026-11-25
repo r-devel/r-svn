@@ -176,6 +176,63 @@ attribute_hidden SEXP matchArgExact(SEXP tag, SEXP * list)
 #define SET_ARGUSED(x,v) SETLEVELS(x,v)
 
 
+/* Fast path for matchArgs_NR: a call in which no argument is tagged
+   is matched by position alone, so the tag passes have nothing to do.
+   Returns NULL to leave the call to the general code, which also
+   reports any unused arguments. */
+#define MAX_POSITIONAL_ARGS 32
+
+static SEXP matchPositionalArgs_NR(SEXP formals, SEXP supplied)
+{
+    SEXP cells[MAX_POSITIONAL_ARGS];
+    int nsupplied = 0;
+    for (SEXP b = supplied; b != R_NilValue; b = CDR(b)) {
+	if (TAG(b) != R_NilValue || nsupplied == MAX_POSITIONAL_ARGS)
+	    return NULL;
+	cells[nsupplied++] = b;
+    }
+
+    /* arguments before the first ... are matched in order; ... takes
+       whatever is left */
+    int nformals = 0, dotspos = -1;
+    for (SEXP f = formals; f != R_NilValue; f = CDR(f), nformals++)
+	if (dotspos < 0 && TAG(f) == R_DotsSymbol)
+	    dotspos = nformals;
+
+    int nmatched = dotspos < 0 ? nformals : dotspos;
+    if (nmatched > nsupplied)
+	nmatched = nsupplied;
+    else if (dotspos < 0 && nsupplied > nformals)
+	return NULL;
+
+    /* leave the same marks on 'supplied' as the general code */
+    for (int i = 0; i < nsupplied; i++)
+	SET_ARGUSED(cells[i], i < nmatched ? 1 : 0);
+
+    SEXP dots = R_MissingArg;
+    if (nsupplied > nmatched) {
+	dots = allocList(nsupplied - nmatched);
+	SET_TYPEOF(dots, DOTSXP);
+	SEXP d = dots;
+	for (int i = nmatched; i < nsupplied; i++, d = CDR(d))
+	    SETCAR(d, CAR(cells[i]));
+    }
+    PROTECT(dots);
+
+    /* CONS_NR for the same reason as in matchArgs_NR */
+    SEXP actuals = R_NilValue;
+    for (int i = nformals - 1; i >= 0; i--) {
+	SEXP value = i == dotspos ? dots :
+	    i < nmatched ? CAR(cells[i]) : R_MissingArg;
+	actuals = CONS_NR(value, actuals);
+	if (i != dotspos && value == R_MissingArg)
+	    SET_MISSING(actuals, 1);
+    }
+
+    UNPROTECT(1);
+    return actuals;
+}
+
 /* We need to leave 'supplied' unchanged in case we call UseMethod */
 /* MULTIPLE_MATCHES was added by RI in Jan 2005 but never activated:
    code in R-2-8-branch */
@@ -187,6 +244,10 @@ attribute_hidden SEXP matchArgs_NR(SEXP formals, SEXP supplied, SEXP call)
     bool seendots;
     int i, arg_i = 0;
     SEXP f, a, b, dots, actuals;
+
+    actuals = matchPositionalArgs_NR(formals, supplied);
+    if (actuals != NULL)
+	return actuals;
 
     actuals = R_NilValue;
     for (f = formals ; f != R_NilValue ; f = CDR(f), arg_i++) {
