@@ -211,7 +211,10 @@ gregexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 \section{Warning}{
   In the POSIX 1003.2 mode, \samp{\\b} matches at the start and at
   the end of a string and \samp{\\B} at neither, whatever characters
-  are there.
+  are there.  For a pattern containing an unmatched \samp{)} (taken
+  literally in that mode), \code{gsub}, \code{gregexpr} and
+  \code{grepRaw} may also misplace word boundaries after the first
+  match.
   Use \code{perl = TRUE} where that matters (but that may not
   work as expected with non-ASCII inputs, as the meaning of
   \sQuote{word} is system-dependent).
