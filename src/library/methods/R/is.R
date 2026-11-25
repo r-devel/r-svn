@@ -28,7 +28,8 @@ is <- function(object, class2)
         class1 <- class1[[1L]]
     if(missing(class2))
         return(extends(class1))
-    stopifnot(length(class2) == 1L)
+    if(length(class2) != 1L)
+        stop("'class2' must be the name of a class or a class definition")
     class1Def <- getClassDef(class1)
     class2Def <- NULL
     if(!is.character(class2)) {
