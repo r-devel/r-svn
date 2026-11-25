@@ -4605,6 +4605,30 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
+## x[s] and x[s] <- v with a double subscript s: zeros, fractions and NAs
+local({
+    x <- c(10, 20, 30, 40)
+    for (s in list(c(0.5, 2.9, 0, -0.5, NA, 4, 1), c(0, 0), c(-0.9, 3.5),
+                   c(1, 2, 0), c(0, 3, 1), c(NaN, 2, 0.999, Inf),
+                   double(), 4:1 + 0.25)) {
+        i <- suppressWarnings(as.integer(s)) # truncated, NaN and Inf to NA
+        stopifnot(identical(x[s], x[i]))
+        y <- x; y[s] <- 0; z <- x; z[i] <- 0
+        stopifnot(identical(y, z))
+        if (!anyNA(s)) {
+            y <- x; y[s] <- -seq_along(i[i != 0L])
+            z <- x; z[i] <- -seq_along(i[i != 0L])
+            stopifnot(identical(y, z))
+        }
+    }
+    stopifnot(identical(x[c(2^31 - 1, 0.5, 2)], c(NA, 20)))
+    if (.Machine$sizeof.pointer >= 8) # 32-bit R: "subscript too large"
+        stopifnot(identical(x[c(2^31, 0, 1)], c(NA, 10)),
+                  identical(x[c(1, 2^31, 3)], c(10, NA, 30)))
+})
+## the zeros of a double subscript are counted in the first pass over it in R > 4.6.2
+
+
 
 ## an error in a clipping path function left the PDF device locked -- PR#19335
 pdf(tf <- tempfile(fileext = ".pdf"))
