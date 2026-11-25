@@ -46,10 +46,9 @@ memDecompress(from,
 
   \command{gzip} compression uses whatever is the default compression
   level of the underlying library (usually \code{6}). This supports the
-  RFC 1950 format, sometimes known as \sQuote{\I{zlib}} format, for
-  compression and decompression and for decompression only RFC 1952, the
-  \sQuote{\I{gzip}} format (which wraps the \sQuote{\I{zlib}} format with a
-  header and footer).
+  RFC 1952 format, for compression and decompression and for decompression
+  only RFC 1950, the \sQuote{\I{zlib}} format (which uses the same 
+  compression but a different header and footer).
 
   \command{bzip2} compression always adds a header (\code{"BZh"}).  The
   underlying library only supports in-memory (de)compression of up to
@@ -76,8 +75,8 @@ memDecompress(from,
 
 \section{\code{libdeflate}}{
   Support for the \code{libdeflate} library was added for \R 4.4.0.  It
-  uses different code for the RFC 1950 \sQuote{\I{zlib}} format (and RFC
-  1952 for decompression), expected to be substantially faster than
+  uses different code for the RFC 1952 \sQuote{\I{gzip}} format (and RFC
+  1950 for decompression), expected to be substantially faster than
   using the reference (or system) \I{zlib} library.  It is used for
   \code{type = "gzip"} if available.
 
