@@ -1066,7 +1066,7 @@ arraySubscript(int dim, SEXP s, SEXP dims, AttrGetter dng,
 
 /* As makeSubscript(), and sets *noNA to true if the subscript it returns
    is known to contain no NA: VectorAssign() can then skip its check.
-   Logical and character subscripts are not tracked. */
+   Logical subscripts are not tracked. */
 attribute_hidden SEXP
 makeSubscriptNA(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call, bool *noNA)
 {
@@ -1121,6 +1121,10 @@ makeSubscriptNA(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call, bool *noNA)
 	SEXP names = PROTECT(getAttrib(x, R_NamesSymbol));
 	ans = stringSubscript(s, ns, nx, names, stretch, call, x, -1);
 	UNPROTECT(1); /* names */
+	/* An unmatched name, NA and "" included, gets a new position past
+	   the end (or an error), never NA; but stringSubscript() stores
+	   positions as int, and one above INT_MAX wraps, possibly to NA. */
+	*noNA = nx + ns <= INT_MAX;
 	break;
     }
     case SYMSXP:

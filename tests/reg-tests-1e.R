@@ -4639,6 +4639,9 @@ local({
     x <- x0; x[c(3, 0.5, 1)] <- c(1, 2); stopifnot(identical(x, c(2, 20, 1)))
     x <- x0; x[3:1] <- c(1, 2, 3); stopifnot(identical(x, c(3, 2, 1)))
     x <- x0; x[] <- c(1, 2, 3); stopifnot(identical(x, c(1, 2, 3)))
+    ## NA and "" names are new elements, not NA subscripts
+    x <- c(a = 1, b = 2); x[c("b", NA, "")] <- c(3, 4, 5)
+    stopifnot(identical(x, setNames(c(1, 3, 4, 5), c("a", "b", NA, ""))))
 })
 ## subscripts known to have no NA skip the check in R > 4.6.2
 
