@@ -641,29 +641,39 @@ static void regex_cleanup_end(regex_cleanup_info *ci, RCNTXT *cntxt)
    at every restart.  For a pattern with one, a restart instead searches
    from one character earlier for ".(?:<pattern>)", whose "." takes up
    that character.  "(?:" does not capture, so subexpressions keep their
-   numbers.  TRE reads an unmatched ")" as a literal, which would close
-   the group early, so such patterns restart as before. */
+   numbers.  Some patterns restart as before: one with "\0", TRE's
+   back-reference to the whole match, which would take in the "."; one
+   with an unmatched ")", which TRE reads as a literal and which would
+   close the group early; and one too close to TRE's length limit
+   (TRE_MAX_RE) to take the five added characters. */
 
-static bool hasWordAssertion(const char *pat, size_t len)
+/* Whether 'pat' has a word assertion and no "\0". */
+static bool needsRestartRegex(const char *pat, size_t len)
 {
+    bool found = false;
     for (size_t k = 0; k + 1 < len; k++)
 	if (pat[k] == '\\') {
 	    char c = pat[++k];
+	    if (c == '0')
+		return false;
 	    if (c == 'b' || c == 'B' || c == '<' || c == '>')
-		return true;
+		found = true;
 	}
-    return false;
+    return found;
 }
 
-static bool hasWordAssertionW(const wchar_t *pat, size_t len)
+static bool needsRestartRegexW(const wchar_t *pat, size_t len)
 {
+    bool found = false;
     for (size_t k = 0; k + 1 < len; k++)
 	if (pat[k] == L'\\') {
 	    wchar_t c = pat[++k];
+	    if (c == L'0')
+		return false;
 	    if (c == L'b' || c == L'B' || c == L'<' || c == L'>')
-		return true;
+		found = true;
 	}
-    return false;
+    return found;
 }
 
 /* Compile into 'rreg' the regex that restarts a search for 'pat', of
@@ -672,7 +682,7 @@ static bool hasWordAssertionW(const wchar_t *pat, size_t len)
 static bool compileRestartRegex(regex_t *rreg, const char *pat, size_t len,
 				int cflags)
 {
-    if (!hasWordAssertion(pat, len))
+    if (!needsRestartRegex(pat, len))
 	return false;
 
     char *buf = malloc(len + 5);
@@ -698,7 +708,7 @@ static bool compileRestartRegexW(regex_t *rreg, const wchar_t *pat,
 				 int cflags)
 {
     size_t len = wcslen(pat);
-    if (!hasWordAssertionW(pat, len))
+    if (!needsRestartRegexW(pat, len))
 	return false;
 
     wchar_t *buf = malloc((len + 5) * sizeof(wchar_t));
@@ -2008,9 +2018,17 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
     bool have_restart_reg =
 	compileRestartRegex(&restart_reg, (const char*) RAW(pat), LENGTH(pat),
 			    cflags);
+    regex_cleanup_info ci;
+    RCNTXT cntxt;
+    regex_cleanup_begin(&ci, &cntxt, call, false, false, &reg, NULL,
+			NULL, NULL, NULL);
+    if (have_restart_reg)
+	ci.restart_reg = &restart_reg;
+
     res_head = res_tail = PROTECT(list1(allocVector(INTSXP, res_alloc)));
     res_val = INTEGER(CAR(res_tail));
     res_ptr = 0;
+    bool stepped_over = false;
     while (1) {
 	regmatch_t ptag;
 	if (nmatches && have_restart_reg)
@@ -2033,7 +2051,7 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 	if (value) res_val[res_ptr++] = ptag.rm_eo - ptag.rm_so;
 	offset += ptag.rm_eo;
 	nmatches++;
-	if (ptag.rm_eo == 0) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
+	if (ptag.rm_eo == 0 && !stepped_over) { /* empty string matched => trouble; FIXME: we may want to consider just advancing anyway */
 	    int infinite_match = 1;
 	    /* the only place where this is acceptable is "^" as that will go away in the next step */
 	    if (nmatches == 1) { /* to see if that is true, re-run the match with REG_NOTBOL (added above) */
@@ -2045,6 +2063,12 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
 		warning(_("pattern matches an empty string infinitely, returning first match only"));
 	    break;
 	}
+	/* The restart regex sees the character before 'offset', so it would
+	   find this empty match again: step over it, as gregexpr() does.  An
+	   empty match where the next search starts is then a new one. */
+	stepped_over = have_restart_reg && ptag.rm_so == ptag.rm_eo;
+	if (stepped_over)
+	    offset++;
 	if (offset >= LENGTH(text)) break;
     }
 
@@ -2100,9 +2124,7 @@ attribute_hidden SEXP do_grepraw(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     UNPROTECT(1);
 
-    tre_regfree(&reg);
-    if (have_restart_reg)
-	tre_regfree(&restart_reg);
+    regex_cleanup_end(&ci, &cntxt);
 
     return ans;
 }

@@ -4616,7 +4616,10 @@ stopifnot(exprs = {
     identical(gsub("\\b(\\w)", "<\\1>", x), "<t>he <q>uick  <f>ox")
     identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
     identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
-    ## a pattern with an unmatched ")" restarts as before
+    identical(grepRaw("\\B", charToRaw("abc"), all = TRUE), 2:3)
+    identical(grepRaw("\\>", charToRaw("ab cd"), all = TRUE), c(3L, 6L))
+    ## patterns with "\0" (the whole match) or an unmatched ")" restart as before
+    identical(gsub("\\ba\\0", "X", "aa aa"), "X X")
     identical(gsub("a)\\b", "X", "a)xa) "), "Xxa) ")
 })
 if(l10n_info()[["UTF-8"]]) # wide characters
