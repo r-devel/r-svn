@@ -4621,7 +4621,7 @@ stopifnot(exprs = {
     identical(grepRaw("\\B", charToRaw("abc"), all = TRUE), 2:3)
     identical(grepRaw("\\>", charToRaw("ab cd"), all = TRUE), c(3L, 6L))
     identical(grepRaw("a|\\>", charToRaw("a a"), all = TRUE), 1:3)
-    identical(grepRaw("\\B|$", charToRaw("ab"), all = TRUE), 2:3)
+    identical(grepRaw("\\b", charToRaw("a b"), all = TRUE), 1:4)
     identical(grepRaw("\\b", charToRaw(x), all = TRUE), c(1L, 4L, 5L, 10L, 12L, 15L))
     identical(gsub("\\b\\Qx", "X", "xx"), "Xx") # "\Q" up to the end
     identical(gsub("\\ba|[\\0]", "X", "aaa"), "Xaa") # a literal "\0"
