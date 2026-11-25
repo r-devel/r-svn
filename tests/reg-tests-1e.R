@@ -4617,7 +4617,7 @@ stopifnot(exprs = {
     identical(gregexpr("\\ba", "aaa a")[[1]][1:2], c(1L, 5L))
     identical(grepRaw("\\ba", charToRaw("aaa a"), all = TRUE), c(1L, 5L))
     ## a pattern with an unmatched ")" restarts as before
-    identical(gsub("a)\\b", "X", "a) a)"), "a) X")
+    identical(gsub("a)\\b", "X", "a)xa) "), "Xxa) ")
 })
 if(l10n_info()[["UTF-8"]]) # wide characters
     stopifnot(identical(gsub("\\b", "|", "ab\u2014cd ef"), "|ab|\u2014|cd| |ef|"))
