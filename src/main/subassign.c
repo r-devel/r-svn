@@ -543,7 +543,9 @@ static bool hasNAIndex(SEXP indx, R_xlen_t n)
 {
     if (TYPEOF(indx) == INTSXP) {
 	/* No early exit, so that the loop vectorizes. GCC at -O2 only
-	   vectorizes a loop of fixed length, hence the blocks. */
+	   vectorizes a loop of fixed length, hence the blocks. 128: clang
+	   spends time on a reduction per block of 64, and longer blocks
+	   leave more of a short index to GCC's scalar remainder loop. */
 	const int *pindx = INTEGER_RO(indx);
 	const int na = NA_INTEGER;
 	int found = 0;
