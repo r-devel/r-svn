@@ -4552,12 +4552,14 @@ local({
                 hi <- pmax(u, rep_len(-Inf, n))
             }
         })
-        stopifnot(identical(as.vector(array(u, n)), un),
-                  identical(as.vector(mat), un),
-                  identical(unname(cb[, 1L]), first),
-                  identical(unname(cb[, 2L]), un))
+        ## num.eq = FALSE tells -0 from 0
+        stopifnot(identical(as.vector(array(u, n)), un, num.eq = FALSE),
+                  identical(as.vector(mat), un, num.eq = FALSE),
+                  identical(unname(cb[, 1L]), first, num.eq = FALSE),
+                  identical(unname(cb[, 2L]), un, num.eq = FALSE))
         if (is.numeric(u))
-            stopifnot(identical(lo, as.double(un)), identical(hi, as.double(un)))
+            stopifnot(identical(lo, as.double(un), num.eq = FALSE),
+                      identical(hi, as.double(un), num.eq = FALSE))
     }
 })
 ## these copy the shorter vector once and then copy blocks in R > 4.6.2
