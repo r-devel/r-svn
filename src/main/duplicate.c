@@ -501,8 +501,12 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 /* Recycling copies src once. A shorter src is then doubled from what has
    been written until the copied part is XCOPY_RECYCLE_BLOCK bytes or more,
    and copies of that part follow; it stays in the cache while it is reused.
-   A longer src is copied from src itself, not read back from dst. */
+   A longer src is copied from src itself, not read back from dst.
+   No memcpy() copies more than XCOPY_RECYCLE_CHUNK elements, as in the
+   macOS DUPLICATE_ATOMIC_VECTOR() above; the limit is kept on all
+   platforms so that there is one code path. */
 #define XCOPY_RECYCLE_BLOCK 8192
+#define XCOPY_RECYCLE_CHUNK 1000000
 
 #define COPY_WITH_RECYCLE(VALTYPE, TNAME)                                    \
 attribute_hidden void                                                        \
@@ -520,20 +524,29 @@ xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
             dst[dstart + i] = val;                                           \
         return;                                                              \
     }                                                                        \
+    /* nothing to recycle, and the loop below would not advance */           \
     if (nsrc < 1)                                                            \
         return;                                                              \
                                                                              \
     /* recycle needed */                                                     \
     VALTYPE *to = dst + dstart;                                              \
     const VALTYPE *from = src;                                               \
-    R_xlen_t done = 0, block = nsrc;                                         \
+    R_xlen_t done = 0, block = nsrc, off = 0;                                \
     while (done < n) {                                                       \
-        R_xlen_t len = (n - done < block) ? n - done : block;                \
-        memcpy(to + done, from, (size_t) len * sizeof(VALTYPE));             \
+        R_xlen_t len = block - off;                                          \
+        if (len > n - done)                                                  \
+            len = n - done;                                                  \
+        if (len > XCOPY_RECYCLE_CHUNK)                                       \
+            len = XCOPY_RECYCLE_CHUNK;                                       \
+        memcpy(to + done, from + off, (size_t) len * sizeof(VALTYPE));       \
         done += len;                                                         \
-        if ((size_t) block * sizeof(VALTYPE) < XCOPY_RECYCLE_BLOCK) {        \
-            from = to;                                                       \
-            block = done;                                                    \
+        off += len;                                                          \
+        if (off == block) {                                                  \
+            off = 0;                                                         \
+            if ((size_t) block * sizeof(VALTYPE) < XCOPY_RECYCLE_BLOCK) {    \
+                from = to;                                                   \
+                block = done;                                                \
+            }                                                                \
         }                                                                    \
     }                                                                        \
 }
