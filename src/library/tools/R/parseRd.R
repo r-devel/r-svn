@@ -229,13 +229,16 @@ permissify <- function(Rd)
    	    Rd[[i]] <- tagged(Rd[[i]], "TEXT", utils::getSrcref(Rd[[i]]))
             while (i < length(tags)) {
 		if (tags[i+1] == "LIST") {
+		    arg <- permissify(Rd[[i+1]])
 		    Rd <- c(Rd[seq_len(i)],
                             list(tagged("{", "TEXT", utils::getSrcref(Rd[[i+1]]))),
-                            permissify(Rd[[i+1]]),
+                            arg,
                             list(tagged("}", "TEXT", utils::getSrcref(Rd[[i+1]]))),
 			    Rd[seq_along(Rd)[-seq_len(i+1)]])
 		    tags <- RdTags(Rd)
-		    i <- i+3
+		    ## c() spliced the argument's elements in: step to its
+		    ## closing brace, past what permissify() has just done
+		    i <- i + 2L + length(arg)
 		} else if (tags[i+1] == "TEXT" && grepl("^ *$", Rd[[i+1]]))
 		    i <- i + 1
 		else

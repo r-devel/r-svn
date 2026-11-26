@@ -512,6 +512,18 @@ local({
 ## acted like break (giving "fell through") in R <= 4.6.2
 
 
+## parse_Rd(permissive = TRUE) with an unknown macro in an unknown macro's argument
+local({
+    rd <- tools::parse_Rd(textConnection(c("\\name{x}\\alias{x}\\title{t}",
+        "\\description{\\foo{\\bar{a}}{b}}")), permissive = TRUE)
+    desc <- rd[[which(tools:::RdTags(rd) == "\\description")]]
+    stopifnot(identical(paste(unlist(desc), collapse = ""),
+                        "\\foo{\\bar{a}}{b}"))
+})
+## dropped the braces of "{b}", and redid nested arguments, taking time
+## quadratic in the nesting depth, in R <= 4.6.2
+
+
 ## parse_Rd() must free a grown token buffer when lexing the token fails
 local({
     txt <- paste0("\\", strrep("a", 10001L))
