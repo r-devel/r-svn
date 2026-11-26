@@ -296,6 +296,16 @@ static void R_pcre_exec_error(int rc, R_xlen_t i)
 }
 #endif
 
+/* With \K in a lookaround assertion, the start of a match can come after
+   its end.  PCRE2 10.38 and later refuse to compile such a pattern, but
+   earlier versions and PCRE1 return such matches, and the loops over
+   matches would then step backwards or not at all.  Callers free what
+   the regex cleanup context does not before calling this. */
+NORET static void pcre_start_after_end_error(void)
+{
+    error(_("'\\K' in a lookaround assertion is not supported"));
+}
+
 /* returns value allocated on R_alloc stack */
 static const char *to_native(const char *str, bool use_UTF8)
 {
@@ -978,6 +988,11 @@ attribute_hidden SEXP do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 					  (int) (buflen - (size_t)(bufp - buf)),
 					  0, 0, ovector, ovecsize)) >= 0) {
 #endif
+			if (ovector[0] > ovector[1]) {
+			    R_Free(pt);
+			    R_Free(wpt);
+			    pcre_start_after_end_error();
+			}
 			/* Empty matches get the next char, so move by one. */
 			if (ovector[1] > 0)
 			    bufp += ovector[1];
@@ -2459,6 +2474,10 @@ attribute_hidden SEXP do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 #endif
 	       /* printf("%s, %d, %d %d\n", s, offset,
 		  ovector[0], ovector[1]); */
+	       if (ovector[0] > ovector[1]) {
+		   R_Free(cbuf);
+		   pcre_start_after_end_error();
+	       }
 	       nmatch++;
 	       for (j = offset; j < ovector[0]; j++) *u++ = s[j];
 	       ncap = rc > 0 ? rc : 10;
@@ -2841,6 +2860,8 @@ ovector_extract_start_length(bool use_UTF8,int *ovector,
 #endif
 {
     bool foundAll = false;
+    if (ovector[0] > ovector[1])
+	pcre_start_after_end_error();
     /* FIXME: what if the match is unused? */
     int st = (int) ovector[0];
     *mptr = st + 1; /* index from one */

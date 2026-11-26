@@ -530,6 +530,17 @@ local({
 ## leaked the token buffer in R <= 4.6.2 (visible under LSan)
 
 
+## perl = TRUE with \K in a lookahead, which puts a match's start after its end
+p <- "(?=1(\\K.))"; x <- "foo 123"
+assertErrV(gsub(p, "X", x, perl = TRUE))
+assertErrV(gregexpr(p, x, perl = TRUE))
+assertErrV(regexpr(p, x, perl = TRUE))
+assertErrV(sub(p, "X", x, perl = TRUE))
+assertErrV(strsplit(x, p, perl = TRUE))
+## gsub() and gregexpr() never returned with PCRE2 < 10.38 (which accepts the
+## pattern), and the others gave wrong results, in R <= 4.6.2
+
+
 ### comment out whilst c90973 is refined
 ## TRE: nested bounded repetitions multiply when expanded
 ## r <- tryCid(suppressWarnings(grepl("(?:a{2,101,})(?:a{2,101,}){100}{100}", "aaaa")))
