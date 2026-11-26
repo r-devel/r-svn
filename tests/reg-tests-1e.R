@@ -4605,6 +4605,47 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
+## x[i] <- v with an NA, NaN or infinite subscript: an error with several values -- PR#19368
+local({
+    x0 <- c(10, 20, 30)
+    for (i in list(NA_integer_, NA_real_, NaN, Inf, -Inf, NA, c(2L, NA),
+                   c(2, NaN), c(TRUE, NA, TRUE))) {
+        x <- x0
+        ## under warn = 2 the length-mismatch warning would also be an error
+        stopifnot(inherits(tryCid(suppressWarnings(x[i] <- c(1, 2))), "error"),
+                  identical(x, x0))
+    }
+    for (n in c(2:9, 1000L)) {
+        v <- seq_len(n) + 0.5
+        for (k in unique(c(1L, (n + 1L) %/% 2L, n))) {
+            i <- seq_len(n)
+            i[k] <- NA
+            l <- rep(TRUE, n)
+            l[k] <- NA
+            x <- double(n)
+            ## before anything is assigned
+            stopifnot(inherits(tryCid(x[i] <- v), "error"),
+                      inherits(tryCid(x[as.double(i)] <- v), "error"),
+                      inherits(tryCid(x[l] <- v), "error"),
+                      identical(x, double(n)))
+            ## one value: NA subscripts are skipped
+            x[i] <- 1
+            stopifnot(identical(x, replace(double(n), -k, 1)))
+        }
+    }
+    ## no NA
+    x <- x0; x[-1L] <- c(1, 2); stopifnot(identical(x, c(10, 1, 2)))
+    x <- x0; x[-1] <- c(1, 2); stopifnot(identical(x, c(10, 1, 2)))
+    x <- x0; x[c(3, 0.5, 1)] <- c(1, 2); stopifnot(identical(x, c(2, 20, 1)))
+    x <- x0; x[3:1] <- c(1, 2, 3); stopifnot(identical(x, c(3, 2, 1)))
+    x <- x0; x[] <- c(1, 2, 3); stopifnot(identical(x, c(1, 2, 3)))
+    ## NA and "" names are new elements, not NA subscripts
+    x <- c(a = 1, b = 2); x[c("b", NA, "")] <- c(3, 4, 5)
+    stopifnot(identical(x, setNames(c(1, 3, 4, 5), c("a", "b", NA, ""))))
+})
+## subscripts known to have no NA skip the check in R > 4.6.2
+
+
 
 ## an error in a clipping path function left the PDF device locked -- PR#19335
 pdf(tf <- tempfile(fileext = ".pdf"))

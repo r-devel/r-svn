@@ -756,7 +756,7 @@ static SEXP positiveSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx)
 
 static SEXP
 integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
-		 SEXP call, SEXP x, int dim)
+		 SEXP call, SEXP x, int dim, bool *noNA)
 {
     bool isna = false, neg = false,
 	canstretch = *stretch > 0;
@@ -774,6 +774,8 @@ integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	else if (ii > max)
 	    max = ii;
     }
+    if (noNA)
+	*noNA = !isna;
     if (max > nx) {
 	if(canstretch) *stretch = max;
 	else {
@@ -792,7 +794,7 @@ integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 
 static SEXP
 realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
-	      SEXP call, SEXP x)
+	      SEXP call, SEXP x, bool *noNA)
 {
     bool canstretch = *stretch > 0;
     *stretch = 0;
@@ -806,6 +808,10 @@ realSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	    if (ii > max) max = ii;
 	} else isna = true;
     }
+    /* Without long vector support, where R_XLEN_T_MAX is INT_MAX, gi() in
+       subassign.c reads a double index above it as NA. */
+    if (noNA)
+	*noNA = !isna && max <= R_XLEN_T_MAX;
     if (max >= (double)nx+1.) {
 #ifdef LONG_VECTOR_SUPPORT
 	/* Avoid an out-of-range conversion to R_xlen_t. */
@@ -1016,11 +1022,11 @@ int_arraySubscript(int dim, SEXP s, SEXP dims, SEXP x, SEXP call)
     case LGLSXP:
 	return logicalSubscript(s, ns, nd, &stretch, call, dim + 1);
     case INTSXP:
-	return integerSubscript(s, ns, nd, &stretch, call, x, dim);
+	return integerSubscript(s, ns, nd, &stretch, call, x, dim, NULL);
     case REALSXP:
 	/* We don't yet allow subscripts > R_SHORT_LEN_MAX */
 	PROTECT(tmp = coerceVector(s, INTSXP));
-	tmp = integerSubscript(tmp, ns, nd, &stretch, call, x, dim);
+	tmp = integerSubscript(tmp, ns, nd, &stretch, call, x, dim, NULL);
 	UNPROTECT(1);
 	return tmp;
     case STRSXP:
@@ -1058,9 +1064,13 @@ arraySubscript(int dim, SEXP s, SEXP dims, AttrGetter dng,
    otherwise, stretch returns the new required length for x
 */
 
+/* As makeSubscript(), and sets *noNA to true if the subscript it returns
+   is known to contain no NA: VectorAssign() can then skip its check.
+   Logical subscripts are not tracked. */
 attribute_hidden SEXP
-makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
+makeSubscriptNA(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call, bool *noNA)
 {
+    *noNA = false;
     if (! (isVector(x) || isList(x) || isLanguage(x))) {
 	ECALL(call, _("subscripting on non-vector"));
     }
@@ -1072,6 +1082,7 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	int i = SCALAR_IVAL(s);
 	if (0 < i && i <= nx) {
 	    *stretch = 0;
+	    *noNA = true;
 	    return s;
 	}
     }
@@ -1079,6 +1090,7 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	double di = SCALAR_DVAL(s);
 	if (1 <= di && di <= nx) {
 	    *stretch = 0;
+	    *noNA = true;
 	    /* We could only return a REALSXP if the value is too
 	       large for an INTSXP, but, as the calling code can
 	       handle REALSXP indices, returning the REALSXP
@@ -1092,27 +1104,33 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
     switch (TYPEOF(s)) {
     case NILSXP:
 	*stretch = 0;
+	*noNA = true;
 	ans = allocVector(INTSXP, 0);
 	break;
     case LGLSXP:
 	ans = logicalSubscript(s, ns, nx, stretch, call, 0);
 	break;
     case INTSXP:
-	ans = integerSubscript(s, ns, nx, stretch, call, x, -1);
+	ans = integerSubscript(s, ns, nx, stretch, call, x, -1, noNA);
 	break;
     case REALSXP:
-	ans = realSubscript(s, ns, nx, stretch, call, x);
+	ans = realSubscript(s, ns, nx, stretch, call, x, noNA);
 	break;
     case STRSXP:
     {
 	SEXP names = PROTECT(getAttrib(x, R_NamesSymbol));
 	ans = stringSubscript(s, ns, nx, names, stretch, call, x, -1);
 	UNPROTECT(1); /* names */
+	/* An unmatched name, NA and "" included, gets a new position past
+	   the end (or an error), never NA; but stringSubscript() stores
+	   positions as int, and one above INT_MAX wraps, possibly to NA. */
+	*noNA = nx <= INT_MAX - ns;
 	break;
     }
     case SYMSXP:
 	*stretch = 0;
 	if (s == R_MissingArg) {
+	    *noNA = true;
 	    ans = nullSubscript(nx);
 	    break;
 	}
@@ -1120,4 +1138,11 @@ makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
 	ECALL3(call, _("invalid subscript type '%s'"), R_typeToChar(s));
     }
     return ans;
+}
+
+attribute_hidden SEXP
+makeSubscript(SEXP x, SEXP s, R_xlen_t *stretch, SEXP call)
+{
+    bool noNA;
+    return makeSubscriptNA(x, s, stretch, call, &noNA);
 }

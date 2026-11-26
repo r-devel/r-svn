@@ -1939,6 +1939,7 @@ int R_XDRDecodeInteger(void *buf);
 # define LogicalFromString	Rf_LogicalFromString
 # define mainloop		Rf_mainloop
 # define makeSubscript		Rf_makeSubscript
+# define makeSubscriptNA	Rf_makeSubscriptNA
 # define markKnown		Rf_markKnown
 # define mat2indsub		Rf_mat2indsub
 # define matchArg		Rf_matchArg
@@ -2216,6 +2217,7 @@ void KillAllDevices(void);
 SEXP levelsgets(SEXP, SEXP);
 void mainloop(void);
 SEXP makeSubscript(SEXP, SEXP, R_xlen_t *, SEXP);
+SEXP makeSubscriptNA(SEXP, SEXP, R_xlen_t *, SEXP, bool *);
 SEXP markKnown(const char *, SEXP);
 SEXP mat2indsub(SEXP, SEXP, SEXP, SEXP);
 SEXP matchArg(SEXP, SEXP*);
