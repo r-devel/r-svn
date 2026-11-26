@@ -4553,6 +4553,50 @@ stopifnot(is.null(names(toolsNV)), length(toolsNV) == 2L, toolsNV[[1]] == "tools
 ## no longer carry (uninformative) names() in R > 4.6.*
 
 
+## rep(), rep.int() and rep_len() for all vector types
+local({
+    set.seed(123)
+    mk <- function(n, type)
+        switch(type,
+               logical = sample(c(TRUE, FALSE, NA), n, replace = TRUE),
+               integer = sample(c(-2L, 0L, 3L, NA), n, replace = TRUE),
+               double = sample(c(-1.5, 0, 2, Inf, NA), n, replace = TRUE),
+               complex = complex(real = sample(c(-1, 0, NA), n, replace = TRUE),
+                                 imaginary = sample(c(-1, 2), n, replace = TRUE)),
+               character = sample(c("a", "B", "", NA), n, replace = TRUE),
+               raw = as.raw(sample(0:255, n, replace = TRUE)),
+               list = lapply(seq_len(n), function(k) if (k %% 2L) k else letters[k]),
+               expression = as.expression(lapply(seq_len(n), function(k) k)))
+    for (type in c("logical", "integer", "double", "complex", "character", "raw",
+                   "list", "expression"))
+        for (n in c(1:9, 16L)) {
+            x <- mk(n, type)
+            times <- rep_len(c(2L, 0L, 3L), n)
+            ## the element of x at each position of the result
+            cyc <- (seq_len(2L * n + 1L) - 1L) %% n + 1L
+            each3 <- (seq_len(3L * n) - 1L) %/% 3L + 1L
+            byTimes <- findInterval(seq_len(sum(times)) - 1L, cumsum(times)) + 1L
+            stopifnot(identical(rep_len(x, 2L * n + 1L), x[cyc]),
+                      identical(rep_len(x, n), x),
+                      identical(rep.int(x, 2L), x[cyc[seq_len(2L * n)]]),
+                      identical(rep.int(x, times), x[byTimes]),
+                      identical(rep.int(x, as.double(times)), x[byTimes]),
+                      identical(rep(x, each = 3L), x[each3]),
+                      identical(rep(x, times = times), x[byTimes]),
+                      identical(rep(x, each = 3L, length.out = 2L * n), x[each3[seq_len(2L * n)]]))
+        }
+    ## an ALTREP x: a compact sequence, and a wrapper around one
+    for (x in list(1:7, .Internal(wrap_meta(c(2.5, 1, 4), 0L, 0L)))) {
+        times <- length(x):1
+        byTimes <- findInterval(seq_len(sum(times)) - 1L, cumsum(times)) + 1L
+        stopifnot(identical(rep_len(x, 9L), x[(0:8) %% length(x) + 1L]),
+                  identical(rep.int(x, times), x[byTimes]),
+                  identical(rep(x, each = 2L), x[(seq_len(2L * length(x)) + 1L) %/% 2L]))
+    }
+})
+## these take data pointers once before their loops in R > 4.6.2
+
+
 ## an error after saveToConn() opened its connection itself -- PR#19336
 saveToConnObj <- 1
 f <- function(con) {
