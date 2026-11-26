@@ -501,6 +501,14 @@ for (st in list(c(-10, 1, 1), 10, c(10, 1), c(10, 1, 2), c(NaN, 1, 1),
 ## gave negative lengths, integer overflow or out-of-bounds reads in R <= 4.6.2
 
 
+## load() of a pre-1.0 save whose pairlist's CDR points back at itself
+tf <- tempfile()
+writeLines(c("1972", "0 1 0", "0 1", "0 2 0 0 -1 -1 1 -4", "1"), tf)
+assertErrV(load(tf, envir = new.env()))
+unlink(tf)
+## never returned in R <= 4.6.2
+
+
 ## return() in a top-level loop compiled by the JIT -- PR#19359
 local({
     oJIT <- compiler::enableJIT(3)
