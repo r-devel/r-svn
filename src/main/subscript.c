@@ -980,7 +980,9 @@ stringSubscript(SEXP s, R_xlen_t ns /* = xlength(s) */, R_xlen_t nx /* = xlength
 	    sub = extra;
 	    SET_VECTOR_ELT(indexnames, i, STRING_ELT(s, i));
 	}
-	pindx[i] = (int) sub;
+	/* indx stores positions as int: past INT_MAX, reads give NA, and
+	   VectorAssign() refuses the stretch */
+	pindx[i] = sub <= INT_MAX ? (int) sub : NA_INTEGER;
     }
     /* We return the new names as the names attribute of the returned
        subscript vector. */

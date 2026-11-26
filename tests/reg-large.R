@@ -418,6 +418,21 @@ head(ranks, 11)
 stopifnot(ranks[1:11] == 1:11, min(ranks) == 1)
 ## min(ranks) was -1073741824, in R <= 4.3.2
 
+## x[<new names>] <- v with positions past 2^31 - 1 -- needs 2 GB
+x <- raw(2^31 - 2)
+m <- conditionMessage(tryCatch(x[c("a", "b")] <- as.raw(1), error = identity))
+stopifnot(grepl("long vectors not supported", m, fixed = TRUE),
+          length(x) == 2^31 - 2, is.null(names(x)))
+rm(x)
+x <- raw(2^31)
+m <- conditionMessage(tryCatch(x["a"] <- as.raw(1), error = identity))
+stopifnot(grepl("long vectors not supported", m, fixed = TRUE),
+          length(x) == 2^31, is.null(names(x)))
+rm(x)
+stopifnot(identical(seq_len(.Machine$integer.max)["a"], NA_integer_),
+          identical(seq_len(2^31)[c("a", "b")], c(NA_real_, NA_real_)))
+## the positions wrapped, and the values went out of bounds, in R <= 4.6.2
+
 
 
 gc() # NB the "max used"
