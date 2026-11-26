@@ -4652,6 +4652,35 @@ stopifnot(identical(unname(model.extract(mf, "weights")), model.weights(mf)),
 
 
 
+## Bounded integer anyDuplicated: domain edges and fallback in either direction.
+local({
+    check <- function(x) {
+        for (last in c(FALSE, TRUE)) {
+            hit <- which(duplicated(x, fromLast=last))
+            expected <- if (!length(hit)) 0L else
+                if (last) hit[length(hit)] else hit[1L]
+            stopifnot(identical(anyDuplicated(x, fromLast=last), expected))
+        }
+    }
+    for (n in c(63:65, 255:257, 1000L)) {
+        x <- rev(seq_len(n)) + 0L
+        check(x)
+        for (at in c(1L, 63L, 64L, 65L, n %/% 2L, n)) {
+            if (at > n) next
+            for (v in c(0L, 4L*n - 1L, 4L*n, -1L,
+                        NA_integer_, .Machine$integer.max)) {
+                y <- x; y[at] <- v; check(y)
+            }
+            y <- x; y[at] <- y[if (at == 1L) n else 1L]; check(y)
+        }
+        y <- x; y[n] <- .Machine$integer.max; y[n-1L] <- y[1L]
+        check(y); check(rev(y))
+        y <- x; y[n-1L] <- .Machine$integer.max; y[n] <- y[1L]
+        check(y); check(rev(y))
+    }
+})
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())
