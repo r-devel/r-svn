@@ -162,64 +162,78 @@ static double DO_SEARCH_FUN(_dist_PARS_DECL_)
  /* e.g., for qnbinom(0.5, mu = 3, size = 1e-10) */
 #endif
 
-#define q_DISCRETE_BODY() do {						\
-    /* y := approx.value (Cornish-Fisher expansion) :  */		\
-    double								\
-	z = qnorm(p, 0., 1., lower_tail, log_p),			\
-	y = R_forceint(mu + sigma * (z + gamma * (z*z - 1) / 6));	\
-    R_DBG_printf(" Cornish-Fisher: initial z = qnorm(p, l.t, log)= %g,  y = %g;\n", z,y); \
-									\
-    q_DISCR_CHECK_BOUNDARY(y);						\
-									\
-    z = P_DIST(y, _dist_PARS_);						\
-									\
-    /* Algorithmic "tuning parameters", used to be hardwired; changed for speed &| precision */	\
-    const double							\
-	_pf_n_  = 8,     /* was hardwired to 64 */			\
-	_pf_L_  = 2,     /* was hardwired to 64 */			\
-	_yLarge_ = 4096, /* was hardwired to 1e5 */			\
-	_incF_ = (1./64),/* was hardwired to 0.001 (= 1./1000 ) */	\
-	_iShrink_ = 8,   /* was hardwired to  100 */			\
-	_relTol_ = 1e-15,/* was hardwired to 1e-15 */			\
-	_xf_ = 4; /* extra factor, *must* be >= 1 (new anyway) */	\
-									\
-    R_DBG_printf(" algo. tuning: fuzz factors _pf_{n,L}: {%.0f, %.0f};  yLarge = %g\n" \
-		 "      large case: _incF_=%g, _iShrink_=%g; _relTol_=%g, _xf_=%g\n", \
-		 _pf_n_, _pf_L_, _yLarge_,   _incF_, _iShrink_, _relTol_, _xf_); \
-									\
-    /* fuzz to ensure left continuity: do not loose too much (=> error in upper tail) */ \
+#define q_DISCRETE_BODY() do {                                                 \
+    /* y := approx.value (Cornish-Fisher expansion) :  */                      \
+    double                                                                     \
+        z = qnorm(p, 0., 1., lower_tail, log_p),                               \
+        y = R_forceint(mu + sigma * (z + gamma * (z*z - 1) / 6));              \
+    R_DBG_printf(" Cornish-Fisher: initial z = qnorm(p, l.t, log)= %g,"        \
+                 "  y = %g;\n", z,y);                                          \
+                                                                               \
+    q_DISCR_CHECK_BOUNDARY(y);                                                 \
+                                                                               \
+    z = P_DIST(y, _dist_PARS_);                                                \
+                                                                               \
+    /* Algorithmic "tuning parameters", used to be hardwired;                  \
+       changed for speed &| precision */                                       \
+    const double                                                               \
+        _pf_n_  = 8,     /* was hardwired to 64 */                             \
+        _pf_L_  = 2,     /* was hardwired to 64 */                             \
+        _yLarge_ = 4096, /* was hardwired to 1e5 */                            \
+        _incF_ = (1./64),/* was hardwired to 0.001 (= 1./1000 ) */             \
+        _iShrink_ = 8,   /* was hardwired to  100 */                           \
+        _relTol_ = 1e-15,/* was hardwired to 1e-15 */                          \
+        _xf_ = 4; /* extra factor, *must* be >= 1 (new anyway) */              \
+                                                                               \
+    R_DBG_printf(" algo. tuning: fuzz factors _pf_{n,L}: {%.0f, %.0f};"        \
+                 "  yLarge = %g\n"                                             \
+                 "      large case: _incF_=%g, _iShrink_=%g;"                  \
+                 " _relTol_=%g, _xf_=%g\n",                                    \
+                 _pf_n_, _pf_L_, _yLarge_,                                     \
+                 _incF_, _iShrink_, _relTol_, _xf_);                           \
+                                                                               \
+    /* fuzz to ensure left continuity: do not loose too much                   \
+       (=> error in upper tail) */                                             \
     if(log_p) { /* <==> p \in [-Inf, 0]  different adjustment: "other sign" */ \
-	double e = _pf_L_ * DBL_EPSILON;				\
-	if(lower_tail && p > - DBL_MAX) /* prevent underflow to -Inf */	\
-    	    p *= 1 + e;							\
-    	else /* if(p < - DBL_MIN) // not too close to -0 */		\
-    	    p *= 1 - e;							\
-									\
-    } else { /* not log scale */					\
-	double e = _pf_n_ * DBL_EPSILON;				\
-	if(lower_tail)							\
-	    p *= 1 - e;							\
-	else if(1 - p > _xf_*e) /* otherwise get p > 1 */		\
-	    p *= 1 + e;							\
-    }									\
-    R_DBG_printf("  new z := " AS_CHAR(_pDIST_) "(y, *) = %.11g; left-cont. fuzz => p = %.11g\n", z, p); \
-									\
-    /* If the C-F value  y   is not too large a simple search is OK */	\
-    if(y < _yLarge_) return DO_SEARCH_(y, 1, _dist_PARS_);		\
-    /* Otherwise be a bit cleverer in the search: use larger increments, notably initially: */ \
-    {  /* y >= _yLarge_ */						\
-	double oldincr, incr = floor(y * _incF_);			\
-	int qIt = 0;							\
-									\
-	R_DBG_printf(" large y: --> use larger increments than 1: incr=%.0f\n", incr); \
-	do {								\
-	    oldincr = incr;						\
-	    y = DO_SEARCH_(y, incr, _dist_PARS_); /* also updating *z */ \
-	    if(++qIt % 10000 == 0) MAYBE_R_CheckUserInterrupt();	\
-	    incr = fmax2(1, floor(incr / _iShrink_));			\
-	} while(oldincr > 1 && incr > y * _relTol_);			\
-	R_DBG_printf("  \\--> oldincr=%.0f, after %d \"outer\" search() iterations\n", \
-		     oldincr, qIt);					\
-	return y;							\
-    }									\
+        double e = _pf_L_ * DBL_EPSILON;                                       \
+        if(lower_tail && p > - DBL_MAX) /* prevent underflow to -Inf */        \
+            p *= 1 + e;                                                        \
+        else /* if(p < - DBL_MIN) // not too close to -0 */                    \
+            p *= 1 - e;                                                        \
+                                                                               \
+    } else { /* not log scale */                                               \
+        double e = _pf_n_ * DBL_EPSILON;                                       \
+        if(lower_tail)                                                         \
+            p *= 1 - e;                                                        \
+        else if(1 - p > _xf_*e) /* otherwise get p > 1 */                      \
+            p *= 1 + e;                                                        \
+    }                                                                          \
+    R_DBG_printf("  new z := " AS_CHAR(_pDIST_) "(y, *) = %.11g;"              \
+                 " left-cont. fuzz => p = %.11g\n", z, p);                     \
+                                                                               \
+    /* If neither the C-F value  y  nor the mean is large, a simple            \
+       search is OK.  For extreme p, y can be far from the quantile,           \
+       even clamped to 0, and steps of 1 from there would take as many         \
+       iterations as the quantile is large (forever beyond 2^53). */           \
+    double yScale = fmax2(y, mu);                                              \
+    if(yScale < _yLarge_)                                                      \
+        return DO_SEARCH_(y, 1, _dist_PARS_);                                  \
+    /* Otherwise be a bit cleverer in the search: use larger increments,       \
+       notably initially: */                                                   \
+    {  /* yScale >= _yLarge_ */                                                \
+        double oldincr, incr = floor(yScale * _incF_);                         \
+        int qIt = 0;                                                           \
+                                                                               \
+        R_DBG_printf(" large y: --> use larger increments than 1:"             \
+                     " incr=%.0f\n", incr);                                    \
+        do {                                                                   \
+            oldincr = incr;                                                    \
+            y = DO_SEARCH_(y, incr, _dist_PARS_); /* also updating *z */       \
+            if(++qIt % 10000 == 0) MAYBE_R_CheckUserInterrupt();               \
+            incr = fmax2(1, floor(incr / _iShrink_));                          \
+        } while(oldincr > 1 && incr > y * _relTol_);                           \
+        R_DBG_printf("  \\--> oldincr=%.0f, after %d \"outer\""                \
+                     " search() iterations\n", oldincr, qIt);                  \
+        return y;                                                              \
+    }                                                                          \
 } while(0)
