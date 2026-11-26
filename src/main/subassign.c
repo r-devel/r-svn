@@ -671,6 +671,11 @@ static SEXP VectorAssign(SEXP call, SEXP rho, SEXP x, SEXP s, SEXP y)
 
     R_xlen_t stretch = 1;
     SEXP indx = PROTECT(makeSubscript(x, s, &stretch, R_NilValue));
+#ifdef LONG_VECTOR_SUPPORT
+    /* stringSubscript() gives NA for new names past INT_MAX */
+    if (stretch > INT_MAX && TYPEOF(indx) == INTSXP)
+	R_BadLongVector(x, __FILE__, __LINE__);
+#endif
     R_xlen_t i, ii, n = xlength(indx);
     if(xlength(y) > 1)
 	for(i = 0; i < n; i++)
