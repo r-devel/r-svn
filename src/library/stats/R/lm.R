@@ -724,6 +724,11 @@ predict.lm <-
            if(!is.null(addO <- object$call$offset)) {
                addO <- eval(addO, newdata, environment(tt))
                offset <- if(length(offset)) offset + addO else addO
+			   if (length(offset) != NROW(newdata)) {
+                     stop(gettextf(
+                     "number of offsets is %d should equal %d (number of observations)",
+                      length(offset), NROW(newdata)), domain = NA)
+                  }
            }
         }
         mmDone <- FALSE
