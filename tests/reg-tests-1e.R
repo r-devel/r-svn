@@ -4652,6 +4652,36 @@ stopifnot(identical(unname(model.extract(mf, "weights")), model.weights(mf)),
 
 
 
+## Integer anyDuplicated: sentinel keys, both directions and duplicate positions.
+local({
+    check <- function(x) {
+        for (last in c(FALSE, TRUE)) {
+            hit <- which(duplicated(x, fromLast=last))
+            expected <- if (!length(hit)) 0L else
+                if (last) hit[length(hit)] else hit[1L]
+            stopifnot(identical(anyDuplicated(x, fromLast=last), expected))
+        }
+    }
+    for (n in c(0:3, 31:33, 63:65, 255:257, 1000L)) {
+        check(seq_len(n) + 0L)
+        check(-seq_len(n))
+        for (v in c(-1L, NA_integer_, 0L, .Machine$integer.max))
+            check(rep(v, n))
+        check(rep_len(c(NA_integer_, -1L, 0L, 1L, .Machine$integer.max), n))
+        for (at in unique(c(1L, n %/% 2L, n))) {
+            if (at < 1L || at > n) next
+            x <- seq_len(n) + 0L
+            x[at] <- x[if (at == 1L) n else 1L]
+            check(x)
+        }
+    }
+    x <- c(-1L, NA_integer_, 2L, -1L, NA_integer_, 2L)
+    for (last in c(FALSE, TRUE))
+        stopifnot(identical(anyDuplicated(x, incomparables=c(-1L, NA_integer_),
+                                         fromLast=last), if (last) 3L else 6L))
+})
+
+
 ## keep at end
 rbind(last =  proc.time() - .pt,
       total = proc.time())

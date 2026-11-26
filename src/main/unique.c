@@ -986,6 +986,38 @@ attribute_hidden R_xlen_t sorted_any_duplicated(SEXP x, Rboolean from_last) {
 #undef SORTED_ANYDUP_NONNANS_FRO_FIRST
 #undef SORTED_ANYDUP_NANS
 
+/* Ordinary integer vectors need neither element methods nor indices into
+   the input in their hash table: store the keys themselves.  NIL is the
+   empty-slot marker, so track that key separately. */
+static R_xlen_t integerAnyDuplicated(SEXP x, R_xlen_t n, Rboolean from_last)
+{
+    if (n < 2) return 0;
+    HashData data = { 0 };
+    MKsetup(n, &data, NA_INTEGER);
+    SEXP table = PROTECT(allocVector(INTSXP, (R_xlen_t) data.M));
+    int *h = INTEGER0(table);
+    for (hlen j = 0; j < data.M; j++) h[j] = NIL;
+    const int *px = INTEGER0(x);
+    hlen mask = data.M - 1;
+    bool seen_nil = false;
+    R_xlen_t result = 0, i = from_last ? n - 1 : 0;
+    int step = from_last ? -1 : 1;
+    for (R_xlen_t k = 0; k < n; k++, i += step) {
+	int value = px[i];
+	if (value == NIL) {
+	    if (seen_nil) { result = i + 1; break; }
+	    seen_nil = true;
+	    continue;
+	}
+	hlen j = scatter((unsigned int) value, &data);
+	while (h[j] != NIL && h[j] != value) j = (j + 1) & mask;
+	if (h[j] == value) { result = i + 1; break; }
+	h[j] = value;
+    }
+    UNPROTECT(1);
+    return result;
+}
+
 /* simpler version of the above : return 1-based index of first, or 0 : */
 // In Rinternals.h
 R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
@@ -999,6 +1031,9 @@ R_xlen_t any_duplicated(SEXP x, Rboolean from_last)
     if(DUP_KNOWN_SORTED(x)) {
     	return sorted_any_duplicated(x, from_last);
     }
+
+    if (TYPEOF(x) == INTSXP && !ALTREP(x) && n <= INT_MAX)
+	return integerAnyDuplicated(x, n, from_last);
 
     DUPLICATED_INIT;
     PROTECT(data.HashTable);
