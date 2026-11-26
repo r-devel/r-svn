@@ -538,7 +538,8 @@ static void HashTableSetup(SEXP x, HashData *d, R_xlen_t nmax)
 
 /* Open address hashing */
 /* Collision resolution is by linear probing */
-/* The table is guaranteed large so this is sufficient */
+/* The table is guaranteed large so this is sufficient.
+   M is a power of two, so wraparound uses a mask rather than division. */
 
 static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 {
@@ -549,7 +550,7 @@ static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 	while (h[i] != NIL) {
 	    if (d->equal(x, (R_xlen_t) h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
-	    i = (i + 1) % d->M;
+	    i = (i + 1) & (d->M - 1);
 	}
 	if (d->nmax-- < 0) error("hash table is full");
 	h[i] = (double) indx;
@@ -561,7 +562,7 @@ static int isDuplicated(SEXP x, R_xlen_t indx, HashData *d)
 	while (h[i] != NIL) {
 	    if (d->equal(x, h[i], x, indx))
 		return h[i] >= 0 ? 1 : 0;
-	    i = (i + 1) % d->M;
+	    i = (i + 1) & (d->M - 1);
 	}
 	if (d->nmax-- < 0) error("hash table is full");
 	h[i] = (int) indx;
@@ -623,7 +624,7 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
 		h[i] = NA_INTEGER;  /* < 0, only index values are inserted */
 		return;
 	    }
-	    i = (i + 1) % d->M;
+	    i = (i + 1) & (d->M - 1);
 	}
     } else
 #endif
@@ -635,7 +636,7 @@ static void removeEntry(SEXP table, SEXP x, R_xlen_t indx, HashData *d)
 		h[i] = NA_INTEGER;  /* < 0, only index values are inserted */
 		return;
 	    }
-	    i = (i + 1) % d->M;
+	    i = (i + 1) & (d->M - 1);
 	}
     }
 }
@@ -1249,7 +1250,7 @@ static void UndoHashing(SEXP x, SEXP table, HashData *d)
 	while (h[i] != NIL) {					\
 	    if (EQLFUN(table, h[i], x, indx))			\
 		return h[i] >= 0 ? h[i] + 1 : d->nomatch;	\
-	    i = (i + 1) % d->M;					\
+	    i = (i + 1) & (d->M - 1);					\
 	}							\
 	return d->nomatch;					\
     }
@@ -2157,7 +2158,7 @@ static int isDuplicated2(SEXP x, int indx, HashData *d)
     while (h[i] != NIL) {
 	if (d->equal(x, h[i], x, indx))
 	    return h[i] + 1;
-	i = (i + 1) % d->M;
+	i = (i + 1) & (d->M - 1);
     }
     h[i] = indx;
     return 0;
