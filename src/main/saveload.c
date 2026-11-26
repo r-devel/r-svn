@@ -2100,7 +2100,7 @@ attribute_hidden SEXP do_save(SEXP call, SEXP op, SEXP args, SEXP env)
 
 static SEXP RestoreToEnv(SEXP ans, SEXP aenv)
 {
-    SEXP a, names, obj;
+    SEXP a, slow, names, obj;
     int cnt = 0;
     /* Store the components of the list in aenv.  We either replace
      * the existing objects in aenv or establish new bindings for
@@ -2131,13 +2131,20 @@ static SEXP RestoreToEnv(SEXP ans, SEXP aenv)
 	error(_("loaded data is not in pair list form"));
 
     PROTECT(ans);
-    a = ans;
+    a = slow = ans;
     while (a != R_NilValue) {
 	/* a hand-crafted file can splice any object into the chain */
 	if (TYPEOF(a) != LISTSXP || TYPEOF(TAG(a)) != SYMSXP)
 	    error(_("loaded data is not in pair list form"));
 	a = CDR(a);
 	cnt++;
+	/* and the pre-1.0 formats can point a CDR back into the chain:
+	   'slow' follows at half the speed, so a cycle makes them meet */
+	if (cnt % 2 == 0) {
+	    slow = CDR(slow);
+	    if (a == slow)
+		error(_("loaded data is not in pair list form"));
+	}
     }
     PROTECT(names = allocVector(STRSXP, cnt));
     cnt = 0;
