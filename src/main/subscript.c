@@ -738,17 +738,15 @@ static SEXP negativeSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, SEXP call)
     return s;
 }
 
-static SEXP positiveSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx)
+static SEXP positiveSubscript(SEXP s, R_xlen_t ns, R_xlen_t zct)
 {
-    R_xlen_t i, zct = 0;
-    const int *ps = INTEGER_RO(s);
-    for (i = 0; i < ns; i++) if (ps[i] == 0) zct++;
     if (zct) {
+	const int *ps = INTEGER_RO(s);
 	SEXP indx = allocVector(INTSXP, (ns - zct));
 	int *pindx = INTEGER(indx);
-	for (i = 0, zct = 0; i < ns; i++)
+	for (R_xlen_t i = 0, j = 0; i < ns; i++)
 	    if (ps[i] != 0)
-		pindx[zct++] = ps[i];
+		pindx[j++] = ps[i];
 	return indx;
 
     } else return s;
@@ -762,8 +760,26 @@ integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	canstretch = *stretch > 0;
     *stretch = 0;
     int max = 0;
+    R_xlen_t zct = 0;
     const int *ps = INTEGER_RO(s);
-    for (R_xlen_t i = 0; i < ns; i++) {
+    /* Fixed-size, int-valued reductions allow vectorization at -O2 without
+       a scalar epilogue inside the block or a long-vector count reduction. */
+    R_xlen_t i = 0;
+    for (; i <= ns - 64; i += 64) {
+	int blockmax = 0, zeros = 0, hasna = 0, hasneg = 0;
+	for (int j = 0; j < 64; j++) {
+	    int v = ps[i + j];
+	    if (v > blockmax) blockmax = v;
+	    zeros += (v == 0);
+	    hasna |= (v == NA_INTEGER);
+	    hasneg |= (v < 0) & (v != NA_INTEGER);
+	}
+	if (blockmax > max) max = blockmax;
+	zct += zeros;
+	isna |= hasna;
+	neg |= hasneg;
+    }
+    for (; i < ns; i++) {
 	int ii = ps[i];
 	if (ii < 0) {
 	    if (ii == NA_INTEGER)
@@ -771,8 +787,10 @@ integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	    else
 		neg = true;
 	}
-	else if (ii > max)
-	    max = ii;
+	else {
+	    zct += (ii == 0);
+	    if (ii > max) max = ii;
+	}
     }
     if (max > nx) {
 	if(canstretch) *stretch = max;
@@ -786,7 +804,7 @@ integerSubscript(SEXP s, R_xlen_t ns, R_xlen_t nx, R_xlen_t *stretch,
 	    ECALL(call, _("only 0's may be mixed with negative subscripts"));
 	}
     }
-    else return positiveSubscript(s, ns, nx);
+    else return positiveSubscript(s, ns, zct);
     return R_NilValue;
 }
 
