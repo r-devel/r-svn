@@ -4605,7 +4605,7 @@ local({
 ## B's column was named A, with a warning; L:x:y overflowed the buffer, in R <= 4.6.2
 
 
-## x[i] <- v with an NA, NaN or infinite subscript: an error with several values
+## x[i] <- v with an NA, NaN or infinite subscript: an error with several values -- PR#19368
 local({
     x0 <- c(10, 20, 30)
     for (i in list(NA_integer_, NA_real_, NaN, Inf, -Inf, NA, c(2L, NA),
