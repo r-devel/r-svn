@@ -498,28 +498,117 @@ void copyMatrix(SEXP s, SEXP t, Rboolean byrow)
 	copyVector(s, t);
 }
 
-#define COPY_WITH_RECYCLE(VALTYPE, TNAME) \
-attribute_hidden void \
-xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src, R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc) { \
-							\
-    if (nsrc >= n) { /* no recycle needed */		\
-	for(R_xlen_t i = 0; i < n; i++)		\
-	    dst[dstart + i] = src[i];			\
-	return;					\
-    }							\
-    if (nsrc == 1) {					\
-	VALTYPE val = src[0];				\
-	for(R_xlen_t i = 0; i < n; i++)			\
-	    dst[dstart + i] = val;			\
-	return;						\
-    }							\
-							\
-    /* recycle needed */					\
-    R_xlen_t sidx = 0;					\
-    for(R_xlen_t i = 0; i < n; i++, sidx++) {		\
-	if (sidx == nsrc) sidx = 0;			\
-	dst[dstart + i] = src[sidx];			\
-    }							\
+/* As in the macOS DUPLICATE_ATOMIC_VECTOR() above, limit each memmove()
+   and memset() to a million elements.
+   A src of one element whose bytes are all the same (0, FALSE, any raw
+   byte) is written with memset(), which beats the fill loop with GCC and
+   clang alike. Other values are written from a seed of XCOPY_FILL_SEED
+   bytes by memcpy() calls of that fixed size, which GCC and clang inline
+   as vector stores: GCC at -O2 keeps an element loop scalar, and clang
+   does for Rcomplex. Doubling the value with memmove() instead would read
+   as much as it writes, and is slower than clang's loop. */
+#define XCOPY_RECYCLE_CHUNK 1000000
+#define XCOPY_RECYCLE_BLOCK 8192
+#define XCOPY_FILL_SEED 64
+
+static void copy_in_chunks(unsigned char *to, const unsigned char *from,
+                           size_t n, size_t chunk, bool backwards)
+{
+    while (n > chunk) {
+        n -= chunk;
+        if (backwards)
+            memmove(to + n, from + n, chunk);
+        else {
+            memmove(to, from, chunk);
+            to += chunk;
+            from += chunk;
+        }
+    }
+    memmove(to, from, n);
+}
+
+/* All lengths here are in bytes.  On entry block is one source period,
+   truncated to n if the destination is shorter. */
+static void copy_recycled(void *dst, const void *src, size_t n,
+                          size_t block, size_t chunk)
+{
+    unsigned char *to = dst;
+    const unsigned char *from = src;
+    uintptr_t d = (uintptr_t) dst, s = (uintptr_t) src;
+    bool backwards = d > s && d - s < block;
+
+    if (to != from)
+        copy_in_chunks(to, from, block, chunk, backwards);
+    if (block == n)
+        return;
+
+    /* If any destination write can overwrite the source, recycle from the
+       first complete period in the destination.  For short periods we
+       also use the destination to build a cache-sized multiple. */
+    if (block < XCOPY_RECYCLE_BLOCK || backwards || (s >= d && s - d < n))
+        from = to;
+    for (size_t done = block; done < n; ) {
+        size_t len = n - done < block ? n - done : block;
+        copy_in_chunks(to + done, from, len, chunk, false);
+        done += len;
+        if (block < XCOPY_RECYCLE_BLOCK)
+            block = done;
+    }
+}
+
+#define COPY_WITH_RECYCLE(VALTYPE, TNAME)                                    \
+attribute_hidden void                                                        \
+xcopy##TNAME##WithRecycle(VALTYPE *dst, const VALTYPE *src,                  \
+                          R_xlen_t dstart, R_xlen_t n, R_xlen_t nsrc)        \
+{                                                                            \
+    /* An empty vector may have a sentinel pointer. */                       \
+    if (n < 1 || nsrc < 1)                                                   \
+        return;                                                              \
+    VALTYPE *to = dst + dstart;                                              \
+    if (nsrc == 1) {                                                         \
+        VALTYPE val = src[0];                                                \
+                                                                             \
+        /* are all bytes of val the same? */                                 \
+        const unsigned char *b = (const unsigned char *) &val;               \
+        size_t k = 1;                                                        \
+        while (k < sizeof(VALTYPE) && b[k] == b[0])                          \
+            k++;                                                             \
+        if (k == sizeof(VALTYPE)) {                                          \
+            for (R_xlen_t i = 0; i < n; i += XCOPY_RECYCLE_CHUNK) {          \
+                R_xlen_t len = n - i;                                        \
+                if (len > XCOPY_RECYCLE_CHUNK)                               \
+                    len = XCOPY_RECYCLE_CHUNK;                               \
+                memset(to + i, b[0], (size_t) len * sizeof(VALTYPE));        \
+            }                                                                \
+            return;                                                          \
+        }                                                                    \
+                                                                             \
+        VALTYPE seed[XCOPY_FILL_SEED / sizeof(VALTYPE)];                     \
+        const R_xlen_t step = XCOPY_FILL_SEED / sizeof(VALTYPE);             \
+        for (R_xlen_t j = 0; j < step; j++)                                  \
+            seed[j] = val;                                                   \
+        R_xlen_t i = 0;                                                      \
+        for (; n - i >= step; i += step)                                     \
+            memcpy(to + i, seed, sizeof(seed));                              \
+        for (; i < n; i++)                                                   \
+            to[i] = val;                                                     \
+        return;                                                              \
+    }                                                                        \
+    if (nsrc == 2 && n >= 2) {                                               \
+        VALTYPE a = src[0], b = src[1];                                      \
+        R_xlen_t i = 0;                                                      \
+        for (; i < n - 1; i += 2) {                                          \
+            to[i] = a;                                                       \
+            to[i + 1] = b;                                                   \
+        }                                                                    \
+        if (i < n)                                                           \
+            to[i] = a;                                                       \
+        return;                                                              \
+    }                                                                        \
+    size_t size = sizeof(VALTYPE);                                           \
+    size_t first = (size_t) (n < nsrc ? n : nsrc) * size;                    \
+    copy_recycled(to, src, (size_t) n * size, first,                         \
+                  XCOPY_RECYCLE_CHUNK * size);                               \
 }
 
 COPY_WITH_RECYCLE(Rcomplex, Complex)	/* xcopyComplexWithRecycle */
