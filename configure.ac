@@ -2301,7 +2301,7 @@ AC_CHECK_DECLS([mkdtemp, strdup, strncasecmp])
 
 AC_SEARCH_LIBS(connect, [socket])
 # gethostbyname was removed in POSIX 2008 (in favour of getaddrinfo, POSIX 2001)
-AC_SEARCH_LIBS(gethostbyname, [nsl socket])
+AC_SEARCH_LIBS(getaddrinfo, [nsl socket])
 R_FUNC_CALLOC
 if test "${ac_cv_have_decl_isfinite}" = "yes"; then
 R_FUNC_ISFINITE
